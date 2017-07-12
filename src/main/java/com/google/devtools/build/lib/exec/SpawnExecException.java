@@ -50,6 +50,11 @@ public class SpawnExecException extends ExecException {
   }
 
   @Override
+  public boolean hasTimedOut() {
+    return getSpawnResult().status() == Status.TIMEOUT;
+  }
+
+  @Override
   public ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action) {
     TerminationStatus status = new TerminationStatus(

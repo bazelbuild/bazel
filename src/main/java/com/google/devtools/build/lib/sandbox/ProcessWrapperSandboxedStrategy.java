@@ -14,26 +14,22 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 
 /** Strategy that uses sandboxing to execute a process. */
 @ExecutionStrategy(
@@ -46,11 +42,9 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
     return OS.isPosixCompatible() && ProcessWrapperRunner.isSupported(cmdEnv);
   }
 
-  private final SandboxOptions sandboxOptions;
   private final Path execRoot;
-  private final boolean verboseFailures;
   private final String productName;
-  private final SpawnInputExpander spawnInputExpander;
+  private final Path processWrapper;
   private final LocalEnvProvider localEnvProvider;
 
   ProcessWrapperSandboxedStrategy(
@@ -61,73 +55,43 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       String productName) {
     super(
         cmdEnv,
-        buildRequest,
         sandboxBase,
         verboseFailures,
         buildRequest.getOptions(SandboxOptions.class));
-    this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.execRoot = cmdEnv.getExecRoot();
-    this.verboseFailures = verboseFailures;
     this.productName = productName;
-    this.spawnInputExpander = new SpawnInputExpander(false);
+    this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
     this.localEnvProvider = OS.getCurrent() == OS.DARWIN
         ? new XCodeLocalEnvProvider()
         : LocalEnvProvider.UNMODIFIED;
   }
 
   @Override
-  protected void actuallyExec(
-      Spawn spawn,
-      ActionExecutionContext actionExecutionContext,
-      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException, IOException {
-    actionExecutionContext
-        .getEventBus()
-        .post(
-            ActionStatusMessage.runningStrategy(
-                spawn.getResourceOwner(), "processwrapper-sandbox"));
-    SandboxHelpers.reportSubcommand(actionExecutionContext, spawn);
-
+  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
+      throws ExecException, IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    Map<String, String> spawnEnvironment =
+    int timeoutSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(policy.getTimeoutMillis());
+    List<String> arguments =
+        ProcessWrapperRunner.getCommandLine(processWrapper, spawn.getArguments(), timeoutSeconds);
+    Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
-    ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    symlinkedExecRoot.createFileSystem(
-        SandboxHelpers.getInputFiles(
-            spawnInputExpander, this.execRoot, spawn, actionExecutionContext),
-        outputs,
-        writableDirs);
+    SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        arguments,
+        environment,
+        SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+        SandboxHelpers.getOutputFiles(spawn),
+        getWritableDirs(sandboxExecRoot, spawn.getEnvironment()));
+    return runSpawn(spawn, sandbox, policy, execRoot, timeoutSeconds);
+  }
 
-    SandboxRunner runner = new ProcessWrapperRunner(sandboxExecRoot, verboseFailures);
-    try {
-      runSpawn(
-          spawn,
-          actionExecutionContext,
-          spawnEnvironment,
-          symlinkedExecRoot,
-          outputs,
-          runner,
-          writeOutputFiles);
-    } finally {
-      if (!sandboxOptions.sandboxDebug) {
-        try {
-          FileSystemUtils.deleteTree(sandboxPath);
-        } catch (IOException e) {
-          // This usually means that the Spawn itself exited, but still has children running that
-          // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this
-          // should never happen, as we use PID namespaces and where they are not available the
-          // subreaper feature to make sure all children have been reliably killed before returning,
-          // but on other OS this might not always work. The SandboxModule will try to delete them
-          // again when the build is all done, at which point it hopefully works, so let's just go
-          // on here.
-        }
-      }
-    }
+  @Override
+  protected String getName() {
+    return "processwrapper-sandbox";
   }
 }

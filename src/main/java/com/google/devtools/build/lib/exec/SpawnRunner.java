@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -121,6 +122,13 @@ public interface SpawnRunner {
   public interface SpawnExecutionPolicy {
     /** The input file cache for this specific spawn. */
     ActionInputFileCache getActionInputFileCache();
+
+    /** An artifact expander. */
+    // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty
+    // directories. We shouldn't have this and the getInputMapping method; maybe there's a way to
+    // unify the two? Alternatively, maybe the input mapping should (optionally?) contain
+    // directories? Or maybe we need a separate method to return the set of directories?
+    ArtifactExpander getArtifactExpander();
 
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or

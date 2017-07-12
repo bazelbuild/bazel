@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -32,18 +33,49 @@ import java.util.Set;
  * Creates an execRoot for a Spawn that contains input files as symlinks to their original
  * destination.
  */
-public final class SymlinkedExecRoot implements SandboxExecRoot {
-
+public class SymlinkedSandboxedSpawn implements SandboxedSpawn {
+  private final Path sandboxPath;
   private final Path sandboxExecRoot;
+  private final List<String> arguments;
+  private final Map<String, String> environment;
+  private final Map<PathFragment, Path> inputs;
+  private final Collection<PathFragment> outputs;
+  private final Set<Path> writableDirs;
 
-  public SymlinkedExecRoot(Path sandboxExecRoot) {
+  public SymlinkedSandboxedSpawn(
+      Path sandboxPath,
+      Path sandboxExecRoot,
+      List<String> arguments,
+      Map<String, String> environment,
+      Map<PathFragment, Path> inputs,
+      Collection<PathFragment> outputs,
+      Set<Path> writableDirs) {
+    this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
+    this.arguments = arguments;
+    this.environment = environment;
+    this.inputs = inputs;
+    this.outputs = outputs;
+    this.writableDirs = writableDirs;
   }
 
   @Override
-  public void createFileSystem(
-      Map<PathFragment, Path> inputs, Collection<PathFragment> outputs, Set<Path> writableDirs)
-      throws IOException {
+  public Path getSandboxExecRoot() {
+    return sandboxExecRoot;
+  }
+
+  @Override
+  public List<String> getArguments() {
+    return arguments;
+  }
+
+  @Override
+  public Map<String, String> getEnvironment() {
+    return environment;
+  }
+
+  @Override
+  public void createFileSystem() throws IOException {
     Set<Path> createdDirs = new HashSet<>();
     cleanFileSystem(inputs.keySet());
     FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, sandboxExecRoot);
@@ -140,7 +172,7 @@ public final class SymlinkedExecRoot implements SandboxExecRoot {
 
   /** Moves all {@code outputs} to {@code execRoot}. */
   @Override
-  public void copyOutputs(Path execRoot, Collection<PathFragment> outputs) throws IOException {
+  public void copyOutputs(Path execRoot) throws IOException {
     for (PathFragment output : outputs) {
       Path source = sandboxExecRoot.getRelative(output);
       Path target = execRoot.getRelative(output);
@@ -155,6 +187,21 @@ public final class SymlinkedExecRoot implements SandboxExecRoot {
           FileSystemUtils.moveTreesBelow(source, target);
         }
       }
+    }
+  }
+
+  @Override
+  public void delete() {
+    try {
+      FileSystemUtils.deleteTree(sandboxPath);
+    } catch (IOException e) {
+      // This usually means that the Spawn itself exited, but still has children running that
+      // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this
+      // should never happen, as we use PID namespaces and where they are not available the
+      // subreaper feature to make sure all children have been reliably killed before returning,
+      // but on other OS this might not always work. The SandboxModule will try to delete them
+      // again when the build is all done, at which point it hopefully works, so let's just go
+      // on here.
     }
   }
 }

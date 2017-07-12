@@ -15,27 +15,18 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * This runner runs process-wrapper inside a sandboxed execution root, which should work on most
  * platforms and gives at least some isolation between running actions.
  */
-final class ProcessWrapperRunner extends SandboxRunner {
+final class ProcessWrapperRunner {
   private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
-
-  private final Path sandboxExecRoot;
-
-  ProcessWrapperRunner(Path sandboxExecRoot, boolean verboseFailures) {
-    super(verboseFailures);
-    this.sandboxExecRoot = sandboxExecRoot;
-  }
 
   static boolean isSupported(CommandEnvironment cmdEnv) {
     // We can only use this runner, if the process-wrapper exists in the embedded tools.
@@ -49,23 +40,10 @@ final class ProcessWrapperRunner extends SandboxRunner {
     return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
-  @Override
-  protected Command getCommand(
-      CommandEnvironment cmdEnv,
-      List<String> spawnArguments,
-      Map<String, String> env,
-      int timeout,
-      boolean allowNetwork,
-      boolean useFakeHostname,
-      boolean useFakeUsername) {
-    List<String> commandLineArgs = getCommandLine(cmdEnv, spawnArguments, timeout);
-    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
-  }
-
   static List<String> getCommandLine(
-      CommandEnvironment cmdEnv, List<String> spawnArguments, int timeout) {
+      Path processWrapper, List<String> spawnArguments, int timeout) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
-    commandLineArgs.add(getProcessWrapper(cmdEnv).getPathString());
+    commandLineArgs.add(processWrapper.getPathString());
     commandLineArgs.add("--timeout=" + timeout);
     commandLineArgs.add("--kill_delay=5"); /* give some time to print stacktraces and whatnot. */
     commandLineArgs.addAll(spawnArguments);

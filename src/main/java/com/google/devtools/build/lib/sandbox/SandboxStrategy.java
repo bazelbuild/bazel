@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -27,59 +32,57 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.SpawnExecException;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnResult.Status;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
+import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
+import java.util.SortedMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
+  private static final int LOCAL_EXEC_ERROR = -1;
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
-  private final CommandEnvironment cmdEnv;
-  private final BuildRequest buildRequest;
-  private final Path execRoot;
+  private static final String SANDBOX_DEBUG_SUGGESTION =
+      "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
+
   private final Path sandboxBase;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
   private final ImmutableSet<Path> inaccessiblePaths;
+  private final SpawnInputExpander spawnInputExpander;
 
   public SandboxStrategy(
       CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
       Path sandboxBase,
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
-    this.cmdEnv = cmdEnv;
-    this.buildRequest = buildRequest;
-    this.execRoot = cmdEnv.getExecRoot();
     this.sandboxBase = sandboxBase;
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
-
-    ImmutableSet.Builder<Path> inaccessiblePaths = ImmutableSet.builder();
-    FileSystem fileSystem = cmdEnv.getDirectories().getFileSystem();
-    for (String path : sandboxOptions.sandboxBlockPath) {
-      Path blockedPath = fileSystem.getPath(path);
-      try {
-        inaccessiblePaths.add(blockedPath.resolveSymbolicLinks());
-      } catch (IOException e) {
-        // It's OK to block access to an invalid symlink. In this case we'll just make the symlink
-        // itself inaccessible, instead of the target, though.
-        inaccessiblePaths.add(blockedPath);
-      }
-    }
-    this.inaccessiblePaths = inaccessiblePaths.build();
+    this.inaccessiblePaths =
+        sandboxOptions.getInaccessiblePaths(cmdEnv.getDirectories().getFileSystem());
+    this.spawnInputExpander = new SpawnInputExpander(false);
   }
 
-  /** Executes the given {@code spawn}. */
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
@@ -103,73 +106,168 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     try (ResourceHandle ignored =
         ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+      eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), getName()));
+      if (actionExecutionContext.reportsSubcommands()) {
+        actionExecutionContext.reportSubcommand(spawn);
+      }
       actuallyExec(spawn, actionExecutionContext, writeOutputFiles);
     } catch (IOException e) {
       throw new UserExecException("I/O exception during sandboxed execution", e);
     }
   }
 
-  protected abstract void actuallyExec(
+  private void actuallyExec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+          throws ExecException, IOException, InterruptedException {
+    final int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
+    SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
+      @Override
+      public ActionInputFileCache getActionInputFileCache() {
+        return actionExecutionContext.getActionInputFileCache();
+      }
+
+      @Override
+      public ArtifactExpander getArtifactExpander() {
+        return actionExecutionContext.getArtifactExpander();
+      }
+
+      @Override
+      public void lockOutputFiles() throws InterruptedException {
+        Class<? extends SpawnActionContext> token = SandboxStrategy.this.getClass();
+        if (writeOutputFiles != null
+            && writeOutputFiles.get() != token
+            && !writeOutputFiles.compareAndSet(null, token)) {
+          throw new InterruptedException();
+        }
+      }
+
+      @Override
+      public long getTimeoutMillis() {
+        return TimeUnit.SECONDS.toMillis(timeoutSeconds);
+      }
+
+      @Override
+      public FileOutErr getFileOutErr() {
+        return actionExecutionContext.getFileOutErr();
+      }
+
+      @Override
+      public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+        return spawnInputExpander.getInputMapping(
+            spawn,
+            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getActionInputFileCache(),
+            actionExecutionContext.getContext(FilesetActionContext.class));
+      }
+
+      @Override
+      public void report(ProgressStatus state) {
+        // We already reported the progress, so do nothing here.
+      }
+    };
+    actuallyExec(spawn, policy);
+  }
+
+  protected abstract SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, InterruptedException, IOException;
 
-  protected void runSpawn(
-      Spawn spawn,
-      ActionExecutionContext actionExecutionContext,
-      Map<String, String> spawnEnvironment,
-      SandboxExecRoot sandboxExecRoot,
-      Set<PathFragment> outputs,
-      SandboxRunner runner,
-      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException {
-    EventHandler eventHandler = actionExecutionContext.getEventHandler();
-    ExecException execException = null;
-    OutErr outErr = actionExecutionContext.getFileOutErr();
+  protected SpawnResult runSpawn(
+      Spawn originalSpawn,
+      SandboxedSpawn sandbox,
+      SpawnExecutionPolicy policy,
+      Path execRoot,
+      int timeoutSeconds)
+          throws ExecException, IOException, InterruptedException {
     try {
-      runner.run(
-          cmdEnv,
-          spawn.getArguments(),
-          spawnEnvironment,
-          outErr,
-          Spawns.getTimeoutSeconds(spawn),
-          SandboxHelpers.shouldAllowNetwork(buildRequest, spawn),
-          sandboxOptions.sandboxDebug,
-          sandboxOptions.sandboxFakeHostname,
-          sandboxOptions.sandboxFakeUsername);
-    } catch (ExecException e) {
-      execException = e;
-    }
+      sandbox.createFileSystem();
+      OutErr outErr = policy.getFileOutErr();
+      SpawnResult result = run(sandbox, outErr, timeoutSeconds);
+  
+      policy.lockOutputFiles();
+  
+      try {
+        // We copy the outputs even when the command failed.
+        sandbox.copyOutputs(execRoot);
+      } catch (IOException e) {
+        throw new IOException("Could not move output artifacts from sandboxed execution", e);
+      }
 
-    if (writeOutputFiles != null && !writeOutputFiles.compareAndSet(null, SandboxStrategy.class)) {
-      throw new InterruptedException();
-    }
-
-    try {
-      // We copy the outputs even when the command failed, otherwise StandaloneTestStrategy
-      // won't be able to get the test logs of a failed test. (We should probably do this in
-      // some better way.)
-      sandboxExecRoot.copyOutputs(execRoot, outputs);
-    } catch (IOException e) {
-      if (execException == null) {
-        throw new UserExecException("Could not move output artifacts from sandboxed execution", e);
-      } else {
-        // Catch the IOException and turn it into an error message, otherwise this might hide an
-        // exception thrown during runner.run earlier.
-        eventHandler.handle(
-            Event.error(
-                "I/O exception while extracting output artifacts from sandboxed execution: " + e));
+      if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
+        String message;
+        if (sandboxOptions.sandboxDebug) {
+          message =
+              CommandFailureUtils.describeCommandFailure(
+                  true, sandbox.getArguments(), sandbox.getEnvironment(), null);
+        } else {
+          message =
+              CommandFailureUtils.describeCommandFailure(
+                  false, originalSpawn.getArguments(), originalSpawn.getEnvironment(), null)
+                  + SANDBOX_DEBUG_SUGGESTION;
+        }
+        throw new SpawnExecException(
+            message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
+      }
+      return result;
+    } finally {
+      if (!sandboxOptions.sandboxDebug) {
+        sandbox.delete();
       }
     }
+  }
 
-    if (execException != null) {
-      outErr.printErr(
-          "Use --strategy="
-          + spawn.getMnemonic()
-          + "=standalone to disable sandboxing for the failing actions.\n");
-      throw execException;
+  private final SpawnResult run(SandboxedSpawn sandbox, OutErr outErr, int timeoutSeconds)
+      throws IOException, InterruptedException {
+    Command cmd = new Command(
+        sandbox.getArguments().toArray(new String[0]),
+        sandbox.getEnvironment(),
+        sandbox.getSandboxExecRoot().getPathFile());
+
+    long startTime = System.currentTimeMillis();
+    CommandResult result;
+    try {
+      result = cmd.execute(
+          /* stdin */ new byte[] {},
+          Command.NO_OBSERVER,
+          outErr.getOutputStream(),
+          outErr.getErrorStream(),
+          /* killSubprocessOnInterrupt */ true);
+      if (Thread.currentThread().isInterrupted()) {
+        throw new InterruptedException();
+      }
+    } catch (AbnormalTerminationException e) {
+      if (Thread.currentThread().isInterrupted()) {
+        throw new InterruptedException();
+      }
+      result = e.getResult();
+    } catch (CommandException e) {
+      // At the time this comment was written, this must be a ExecFailedException encapsulating an
+      // IOException from the underlying Subprocess.Factory.
+      String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
+      outErr.getErrorStream().write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
+      outErr.getErrorStream().flush();
+      return new SpawnResult.Builder()
+          .setStatus(Status.EXECUTION_FAILED)
+          .setExitCode(LOCAL_EXEC_ERROR)
+          .build();
     }
+
+    long wallTime = System.currentTimeMillis() - startTime;
+    boolean wasTimeout = wasTimeout(timeoutSeconds, wallTime);
+    Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
+    int exitCode = status == Status.TIMEOUT
+        ? POSIX_TIMEOUT_EXIT_CODE
+        : result.getTerminationStatus().getRawExitCode();
+    return new SpawnResult.Builder()
+        .setStatus(status)
+        .setExitCode(exitCode)
+        .setWallTimeMillis(wallTime)
+        .build();
+  }
+
+  private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
+    return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
   }
 
   /**
@@ -193,16 +291,23 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.add(sandboxExecRoot);
-    if (env.containsKey("TEST_TMPDIR")) {
-      // We add this even though it may be below sandboxExecRoot (and thus would already be writable
-      // as a subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
-      // needed directory if it doesn't exist yet.
-      writablePaths.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
+    String tmpDirString = env.get("TEST_TMPDIR");
+    if (tmpDirString != null) {
+      PathFragment testTmpDir = PathFragment.create(tmpDirString);
+      if (testTmpDir.isAbsolute()) {
+        writablePaths.add(sandboxExecRoot.getRelative(testTmpDir).resolveSymbolicLinks());
+      } else {
+        // We add this even though it may is below sandboxExecRoot (and thus would already be
+        // writable as a subpath) to take advantage of the side-effect that SymlinkedExecRoot also
+        // creates this needed directory if it doesn't exist yet.
+        writablePaths.add(sandboxExecRoot.getRelative(testTmpDir));
+      }
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
-      writablePaths.add(fileSystem.getPath(writablePath));
+      Path path = fileSystem.getPath(writablePath);
+      writablePaths.add(path.resolveSymbolicLinks());
     }
 
     return writablePaths.build();
@@ -211,6 +316,8 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   protected ImmutableSet<Path> getInaccessiblePaths() {
     return inaccessiblePaths;
   }
+
+  protected abstract String getName();
 
   @Override
   public String toString() {

@@ -28,16 +28,8 @@ public class UserExecException extends ExecException {
     super(cause);
   }
 
-  public UserExecException(String message, boolean timedOut) {
-    super(message, false, timedOut);
-  }
-
   public UserExecException(String message, Throwable cause) {
     super(message, cause);
-  }
-
-  public UserExecException(String message, Throwable cause, boolean timedOut) {
-    super(message, cause, false, timedOut);
   }
 
   @Override

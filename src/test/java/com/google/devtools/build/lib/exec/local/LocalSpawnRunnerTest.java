@@ -28,6 +28,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -152,6 +153,11 @@ public class LocalSpawnRunnerTest {
     @Override
     public ActionInputFileCache getActionInputFileCache() {
       return mockFileCache;
+    }
+
+    @Override
+    public ArtifactExpander getArtifactExpander() {
+      throw new UnsupportedOperationException();
     }
 
     @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -28,10 +29,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SymlinkedExecRoot}. */
+/** Tests for {@link SymlinkedSandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SymlinkedExecRootTest extends SandboxTestCase {
+public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
   private Path workspaceDir;
+  private Path sandboxDir;
   private Path execRoot;
   private Path outputsDir;
 
@@ -39,7 +41,9 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
   public final void setupTestDirs() throws IOException {
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();
-    execRoot = testRoot.getRelative("execroot");
+    sandboxDir = testRoot.getRelative("sandbox");
+    sandboxDir.createDirectory();
+    execRoot = sandboxDir.getRelative("execroot");
     execRoot.createDirectory();
     outputsDir = testRoot.getRelative("outputs");
     outputsDir.createDirectory();
@@ -50,11 +54,17 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
     Path helloTxt = workspaceDir.getRelative("hello.txt");
     FileSystemUtils.createEmptyFile(helloTxt);
 
-    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(execRoot);
-    symlinkedExecRoot.createFileSystem(
-        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-        ImmutableSet.of(PathFragment.create("very/output.txt")),
-        ImmutableSet.of(execRoot.getRelative("wow/writable")));
+    SymlinkedSandboxedSpawn symlinkedExecRoot =
+        new SymlinkedSandboxedSpawn(
+            sandboxDir,
+            execRoot,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.<String, String>of(),
+            ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+            ImmutableSet.of(PathFragment.create("very/output.txt")),
+            ImmutableSet.of(execRoot.getRelative("wow/writable")));
+
+    symlinkedExecRoot.createFileSystem();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
     assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
@@ -67,11 +77,15 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
     Path helloTxt = workspaceDir.getRelative("hello.txt");
     FileSystemUtils.createEmptyFile(helloTxt);
 
-    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(execRoot);
-    symlinkedExecRoot.createFileSystem(
+    SymlinkedSandboxedSpawn symlinkedExecRoot = new SymlinkedSandboxedSpawn(
+        sandboxDir,
+        execRoot,
+        ImmutableList.of("/bin/true"),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
         ImmutableSet.of(PathFragment.create("very/output.txt")),
         ImmutableSet.of(execRoot.getRelative("wow/writable")));
+    symlinkedExecRoot.createFileSystem();
 
     // Pretend to do some work inside the execRoot.
     execRoot.getRelative("tempdir").createDirectory();
@@ -79,10 +93,7 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
     FileSystemUtils.createEmptyFile(execRoot.getRelative("wow/writable/temp.txt"));
 
     // Reuse the same execRoot.
-    symlinkedExecRoot.createFileSystem(
-        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-        ImmutableSet.of(PathFragment.create("very/output.txt")),
-        ImmutableSet.of(execRoot.getRelative("wow/writable")));
+    symlinkedExecRoot.createFileSystem();
 
     assertThat(execRoot.getRelative("such/input.txt").exists()).isTrue();
     assertThat(execRoot.getRelative("tempdir").exists()).isFalse();
@@ -97,8 +108,11 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
     Path outputDangling = execRoot.getRelative("very/output.dangling");
     Path outputDir = execRoot.getRelative("very/output.dir");
 
-    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(execRoot);
-    symlinkedExecRoot.createFileSystem(
+    SymlinkedSandboxedSpawn symlinkedExecRoot = new SymlinkedSandboxedSpawn(
+        sandboxDir,
+        execRoot,
+        ImmutableList.of("/bin/true"),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.<PathFragment, Path>of(),
         ImmutableSet.of(
             outputFile.relativeTo(execRoot),
@@ -106,6 +120,7 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
             outputDangling.relativeTo(execRoot),
             outputDir.relativeTo(execRoot)),
         ImmutableSet.<Path>of());
+    symlinkedExecRoot.createFileSystem();
 
     FileSystemUtils.createEmptyFile(outputFile);
     outputLink.createSymbolicLink(PathFragment.create("output.txt"));
@@ -114,13 +129,7 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
     FileSystemUtils.createEmptyFile(outputDir.getRelative("test.txt"));
 
     outputsDir.getRelative("very").createDirectory();
-    symlinkedExecRoot.copyOutputs(
-        outputsDir,
-        ImmutableSet.of(
-            outputFile.relativeTo(execRoot),
-            outputLink.relativeTo(execRoot),
-            outputDangling.relativeTo(execRoot),
-            outputDir.relativeTo(execRoot)));
+    symlinkedExecRoot.copyOutputs(outputsDir);
 
     assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.link").isSymbolicLink()).isTrue();

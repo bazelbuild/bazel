@@ -116,6 +116,11 @@ public class GrpcRemoteExecutionClientTest {
         }
 
         @Override
+        public ArtifactExpander getArtifactExpander() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long getTimeoutMillis() {
           return 0;
         }

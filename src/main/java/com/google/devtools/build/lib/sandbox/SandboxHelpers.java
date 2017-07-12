@@ -19,16 +19,18 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,12 +49,6 @@ public final class SandboxHelpers {
     standaloneStrategy.exec(spawn, actionExecutionContext);
   }
 
-  static void reportSubcommand(ActionExecutionContext actionExecutionContext, Spawn spawn) {
-    if (actionExecutionContext.reportsSubcommands()) {
-      actionExecutionContext.reportSubcommand(spawn);
-    }
-  }
-
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
@@ -69,6 +65,30 @@ public final class SandboxHelpers {
             executionContext.getArtifactExpander(),
             executionContext.getActionInputFileCache(),
             executionContext.getContext(FilesetActionContext.class));
+    return postProcess(inputMap, spawn, executionContext.getArtifactExpander(), execRoot);
+  }
+
+  /**
+   * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
+   * host filesystem where the input files can be found.
+   */
+  public static Map<PathFragment, Path> getInputFiles(
+      Spawn spawn,
+      SpawnExecutionPolicy policy,
+      Path execRoot)
+          throws IOException {
+    return postProcess(policy.getInputMapping(), spawn, policy.getArtifactExpander(), execRoot);
+  }
+
+  /**
+   * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
+   * host filesystem where the input files can be found.
+   */
+  private static Map<PathFragment, Path> postProcess(
+      Map<PathFragment, ActionInput> inputMap,
+      Spawn spawn, 
+      ArtifactExpander artifactExpander,
+      Path execRoot) {
     // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
     // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
     // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
@@ -77,7 +97,7 @@ public final class SandboxHelpers {
     for (ActionInput input : spawn.getInputFiles()) {
       if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
         List<Artifact> containedArtifacts = new ArrayList<>();
-        executionContext.getArtifactExpander().expand((Artifact) input, containedArtifacts);
+        artifactExpander.expand((Artifact) input, containedArtifacts);
         // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
         // only mount empty TreeArtifacts as directories.
         if (containedArtifacts.isEmpty()) {
@@ -105,17 +125,24 @@ public final class SandboxHelpers {
     return outputFiles.build();
   }
 
-  static boolean shouldAllowNetwork(BuildRequest buildRequest, Spawn spawn) {
+  /**
+   * Returns true if the build options are set in a way that requires network access for all
+   * actions. This is separate from {@link #shouldAllowNetwork(Spawn)} to avoid having to keep a
+   * reference to the full set of build options (and also for performance, since this only needs to
+   * be checked once-per-build).
+   */
+  static boolean shouldAllowNetwork(OptionsProvider buildOptions) {
     // Allow network access, when --java_debug is specified, otherwise we can't connect to the
     // remote debug server of the test. This intentionally overrides the "block-network" execution
     // tag.
-    if (buildRequest
+    return buildOptions
         .getOptions(BuildConfiguration.Options.class)
         .testArguments
-        .contains("--wrapper_script_flag=--debug")) {
-      return true;
-    }
+        .contains("--wrapper_script_flag=--debug");
+  }
 
+  /** Returns true if this specific spawn requires network access. */
+  static boolean shouldAllowNetwork(Spawn spawn) {
     // If the Spawn requests to block network access, do so.
     if (spawn.getExecutionInfo().containsKey("block-network")) {
       return false;

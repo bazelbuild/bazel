@@ -15,14 +15,19 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Options for sandboxed execution. */
@@ -173,4 +178,19 @@ public class SandboxOptions extends OptionsBase {
     help = "Add additional path pair to mount in sandbox."
   )
   public List<ImmutableMap.Entry<String, String>> sandboxAdditionalMounts;
+
+  public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
+    List<Path> inaccessiblePaths = new ArrayList<>();
+    for (String path : sandboxBlockPath) {
+      Path blockedPath = fs.getPath(path);
+      try {
+        inaccessiblePaths.add(blockedPath.resolveSymbolicLinks());
+      } catch (IOException e) {
+        // It's OK to block access to an invalid symlink. In this case we'll just make the symlink
+        // itself inaccessible, instead of the target, though.
+        inaccessiblePaths.add(blockedPath);
+      }
+    }
+    return ImmutableSet.copyOf(inaccessiblePaths);
+  }
 }

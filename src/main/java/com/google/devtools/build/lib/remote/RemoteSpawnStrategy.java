@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -84,6 +85,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       @Override
       public ActionInputFileCache getActionInputFileCache() {
         return actionExecutionContext.getActionInputFileCache();
+      }
+
+      @Override
+      public ArtifactExpander getArtifactExpander() {
+        return actionExecutionContext.getArtifactExpander();
       }
 
       @Override
