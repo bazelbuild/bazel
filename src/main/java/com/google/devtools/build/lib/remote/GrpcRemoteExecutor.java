@@ -28,6 +28,7 @@ import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc;
 import com.google.watcher.v1.WatcherGrpc.WatcherBlockingStub;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -39,32 +40,31 @@ import javax.annotation.Nullable;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
 @ThreadSafe
-public class GrpcRemoteExecutor {
-  private final RemoteOptions options;
-  private final ChannelOptions channelOptions;
+final class GrpcRemoteExecutor {
+
   private final Channel channel;
+  private final CallCredentials callCredentials;
+  private final int callTimeoutSecs;
   private final Retrier retrier;
 
-  public static boolean isRemoteExecutionOptions(RemoteOptions options) {
-    return options.remoteExecutor != null;
-  }
-
-  public GrpcRemoteExecutor(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
-    this.options = options;
-    this.channelOptions = channelOptions;
+  public GrpcRemoteExecutor(Channel channel, @Nullable CallCredentials callCredentials,
+      int callTimeoutSecs, Retrier retrier) {
+    Preconditions.checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
     this.channel = channel;
-    this.retrier = new Retrier(options);
+    this.callCredentials = callCredentials;
+    this.callTimeoutSecs = callTimeoutSecs;
+    this.retrier = retrier;
   }
 
   private ExecutionBlockingStub execBlockingStub() {
     return ExecutionGrpc.newBlockingStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentials)
+        .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
   }
 
   private WatcherBlockingStub watcherBlockingStub() {
     return WatcherGrpc.newBlockingStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials());
+        .withCallCredentials(callCredentials);
   }
 
   private @Nullable ExecuteResponse getOperationResponse(Operation op)

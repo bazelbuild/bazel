@@ -175,9 +175,12 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    Retrier retrier = new Retrier(options);
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
-    GrpcRemoteExecutor executor = new GrpcRemoteExecutor(channel, ChannelOptions.DEFAULT, options);
-    GrpcRemoteCache remoteCache = new GrpcRemoteCache(channel, ChannelOptions.DEFAULT, options);
+    GrpcRemoteExecutor executor =
+        new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
+    GrpcRemoteCache remoteCache =
+        new GrpcRemoteCache(channel, ChannelOptions.DEFAULT, options, retrier);
     client = new RemoteSpawnRunner(execRoot, options, null, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }

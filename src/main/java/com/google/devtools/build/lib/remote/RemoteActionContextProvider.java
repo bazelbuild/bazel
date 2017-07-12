@@ -50,8 +50,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
 
-    // Initialize remote cache and execution handlers. We use separate handlers for every
-    // action to enable server-side parallelism (need a different gRPC channel per action).
+    Retrier retrier = new Retrier(remoteOptions);
+
     RemoteActionCache remoteCache;
     if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
       remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
@@ -60,19 +60,21 @@ final class RemoteActionContextProvider extends ActionContextProvider {
           new GrpcRemoteCache(
               GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
               channelOptions,
-              remoteOptions);
+              remoteOptions,
+              retrier);
     } else {
       remoteCache = null;
     }
 
     // Otherwise remoteCache remains null and remote caching/execution are disabled.
     GrpcRemoteExecutor remoteExecutor;
-    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
+    if (remoteCache != null && remoteOptions.remoteExecutor != null) {
       remoteExecutor =
           new GrpcRemoteExecutor(
               GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
-              channelOptions,
-              remoteOptions);
+              channelOptions.getCallCredentials(),
+              remoteOptions.remoteTimeout,
+              retrier);
     } else {
       remoteExecutor = null;
     }

@@ -77,11 +77,12 @@ public class GrpcRemoteCache implements RemoteActionCache {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   @VisibleForTesting
-  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
+  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options,
+      Retrier retrier) {
     this.options = options;
     this.channelOptions = channelOptions;
     this.channel = channel;
-    this.retrier = new Retrier(options);
+    this.retrier = retrier;
 
     uploader = new ByteStreamUploader(options.remoteInstanceName, channel,
         channelOptions.getCallCredentials(), options.remoteTimeout, retrier, retryScheduler);

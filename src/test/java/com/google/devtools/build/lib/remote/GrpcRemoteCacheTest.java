@@ -140,12 +140,15 @@ public class GrpcRemoteCacheTest {
     ChannelOptions channelOptions =
         ChannelOptions.create(
             authTlsOptions, scratch.resolve(authTlsOptions.authCredentials).getInputStream());
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    Retrier retrier = new Retrier(remoteOptions);
     return new GrpcRemoteCache(
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
             ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
         channelOptions,
-        Options.getDefaults(RemoteOptions.class));
+        remoteOptions,
+        retrier);
   }
 
   @Test
