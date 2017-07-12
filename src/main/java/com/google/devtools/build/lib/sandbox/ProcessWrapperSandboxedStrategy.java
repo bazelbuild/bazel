@@ -14,39 +14,19 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.exec.SpawnResult;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /** Strategy that uses sandboxing to execute a process. */
+//TODO(ulfjack): This class only exists for this annotation. Find a better way to handle this!
 @ExecutionStrategy(
   name = {"sandboxed", "processwrapper-sandbox"},
   contextType = SpawnActionContext.class
 )
-public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
-
-  public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapperRunner.isSupported(cmdEnv);
-  }
-
-  private final Path execRoot;
-  private final String productName;
-  private final Path processWrapper;
-  private final LocalEnvProvider localEnvProvider;
-
+final class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
   ProcessWrapperSandboxedStrategy(
       CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
@@ -54,44 +34,8 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       boolean verboseFailures,
       String productName) {
     super(
-        cmdEnv,
-        sandboxBase,
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class));
-    this.execRoot = cmdEnv.getExecRoot();
-    this.productName = productName;
-    this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
-    this.localEnvProvider = OS.getCurrent() == OS.DARWIN
-        ? new XCodeLocalEnvProvider()
-        : LocalEnvProvider.UNMODIFIED;
-  }
-
-  @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
-      throws ExecException, IOException, InterruptedException {
-    // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-
-    int timeoutSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(policy.getTimeoutMillis());
-    List<String> arguments =
-        ProcessWrapperRunner.getCommandLine(processWrapper, spawn.getArguments(), timeoutSeconds);
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
-
-    SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        arguments,
-        environment,
-        SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-        SandboxHelpers.getOutputFiles(spawn),
-        getWritableDirs(sandboxExecRoot, spawn.getEnvironment()));
-    return runSpawn(spawn, sandbox, policy, execRoot, timeoutSeconds);
-  }
-
-  @Override
-  protected String getName() {
-    return "processwrapper-sandbox";
+        buildRequest.getOptions(SandboxOptions.class),
+        new ProcessWrapperSandboxedSpawnRunner(cmdEnv, buildRequest, sandboxBase, productName));
   }
 }
