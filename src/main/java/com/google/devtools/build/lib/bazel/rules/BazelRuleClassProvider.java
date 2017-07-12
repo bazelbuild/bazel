@@ -218,6 +218,7 @@ public class BazelRuleClassProvider {
 
           builder.setUniversalConfigurationFragment(BazelConfiguration.class);
           builder.addConfigurationFragment(new BazelConfiguration.Loader());
+          builder.addConfigurationOptions(BazelConfiguration.Options.class);
           builder.addConfigurationOptions(BuildConfiguration.Options.class);
         }
 

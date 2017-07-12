@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -23,7 +25,11 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -32,6 +38,49 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class BazelConfiguration extends Fragment {
+  /** Command-line options. */
+  public static class Options extends FragmentOptions {
+    @Option(
+      name = "experimental_strict_action_env",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel uses an environment with a static value for PATH, and LANG and does not "
+              + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "
+              + "inherit specific environment variables from the client, but note that doing so "
+              + "can prevent cross-user caching if a shared cache is used."
+    )
+    public boolean useStrictActionEnv;
+
+    @Option(
+      name = "shell_executable",
+      converter = PathFragmentConverter.class,
+      defaultValue = "null",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Absolute path to the shell executable for Bazel to use. If this is unset, but the "
+              + "BAZEL_SH environment variable is set on the first Bazel invocation (that starts "
+              + "up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded "
+              + "default path depending on the operating system it runs on (Windows: "
+              + "c:/tools/msys64/usr/bin/bash.exe, FreeBSD: /usr/local/bin/bash, all others: "
+              + "/bin/bash). Note that using a shell that is not compatible with bash may lead to "
+              + "build failures or runtime failures of the generated binaries."
+    )
+    public PathFragment shellExecutable;
+
+    @Override
+    public Options getHost(boolean fallback) {
+      Options host = (Options) getDefault();
+      host.useStrictActionEnv = useStrictActionEnv;
+      host.shellExecutable = shellExecutable;
+      return host;
+    }
+  }
+
   /**
    * Loader for Bazel-specific settings.
    */
@@ -39,7 +88,7 @@ public class BazelConfiguration extends Fragment {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      return new BazelConfiguration();
+      return new BazelConfiguration(OS.getCurrent(), buildOptions.get(Options.class));
     }
 
     @Override
@@ -49,59 +98,81 @@ public class BazelConfiguration extends Fragment {
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.of();
+      return ImmutableSet.of(Options.class);
     }
   }
 
-  public BazelConfiguration() {
+  private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
+      ImmutableMap.<OS, PathFragment>builder()
+          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
+          .build();
+  private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
+
+  private final OS os;
+  private final boolean useStrictActionEnv;
+  private final PathFragment shellExecutable;
+
+  public BazelConfiguration(OS os, Options options) {
+    this.os = os;
+    this.useStrictActionEnv = options.useStrictActionEnv;
+    this.shellExecutable = determineShellExecutable(os, options.shellExecutable);
   }
 
   @Override
   public PathFragment getShellExecutable() {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      String path = System.getenv("BAZEL_SH");
-      if (path != null) {
-        return PathFragment.create(path);
-      } else {
-        return PathFragment.create("c:/tools/msys64/usr/bin/bash.exe");
-      }
-    }
-    if (OS.getCurrent() == OS.FREEBSD) {
-      String path = System.getenv("BAZEL_SH");
-      if (path != null) {
-        return  PathFragment.create(path);
-      } else {
-        return PathFragment.create("/usr/local/bin/bash");
-      }
-    }
-    return PathFragment.create("/bin/bash");
+    return shellExecutable;
   }
 
   @Override
   public void setupActionEnvironment(Map<String, String> builder) {
-    // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
-    builder.put("PATH", pathOrDefault(System.getenv("PATH"), getShellExecutable()));
+    if (useStrictActionEnv) {
+      String path = pathOrDefault(os, null, getShellExecutable());
+      builder.put("PATH", path);
+    } else {
+      // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
+      builder.put("PATH", pathOrDefault(os, System.getenv("PATH"), getShellExecutable()));
 
-    String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
-    if (ldLibraryPath != null) {
-      builder.put("LD_LIBRARY_PATH", ldLibraryPath);
-    }
+      String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
+      if (ldLibraryPath != null) {
+        builder.put("LD_LIBRARY_PATH", ldLibraryPath);
+      }
 
-    String tmpdir = System.getenv("TMPDIR");
-    if (tmpdir != null) {
-      builder.put("TMPDIR", tmpdir);
+      String tmpdir = System.getenv("TMPDIR");
+      if (tmpdir != null) {
+        builder.put("TMPDIR", tmpdir);
+      }
     }
   }
 
-  private static String pathOrDefault(@Nullable String path, @Nullable PathFragment sh) {
-    if (OS.getCurrent() != OS.WINDOWS) {
+  private static PathFragment determineShellExecutable(OS os, PathFragment fromOption) {
+    if (fromOption != null) {
+      return fromOption;
+    }
+    // Honor BAZEL_SH env variable for backwards compatibility.
+    String path = System.getenv("BAZEL_SH");
+    if (path != null) {
+      return PathFragment.create(path);
+    }
+    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform, which
+    // may be different for remote execution. For now, this can be overridden with
+    // --shell_executable, so at least there's a workaround.
+    PathFragment result = OS_SPECIFIC_SHELL.get(os);
+    return result != null ? result : FALLBACK_SHELL;
+  }
+
+  @VisibleForTesting
+  static String pathOrDefault(OS os, @Nullable String path, @Nullable PathFragment sh) {
+    // TODO(ulfjack): The default PATH should be set from the exec platform, which may be different
+    // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
+    // at least there's a workaround.
+    if (os != OS.WINDOWS) {
       return path == null ? "/bin:/usr/bin" : path;
     }
 
     // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
-    String newPath = "";
     if (sh != null && sh.getParentDirectory() != null) {
-      newPath = sh.getParentDirectory().getPathString();
+      String newPath = sh.getParentDirectory().getPathString();
       if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
         newPath +=
             ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
@@ -114,7 +185,11 @@ public class BazelConfiguration extends Fragment {
       if (path != null) {
         newPath += ";" + path;
       }
+      return newPath;
+    } else if (path != null) {
+      return path;
+    } else {
+      return "";
     }
-    return newPath;
   }
 }
