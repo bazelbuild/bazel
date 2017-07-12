@@ -159,6 +159,7 @@ java_toolchain(
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     misc = [
         "-XDskipDuplicateBridges=true",

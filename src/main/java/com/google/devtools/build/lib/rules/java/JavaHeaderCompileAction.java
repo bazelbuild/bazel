@@ -388,10 +388,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
             .setJarExecutable(
                 JavaCommon.getHostJavaExecutable(ruleContext),
                 javaToolchain.getHeaderCompiler(),
-                ImmutableList.<String>builder()
-                    .add("-Xbootclasspath/p:" + javacJar.getExecPath())
-                    .addAll(javaToolchain.getJvmOptions())
-                    .build())
+                javaToolchain.getJvmOptions())
             .setMnemonic("Turbine")
             .setProgressMessage(getProgressMessage())
             .build(ruleContext);
@@ -488,7 +485,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
           .addPath(JavaCommon.getHostJavaExecutable(ruleContext))
           .add("-Xverify:none")
           .add(javaToolchain.getJvmOptions())
-          .addPaths("-Xbootclasspath/p:%s", javacJar.getExecPath())
           .addExecPath("-jar", javaToolchain.getHeaderCompiler());
     }
 
