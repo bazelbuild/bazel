@@ -86,7 +86,7 @@ public class MergeConflict {
   }
 
   boolean isValidWith(SourceChecker checker) throws IOException {
-    return !primary.equals(overwritten)
+    return !primary.valueEquals(overwritten)
         && !checker.checkEquality(primary.source(), overwritten.source());
   }
 
