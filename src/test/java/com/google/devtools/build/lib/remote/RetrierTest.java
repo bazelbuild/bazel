@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
 import org.junit.Before;
@@ -119,6 +120,19 @@ public class RetrierTest {
       });
       fail();
     } catch (InterruptedException expected) {
+      assertThat(expected).isSameAs(thrown);
+    }
+  }
+
+  @Test
+  public void testPassThroughException() throws Exception {
+    StatusRuntimeException thrown = Status.Code.UNKNOWN.toStatus().asRuntimeException();
+    try {
+      Retrier.NO_RETRIES.execute(() -> {
+        throw new Retrier.PassThroughException(thrown);
+      });
+      fail();
+    } catch (StatusRuntimeException expected) {
       assertThat(expected).isSameAs(thrown);
     }
   }

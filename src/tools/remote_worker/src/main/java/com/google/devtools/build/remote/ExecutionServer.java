@@ -45,6 +45,7 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
+import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
@@ -122,7 +123,7 @@ final class ExecutionServer extends ExecutionImplBase {
   }
 
   private ActionResult execute(ExecuteRequest request, String id)
-      throws IOException, InterruptedException, CacheNotFoundException {
+      throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
     try {
       tempRoot.createDirectory();
@@ -133,7 +134,7 @@ final class ExecutionServer extends ExecutionImplBase {
               request.getTotalInputFileCount(), request.getAction().getOutputFilesCount()
           });
       ActionResult result = execute(request.getAction(), tempRoot);
-      logger.log(INFO, "Completed {0}.", id);
+      logger.log(FINE, "Completed {0}.", id);
       return result;
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Work failed.", e);
@@ -155,13 +156,18 @@ final class ExecutionServer extends ExecutionImplBase {
   }
 
   private ActionResult execute(Action action, Path execRoot)
-      throws IOException, InterruptedException, CacheNotFoundException {
+      throws IOException, InterruptedException, StatusException {
     ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
     ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
-    com.google.devtools.remoteexecution.v1test.Command command =
-        com.google.devtools.remoteexecution.v1test.Command.parseFrom(
-            cache.downloadBlob(action.getCommandDigest()));
-    cache.downloadTree(action.getInputRootDigest(), execRoot);
+    com.google.devtools.remoteexecution.v1test.Command command = null;
+    try {
+      command =
+          com.google.devtools.remoteexecution.v1test.Command.parseFrom(
+              cache.downloadBlob(action.getCommandDigest()));
+      cache.downloadTree(action.getInputRootDigest(), execRoot);
+    } catch (CacheNotFoundException e) {
+      throw StatusUtils.notFoundError(e.getMissingDigest());
+    }
 
     List<Path> outputs = new ArrayList<>(action.getOutputFilesList().size());
     for (String output : action.getOutputFilesList()) {
@@ -208,7 +214,7 @@ final class ExecutionServer extends ExecutionImplBase {
               "Command:\n%s\nexceeded deadline of %f seconds.",
               Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
       logger.warning(errMessage);
-      throw StatusProto.toStatusRuntimeException(
+      throw StatusProto.toStatusException(
           Status.newBuilder()
               .setCode(Code.DEADLINE_EXCEEDED.getNumber())
               .setMessage(errMessage)
@@ -271,14 +277,16 @@ final class ExecutionServer extends ExecutionImplBase {
 
   // Checks Action for docker container definition. If no docker container specified, returns
   // null. Otherwise returns docker container name from the parameters.
-  private String dockerContainer(Action action) {
+  private String dockerContainer(Action action) throws StatusException {
     String result = null;
     for (Platform.Property property : action.getPlatform().getPropertiesList()) {
       if (property.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
         if (result != null) {
           // Multiple container name entries
-          throw new IllegalArgumentException(
-              "Multiple entries for " + CONTAINER_IMAGE_ENTRY_NAME + " in action.Platform");
+          throw StatusUtils.invalidArgumentError(
+              "platform", // Field name.
+              String.format(
+                  "Multiple entries for %s in action.Platform", CONTAINER_IMAGE_ENTRY_NAME));
         }
         result = property.getValue();
       }
@@ -294,7 +302,7 @@ final class ExecutionServer extends ExecutionImplBase {
       Action action,
       List<String> commandLineElements,
       Map<String, String> environmentVariables,
-      String pathString) {
+      String pathString) throws StatusException {
     String container = dockerContainer(action);
     if (container != null) {
       // Run command inside a docker container.

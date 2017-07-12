@@ -149,6 +149,13 @@ import java.util.concurrent.TimeUnit;
  * In both cases you need to instantiate and keep a Backoff object, and use onFailure(s) to retry.
  */
 public class Retrier {
+  /** Wraps around a StatusRuntimeException to make it pass through a single layer of retries. */
+  public static class PassThroughException extends Exception {
+    public PassThroughException(StatusRuntimeException e) {
+      super(e);
+    }
+  }
+
   /**
    * Backoff is a stateful object providing a sequence of durations that are used to time delays
    * between retries. It is not ThreadSafe. The reason that Backoff needs to be stateful, rather
@@ -297,6 +304,10 @@ public class Retrier {
     while (true) {
       try {
         return c.call();
+      } catch (PassThroughException e) {
+        throw (StatusRuntimeException) e.getCause();
+      } catch (RetryException e) {
+        throw e;  // Nested retries are always pass-through.
       } catch (StatusException | StatusRuntimeException e) {
         onFailure(backoff, Status.fromThrowable(e));
       } catch (Exception e) {

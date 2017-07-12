@@ -20,26 +20,28 @@ import com.google.rpc.BadRequest;
 import com.google.rpc.BadRequest.FieldViolation;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
-import io.grpc.StatusRuntimeException;
+import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 
 /** Some utility methods to convert exceptions to Status results. */
 final class StatusUtils {
   private StatusUtils() {}
 
-  static StatusRuntimeException internalError(Exception e) {
-    return StatusProto.toStatusRuntimeException(internalErrorStatus(e));
+  static StatusException internalError(Exception e) {
+    return StatusProto.toStatusException(internalErrorStatus(e));
   }
 
-  static com.google.rpc.Status internalErrorStatus(Exception e) {
-    return Status.newBuilder()
-        .setCode(Code.INTERNAL.getNumber())
-        .setMessage("Internal error: " + e)
-        .build();
+  static Status internalErrorStatus(Exception e) {
+    // StatusProto.fromThrowable returns null on non-status errors or errors with no trailers,
+    // unlike Status.fromThrowable which returns the UNKNOWN code for these.
+    Status st = StatusProto.fromThrowable(e);
+    return st != null
+        ? st
+        : Status.newBuilder().setCode(Code.INTERNAL.getNumber()).setMessage(e.getMessage()).build();
   }
 
-  static StatusRuntimeException notFoundError(Digest digest) {
-    return StatusProto.toStatusRuntimeException(notFoundStatus(digest));
+  static StatusException notFoundError(Digest digest) {
+    return StatusProto.toStatusException(notFoundStatus(digest));
   }
 
   static com.google.rpc.Status notFoundStatus(Digest digest) {
@@ -49,8 +51,8 @@ final class StatusUtils {
         .build();
   }
 
-  static StatusRuntimeException interruptedError(Digest digest) {
-    return StatusProto.toStatusRuntimeException(interruptedStatus(digest));
+  static StatusException interruptedError(Digest digest) {
+    return StatusProto.toStatusException(interruptedStatus(digest));
   }
 
   static com.google.rpc.Status interruptedStatus(Digest digest) {
@@ -60,8 +62,8 @@ final class StatusUtils {
         .build();
   }
 
-  static StatusRuntimeException invalidArgumentError(String field, String desc) {
-    return StatusProto.toStatusRuntimeException(invalidArgumentStatus(field, desc));
+  static StatusException invalidArgumentError(String field, String desc) {
+    return StatusProto.toStatusException(invalidArgumentStatus(field, desc));
   }
 
   static com.google.rpc.Status invalidArgumentStatus(String field, String desc) {
