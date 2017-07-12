@@ -238,9 +238,9 @@ comprehension.
 
 When the flag is set to true, `depset` objects are not treated as iterable. If
 you need an iterable, call the `.to_list()` method. This affects `for` loops and
-many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, `any`. The
-goal of this change is to avoid accidental iteration on `depset`, which can be
-expensive.
+many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, and `any`.
+The goal of this change is to avoid accidental iteration on `depset`, which can
+be expensive.
 
 ``` python
 deps = depset()
@@ -252,6 +252,35 @@ sorted(deps.to_list())  # recommended
 ```
 
 *   Flag: `--incompatible_depset_is_not_iterable`
+*   Default: `false`
+
+
+### String is no longer iterable
+
+When the flag is set to true, `string` objects are not treated as iterable. This
+affects `for` loops and many functions, e.g. `list`, `tuple`, `min`, `max`,
+`sorted`, `all`, and `any`. String iteration has been a source of errors and
+confusion, such as this error:
+
+``` python
+def my_macro(name, srcs):
+  for src in srcs:
+    # do something with src
+
+my_macro("foo")  # equivalent to: my_macro(["f", "o", "o"])
+```
+
+String indexing and `len` are still allowed. If you need to iterate over a
+string, you may explicitly use:
+
+``` python
+my_string="hello world"
+for i in range(len(my_string)):
+  char = my_string[i]
+  # do something with char
+```
+
+*   Flag: `--incompatible_string_is_not_iterable`
 *   Default: `false`
 
 

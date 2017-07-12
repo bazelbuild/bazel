@@ -161,6 +161,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
+    name = "incompatible_string_is_not_iterable",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, iterating over a string will throw an error. String indexing and `len` "
+            + "are still allowed."
+  )
+  public boolean incompatibleStringIsNotIterable;
+
+  @Option(
     name = "incompatible_dict_literal_has_no_duplicates",
     defaultValue = "false",
     category = "incompatible changes",
