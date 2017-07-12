@@ -97,8 +97,8 @@ public class TestCommand implements BlazeCommand {
         options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
 
     // Initialize test handler.
-    AggregatingTestListener testListener = new AggregatingTestListener(
-        resultAnalyzer, env.getEventBus(), env.getReporter());
+    AggregatingTestListener testListener =
+        new AggregatingTestListener(resultAnalyzer, env.getEventBus());
 
     env.getEventBus().register(testListener);
     return doTest(env, options, testListener);

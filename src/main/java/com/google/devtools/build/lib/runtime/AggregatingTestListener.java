@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.ExceptionListener;
 import com.google.devtools.build.lib.rules.test.TestAttempt;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestResult;
@@ -57,7 +56,6 @@ public class AggregatingTestListener {
 
   private final TestResultAnalyzer analyzer;
   private final EventBus eventBus;
-  private final EventHandlerPreconditions preconditionHelper;
   private volatile boolean blazeHalted = false;
 
   // summaryLock guards concurrent access to these two collections, which should be kept
@@ -66,12 +64,9 @@ public class AggregatingTestListener {
   private final Multimap<LabelAndConfiguration, Artifact> remainingRuns;
   private final Object summaryLock = new Object();
 
-  public AggregatingTestListener(TestResultAnalyzer analyzer,
-                                 EventBus eventBus,
-                                 ExceptionListener listener) {
+  public AggregatingTestListener(TestResultAnalyzer analyzer, EventBus eventBus) {
     this.analyzer = analyzer;
     this.eventBus = eventBus;
-    this.preconditionHelper = new EventHandlerPreconditions(listener);
 
     this.summaries = Maps.newHashMap();
     this.remainingRuns = HashMultimap.create();
@@ -96,14 +91,20 @@ public class AggregatingTestListener {
       for (ConfiguredTarget target : event.getTestTargets()) {
         Iterable<Artifact> statusArtifacts =
             target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
-        preconditionHelper.checkState(remainingRuns.putAll(asKey(target), statusArtifacts));
+        Preconditions.checkState(
+            remainingRuns.putAll(asKey(target), statusArtifacts),
+            "target: %s, statusArtifacts: %s",
+            target,
+            statusArtifacts);
 
         // And create an empty summary suitable for incremental analysis.
         // Also has the nice side effect of mapping labels to RuleConfiguredTargets.
         TestSummary.Builder summary = TestSummary.newBuilder()
             .setTarget(target)
             .setStatus(BlazeTestStatus.NO_STATUS);
-        preconditionHelper.checkState(summaries.put(asKey(target), summary) == null);
+        TestSummary.Builder oldSummary = summaries.put(asKey(target), summary);
+        Preconditions.checkState(
+            oldSummary == null, "target: %s, summaries: %s %s", target, oldSummary, summary);
       }
     }
   }
@@ -132,7 +133,7 @@ public class AggregatingTestListener {
     TestSummary finalTestSummary = null;
     synchronized (summaryLock) {
       TestSummary.Builder summary = summaries.get(targetLabel);
-      preconditionHelper.checkNotNull(summary);
+      Preconditions.checkNotNull(summary);
       if (!remainingRuns.remove(targetLabel, result.getTestStatusArtifact())) {
         // This can happen if a buildCompleteEvent() was processed before this event reached us.
         // This situation is likely to happen if --notest_keep_going is set with multiple targets.
