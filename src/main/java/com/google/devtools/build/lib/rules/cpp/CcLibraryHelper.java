@@ -1083,7 +1083,7 @@ public final class CcLibraryHelper {
           new CcSpecificLinkParamsProvider(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     } else {
-      providers.add(
+      providers.put(
           new CcLinkParamsProvider(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }

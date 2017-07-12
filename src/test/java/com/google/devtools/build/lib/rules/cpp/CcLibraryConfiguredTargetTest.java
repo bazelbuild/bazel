@@ -209,7 +209,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(
             hello
-                .getProvider(CcLinkParamsProvider.class)
+                .get(CcLinkParamsProvider.CC_LINK_PARAMS)
                 .getCcLinkParams(false, false)
                 .getLinkopts()
                 .isEmpty())
@@ -1131,7 +1131,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         LinkerInputs.toNonSolibArtifacts(
             target
-                .getProvider(CcLinkParamsProvider.class)
+                .get(CcLinkParamsProvider.CC_LINK_PARAMS)
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.a");
@@ -1146,7 +1146,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         LinkerInputs.toNonSolibArtifacts(
             target
-                .getProvider(CcLinkParamsProvider.class)
+                .get(CcLinkParamsProvider.CC_LINK_PARAMS)
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.a");
@@ -1162,7 +1162,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         LinkerInputs.toNonSolibArtifacts(
             target
-                .getProvider(CcLinkParamsProvider.class)
+                .get(CcLinkParamsProvider.CC_LINK_PARAMS)
                 .getCcLinkParams(true, true)
                 .getLibraries());
     assertThat(artifactsToStrings(libraries)).doesNotContain("src a/libfoo.so");

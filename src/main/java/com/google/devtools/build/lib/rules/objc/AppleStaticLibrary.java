@@ -84,7 +84,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             Mode.SPLIT, ObjcProvider.class);
     ImmutableListMultimap<BuildConfiguration, CcLinkParamsProvider> configToCcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, CcLinkParamsProvider.class);
+            Mode.SPLIT, CcLinkParamsProvider.CC_LINK_PARAMS);
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
             ObjcProtoProvider.class);

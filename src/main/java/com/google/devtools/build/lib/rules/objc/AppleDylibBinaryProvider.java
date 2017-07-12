@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 
@@ -30,8 +29,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
  *     avoid relinking symbols included in the dylib</li>
  * </ul> 
  */
-public final class AppleDylibBinaryProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public final class AppleDylibBinaryProvider extends SkylarkClassObject {
 
   /** Skylark name for the AppleDylibBinaryProvider. */
   public static final String SKYLARK_NAME = "AppleDylibBinary";

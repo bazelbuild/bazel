@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
@@ -28,7 +27,7 @@ import javax.annotation.Nullable;
 
 /** Provider that describes a simulator device. */
 @Immutable
-public final class IosDeviceProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class IosDeviceProvider extends SkylarkClassObject {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
     private String type;

@@ -60,7 +60,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
               + "(possibly empty but never None)")
   public NestedSet<Artifact> getLibraries() {
     NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
-    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    CcLinkParamsProvider ccLinkParams = getInfo().get(CcLinkParamsProvider.CC_LINK_PARAMS);
     if (ccLinkParams == null) {
       return libs.build();
     }
@@ -78,7 +78,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
               + "FULLY STATIC mode (linkopts=[\"-static\"]) or MOSTLY STATIC mode (linkstatic=1) "
               + "(possibly empty but never None)")
   public ImmutableList<String> getLinkopts() {
-    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    CcLinkParamsProvider ccLinkParams = getInfo().get(CcLinkParamsProvider.CC_LINK_PARAMS);
     if (ccLinkParams == null) {
       return ImmutableList.of();
     }

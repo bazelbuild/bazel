@@ -95,8 +95,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
-        .addProvider(
-            CcLinkParamsProvider.class,
+        .addNativeDeclaredProvider(
             new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();

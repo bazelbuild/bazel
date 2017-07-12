@@ -205,7 +205,7 @@ public final class CcLinkParams {
      * the method does not do anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
-      return addTransitiveProvider(target.getProvider(CcLinkParamsProvider.class));
+      return addTransitiveProvider(target.get(CcLinkParamsProvider.CC_LINK_PARAMS));
     }
 
     /**

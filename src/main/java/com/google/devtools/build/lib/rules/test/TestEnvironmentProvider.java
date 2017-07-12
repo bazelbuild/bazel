@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
@@ -24,8 +23,7 @@ import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public final class TestEnvironmentProvider extends SkylarkClassObject {
 
   /** Skylark constructor and identifier for TestEnvironmentProvider. */
   public static final NativeClassObjectConstructor<TestEnvironmentProvider> SKYLARK_CONSTRUCTOR =
