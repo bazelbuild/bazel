@@ -264,10 +264,10 @@ def _get_crt_library(repository_ctx, debug = False):
   return crt_library + ".lib"
 
 
-def _is_no_msvc_wrapper(repository_ctx):
-  """Returns True if NO_MSVC_WRAPPER is set to 1."""
+def _is_use_msvc_wrapper(repository_ctx):
+  """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
-  return "NO_MSVC_WRAPPER" in env and env["NO_MSVC_WRAPPER"] == "1"
+  return "USE_MSVC_WRAPPER" in env and env["USE_MSVC_WRAPPER"] == "1"
 
 
 def _get_compilation_mode_content():
@@ -324,7 +324,7 @@ def configure_windows_toolchain(repository_ctx):
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
-  if not _is_no_msvc_wrapper(repository_ctx):
+  if _is_use_msvc_wrapper(repository_ctx):
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
