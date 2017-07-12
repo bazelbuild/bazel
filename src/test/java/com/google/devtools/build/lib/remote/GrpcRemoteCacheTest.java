@@ -291,11 +291,7 @@ public class GrpcRemoteCacheTest {
       this.responseObserver = responseObserver;
       this.contents = contents;
       try {
-        chunker =
-            new Chunker.Builder()
-                .chunkSize(chunkSizeBytes)
-                .addInput(contents.getBytes(UTF_8))
-                .build();
+        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes);
       } catch (IOException e) {
         fail("An error occurred:" + e);
       }
@@ -308,15 +304,15 @@ public class GrpcRemoteCacheTest {
         Chunker.Chunk chunk = chunker.next();
         Digest digest = chunk.getDigest();
         long offset = chunk.getOffset();
-        byte[] data = chunk.getData();
+        ByteString data = chunk.getData();
         if (offset == 0) {
           assertThat(request.getResourceName()).contains(digest.getHash());
         } else {
           assertThat(request.getResourceName()).isEmpty();
         }
         assertThat(request.getFinishWrite())
-            .isEqualTo(offset + data.length == digest.getSizeBytes());
-        assertThat(request.getData().toByteArray()).isEqualTo(data);
+            .isEqualTo(offset + data.size() == digest.getSizeBytes());
+        assertThat(request.getData()).isEqualTo(data);
       } catch (IOException e) {
         fail("An error occurred:" + e);
       }

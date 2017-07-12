@@ -23,7 +23,6 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.Chunker.SingleSourceBuilder;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.Metadata;
@@ -106,8 +105,7 @@ public class ByteStreamUploaderTest {
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
 
-    Chunker.SingleSourceBuilder builder =
-        new SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
           @Override
@@ -158,7 +156,7 @@ public class ByteStreamUploaderTest {
           }
         });
 
-    uploader.uploadBlob(builder);
+    uploader.uploadBlob(chunker);
 
     // This test should not have triggered any retries.
     Mockito.verifyZeroInteractions(mockBackoff);
@@ -174,16 +172,15 @@ public class ByteStreamUploaderTest {
 
     int numUploads = 100;
     Map<String, byte[]> blobsByHash = new HashMap<>();
-    List<Chunker.SingleSourceBuilder> builders = new ArrayList<>(numUploads);
+    List<Chunker> builders = new ArrayList<>(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       int blobSize = rand.nextInt(CHUNK_SIZE * 10) + CHUNK_SIZE;
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
-      Chunker.SingleSourceBuilder builder =
-          new Chunker.SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob);
-      builders.add(builder);
-      blobsByHash.put(builder.getDigest().getHash(), blob);
+      Chunker chunker = new Chunker(blob, CHUNK_SIZE);
+      builders.add(chunker);
+      blobsByHash.put(chunker.digest().getHash(), blob);
     }
 
     Set<String> uploadsFailedOnce = Collections.synchronizedSet(new HashSet<>());
@@ -263,8 +260,7 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
     byte[] blob = new byte[CHUNK_SIZE * 10];
-    Chunker.SingleSourceBuilder builder =
-        new Chunker.SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
     AtomicInteger numWriteCalls = new AtomicInteger();
 
@@ -296,8 +292,8 @@ public class ByteStreamUploaderTest {
       }
     });
 
-    Future<?> upload1 = uploader.uploadBlobAsync(builder);
-    Future<?> upload2 = uploader.uploadBlobAsync(builder);
+    Future<?> upload1 = uploader.uploadBlobAsync(chunker);
+    Future<?> upload2 = uploader.uploadBlobAsync(chunker);
 
     assertThat(upload1).isSameAs(upload2);
 
@@ -313,8 +309,7 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
     byte[] blob = new byte[CHUNK_SIZE];
-    Chunker.SingleSourceBuilder builder =
-        new Chunker.SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
       @Override
@@ -325,7 +320,7 @@ public class ByteStreamUploaderTest {
     });
 
     try {
-      uploader.uploadBlob(builder);
+      uploader.uploadBlob(chunker);
       fail("Should have thrown an exception.");
     } catch (RetryException e) {
       assertThat(e.getAttempts()).isEqualTo(2);
@@ -364,15 +359,13 @@ public class ByteStreamUploaderTest {
     serviceRegistry.addService(service);
 
     byte[] blob1 = new byte[CHUNK_SIZE];
-    Chunker.SingleSourceBuilder builder1 =
-        new Chunker.SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob1);
+    Chunker chunker1 = new Chunker(blob1, CHUNK_SIZE);
 
     byte[] blob2 = new byte[CHUNK_SIZE + 1];
-    Chunker.SingleSourceBuilder builder2 =
-        new Chunker.SingleSourceBuilder().chunkSize(CHUNK_SIZE).input(blob2);
+    Chunker chunker2 = new Chunker(blob2, CHUNK_SIZE);
 
-    ListenableFuture<Void> f1 = uploader.uploadBlobAsync(builder1);
-    ListenableFuture<Void> f2 = uploader.uploadBlobAsync(builder2);
+    ListenableFuture<Void> f1 = uploader.uploadBlobAsync(chunker1);
+    ListenableFuture<Void> f2 = uploader.uploadBlobAsync(chunker2);
 
     assertThat(uploader.uploadsInProgress()).isTrue();
 
@@ -407,9 +400,9 @@ public class ByteStreamUploaderTest {
     assertThat(retryService.isShutdown()).isTrue();
 
     byte[] blob = new byte[1];
-    Chunker.SingleSourceBuilder builder = new Chunker.SingleSourceBuilder().input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
     try {
-      uploader.uploadBlob(builder);
+      uploader.uploadBlob(chunker);
       fail("Should have thrown an exception.");
     } catch (RetryException e) {
       assertThat(e).hasCauseThat().isInstanceOf(RejectedExecutionException.class);
@@ -447,9 +440,9 @@ public class ByteStreamUploaderTest {
     });
 
     byte[] blob = new byte[1];
-    Chunker.SingleSourceBuilder builder = new Chunker.SingleSourceBuilder().input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
-    uploader.uploadBlob(builder);
+    uploader.uploadBlob(chunker);
   }
 
   @Test(timeout = 10000)
@@ -471,10 +464,10 @@ public class ByteStreamUploaderTest {
     });
 
     byte[] blob = new byte[1];
-    Chunker.SingleSourceBuilder builder = new Chunker.SingleSourceBuilder().input(blob);
+    Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
     try {
-      uploader.uploadBlob(builder);
+      uploader.uploadBlob(chunker);
       fail("Should have thrown an exception.");
     } catch (RetryException e) {
       assertThat(numCalls.get()).isEqualTo(1);

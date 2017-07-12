@@ -33,7 +33,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -108,7 +107,7 @@ final class ByteStreamUploader {
   }
 
   /**
-   * Uploads a BLOB, as provided by the {@link Chunker.SingleSourceBuilder}, to the remote {@code
+   * Uploads a BLOB, as provided by the {@link Chunker}, to the remote {@code
    * ByteStream} service. The call blocks until the upload is complete, or throws an {@link
    * Exception} in case of error.
    *
@@ -121,9 +120,9 @@ final class ByteStreamUploader {
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlob(Chunker.SingleSourceBuilder chunkerBuilder)
+  public void uploadBlob(Chunker chunker)
       throws IOException, InterruptedException {
-    uploadBlobs(singletonList(chunkerBuilder));
+    uploadBlobs(singletonList(chunker));
   }
 
   /**
@@ -141,12 +140,12 @@ final class ByteStreamUploader {
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlobs(Iterable<Chunker.SingleSourceBuilder> chunkerBuilders)
+  public void uploadBlobs(Iterable<Chunker> chunkers)
       throws IOException, InterruptedException {
     List<ListenableFuture<Void>> uploads = new ArrayList<>();
 
-    for (Chunker.SingleSourceBuilder chunkerBuilder : chunkerBuilders) {
-      uploads.add(uploadBlobAsync(chunkerBuilder));
+    for (Chunker chunker : chunkers) {
+      uploads.add(uploadBlobAsync(chunker));
     }
 
     try {
@@ -189,9 +188,9 @@ final class ByteStreamUploader {
   }
 
   @VisibleForTesting
-  ListenableFuture<Void> uploadBlobAsync(Chunker.SingleSourceBuilder chunkerBuilder)
+  ListenableFuture<Void> uploadBlobAsync(Chunker chunker)
       throws IOException {
-    Digest digest = checkNotNull(chunkerBuilder.getDigest());
+    Digest digest = checkNotNull(chunker.digest());
 
     synchronized (lock) {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
@@ -207,7 +206,7 @@ final class ByteStreamUploader {
             },
             MoreExecutors.directExecutor());
         startAsyncUploadWithRetry(
-            chunkerBuilder, retrier.newBackoff(), (SettableFuture<Void>) uploadResult);
+            chunker, retrier.newBackoff(), (SettableFuture<Void>) uploadResult);
         uploadsInProgress.put(digest, uploadResult);
       }
       return uploadResult;
@@ -222,7 +221,7 @@ final class ByteStreamUploader {
   }
 
   private void startAsyncUploadWithRetry(
-      Chunker.SingleSourceBuilder chunkerBuilder,
+      Chunker chunker,
       Retrier.Backoff backoffTimes,
       SettableFuture<Void> overallUploadResult) {
 
@@ -242,13 +241,13 @@ final class ByteStreamUploader {
               RetryException error = new RetryException(cause, backoffTimes.getRetryAttempts());
               overallUploadResult.setException(error);
             } else {
-              retryAsyncUpload(nextDelayMillis, chunkerBuilder, backoffTimes, overallUploadResult);
+              retryAsyncUpload(nextDelayMillis, chunker, backoffTimes, overallUploadResult);
             }
           }
 
           private void retryAsyncUpload(
               long nextDelayMillis,
-              Chunker.SingleSourceBuilder chunkerBuilder,
+              Chunker chunker,
               Retrier.Backoff backoffTimes,
               SettableFuture<Void> overallUploadResult) {
             try {
@@ -256,7 +255,7 @@ final class ByteStreamUploader {
                   retryService.schedule(
                       () ->
                           startAsyncUploadWithRetry(
-                              chunkerBuilder, backoffTimes, overallUploadResult),
+                              chunker, backoffTimes, overallUploadResult),
                       nextDelayMillis,
                       MILLISECONDS);
               // In case the scheduled execution errors, we need to notify the overallUploadResult.
@@ -278,9 +277,8 @@ final class ByteStreamUploader {
           }
         };
 
-    Chunker chunker;
     try {
-      chunker = chunkerBuilder.build();
+      chunker.reset();
     } catch (IOException e) {
       overallUploadResult.setException(e);
       return;
@@ -384,7 +382,7 @@ final class ByteStreamUploader {
                   boolean isLastChunk = !chunker.hasNext();
                   WriteRequest request =
                       requestBuilder
-                          .setData(ByteString.copyFrom(chunk.getData()))
+                          .setData(chunk.getData())
                           .setWriteOffset(chunk.getOffset())
                           .setFinishWrite(isLastChunk)
                           .build();
