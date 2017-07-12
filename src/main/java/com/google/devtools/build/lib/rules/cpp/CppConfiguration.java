@@ -1602,7 +1602,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean isLipoOptimization() {
     // The LIPO optimization bits are set in the LIPO context collector configuration, too.
-    return cppOptions.isLipoOptimization();
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return cppOptions.isLipoOptimization() && !isLLVMCompiler();
   }
 
   /**
@@ -1612,7 +1613,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * down the dependency tree.
    */
   public boolean isDataConfigurationForLipoOptimization() {
-    return cppOptions.isDataConfigurationForLipoOptimization();
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return cppOptions.isDataConfigurationForLipoOptimization() && !isLLVMCompiler();
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
