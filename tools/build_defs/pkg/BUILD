@@ -98,7 +98,7 @@ genrule(
     name = "test-tar-%s" % ext[1:],
     build_tar = ":build_tar",
     extension = "tar%s" % ext,
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
@@ -132,7 +132,7 @@ genrule(
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
     build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
     strip_prefix = "",
@@ -141,7 +141,7 @@ pkg_tar(
 pkg_tar(
     name = "test-tar-strip_prefix-none",
     build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
 )
@@ -149,7 +149,7 @@ pkg_tar(
 pkg_tar(
     name = "test-tar-strip_prefix-etc",
     build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
     strip_prefix = "etc",
@@ -158,10 +158,18 @@ pkg_tar(
 pkg_tar(
     name = "test-tar-strip_prefix-dot",
     build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
     strip_prefix = ".",
+)
+
+pkg_tar(
+    name = "test-tar-files_dict",
+    build_tar = ":build_tar",
+    files = {
+        ":etc/nsswitch.conf": "not-etc/mapped-filename.conf",
+    },
 )
 
 pkg_deb(
@@ -203,6 +211,7 @@ sh_test(
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",
+        ":test-tar-files_dict.tar",
         ":test-tar-strip_prefix-none.tar",
         ":test-tar-xz.tar.xz",
         ":titi_test_all.changes",
