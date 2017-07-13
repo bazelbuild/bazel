@@ -923,6 +923,7 @@ java_library(
         "rules/java/JavaSkylarkCommon.java",
         "rules/java/JavaSourceInfoProvider.java",
         "rules/java/JavaToolchain.java",
+        "rules/java/JavaToolchainAlias.java",
         "rules/java/JavaToolchainRule.java",
         "rules/java/JavaToolchainSkylarkApiProvider.java",
         "rules/java/JvmConfigurationLoader.java",

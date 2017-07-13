@@ -648,12 +648,13 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule = rule(",
         "  implementation=_impl,",
         "  fragments = ['java'],",
-        "  attrs = { '_java_toolchain': java_common.java_toolchain_attr }",
+        "  attrs = { '_java_toolchain': attr.label(default=Label('//foo:alias')) }",
         ")"
     );
     scratch.file(
         "foo/BUILD",
         "load(':rule.bzl', 'myrule')",
+        "java_toolchain_alias(name='alias')",
         "myrule(name='myrule')"
     );
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
@@ -674,12 +675,13 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule = rule(",
         "  implementation=_impl,",
         "  fragments = ['java'],",
-        "  attrs = { '_java_toolchain': java_common.java_toolchain_attr }",
+        "  attrs = { '_java_toolchain': attr.label(default=Label('//foo:alias')) }",
         ")"
     );
     scratch.file(
         "foo/BUILD",
         "load(':rule.bzl', 'myrule')",
+        "java_toolchain_alias(name='alias')",
         "myrule(name='myrule')"
     );
     useConfiguration("--java_toolchain=//java/com/google/test:toolchain");

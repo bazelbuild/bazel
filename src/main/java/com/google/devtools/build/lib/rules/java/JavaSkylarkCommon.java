@@ -444,18 +444,6 @@ public class JavaSkylarkCommon {
         .build();
   }
 
-  @SkylarkCallable(
-      name = "java_toolchain_attr",
-      doc = "Creates a dependency on the current Java toolchain. Should only be used in the "
-          + "attribute dictionary of a rule definition.",
-      structField = true
-  )
-  public SkylarkAttr.Descriptor getJavaToolchainAttribute() {
-    return new SkylarkAttr.Descriptor(
-        "java_toolchain_attr",
-        new Attribute.Builder<>("", BuildType.LABEL).value(JavaSemantics.JAVA_TOOLCHAIN));
-  }
-
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
     switch (strictDepsMode) {
       case "OFF":
