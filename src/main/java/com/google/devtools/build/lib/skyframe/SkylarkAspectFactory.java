@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -166,8 +166,9 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     for (String outputGroup : outputGroups.keySet()) {
       SkylarkValue objects = outputGroups.get(outputGroup);
 
-      builder.addOutputGroup(outputGroup,
-          SkylarkRuleConfiguredTargetBuilder.convertToOutputGroupValue(loc, outputGroup, objects));
+      builder.addOutputGroup(
+          outputGroup,
+          SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(loc, outputGroup, objects));
     }
   }
 

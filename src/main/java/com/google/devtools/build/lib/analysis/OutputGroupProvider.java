@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -273,11 +273,10 @@ public final class OutputGroupProvider extends SkylarkClassObject
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Entry<String, Object> entry : kwargs.entrySet()) {
-        builder.put(entry.getKey(),
-            SkylarkRuleConfiguredTargetBuilder.convertToOutputGroupValue(
+        builder.put(
+            entry.getKey(),
+            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 loc, entry.getKey(), entry.getValue()));
-
-
       }
       return new OutputGroupProvider(builder.build());
     }

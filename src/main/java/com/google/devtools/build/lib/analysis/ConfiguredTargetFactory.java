@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -314,11 +314,10 @@ public final class ConfiguredTargetFactory {
 
     if (rule.getRuleClassObject().isSkylark()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return SkylarkRuleConfiguredTargetBuilder.buildRule(
+      return SkylarkRuleConfiguredTargetUtil.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
-          env.getSkylarkSemantics()
-      );
+          env.getSkylarkSemantics());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
           rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();

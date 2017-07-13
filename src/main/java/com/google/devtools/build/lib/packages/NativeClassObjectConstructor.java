@@ -77,6 +77,10 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
     public SkylarkClassObject create(Map<String, Object> values, String message) {
       return new SkylarkClassObject(this, values, message);
     }
+
+    public SkylarkClassObject create(Location loc) {
+      return new SkylarkClassObject(this, loc);
+    }
   }
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
