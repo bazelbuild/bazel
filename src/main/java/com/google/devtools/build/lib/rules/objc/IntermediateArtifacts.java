@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -440,9 +441,13 @@ public final class IntermediateArtifacts {
             .replace("@", "")
             .replace("/", "_")
             .replace(":", "_");
-    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
-    // parent directory in the module map search paths.
-    if (umbrellaHeaderStrategy == UmbrellaHeaderStrategy.GENERATE) {
+ 
+    Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
+    if (customModuleMap.isPresent()) {
+      return new CppModuleMap(customModuleMap.get(), moduleName);
+    } else if (umbrellaHeaderStrategy == UmbrellaHeaderStrategy.GENERATE) {
+      // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
+      // parent directory in the module map search paths.
       return new CppModuleMap(
           appendExtensionInGenfiles(".modulemaps/module.modulemap"),
           appendExtensionInGenfiles(".modulemaps/umbrella.h"),

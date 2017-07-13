@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.objc.LegacyCompilationSupport.
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
@@ -4892,5 +4893,37 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             ActionsTestUtil.baseNamesOf(
                 getOutputGroup(target, OutputGroupProvider.FILES_TO_COMPILE)))
         .isEqualTo("a.o");
+  }
+
+  protected void checkCustomModuleMap(RuleType ruleType) throws Exception {
+    useConfiguration("--experimental_objc_enable_module_maps");
+    ruleType.scratchTarget(scratch, "srcs", "['a.m']", "deps", "['//z:testModuleMap']");
+    scratch.file("x/a.m");
+    scratch.file("z/b.m");
+    scratch.file("z/b.h");
+    scratch.file("y/module.modulemap", "module my_module_b { export *\n header b.h }");
+    scratch.file("z/BUILD",
+        "objc_library(",
+            "name = 'testModuleMap',",
+            "hdrs = ['b.h'],",
+            "srcs = ['b.m'],",
+            "module_map = '//y:mm'",
+         ")");
+    scratch.file("y/BUILD",
+        "filegroup(",
+            "name = 'mm',",
+            "srcs = ['module.modulemap']",
+        ")");
+
+    CommandAction compileActionA = compileAction("//z:testModuleMap", "b.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
+    assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
+
+    ObjcProvider provider = providerForTarget("//z:testModuleMap");
+    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
+        .containsExactly("y/module.modulemap");
+
+    provider = providerForTarget("//x:x");
+    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 }

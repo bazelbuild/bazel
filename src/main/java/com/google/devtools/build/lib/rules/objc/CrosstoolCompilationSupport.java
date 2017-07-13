@@ -464,6 +464,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     if (!useDeps) {
       result.doNotUseDeps();
     }
+    if (getCustomModuleMap(ruleContext).isPresent()) {
+      result.doNotGenerateModuleMap();
+    }
     return result;
   }
 
@@ -490,7 +493,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .add(isHost ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
-    if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
+    if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()
+        && !getCustomModuleMap(ruleContext).isPresent()) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     }
     if (!CompilationAttributes.Builder.fromRuleContext(ruleContext).build().enableModules()) {

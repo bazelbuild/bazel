@@ -1413,4 +1413,9 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
         .contains("@loader_path/Frameworks");
   }
+
+  @Test
+  public void testCustomModuleMap() throws Exception {
+    checkCustomModuleMap(RULE_TYPE);
+  }
 }
