@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
+load("//tools/cpp:alias_rules.bzl", "cc_toolchain_alias")
+
+cc_toolchain_alias(name = "current_cc_toolchain")
+
 cc_library(
     name = "malloc",
 )
