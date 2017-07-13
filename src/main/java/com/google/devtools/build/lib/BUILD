@@ -784,6 +784,7 @@ java_library(
         ":packages-internal",
         ":runtime",
         ":util",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
         "//src/main/java/com/google/devtools/common/options",
