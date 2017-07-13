@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -53,6 +55,13 @@ import org.junit.runners.JUnit4;
 public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   private static final PathFragment STL_CPPMAP = PathFragment.create("stl.cppmap");
   private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();
+  }
 
   @Before
   public final void createFiles() throws Exception {
@@ -88,6 +97,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     assertThat(target.getProvider(CppCompilationContext.class).getCppModuleMap()).isNull();
+  }
+
+  @Test
+  public void testDefinesAndMakeVariables() throws Exception {
+    ConfiguredTarget l = scratchConfiguredTarget("a", "l",
+        "cc_library(name='l', srcs=['l.cc'], defines=['V=$(TEST_VARIABLE)'], toolchains=[':v'])",
+        "make_variable_tester(name='v')");
+    assertThat(l.getProvider(CppCompilationContext.class).getDefines()).contains("V=FOOBAR");
   }
 
   @Test

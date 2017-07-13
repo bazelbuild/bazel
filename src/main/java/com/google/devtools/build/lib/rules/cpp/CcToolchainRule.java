@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 
 /**
@@ -62,6 +63,7 @@ public final class CcToolchainRule implements RuleDefinition {
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class)
+        .advertiseProvider(MakeVariableProvider.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())

@@ -46,4 +46,14 @@ public final class MakeVariableProvider extends SkylarkClassObject {
   public ImmutableMap<String, String> getMakeVariables() {
     return makeVariables;
   }
+
+  @Override
+  public boolean equals(Object other) {
+    return other == this;
+  }
+
+  @Override
+  public int hashCode() {
+    return System.identityHashCode(this);
+  }
 }

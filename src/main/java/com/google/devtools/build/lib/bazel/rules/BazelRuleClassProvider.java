@@ -242,6 +242,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BaseRuleClasses.RootRule());
           builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.RuleBase());
+          builder.addRuleDefinition(new BaseRuleClasses.MakeVariableExpandingRule());
           builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.ErrorRule());

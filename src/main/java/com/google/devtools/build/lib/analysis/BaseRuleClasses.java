@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -156,7 +157,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$test_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
   }
@@ -266,6 +267,33 @@ public class BaseRuleClasses {
   }
 
   /**
+   * A rule that contains a {@code variables=} attribute to allow referencing Make variables.
+   */
+  public static final class MakeVariableExpandingRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
+          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
+          that this target can use in some of its attributes. Some rules have toolchains whose Make
+          variables they can use by default.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("toolchains", LABEL_LIST)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .mandatoryProviders(ImmutableList.of(MakeVariableProvider.SKYLARK_CONSTRUCTOR.id())))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$make_variable_expanding_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Common ancestor class for some rules.
    */
   public static final class RuleBase implements RuleDefinition {
@@ -311,7 +339,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$binary_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
   }
