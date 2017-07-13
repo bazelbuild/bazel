@@ -73,7 +73,7 @@ class OptionProcessor {
   //
   // If the method fails then error will contain the cause, otherwise error
   // remains untouched.
-  std::unique_ptr<CommandLine> SplitCommandLine(
+  virtual std::unique_ptr<CommandLine> SplitCommandLine(
       const std::vector<std::string>& args,
       std::string* error) const;
 
