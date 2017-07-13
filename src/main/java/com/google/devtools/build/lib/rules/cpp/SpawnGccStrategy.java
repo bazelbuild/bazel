@@ -70,9 +70,4 @@ public class SpawnGccStrategy implements CppCompileActionContext {
         .exec(spawn, actionExecutionContext);
     return null;
   }
-
-  @Override
-  public Reply getReplyFromException(ExecException e, CppCompileAction action) {
-    return null;
-  }
 }
