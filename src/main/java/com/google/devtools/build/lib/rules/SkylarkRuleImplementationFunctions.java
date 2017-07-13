@@ -496,7 +496,8 @@ public class SkylarkRuleImplementationFunctions {
         // Also, allow empty set for init
         @Param(name = "transitive_files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
             noneable = true, defaultValue = "None",
-            doc = "The (transitive) set of files to be added to the runfiles."),
+            doc = "The (transitive) set of files to be added to the runfiles. The depset should "
+            + "use the `default` order (which, as the name implies, is the default)."),
         @Param(name = "collect_data", type = Boolean.class, defaultValue = "False",
             doc = "Whether to collect the data "
             + "runfiles from the dependencies in srcs, data and deps attributes."),

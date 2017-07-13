@@ -273,7 +273,7 @@ public final class BinaryOperatorExpression extends Expression {
       }
     }
 
-    // TODO(bazel-team): Remove this case. Union of sets should use '|' instead of '+'.
+    // TODO(bazel-team): Deprecate + and | on depsets. Needs new API design.
     if (lval instanceof SkylarkNestedSet) {
       return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
     }

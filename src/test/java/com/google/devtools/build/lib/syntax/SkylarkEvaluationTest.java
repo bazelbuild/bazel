@@ -635,7 +635,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   private void flowStatementInsideFunction(String statement) throws Exception {
     checkEvalErrorContains(statement + " statement must be inside a for loop",
         "def foo():",
-        "  " + statement + "",
+        "  " + statement,
         "x = foo()");
   }
 
@@ -644,7 +644,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "def foo2():",
         "   for i in range(0, 3):",
         "      pass",
-        "   " + statement + "",
+        "   " + statement,
         "y = foo2()");
   }
 

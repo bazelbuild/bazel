@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -201,12 +202,11 @@ public class EvaluationTestCase {
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
-    setFailFast(true);
     try {
       eval(input);
       fail("Expected error '" + msg + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e).hasMessage(msg);
+    } catch (EvalException | FailFastException e) {
+      assertThat(e).hasMessageThat().isEqualTo(msg);
     }
   }
 
@@ -214,7 +214,7 @@ public class EvaluationTestCase {
     try {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
+    } catch (EvalException | FailFastException e) {
       assertThat(e).hasMessageThat().contains(msg);
     }
   }
