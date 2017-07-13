@@ -338,15 +338,15 @@ public class IncrementalLoadingTest {
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
     tester.sync();
-    Target target = tester.getTarget("//e:e");
-    assertThat(((Rule) target).containsErrors()).isTrue();
-    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
-    assertThat(globList).isEmpty();
+    try {
+      tester.getTarget("//e:e");
+    } catch (NoSuchPackageException expected) {
+    }
     throwOnReaddir = null;
     tester.sync();
-    target = tester.getTarget("//e:e");
+    Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
-    globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
+    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
   }
 

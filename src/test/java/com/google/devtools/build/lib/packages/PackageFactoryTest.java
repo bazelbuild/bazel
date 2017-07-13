@@ -812,7 +812,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
    assertGlobFails("glob(['?'])", "glob pattern '?' contains forbidden '?' wildcard");
   }
 
-  /** Tests that a glob evaluation that encounters an I/O error produces a glob error. */
+  /**
+   * Tests that a glob evaluation that encounters an I/O error throws instead of constructing a
+   * package.
+   */
   @Test
   public void testGlobWithIOErrors() throws Exception {
     events.setFailFast(false);
@@ -824,8 +827,11 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     unreadableSubdir.setReadable(false);
 
     Path file = scratch.file("/pkg/BUILD", "cc_library(name = 'c', srcs = glob(['globs/**']))");
-    packages.eval("pkg", file);
-    events.assertContainsError("error globbing [globs/**]: Directory is not readable");
+    try {
+      packages.eval("pkg", file);
+    } catch (NoSuchPackageException expected) {
+    }
+    events.assertContainsError("Directory is not readable");
   }
 
   @Test
@@ -995,11 +1001,13 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Path parentDir = buildFile.getParentDirectory();
     scratch.file("/e/data.txt");
     throwOnReaddir = parentDir;
-    Package pkg = packages.createPackage("e", buildFile);
-    assertThat(pkg.containsErrors()).isTrue();
+    try {
+      packages.createPackage("e", buildFile);
+    } catch (NoSuchPackageException expected) {
+    }
     events.setFailFast(true);
     throwOnReaddir = null;
-    pkg = packages.createPackage("e", buildFile);
+    Package pkg = packages.createPackage("e", buildFile);
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     GlobList globList = (GlobList) pkg.getRule("e").getAttributeContainer().getAttr("data");

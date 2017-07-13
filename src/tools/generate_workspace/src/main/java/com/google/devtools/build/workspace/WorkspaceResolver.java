@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -90,7 +91,12 @@ public class WorkspaceResolver {
       handler.handle(Event.error(Location.fromFile(workspacePath), e.getMessage()));
     }
 
-    return builder.build();
+    try {
+      return builder.build();
+    } catch (NoSuchPackageException e) {
+      // TODO(kchodorow): delete this entire method.
+      throw new IllegalStateException("No globs expected in WORKSPACE files", e);
+    }
   }
 
   /**

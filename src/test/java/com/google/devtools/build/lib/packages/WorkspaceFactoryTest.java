@@ -159,7 +159,7 @@ public class WorkspaceFactoryTest {
       this.exception = exception;
     }
 
-    public Package getPackage() throws InterruptedException {
+    public Package getPackage() throws InterruptedException, NoSuchPackageException {
       return builder.build();
     }
 
