@@ -524,8 +524,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidDeviceRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
-          builder.addSkylarkAccessibleTopLevels("java_common", new JavaSkylarkCommon(
-              BazelJavaSemantics.INSTANCE, builder.getToolsRepository()));
+          builder.addSkylarkAccessibleTopLevels("java_common",
+              new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
           builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
 
           try {

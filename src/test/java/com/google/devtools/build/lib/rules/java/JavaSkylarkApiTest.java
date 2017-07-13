@@ -49,6 +49,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "load(':rule.bzl', 'jrule')",
         "java_runtime(name='jvm', srcs=[], java_home='/foo/bar/')",
         "java_runtime_suite(name='suite', default=':jvm')",
+        "java_runtime_alias(name='alias')",
         "jrule(name='r')");
 
     scratch.file(
@@ -58,7 +59,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  return struct(",
         "    java_executable = provider.java_executable_exec_path,",
         ")",
-        "jrule = rule(_impl, attrs = { '_java_runtime': java_common.java_runtime_attr})");
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
     useConfiguration("--javabase=//a:suite");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
