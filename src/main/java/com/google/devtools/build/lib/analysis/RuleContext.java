@@ -423,6 +423,7 @@ public final class RuleContext extends TargetContext
         configuration.getMnemonic(),
         rule.getTargetKind(),
         configuration.checksum(),
+        configuration,
         configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null);
   }
 
