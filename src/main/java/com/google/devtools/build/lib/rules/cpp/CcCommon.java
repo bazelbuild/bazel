@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -330,33 +331,8 @@ public final class CcCommon {
         return null;
       }
 
-      CcToolchainProvider toolchain =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-      FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeatures(ruleContext, toolchain);
-      if (!featureConfiguration.actionIsConfigured(
-          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
-        return null;
-      }
-
-      Variables buildVariables = new Variables.Builder()
-          .addAllStringVariables(toolchain.getBuildVariables())
-          .build();
-      String toolchainCcFlags =
-          Joiner.on(" ")
-              .join(
-                  featureConfiguration.getCommandLine(
-                      CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
-
-      ImmutableMap<String, String> currentMakeVariables =
-          ruleContext.getMakeVariables(ImmutableList.of(CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME));
-      Preconditions.checkArgument(
-          currentMakeVariables.containsKey(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
-
-      return FluentIterable.of(
-              currentMakeVariables.get(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME))
-          .append(toolchainCcFlags)
-          .join(Joiner.on(" "));
+      return CcCommon.computeCcFlags(ruleContext, ruleContext.getPrerequisite(
+          CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
     }
 
     @Override
@@ -695,5 +671,38 @@ public final class CcCommon {
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     return configureFeatures(ruleContext, toolchain, SourceCategory.CC);
+  }
+
+  /**
+   * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
+   * toolchain.
+   */
+  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
+    CcToolchainProvider toolchainProvider = toolchain.getProvider(CcToolchainProvider.class);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(ruleContext, toolchainProvider);
+    if (!featureConfiguration.actionIsConfigured(
+        CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
+      return null;
+    }
+
+    Variables buildVariables = new Variables.Builder()
+        .addAllStringVariables(toolchainProvider.getBuildVariables())
+        .build();
+    String toolchainCcFlags =
+        Joiner.on(" ")
+            .join(
+                featureConfiguration.getCommandLine(
+                    CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
+    String oldCcFlags = "";
+    MakeVariableProvider makeVariableProvider =
+        toolchain.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR);
+    if (makeVariableProvider != null) {
+      oldCcFlags = makeVariableProvider.getMakeVariables().getOrDefault(
+          CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
+    }
+    return FluentIterable.of(oldCcFlags)
+        .append(toolchainCcFlags)
+        .join(Joiner.on(" "));
   }
 }
