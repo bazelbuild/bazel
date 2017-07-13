@@ -84,7 +84,7 @@ void JarStripperProcessor::Process(const char* filename, const u4 attr,
   u1* q = builder->NewFile(filename, 0);
   size_t out_length = buf - classdata_out;
   memcpy(q, classdata_out, out_length);
-  builder->FinishFile(out_length);
+  builder->FinishFile(out_length, false, true);
   free(classdata_out);
 }
 
