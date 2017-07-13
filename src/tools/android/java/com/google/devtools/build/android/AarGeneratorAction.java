@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
@@ -124,6 +125,14 @@ public class AarGeneratorAction {
       help = "Path to write the archive."
     )
     public Path aarOutput;
+
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   public static void main(String[] args) {
@@ -153,12 +162,17 @@ public class AarGeneratorAction {
               null,
               VariantType.LIBRARY,
               null,
-              /* filteredResources= */ ImmutableList.<String>of());
+              /* filteredResources= */ ImmutableList.<String>of(),
+              options.throwOnResourceConflict
+          );
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
       logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    } catch (MergeConflictException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      System.exit(1);
     } catch (IOException | MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       System.exit(1);

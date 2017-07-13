@@ -180,6 +180,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           .withPrimary(resourceContainer)
           .withDependencies(resourceApk.getResourceDependencies())
           .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+          .setThrowOnResourceConflict(
+              ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
           .build(ruleContext);
     }
 
@@ -189,6 +191,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .withRtxt(primaryResources.getRTxt())
       .withClasses(classesJar)
       .setAAROut(aarOut)
+      .setThrowOnResourceConflict(
+          ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
       .build(ruleContext);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);

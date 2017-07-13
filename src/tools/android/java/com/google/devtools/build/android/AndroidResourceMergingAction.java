@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.io.Files;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -180,6 +181,14 @@ public class AndroidResourceMergingAction {
       help = "Path to where data binding's layout info output should be written."
     )
     public Path dataBindingInfoOut;
+
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   public static void main(String[] args) throws Exception {
@@ -223,7 +232,8 @@ public class AndroidResourceMergingAction {
               new StubPngCruncher(),
               packageType,
               options.symbolsBinOut,
-              resourceClassWriter);
+              resourceClassWriter,
+              options.throwOnResourceConflict);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -268,6 +278,9 @@ public class AndroidResourceMergingAction {
             String.format(
                 "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       }
+    } catch (MergeConflictException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      System.exit(1);
     } catch (MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       throw e;

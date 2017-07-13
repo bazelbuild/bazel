@@ -1569,6 +1569,24 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     }
   }
 
+  @Test
+  public void testThrowOnResourceConflictFlagGetsPropagated() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_binary(",
+        "  name = 'r',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/values/foo.xml'],",
+        ")");
+    useConfiguration("--experimental_android_throw_on_resource_conflict");
+    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+
+    List<String> resourceProcessingArgs =
+        resourceGeneratingAction(getResourceContainer(binary)).getArguments();
+
+    assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
+  }
+
   /**
    * Gets the paths of matching artifacts contained within a resource container
    *

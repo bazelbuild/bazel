@@ -22,6 +22,7 @@ import com.android.ide.common.process.LoggedProcessOutputHandler;
 import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
@@ -295,6 +296,14 @@ public class AndroidResourceProcessingAction {
       help = "A list of resources that were filtered out in analysis."
     )
     public List<String> prefilteredResources;
+
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   private static AaptConfigOptions aaptConfigOptions;
@@ -346,7 +355,8 @@ public class AndroidResourceProcessingAction {
               selectPngCruncher(),
               options.packageType,
               options.symbolsOut,
-              options.prefilteredResources);
+              options.prefilteredResources,
+              options.throwOnResourceConflict);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -429,6 +439,9 @@ public class AndroidResourceProcessingAction {
       }
       logger.fine(
           String.format("Packaging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    } catch (MergeConflictException e) {
+      logger.severe(e.getMessage());
+      System.exit(1);
     } catch (MergingException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during merging resources", e);
       throw e;
