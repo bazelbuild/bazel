@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.platform;
 
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import org.junit.Before;
@@ -23,10 +24,14 @@ import org.junit.Before;
 /** Utility methods for setting up platform and toolchain related tests. */
 public abstract class ToolchainTestCase extends SkylarkTestCase {
 
-  public Label testToolchainType;
+  public PlatformInfo targetPlatform;
+  public PlatformInfo hostPlatform;
+
   public ConstraintSettingInfo setting;
   public ConstraintValueInfo linuxConstraint;
   public ConstraintValueInfo macConstraint;
+
+  public Label testToolchainType;
 
   @Before
   public void createConstraints() throws Exception {
@@ -44,9 +49,15 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
   }
 
   @Before
+  public void createPlatforms() throws Exception {
+    targetPlatform =
+        PlatformInfo.builder().setLabel(makeLabel("//platforms:target_platform")).build();
+    hostPlatform = PlatformInfo.builder().setLabel(makeLabel("//platforms:host_platform")).build();
+  }
+
+  @Before
   public void createToolchains() throws Exception {
-    rewriteWorkspace(
-        "register_toolchains(", "    '//toolchain:toolchain_1',", "    '//toolchain:toolchain_2')");
+    rewriteWorkspace("register_toolchains('//toolchain:toolchain_1',  '//toolchain:toolchain_2')");
 
     scratch.file(
         "toolchain/BUILD",
