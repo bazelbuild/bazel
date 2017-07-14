@@ -549,7 +549,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
         "    binary = ':bin',",
         "    extensions = [':ext'],",
         ")");
-    
+
     getConfiguredTarget("//x:app");
 
     // Assert that only the deprecation warnings are emitted, but no other events.
@@ -683,7 +683,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
     checkCcDependencyWithProtoDependencyMultiArch(
         RULE_TYPE_PAIR, ConfigurationDistinguisher.IOS_APPLICATION);
   }
-  
+
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
     RULE_TYPE_PAIR.scratchTargets(scratch);
@@ -694,7 +694,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
 
     assertAppleSdkVersionEnv(action);
   }
-  
+
   @Test
   public void testNonDefaultAppleSdkVersionEnv() throws Exception {
     RULE_TYPE_PAIR.scratchTargets(scratch);
@@ -705,7 +705,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
 
     assertAppleSdkVersionEnv(action, "8.1");
   }
-  
+
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
     RULE_TYPE_PAIR.scratchTargets(scratch);
@@ -716,7 +716,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
 
     assertAppleSdkPlatformEnv(action, "iPhoneSimulator");
   }
-  
+
   @Test
   public void testAppleSdkDevicePlatformEnv() throws Exception {
     RULE_TYPE_PAIR.scratchTargets(scratch);
@@ -727,7 +727,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
 
     assertAppleSdkPlatformEnv(action, "iPhoneOS");
   }
-  
+
   @Test
   public void testXcodeVersionEnv() throws Exception {
     RULE_TYPE_PAIR.scratchTargets(scratch);
@@ -1006,6 +1006,11 @@ public class IosApplicationTest extends ObjcRuleTestCase {
                 + "x/ext_bin_bin",
             configurationBin("x86_64", ConfigurationDistinguisher.IOS_EXTENSION, minOsString)
                 + "x/ext_bin_bin", MOCK_XCRUNWRAPPER_PATH);
+  }
+
+  @Test
+  public void testGenruleDependency() throws Exception {
+    checkGenruleDependency(RULE_TYPE_PAIR);
   }
 
   @Test

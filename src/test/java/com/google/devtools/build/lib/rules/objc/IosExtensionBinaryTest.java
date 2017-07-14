@@ -208,4 +208,19 @@ public class IosExtensionBinaryTest extends ObjcRuleTestCase {
     checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT,
         CodeCoverageMode.LLVMCOV);
   }
+
+  @Test
+  public void testCompileWithTextualHeaders() throws Exception {
+    checkCompileWithTextualHeaders(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesSources() throws Exception {
+    checkCompilesSources(RULE_TYPE);
+  }
 }

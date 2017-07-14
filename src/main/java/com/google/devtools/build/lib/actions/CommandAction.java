@@ -31,4 +31,7 @@ public interface CommandAction extends Action, ExecutionInfoSpecifier {
    * in which this action should be run.
    */
   ImmutableMap<String, String> getEnvironment();
+
+  /** Returns inputs to this action, including inputs that may be pruned. */
+  Iterable<Artifact> getPossibleInputsForTesting();
 }

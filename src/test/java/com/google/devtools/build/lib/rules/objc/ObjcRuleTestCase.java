@@ -923,9 +923,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "deps", "['//lib2:lib2']");
     CommandAction compileA = compileAction("//x:x", "a.o");
 
-    assertThat(Artifact.toRootRelativePaths(compileA.getInputs()))
-        .containsExactly("x/a.m", "x/a.h", "x/private.h", "lib1/hdr.h", "lib2/hdr.h",
-            MOCK_XCRUNWRAPPER_PATH);
+    assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
+        .containsAllOf("x/a.m", "x/a.h", "x/private.h", "lib1/hdr.h", "lib2/hdr.h");
     assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
         .containsExactly("x/_objs/x/x/a.o", "x/_objs/x/x/a.d");
   }
@@ -996,7 +995,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "deps", "['//lib1:lib1', '//lib2:lib2']");
     CommandAction compileA = compileAction("//x:x", "a.o");
 
-    assertThat(Artifact.toRootRelativePaths(compileA.getInputs()))
+    assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
         .containsAllOf("x/a.m", "x/t.h", "lib1/hdr.h", "lib2/hdr.h");
   }
 
@@ -1177,7 +1176,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "srcs", "['a.m']",
         "hdrs", "['a.h']");
-    assertThat(compileAction("//x:x", "a.o").getInputs()).contains(getSourceArtifact("x/a.h"));
+    assertThat(compileAction("//x:x", "a.o").getPossibleInputsForTesting())
+        .contains(getSourceArtifact("x/a.h"));
   }
 
   protected void checkArchivesPrecompiledObjectFiles(RuleType ruleType) throws Exception {
@@ -3654,13 +3654,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getGeneratingAction(Iterables.getOnlyElement(inputsEndingWith(libBinAction, ".o")));
 
     assertThat(Artifact.toExecPaths(genOAction.getInputs()))
-        .containsExactly(
+        .contains(
             configurationGenfiles(
                     "x86_64",
                     ConfigurationDistinguisher.UNKNOWN,
                     defaultMinimumOs(ConfigurationDistinguisher.UNKNOWN))
-                + "/x/gen.m",
-            MOCK_XCRUNWRAPPER_PATH);
+                + "/x/gen.m");
   }
 
   protected void checkGenruleDependencyMultiArch(BinaryRuleTypePair ruleTypePair,

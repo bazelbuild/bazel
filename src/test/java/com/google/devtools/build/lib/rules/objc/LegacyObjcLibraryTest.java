@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -68,36 +67,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .write();
     Iterable<Artifact> outputArtifacts = getFilesToBuild(target);
     assertThat(Artifact.toRootRelativePaths(outputArtifacts)).containsExactly("objc/libTarget.a");
-  }
-
-  @Test
-  public void testNonPropagatedDepsDiamond() throws Exception {
-    // Non-propagated.
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-    // Conflicts with non-propagated.
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-
-    createLibraryTargetWriter("//objc3:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "b.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-
-    createLibraryTargetWriter("//objc4:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .setList("deps", "//objc2:lib", "//objc3:lib")
-        .write();
-
-    Action action = compileAction("//objc4:lib", "a.o");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
-        .containsAllOf("objc2/a.h", "objc3/b.h", "objc4/c.h", "objc4/a.m", "objc4/private.h");
   }
 
   static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {
@@ -724,11 +693,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   }
 
   @Test
-  public void testCompilesWithHdrs() throws Exception {
-    checkCompilesWithHdrs(RULE_TYPE);
-  }
-
-  @Test
   public void testReceivesTransitivelyPropagatedDefines() throws Exception {
     checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
   }
@@ -773,24 +737,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
     assertThat(baseArtifactNames(compileAction.getInputs()))
         .containsExactly("c.h", "b.asm", XCRUNWRAPPER);
-  }
-
-  @Test
-  public void testCompilesAssemblyWithPreprocessing() throws Exception {
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.S")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileAction = compileAction("//objc:lib", "b.o");
-
-    // Clang automatically preprocesses .S files, so the assembler-with-cpp flag is unnecessary.
-    // Regression test for b/22636858.
-    assertThat(compileAction.getArguments()).doesNotContain("-x");
-    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
-    assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
-    assertThat(baseArtifactNames(compileAction.getInputs()))
-        .containsExactly("c.h", "b.S", XCRUNWRAPPER);
   }
 
   // Converts output artifacts into expected command-line arguments.
