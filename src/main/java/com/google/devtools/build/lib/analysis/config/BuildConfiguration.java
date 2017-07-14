@@ -232,6 +232,11 @@ public final class BuildConfiguration implements BuildEvent {
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return null;
     }
+
+    /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
+    public ImmutableSet<String> getReservedActionMnemonics() {
+      return ImmutableSet.of();
+    }
   }
 
   private static final Label convertLabel(String input) throws OptionsParsingException {
@@ -1185,6 +1190,7 @@ public final class BuildConfiguration implements BuildEvent {
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final DynamicTransitionMapper dynamicTransitionMapper;
+  private final ImmutableSet<String> reservedActionMnemonics;
 
   /**
    * Directories in the output tree.
@@ -1579,6 +1585,12 @@ public final class BuildConfiguration implements BuildEvent {
 
     checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
     hashCode = computeHashCode();
+
+    ImmutableSet.Builder<String> reservedActionMnemonics = ImmutableSet.builder();
+    for (Fragment fragment : fragments.values()) {
+      reservedActionMnemonics.addAll(fragment.getReservedActionMnemonics());
+    }
+    this.reservedActionMnemonics = reservedActionMnemonics.build();
   }
 
   /**
@@ -2763,6 +2775,10 @@ public final class BuildConfiguration implements BuildEvent {
 
   public ImmutableCollection<String> getSkylarkFragmentNames() {
     return skylarkVisibleFragments.keySet();
+  }
+
+  public ImmutableSet<String> getReservedActionMnemonics() {
+    return reservedActionMnemonics;
   }
 
   /**

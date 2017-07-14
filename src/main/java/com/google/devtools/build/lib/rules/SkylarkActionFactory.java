@@ -590,8 +590,7 @@ public class SkylarkActionFactory implements SkylarkValue {
       }
     }
 
-    String mnemonic =
-        mnemonicUnchecked == Runtime.NONE ? "Generating" : (String) mnemonicUnchecked;
+    String mnemonic = getMnemonic(mnemonicUnchecked);
     builder.setMnemonic(mnemonic);
     if (envUnchecked != Runtime.NONE) {
       builder.setEnvironment(
@@ -622,6 +621,19 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
     // Always register the action
     ruleContext.registerAction(builder.build(ruleContext));
+  }
+
+  private String getMnemonic(Object mnemonicUnchecked) {
+    String mnemonic =
+        mnemonicUnchecked == Runtime.NONE ? "SkylarkAction" : (String) mnemonicUnchecked;
+    if (ruleContext.getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
+      mnemonic = mangleMnemonic(mnemonic);
+    }
+    return mnemonic;
+  }
+
+  private static String mangleMnemonic(String mnemonic) {
+    return mnemonic + "FromSkylark";
   }
 
   @SkylarkCallable(
