@@ -111,7 +111,9 @@ public final class FetchCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    env.getReporter().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
+    env.getReporter()
+        .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true, true));
+
     // 2. Evaluate expression:
     try {
       queryEnv.evaluateQuery(expr, new ThreadSafeOutputFormatterCallback<Target>() {
