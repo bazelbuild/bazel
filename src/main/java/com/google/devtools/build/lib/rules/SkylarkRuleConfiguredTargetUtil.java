@@ -421,15 +421,18 @@ public final class SkylarkRuleConfiguredTargetUtil {
       Runfiles defaultRunfiles)
       throws EvalException {
 
-    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(ruleContext.getOutputArtifacts());
+    // TODO(bazel-team) if both 'files' and 'executable' are provided 'files' override 'executalbe'
+    NestedSetBuilder<Artifact> filesToBuild =
+        NestedSetBuilder.<Artifact>stableOrder().addAll(ruleContext.getOutputArtifacts());
     if (executable != null) {
       filesToBuild.add(executable);
     }
-    if (files != null) {
-      filesToBuild.addTransitive(files.getSet(Artifact.class));
-    }
     builder.setFilesToBuild(filesToBuild.build());
+
+    if (files != null) {
+      // If we specify files_to_build we don't have the executable in it by default.
+      builder.setFilesToBuild(files.getSet(Artifact.class));
+    }
 
     if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
       throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
