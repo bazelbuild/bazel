@@ -18,8 +18,19 @@ package com.google.devtools.common.options;
  * line output for the standard HelpCommand and the html output used for command-line-reference on
  * the website.
  *
- * <p>Grouping things is only a useful exercise if the group includes multiple units. Please only
- * add categories that group a useful subset of options. (>2, <200, let's say)
+ * <p>Constraints for adding new categories:
+ *
+ * <ul>
+ *   <li>Since these are for grouping, we want useful sizes of groups. Somewhere between 5 and 200
+ *       (ok, maybe less than that) options, probably. A category for 2 options is pretty useless,
+ *       and a category for all options equally so.
+ *   <li>Each option needs to belong to exactly one of these groups, so the categories should be
+ *       clearly distinct.
+ *   <li>These are easy to change, and not brittle, so feel free to add new ones. However, if you
+ *       add a new category, other flags that used to be categorized in some related way but belong
+ *       in the new category should be updated to keep our docs fresh. Either do it yourself or file
+ *       a bug against the owners of these flags.
+ * </ul>
  */
 public enum OptionDocumentationCategory {
   /**
