@@ -63,7 +63,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
-  private final Logger logger;
+  private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
@@ -86,7 +86,6 @@ public final class LocalSpawnRunner implements SpawnRunner {
   }
 
   public LocalSpawnRunner(
-      Logger logger,
       AtomicInteger execCount,
       Path execRoot,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -96,7 +95,6 @@ public final class LocalSpawnRunner implements SpawnRunner {
       OS localOs,
       String productName,
       LocalEnvProvider localEnvProvider) {
-    this.logger = logger;
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
@@ -117,7 +115,6 @@ public final class LocalSpawnRunner implements SpawnRunner {
       String productName,
       LocalEnvProvider localEnvProvider) {
     this(
-        Logger.getLogger(LocalSpawnRunner.class.getName()),
         new AtomicInteger(),
         execRoot,
         actionInputPrefetcher,
