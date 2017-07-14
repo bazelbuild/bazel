@@ -106,7 +106,7 @@ public class ResourceJarActionBuilder {
             .add("--exclude_build_data")
             .addExecPath("--output", outputJar);
     if (!resourceJars.isEmpty()) {
-      command.addExecPaths("--sources", resourceJars);
+      command.add("--sources").addExecPaths(resourceJars);
     }
     if (!resources.isEmpty() || !messages.isEmpty()) {
       command.add("--resources");
@@ -119,7 +119,7 @@ public class ResourceJarActionBuilder {
       }
     }
     if (!classpathResources.isEmpty()) {
-      command.addExecPaths("--classpath_resources", classpathResources);
+      command.add("--classpath_resources").addExecPaths(classpathResources);
     }
     // TODO(b/37444705): remove this logic and always call useParameterFile once the bug is fixed
     // Most resource jar actions are very small and expanding the argument list for

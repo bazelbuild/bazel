@@ -132,7 +132,9 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     return CustomCommandLine.builder()
         .add("--flag1")
         .add("--flag2")
-        .add("--flag3", ImmutableList.of("value1", "value2"))
+        .add("--flag3")
+        .add("value1")
+        .add("value2")
         .build();
   }
 

@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -502,19 +503,24 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
       result.add("--temp_dir").addPath(tempDirectory);
 
-      result.addExecPaths("--bootclasspath", bootclasspathEntries);
-
-      result.addExecPaths("--sources", sourceFiles);
-
-      if (!sourceJars.isEmpty()) {
-        result.addExecPaths("--source_jars", sourceJars);
+      if (!Iterables.isEmpty(bootclasspathEntries)) {
+        result.add("--bootclasspath").addExecPaths(bootclasspathEntries);
       }
 
-      result.add("--javacopts", javacOpts);
+      if (!sourceFiles.isEmpty()) {
+        result.add("--sources").addExecPaths(sourceFiles);
+      }
+
+      if (!sourceJars.isEmpty()) {
+        result.add("--source_jars").addExecPaths(sourceJars);
+      }
+
+      if (!javacOpts.isEmpty()) {
+        result.add("--javacopts").add(javacOpts);
+      }
 
       if (ruleKind != null) {
-        result.add("--rule_kind");
-        result.add(ruleKind);
+        result.add("--rule_kind").add(ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");
@@ -527,7 +533,9 @@ public class JavaHeaderCompileAction extends SpawnAction {
           result.add("@" + targetLabel);
         }
       }
-      result.addExecPaths("--classpath", classpathEntries);
+      if (!classpathEntries.isEmpty()) {
+        result.add("--classpath").addExecPaths(classpathEntries);
+      }
       return result;
     }
 
@@ -536,18 +544,18 @@ public class JavaHeaderCompileAction extends SpawnAction {
       CustomCommandLine.Builder result = CustomCommandLine.builder();
       baseCommandLine(result, classpathEntries);
       if (!processorNames.isEmpty()) {
-        result.add("--processors", processorNames);
+        result.add("--processors").add(processorNames);
       }
       if (!processorFlags.isEmpty()) {
-        result.add("--javacopts", processorFlags);
+        result.add("--javacopts").add(processorFlags);
       }
       if (!processorPath.isEmpty()) {
-        result.addExecPaths("--processorpath", processorPath);
+        result.add("--processorpath").addExecPaths(processorPath);
       }
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
         result.add(new JavaCompileAction.JarsToTargetsArgv(classpathEntries, directJars));
         if (!compileTimeDependencyArtifacts.isEmpty()) {
-          result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
+          result.add("--deps_artifacts").addExecPaths(compileTimeDependencyArtifacts);
         }
       }
       return result.build();

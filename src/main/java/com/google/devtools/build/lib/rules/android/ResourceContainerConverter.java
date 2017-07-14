@@ -240,12 +240,14 @@ public class ResourceContainerConverter {
 
     if (dependencies != null) {
       if (!dependencies.getTransitiveResources().isEmpty()) {
-        cmdBuilder.addJoinValues(
-            "--data", toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
+        cmdBuilder
+            .add("--data")
+            .addJoinValues(toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
       }
       if (!dependencies.getDirectResources().isEmpty()) {
-        cmdBuilder.addJoinValues(
-            "--directData", toArg.listSeparator(), dependencies.getDirectResources(), toArg);
+        cmdBuilder
+            .add("--directData")
+            .addJoinValues(toArg.listSeparator(), dependencies.getDirectResources(), toArg);
       }
       // This flattens the nested set. Since each ResourceContainer needs to be transformed into
       // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation

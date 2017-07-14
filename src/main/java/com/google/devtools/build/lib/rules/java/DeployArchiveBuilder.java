@@ -176,13 +176,11 @@ public class DeployArchiveBuilder {
     }
     args.add("--normalize");
     if (javaMainClass != null) {
-      args.add("--main_class");
-      args.add(javaMainClass);
+      args.add("--main_class").add(javaMainClass);
     }
 
     if (!deployManifestLines.isEmpty()) {
-      args.add("--deploy_manifest_lines");
-      args.add(deployManifestLines);
+      args.add("--deploy_manifest_lines").add(deployManifestLines);
     }
 
     if (buildInfoFiles != null) {
@@ -194,12 +192,15 @@ public class DeployArchiveBuilder {
       args.add("--exclude_build_data");
     }
     if (launcher != null) {
-      args.add("--java_launcher");
-      args.add(launcher.getExecPathString());
+      args.add("--java_launcher").add(launcher.getExecPathString());
     }
 
-    args.addExecPaths("--classpath_resources", classpathResources);
-    args.addExecPaths("--sources", runtimeClasspath);
+    if (!classpathResources.isEmpty()) {
+      args.add("--classpath_resources").addExecPaths(classpathResources);
+    }
+    if (!Iterables.isEmpty(runtimeClasspath)) {
+      args.add("--sources").addExecPaths(runtimeClasspath);
+    }
     return args;
   }
 

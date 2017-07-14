@@ -492,8 +492,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
     if (!Iterables.isEmpty(sourceJars)) {
       sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
-      argBuilder.addJoinExecPaths("--src_jars", ",", sourceJars);
-      argBuilder.add(sourceJarFlags(ruleContext));
+      argBuilder
+          .add("--src_jars")
+          .addJoinExecPaths(",", sourceJars)
+          .add(sourceJarFlags(ruleContext));
     }
 
     Iterable<String> translationFlags = ruleContext
@@ -504,7 +506,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     NestedSet<Artifact> depsHeaderMappingFiles =
         depJ2ObjcMappingFileProvider.getHeaderMappingFiles();
     if (!depsHeaderMappingFiles.isEmpty()) {
-      argBuilder.addJoinExecPaths("--header-mapping", ",", depsHeaderMappingFiles);
+      argBuilder.add("--header-mapping").addJoinExecPaths(",", depsHeaderMappingFiles);
     }
 
     boolean experimentalJ2ObjcHeaderMap =
@@ -516,7 +518,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     NestedSet<Artifact> depsClassMappingFiles = depJ2ObjcMappingFileProvider.getClassMappingFiles();
     if (!depsClassMappingFiles.isEmpty()) {
-      argBuilder.addJoinExecPaths("--mapping", ",", depsClassMappingFiles);
+      argBuilder.add("--mapping").addJoinExecPaths(",", depsClassMappingFiles);
     }
 
     Artifact archiveSourceMappingFile = j2ObjcOutputArchiveSourceMappingFile(ruleContext);
@@ -538,7 +540,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     NestedSet<Artifact> compileTimeJars =
         compArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
     if (!compileTimeJars.isEmpty()) {
-      argBuilder.addJoinExecPaths("-classpath", ":", compileTimeJars);
+      argBuilder.add("-classpath").addJoinExecPaths(":", compileTimeJars);
     }
 
     argBuilder.addExecPaths(sources);
@@ -584,10 +586,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (experimentalJ2ObjcHeaderMap) {
       CustomCommandLine.Builder headerMapCommandLine = CustomCommandLine.builder();
       if (!Iterables.isEmpty(sources)) {
-        headerMapCommandLine.addJoinExecPaths("--source_files", ",", sources);
+        headerMapCommandLine.add("--source_files").addJoinExecPaths(",", sources);
       }
       if (!Iterables.isEmpty(sourceJars)) {
-        headerMapCommandLine.addJoinExecPaths("--source_jars", ",", sourceJars);
+        headerMapCommandLine.add("--source_jars").addJoinExecPaths(",", sourceJars);
       }
       headerMapCommandLine.addExecPath("--output_mapping_file", outputHeaderMappingFile);
       ruleContext.registerAction(new SpawnAction.Builder()
