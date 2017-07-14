@@ -105,6 +105,10 @@ public final class Chunker {
   private long offset;
   private byte[] chunkCache;
 
+  // Set to true on the first call to next(). This is so that the Chunker can open its data source
+  // lazily on the first call to next(), as opposed to opening it in the constructor.
+  private boolean initialized;
+
   public Chunker(byte[] data) throws IOException {
     this(data, getDefaultChunkSize());
   }
@@ -149,7 +153,6 @@ public final class Chunker {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.digest = checkNotNull(digest);
     this.chunkSize = chunkSize;
-    reset();
   }
 
   public Digest digest() {
@@ -177,7 +180,7 @@ public final class Chunker {
    * Returns {@code true} if a subsequent call to {@link #next()} returns a {@link Chunk} object;
    */
   public boolean hasNext() {
-    return data != null;
+    return data != null || !initialized;
   }
 
   /**
@@ -192,6 +195,11 @@ public final class Chunker {
   public Chunk next() throws IOException {
     if (!hasNext()) {
       throw new NoSuchElementException();
+    }
+
+    if (!initialized) {
+      reset();
+      initialized = true;
     }
 
     if (digest.getSizeBytes() == 0) {
