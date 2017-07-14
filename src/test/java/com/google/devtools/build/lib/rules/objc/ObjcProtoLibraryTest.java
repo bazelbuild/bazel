@@ -679,12 +679,12 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testModulemapCreatedForNonLinkingTargets() throws Exception {
-    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_protobuf");
+    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_protobuf", false);
   }
 
   @Test
   public void testModulemapNotCreatedForLinkingTargets() throws Exception {
-    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_binary");
+    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_binary", true);
   }
 
   @Test
@@ -760,7 +760,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     return Joiner.on('\n').join(Ordering.natural().immutableSortedCopy(elements));
   }
 
-  private void checkOnlyLibModuleMapsArePresentForTarget(String target) throws Exception {
+  private void checkOnlyLibModuleMapsArePresentForTarget(String target,
+      boolean fromBinary) throws Exception {
     Artifact libModuleMap =
         getGenfilesArtifact(
             "opl_protobuf.modulemaps/module.modulemap",
@@ -770,7 +771,11 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             "protobuf_lib.modulemaps/module.modulemap",
             getConfiguredTarget("//objcproto:protobuf_lib"));
 
-    ObjcProvider provider = providerForTarget(target);
+    ObjcProvider provider = fromBinary
+        ? getConfiguredTarget(target)
+              .get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR)
+              .getDepsObjcProvider()
+        : providerForTarget(target);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.MODULE_MAP).toSet()))
         .containsExactlyElementsIn(
             Artifact.toRootRelativePaths(ImmutableSet.of(libModuleMap, protolibModuleMap)));
