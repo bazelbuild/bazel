@@ -39,6 +39,7 @@ import com.google.protobuf.Duration;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeSet;
@@ -159,11 +160,13 @@ final class RemoteSpawnRunner implements SpawnRunner {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
-    // Somewhat ugly: we rely on the stable order of outputs here for remote action caching.
+    ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
-      // TODO: output directories should be handled here, when they are supported.
-      action.addOutputFiles(output.getExecPathString());
+      outputPaths.add(output.getExecPathString());
     }
+    Collections.sort(outputPaths);
+    // TODO: output directories should be handled here, when they are supported.
+    action.addAllOutputFiles(outputPaths);
     if (platform != null) {
       action.setPlatform(platform);
     }

@@ -167,7 +167,29 @@ public class GrpcRemoteExecutionClientTest {
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
             /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            /*outputs=*/ ImmutableList.<ActionInput>of(
+                new ActionInput() {
+                  @Override
+                  public String getExecPathString() {
+                    return "foo";
+                  }
+
+                  @Override
+                  public PathFragment getExecPath() {
+                    return null; // unused here.
+                  }
+                },
+                new ActionInput() {
+                  @Override
+                  public String getExecPathString() {
+                    return "bar";
+                  }
+
+                  @Override
+                  public PathFragment getExecPath() {
+                    return null; // unused here.
+                  }
+                }),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -335,6 +357,10 @@ public class GrpcRemoteExecutionClientTest {
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            // Check that the output files are sorted.
+            assertThat(request.getAction().getOutputFilesList())
+                .containsExactly("bar", "foo")
+                .inOrder();
             responseObserver.onNext(
                 Operation.newBuilder()
                     .setDone(true)
