@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
 @ThreadSafe
-final class GrpcRemoteExecutor {
+class GrpcRemoteExecutor {
 
   private final Channel channel;
   private final CallCredentials callCredentials;

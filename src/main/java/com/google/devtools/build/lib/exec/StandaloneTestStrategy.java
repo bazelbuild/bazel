@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -47,7 +48,6 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData.Builder;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 /** Runs TestRunnerAction actions. */
@@ -107,10 +107,13 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     ResolvedPaths resolvedPaths = action.resolve(execRoot);
 
-    Map<String, String> info = new HashMap<>();
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    if (!action.shouldCacheResult()) {
+      executionInfo.put(ExecutionRequirements.NO_CACHE, "");
+    }
     // This key is only understood by StandaloneSpawnStrategy.
-    info.put("timeout", "" + getTimeout(action));
-    info.putAll(action.getTestProperties().getExecutionInfo());
+    executionInfo.put("timeout", "" + getTimeout(action));
+    executionInfo.putAll(action.getTestProperties().getExecutionInfo());
 
     ResourceSet localResourceUsage =
         action
@@ -123,7 +126,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             action,
             getArgs(COLLECT_COVERAGE, action),
             ImmutableMap.copyOf(env),
-            ImmutableMap.copyOf(info),
+            executionInfo.build(),
             new RunfilesSupplierImpl(
                 runfilesDir.relativeTo(execRoot), action.getExecutionSettings().getRunfiles()),
             /*inputs=*/ ImmutableList.copyOf(action.getInputs()),

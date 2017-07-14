@@ -96,7 +96,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = Digests.computeActionKey(action);
     try {
-      boolean acceptCachedResult = options.remoteAcceptCached;
+      boolean acceptCachedResult = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
       ActionResult result =
           acceptCachedResult
               ? remoteCache.getCachedActionResult(actionKey)
@@ -198,7 +198,8 @@ final class RemoteSpawnRunner implements SpawnRunner {
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     SpawnResult result = fallbackRunner.exec(spawn, policy);
-    if (options.remoteUploadLocalResults && remoteCache != null && actionKey != null) {
+    if (options.remoteUploadLocalResults && Spawns.mayBeCached(spawn) && remoteCache != null
+        && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
         Path outputFile = execRoot.getRelative(output.getExecPathString());
