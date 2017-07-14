@@ -55,6 +55,7 @@ import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -428,11 +429,11 @@ public class BlazeCommandDispatcher {
     }
 
     if (!commandAnnotation.binaryStdOut()) {
-      outErr = lineBufferOut(outErr);
+      outErr = bufferOut(outErr, eventHandlerOptions.experimentalUi);
     }
 
     if (!commandAnnotation.binaryStdErr()) {
-      outErr = lineBufferErr(outErr);
+      outErr = bufferErr(outErr, eventHandlerOptions.experimentalUi);
     }
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
@@ -723,13 +724,23 @@ public class BlazeCommandDispatcher {
     accumulator.add(commandAnnotation.name());
   }
 
-  private OutErr lineBufferOut(OutErr outErr) {
-    OutputStream wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
+  private OutErr bufferOut(OutErr outErr, boolean fully) {
+    OutputStream wrappedOut;
+    if (fully) {
+      wrappedOut = new BufferedOutputStream(outErr.getOutputStream());
+    } else {
+      wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
+    }
     return OutErr.create(wrappedOut, outErr.getErrorStream());
   }
 
-  private OutErr lineBufferErr(OutErr outErr) {
-    OutputStream wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
+  private OutErr bufferErr(OutErr outErr, boolean fully) {
+    OutputStream wrappedErr;
+    if (fully) {
+      wrappedErr = new BufferedOutputStream(outErr.getErrorStream());
+    } else {
+      wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
+    }
     return OutErr.create(outErr.getOutputStream(), wrappedErr);
   }
 
