@@ -180,11 +180,12 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    PackageCacheOptions pkgOptions = optionsProvider.getOptions(PackageCacheOptions.class);
+  public void beforeCommand(CommandEnvironment env) {
+    delegator.setClientEnvironment(env.getActionClientEnv());
+    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
 
-    RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
+    RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
       if (repoOptions.experimentalRepositoryCache != null) {
         Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
@@ -213,11 +214,6 @@ public class BazelRepositoryModule extends BlazeModule {
     return ImmutableList.of(
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
-  }
-
-  @Override
-  public void beforeCommand(CommandEnvironment env) {
-    delegator.setClientEnvironment(env.getActionClientEnv());
   }
 
   @Override

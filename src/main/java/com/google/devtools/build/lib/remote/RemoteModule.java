@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -77,7 +75,6 @@ public final class RemoteModule extends BlazeModule {
 
   private final CasPathConverter converter = new CasPathConverter();
 
-  private CommandEnvironment env;
   private RemoteActionContextProvider actionContextProvider;
 
   @Override
@@ -89,15 +86,9 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
-    this.env = env;
-  }
 
-  @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    checkState(env != null);
-
-    RemoteOptions remoteOptions = optionsProvider.getOptions(RemoteOptions.class);
-    AuthAndTLSOptions authAndTlsOptions = optionsProvider.getOptions(AuthAndTLSOptions.class);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     converter.options = remoteOptions;
 
     // Quit if no remote options specified.
