@@ -180,6 +180,10 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
             Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)
                 .getRecursiveJavaCompilationArgs().getRuntimeJars()),
+        "transitive_compile_time_jars", SkylarkNestedSet.of(
+            Artifact.class,
+            providers.getProvider(JavaCompilationArgsProvider.class)
+                .getRecursiveJavaCompilationArgs().getCompileTimeJars()),
         "compile_jars", SkylarkNestedSet.of(
             Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)

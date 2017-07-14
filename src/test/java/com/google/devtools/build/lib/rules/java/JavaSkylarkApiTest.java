@@ -186,15 +186,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "result = provider()",
         "def impl(ctx):",
         "   java_provider = ctx.attr.dep[java_common.provider]",
-        "   jp_cjar_cnt = len(java_provider.compile_jars)",
-        "   jp_rjar_cnt = len(java_provider.transitive_runtime_jars)",
-        "   if(jp_cjar_cnt != ctx.attr.cnt_cjar):",
-        "     fail('#compile_jars is %d, not %d' % (jp_cjar_cnt, ctx.attr.cnt_cjar))",
-        "   if(jp_rjar_cnt != ctx.attr.cnt_rjar):",
-        "     fail('#transitive_runtime_jars is %d, not %d' % (jp_rjar_cnt, ctx.attr.cnt_rjar))",
         "   return [result(",
         "             compile_jars = java_provider.compile_jars,",
         "             transitive_runtime_jars = java_provider.transitive_runtime_jars,",
+        "             transitive_compile_time_jars = java_provider.transitive_compile_time_jars,",
         "          )]",
         "my_rule = rule(impl, attrs = { ",
         "  'dep' : attr.label(), ",
@@ -224,9 +219,13 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         (SkylarkNestedSet) (skylarkClassObject.getValue("compile_jars"));
     SkylarkNestedSet rawMyTransitiveRuntimeJars =
         (SkylarkNestedSet) (skylarkClassObject.getValue("transitive_runtime_jars"));
+    SkylarkNestedSet rawMyTransitiveCompileTimeJars =
+        (SkylarkNestedSet) (skylarkClassObject.getValue("transitive_compile_time_jars"));
 
     NestedSet<Artifact> myCompileJars = rawMyCompileJars.getSet(Artifact.class);
     NestedSet<Artifact> myTransitiveRuntimeJars = rawMyTransitiveRuntimeJars.getSet(Artifact.class);
+    NestedSet<Artifact> myTransitiveCompileTimeJars =
+        rawMyTransitiveCompileTimeJars.getSet(Artifact.class);
 
     // Extract out information from native rule
     JavaCompilationArgsProvider jlJavaCompilationArgsProvider =
@@ -235,10 +234,13 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         jlJavaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars();
     NestedSet<Artifact> jlTransitiveRuntimeJars =
         jlJavaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars();
+    NestedSet<Artifact> jlTransitiveCompileTimeJars =
+        jlJavaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
 
     // Using reference equality since should be precisely identical
     assertThat(myCompileJars == jlCompileJars).isTrue();
     assertThat(myTransitiveRuntimeJars == jlTransitiveRuntimeJars).isTrue();
+    assertThat(myTransitiveCompileTimeJars).isEqualTo(jlTransitiveCompileTimeJars);
   }
 
   @Test
