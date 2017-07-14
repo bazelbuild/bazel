@@ -1695,7 +1695,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * @return the command line for the given {@code action}.
      */
-    List<String> getCommandLine(String action, Variables variables) {
+    public List<String> getCommandLine(String action, Variables variables) {
       List<String> commandLine = new ArrayList<>();
       for (Feature feature : enabledFeatures) {
         feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
