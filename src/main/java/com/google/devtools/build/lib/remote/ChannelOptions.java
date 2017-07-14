@@ -19,17 +19,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.common.options.Options;
 import io.grpc.CallCredentials;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.netty.handler.ssl.SslContext;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;
-import javax.net.ssl.SSLException;
 
 /** Instantiate all authentication helpers from build options. */
 @ThreadSafe
@@ -38,7 +37,6 @@ public final class ChannelOptions {
   private final SslContext sslContext;
   private final String tlsAuthorityOverride;
   private final CallCredentials credentials;
-  public static final ChannelOptions DEFAULT = create(Options.getDefaults(AuthAndTLSOptions.class));
 
   private ChannelOptions(
       boolean tlsEnabled,
@@ -67,52 +65,70 @@ public final class ChannelOptions {
     return sslContext;
   }
 
-  public static ChannelOptions create(AuthAndTLSOptions options) {
-    try {
-      return create(
-          options,
-          options.authCredentials != null
-              ? new FileInputStream(options.authCredentials)
-              : null);
-    } catch (IOException e) {
-      throw new IllegalArgumentException(
-          "Failed initializing auth credentials for remote cache/execution " + e);
+  public static ChannelOptions create(AuthAndTLSOptions options) throws IOException {
+    if (options.authCredentials != null) {
+      try (InputStream authFile = new FileInputStream(options.authCredentials)) {
+        return create(options, authFile);
+      } catch (FileNotFoundException e) {
+        String message = String.format("Could not open auth credentials file '%s': %s",
+            options.authCredentials, e.getMessage());
+        throw new IOException(message, e);
+      }
+    } else {
+      return create(options, null);
     }
   }
 
   @VisibleForTesting
-  public static ChannelOptions create(
+  static ChannelOptions create(
       AuthAndTLSOptions options,
-      @Nullable InputStream credentialsInputStream) {
-    boolean tlsEnabled = options.tlsEnabled;
-    SslContext sslContext = null;
-    String tlsAuthorityOverride = options.tlsAuthorityOverride;
-    CallCredentials credentials = null;
-    if (options.tlsEnabled && options.tlsCertificate != null) {
-      try {
-        sslContext =
-            GrpcSslContexts.forClient().trustManager(new File(options.tlsCertificate)).build();
-      } catch (SSLException e) {
-        throw new IllegalArgumentException(
-            "SSL error initializing cert " + options.tlsCertificate + " : " + e);
-      }
-    }
-    if (options.authEnabled) {
-      try {
-        GoogleCredentials creds =
-            credentialsInputStream == null
-                ? GoogleCredentials.getApplicationDefault()
-                : GoogleCredentials.fromStream(credentialsInputStream);
-        if (options.authScope != null) {
-          creds = creds.createScoped(ImmutableList.of(options.authScope));
-        }
-        credentials = MoreCallCredentials.from(creds);
-      } catch (IOException e) {
-        throw new IllegalArgumentException(
-            "Failed initializing auth credentials for remote cache/execution " + e);
-      }
-    }
+      @Nullable InputStream credentialsFile) throws IOException {
+    final SslContext sslContext =
+        options.tlsEnabled ? createSSlContext(options.tlsCertificate) : null;
+
+    final CallCredentials callCredentials =
+        options.authEnabled ? createCallCredentials(credentialsFile, options.authScope) : null;
+
     return new ChannelOptions(
-        tlsEnabled, sslContext, tlsAuthorityOverride, credentials);
+        sslContext != null, sslContext, options.tlsAuthorityOverride, callCredentials);
+  }
+
+  private static CallCredentials createCallCredentials(@Nullable InputStream credentialsFile,
+      @Nullable String authScope) throws IOException {
+    try {
+      GoogleCredentials creds =
+          credentialsFile == null
+              ? GoogleCredentials.getApplicationDefault()
+              : GoogleCredentials.fromStream(credentialsFile);
+      if (authScope != null) {
+        creds = creds.createScoped(ImmutableList.of(authScope));
+      }
+      return MoreCallCredentials.from(creds);
+    } catch (IOException e) {
+      String message = "Failed to init auth credentials for remote caching/execution: "
+          + e.getMessage();
+      throw new IOException(message, e);
+    }
+  }
+
+  private static SslContext createSSlContext(@Nullable String rootCert) throws IOException {
+    if (rootCert == null) {
+      try {
+        return GrpcSslContexts.forClient().build();
+      } catch (Exception e) {
+        String message = "Failed to init TLS infrastructure for remote caching/execution: "
+            + e.getMessage();
+        throw new IOException(message, e);
+      }
+    } else {
+      try {
+        return GrpcSslContexts.forClient().trustManager(new File(rootCert)).build();
+      } catch (Exception e) {
+        String message = "Failed to init TLS infrastructure for remote caching/execution using "
+            + "'%s' as root certificate: %s";
+        message = String.format(message, rootCert, e.getMessage());
+        throw new IOException(message, e);
+      }
+    }
   }
 }

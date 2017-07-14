@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -202,8 +203,10 @@ public class GrpcRemoteExecutionClientTest {
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
+    ChannelOptions defaultOpts =
+        ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, ChannelOptions.DEFAULT, options, retrier);
+        new GrpcRemoteCache(channel, defaultOpts, options, retrier);
     client = new RemoteSpawnRunner(execRoot, options, null, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }

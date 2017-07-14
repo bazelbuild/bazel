@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -29,61 +29,40 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import javax.annotation.Nullable;
 
 /**
  * Provide a remote execution context.
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
+  private final RemoteActionCache cache;
+  private final GrpcRemoteExecutor executor;
+
+
   private RemoteSpawnRunner spawnRunner;
   private RemoteSpawnStrategy spawnStrategy;
 
-  RemoteActionContextProvider(CommandEnvironment env) {
+  RemoteActionContextProvider(CommandEnvironment env, @Nullable RemoteActionCache cache,
+      @Nullable GrpcRemoteExecutor executor) {
     this.env = env;
+    this.executor = executor;
+    this.cache = cache;
   }
 
   @Override
   public void init(
       ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
-    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
 
-    Retrier retrier = new Retrier(remoteOptions);
-
-    RemoteActionCache remoteCache;
-    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache =
-          new GrpcRemoteCache(
-              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
-              channelOptions,
-              remoteOptions,
-              retrier);
-    } else {
-      remoteCache = null;
-    }
-
-    // Otherwise remoteCache remains null and remote caching/execution are disabled.
-    GrpcRemoteExecutor remoteExecutor;
-    if (remoteCache != null && remoteOptions.remoteExecutor != null) {
-      remoteExecutor =
-          new GrpcRemoteExecutor(
-              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
-              channelOptions.getCallCredentials(),
-              remoteOptions.remoteTimeout,
-              retrier);
-    } else {
-      remoteExecutor = null;
-    }
     spawnRunner = new RemoteSpawnRunner(
         env.getExecRoot(),
         remoteOptions,
         createFallbackRunner(actionInputPrefetcher),
-        remoteCache,
-        remoteExecutor);
+        cache,
+        executor);
     spawnStrategy =
         new RemoteSpawnStrategy(
             "remote",
@@ -109,7 +88,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   @Override
   public Iterable<? extends ActionContext> getActionContexts() {
-    return ImmutableList.of(Preconditions.checkNotNull(spawnStrategy));
+    return ImmutableList.of(checkNotNull(spawnStrategy));
   }
 
   @Override
