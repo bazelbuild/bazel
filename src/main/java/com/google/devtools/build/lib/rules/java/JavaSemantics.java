@@ -82,6 +82,8 @@ public interface JavaSemantics {
       fromTemplates("%{name}_proguard.usage");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
+  SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT =
+      fromTemplates("%{name}-one-version.txt");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");

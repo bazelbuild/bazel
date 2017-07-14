@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -63,11 +64,13 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
@@ -370,6 +373,29 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         derivedJarFunction);
 
+    OneVersionEnforcementLevel oneVersionEnforcementLevel =
+        ruleContext.getFragment(JavaConfiguration.class).oneVersionEnforcementLevel();
+    Artifact oneVersionOutputArtifact = null;
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+      NestedSet<Artifact> transitiveDependencies =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addAll(
+                  Iterables.transform(resourceClasses.getRuntimeClassPath(), derivedJarFunction))
+              .addAll(
+                  Iterables.transform(
+                      androidCommon.getJarsProducedForRuntime(), derivedJarFunction))
+              .build();
+
+      oneVersionOutputArtifact =
+          OneVersionCheckActionBuilder.newBuilder()
+              .withEnforcementLevel(oneVersionEnforcementLevel)
+              .outputArtifact(
+                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
+              .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
+              .checkJars(transitiveDependencies)
+              .build(ruleContext);
+    }
+
     Artifact proguardMapping = ruleContext.getPrerequisiteArtifact(
         "proguard_apply_mapping", Mode.TARGET);
 
@@ -393,7 +419,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         resourceClasses,
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
-        proguardMapping);
+        proguardMapping,
+        oneVersionOutputArtifact);
   }
 
   public static RuleConfiguredTargetBuilder createAndroidBinary(
@@ -416,7 +443,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
-      Artifact proguardMapping)
+      Artifact proguardMapping,
+      @Nullable Artifact oneVersionEnforcementArtifact)
       throws InterruptedException, RuleErrorException {
 
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
@@ -784,6 +812,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       builder.add(
           ProguardMappingProvider.class,
           ProguardMappingProvider.create(finalProguardMap));
+    }
+
+    if (oneVersionEnforcementArtifact != null) {
+      builder.addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, oneVersionEnforcementArtifact);
     }
 
     return builder
