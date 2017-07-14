@@ -345,10 +345,7 @@ public class CppCompileActionBuilder {
         allowUsingHeaderModules
             && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
 
-    if (!featureConfiguration.actionIsConfigured(getActionName())) {
-      errorCollector.accept(
-          String.format("Expected action_config for '%s' to be configured", getActionName()));
-    } else {
+    if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
           featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements()) {
         executionInfo.put(executionRequirement, "");
