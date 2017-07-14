@@ -325,15 +325,14 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
             .setPassedLog(testLogPath.getPathString());
-      } catch (ExecException e) {
-        // Execution failed, which we consider a test failure.
+      } catch (SpawnExecException e) {
+        // If this method returns normally, then the higher level will rerun the test (up to
+        // --flaky_test_attempts times). We don't catch any other ExecException here, so those never
+        // get retried.
         builder
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
             .addFailedLogs(testLogPath.getPathString());
-        if (spawnActionContext.shouldPropagateExecException()) {
-          throw e;
-        }
       } finally {
         long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
         builder.setStartTimeMillisEpoch(startTime);

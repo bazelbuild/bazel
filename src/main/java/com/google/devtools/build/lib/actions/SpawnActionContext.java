@@ -22,11 +22,4 @@ public interface SpawnActionContext extends ActionContext {
   /** Executes the given spawn. */
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
-
-  /**
-   * If an ExecException should be rethrown by the strategy that executed this.
-   * Currently only works for LinuxSandboxedStrategy:
-   * If true, will throw ExecException and give reproduction instruction for sandbox.
-   */
-  boolean shouldPropagateExecException();
 }

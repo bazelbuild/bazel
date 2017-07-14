@@ -38,7 +38,6 @@ public final class LinuxSandboxedStrategy extends SandboxStrategy {
       Path inaccessibleHelperDir) {
     super(
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class),
         new LinuxSandboxedSpawnRunner(
             cmdEnv, buildRequest, sandboxBase, inaccessibleHelperFile, inaccessibleHelperDir));
   }

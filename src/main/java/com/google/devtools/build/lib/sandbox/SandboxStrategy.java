@@ -43,16 +43,13 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   private final boolean verboseFailures;
-  private final SandboxOptions sandboxOptions;
   private final SpawnInputExpander spawnInputExpander;
   private final AbstractSandboxSpawnRunner spawnRunner;
 
   public SandboxStrategy(
       boolean verboseFailures,
-      SandboxOptions sandboxOptions,
       AbstractSandboxSpawnRunner spawnRunner) {
     this.verboseFailures = verboseFailures;
-    this.sandboxOptions = sandboxOptions;
     this.spawnInputExpander = new SpawnInputExpander(false);
     this.spawnRunner = spawnRunner;
   }
@@ -141,7 +138,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
       String message =
           CommandFailureUtils.describeCommandFailure(
-              true, spawn.getArguments(), spawn.getEnvironment(), null);
+              verboseFailures, spawn.getArguments(), spawn.getEnvironment(), null);
       throw new SpawnExecException(
           message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
     }
@@ -150,10 +147,5 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   @Override
   public String toString() {
     return "sandboxed";
-  }
-
-  @Override
-  public boolean shouldPropagateExecException() {
-    return verboseFailures && sandboxOptions.sandboxDebug;
   }
 }

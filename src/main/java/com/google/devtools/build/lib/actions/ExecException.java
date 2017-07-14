@@ -98,12 +98,4 @@ public abstract class ExecException extends Exception {
    */
   public abstract ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action);
-
-
-  /**
-   * Tells if the execution exception was thrown because of the execution timing out.
-   */
-  public boolean hasTimedOut() {
-    return false;
-  }
 }

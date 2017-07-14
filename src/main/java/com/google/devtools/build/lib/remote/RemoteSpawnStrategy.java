@@ -167,9 +167,4 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       throw new SpawnExecException(message, result, /*catastrophe=*/ false);
     }
   }
-
-  @Override
-  public boolean shouldPropagateExecException() {
-    return false;
-  }
 }

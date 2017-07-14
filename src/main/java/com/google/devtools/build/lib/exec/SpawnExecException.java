@@ -49,7 +49,6 @@ public class SpawnExecException extends ExecException {
     return result;
   }
 
-  @Override
   public boolean hasTimedOut() {
     return getSpawnResult().status() == Status.TIMEOUT;
   }

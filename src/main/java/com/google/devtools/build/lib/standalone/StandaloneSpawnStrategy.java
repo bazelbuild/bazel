@@ -154,9 +154,4 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
   public String toString() {
     return "standalone";
   }
-
-  @Override
-  public boolean shouldPropagateExecException() {
-    return false;
-  }
 }

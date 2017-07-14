@@ -397,9 +397,4 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   public String toString() {
     return "worker";
   }
-
-  @Override
-  public boolean shouldPropagateExecException() {
-    return false;
-  }
 }

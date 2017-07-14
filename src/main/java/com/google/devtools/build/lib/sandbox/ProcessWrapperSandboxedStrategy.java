@@ -35,7 +35,6 @@ final class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       String productName) {
     super(
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class),
         new ProcessWrapperSandboxedSpawnRunner(cmdEnv, buildRequest, sandboxBase, productName));
   }
 }
