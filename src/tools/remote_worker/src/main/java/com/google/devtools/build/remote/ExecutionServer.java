@@ -23,6 +23,7 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Digests;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
@@ -99,13 +100,22 @@ final class ExecutionServer extends ExecutionImplBase {
     this.workerOptions = workerOptions;
     this.cache = cache;
     this.operationsCache = operationsCache;
-    this.executorService =
-        MoreExecutors.listeningDecorator(
-            new ThreadPoolExecutor(
-                1, workerOptions.jobs,  // always have one thread available, and use at most jobs
-                1000, TimeUnit.SECONDS, // shut down idle threads after 1000 seconds
-                // TODO(ulfjack): We need to reject work eventually.
-                new LinkedBlockingQueue<>())); // no blocking, we can always take more
+    ThreadPoolExecutor realExecutor = new ThreadPoolExecutor(
+        // This is actually the max number of concurrent jobs.
+        workerOptions.jobs,
+        // Since we use an unbounded queue, the executor ignores this value, but it still checks
+        // that it is greater or equal to the value above.
+        workerOptions.jobs,
+        // Shut down idle threads after one minute. Threads aren't all that expensive, but we also
+        // don't need to keep them around if we don't need them.
+        1, TimeUnit.MINUTES,
+        // We use an unbounded queue for now.
+        // TODO(ulfjack): We need to reject work eventually.
+        new LinkedBlockingQueue<>(),
+        new ThreadFactoryBuilder().setNameFormat("subprocess-handler-%d").build());
+    // Allow the core threads to die.
+    realExecutor.allowCoreThreadTimeOut(true);
+    this.executorService = MoreExecutors.listeningDecorator(realExecutor);
   }
 
   @Override
