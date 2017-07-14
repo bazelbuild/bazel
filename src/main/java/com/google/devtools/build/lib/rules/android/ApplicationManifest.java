@@ -302,8 +302,7 @@ public final class ApplicationManifest {
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       boolean incremental,
-      Artifact proguardCfg)
-      throws InterruptedException {
+      Artifact proguardCfg) throws InterruptedException, RuleErrorException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -317,16 +316,12 @@ public final class ApplicationManifest {
         ruleContext,
         false, /* isLibrary */
         resourceDeps,
-        ResourceFilter.empty(ruleContext),
         ImmutableList.<String>of(), /* uncompressedExtensions */
         true, /* crunchPng */
         incremental,
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
-            .setManifest(getManifest())
             .setRTxt(rTxt)
-            .setApk(resourceApk)
-            .build(),
+            .setApk(resourceApk),
         data,
         proguardCfg,
         null, /* Artifact mainDexProguardCfg */
@@ -346,15 +341,12 @@ public final class ApplicationManifest {
       Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources,
-      boolean alwaysExportManifest)
-      throws InterruptedException {
+      boolean alwaysExportManifest) throws InterruptedException, RuleErrorException {
     if (ruleContext.hasErrors()) {
       return null;
     }
     ResourceContainer.Builder resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
-            .setManifest(getManifest())
             .setRTxt(rTxt)
             .setSymbols(symbols)
             .setJavaPackageFrom(JavaPackageSource.MANIFEST);
@@ -365,11 +357,10 @@ public final class ApplicationManifest {
         ruleContext,
         true, /* isLibrary */
         resourceDeps,
-        ResourceFilter.empty(ruleContext),
         ImmutableList.<String>of(), /* List<String> uncompressedExtensions */
         false, /* crunchPng */
         false, /* incremental */
-        resourceContainer.build(),
+        resourceContainer,
         data,
         null, /* Artifact proguardCfg */
         null, /* Artifact mainDexProguardCfg */
@@ -385,7 +376,6 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       Artifact resourceApk,
       ResourceDependencies resourceDeps,
-      ResourceFilter resourceFilter,
       List<String> uncompressedExtensions,
       boolean crunchPng,
       Artifact proguardCfg)
@@ -407,15 +397,11 @@ public final class ApplicationManifest {
         ruleContext,
         false /* isLibrary */,
         resourceDeps,
-        resourceFilter,
         uncompressedExtensions,
         crunchPng,
         true,
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
-            .setManifest(getManifest())
-            .setApk(resourceApk)
-            .build(),
+            .setApk(resourceApk),
         data,
         proguardCfg,
         null, /* mainDexProguardCfg */
@@ -433,7 +419,6 @@ public final class ApplicationManifest {
       Artifact resourceApk,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
-      ResourceFilter resourceFilter,
       List<String> uncompressedExtensions,
       boolean crunchPng,
       Artifact proguardCfg,
@@ -464,16 +449,12 @@ public final class ApplicationManifest {
         ruleContext,
         false /* isLibrary */,
         resourceDeps,
-        resourceFilter,
         uncompressedExtensions,
         crunchPng,
         false /* incremental */,
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
-            .setManifest(getManifest())
             .setRTxt(rTxt)
-            .setApk(resourceApk)
-            .build(),
+            .setApk(resourceApk),
         data,
         proguardCfg,
         mainDexProguardCfg,
@@ -490,7 +471,6 @@ public final class ApplicationManifest {
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbols,
-      ResourceFilter resourceFilter,
       Artifact manifestOut,
       Artifact mergedResources,
       Artifact dataBindingInfoZip)
@@ -512,17 +492,13 @@ public final class ApplicationManifest {
         ruleContext,
         true /* isLibrary */,
         resourceDeps,
-        resourceFilter,
         ImmutableList.<String>of() /* uncompressedExtensions */,
         false /* crunchPng */,
         false /* incremental */,
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
-            .setManifest(getManifest())
             .setRTxt(rTxt)
             .setSymbols(symbols)
-            .setApk(null)
-            .build(),
+            .setApk(null),
         data,
         null /* proguardCfg */,
         null /* mainDexProguardCfg */,
@@ -537,11 +513,10 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       boolean isLibrary,
       ResourceDependencies resourceDeps,
-      ResourceFilter resourceFilter,
       List<String> uncompressedExtensions,
       boolean crunchPng,
       boolean incremental,
-      ResourceContainer maybeInlinedResourceContainer,
+      ResourceContainer.Builder maybeInlinedResourceContainerBuilder,
       LocalResourceContainer data,
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
@@ -549,22 +524,30 @@ public final class ApplicationManifest {
       Artifact mergedResources,
       Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter) throws InterruptedException {
-    ResourceContainer resourceContainer = checkForInlinedResources(
-        maybeInlinedResourceContainer,
-        resourceDeps.getResources(),  // TODO(bazel-team): Figure out if we really need to check
-        // the ENTIRE transitive closure, or just the direct dependencies. Given that each rule with
-        // resources would check for inline resources, we can rely on the previous rule to have
-        // checked its dependencies.
-        ruleContext);
+      @Nullable Artifact featureAfter)
+      throws InterruptedException, RuleErrorException {
+    // Filter the resources during analysis to prevent processing of and dependencies on unwanted
+    // resources during execution.
+    ResourceFilter resourceFilter = ResourceFilter.fromRuleContext(ruleContext);
+    data = data.filter(ruleContext, resourceFilter);
+    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
+
+    // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
+    // container from it.
+    ResourceContainer resourceContainer =
+        checkForInlinedResources(
+            maybeInlinedResourceContainerBuilder
+                .setManifest(getManifest())
+                .setAssetsAndResourcesFrom(data)
+                .build(),
+            resourceDeps.getResources(), // TODO(bazel-team): Figure out if we really need to check
+            // the ENTIRE transitive closure, or just the direct dependencies. Given that each rule
+            // with resources would check for inline resources, we can rely on the previous rule to
+            // have checked its dependencies.
+            ruleContext);
     if (ruleContext.hasErrors()) {
       return null;
     }
-
-    // Filter the resources during analysis to prevent processing of and dependencies on unwanted
-    // resources during execution.
-    resourceContainer = resourceContainer.filter(ruleContext, resourceFilter);
-    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
 
     ResourceContainer processed;
     if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
