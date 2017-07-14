@@ -52,6 +52,7 @@ java_binary(
     ],
     deps = [
         ":bitfield",
+        "//third_party:guava",
         "//third_party/java/jacoco:blaze-agent",
         "//third_party/java/jacoco:core",
         "//third_party/java/jacoco:report",
