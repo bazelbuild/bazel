@@ -697,7 +697,6 @@ java_library(
         ":collect",
         ":concurrent",
         ":events",
-        ":ideinfo",
         ":java-compilation",
         ":java-rules",
         ":packages-internal",
@@ -1118,30 +1117,6 @@ java_library(
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "ideinfo",
-    srcs = glob(
-        ["ideinfo/*.java"],
-    ),
-    deps = [
-        ":android-rules",
-        ":build-base",
-        ":collect",
-        ":concurrent",
-        ":java-compilation",
-        ":java-rules",
-        ":packages-internal",
-        ":util",
-        ":vfs",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/protobuf:intellij_ide_info_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
