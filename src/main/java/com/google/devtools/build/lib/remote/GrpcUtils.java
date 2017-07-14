@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.util.RoundRobinLoadBalancerFactory;
+
 import java.io.IOException;
 
 /** Helper methods for gRPC calls */
@@ -29,7 +31,8 @@ final class GrpcUtils {
       NettyChannelBuilder builder =
           NettyChannelBuilder.forTarget(target)
               .negotiationType(
-                  channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+                  channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+            .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance());
       if (channelOptions.getSslContext() != null) {
         builder.sslContext(channelOptions.getSslContext());
         if (channelOptions.getTlsAuthorityOverride() != null) {
