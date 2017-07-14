@@ -19,13 +19,18 @@ import static junit.framework.TestCase.fail;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link Chunker}. */
 @RunWith(JUnit4.class)
@@ -126,6 +131,32 @@ public class ChunkerTest {
     chunker.reset();
 
     assertNextEquals(chunker, (byte) 1);
+  }
+
+  @Test
+  public void resourcesShouldBeReleased() throws IOException {
+    // Test that after having consumed all data or after reset() is called (whatever happens first)
+    // the underlying InputStream should be closed.
+
+    byte[] data = new byte[] {1, 2};
+    final AtomicReference<InputStream> in = new AtomicReference<>();
+    Supplier<InputStream> supplier = () -> {
+      in.set(Mockito.spy(new ByteArrayInputStream(data)));
+      return in.get();
+    };
+    Digest digest = Digests.computeDigest(data);
+
+    Chunker chunker = new Chunker(supplier, digest, 1);
+    assertThat(in.get()).isNull();
+    assertNextEquals(chunker, (byte) 1);
+    Mockito.verify(in.get(), Mockito.never()).close();
+    assertNextEquals(chunker, (byte) 2);
+    Mockito.verify(in.get()).close();
+
+    chunker.reset();
+    chunker.next();
+    chunker.reset();
+    Mockito.verify(in.get()).close();
   }
 
   private void assertNextEquals(Chunker chunker, byte... data) throws IOException {

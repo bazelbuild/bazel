@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -33,7 +34,12 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Splits an {@link InputStream} into one or more {@link Chunk}s of at most {@code chunkSize} bytes.
+ * Splits a data source into one or more {@link Chunk}s of at most {@code chunkSize} bytes.
+ *
+ * <p>After a data source has been fully consumed, that is until {@link #hasNext()} returns
+ * {@code false}, the chunker closes the underlying data source (i.e. file) itself. However, in
+ * case of error or when a data source does not get fully consumed, a user must call
+ * {@link #reset()} manually.
  */
 public final class Chunker {
 
@@ -106,7 +112,7 @@ public final class Chunker {
   private byte[] chunkCache;
 
   // Set to true on the first call to next(). This is so that the Chunker can open its data source
-  // lazily on the first call to next(), as opposed to opening it in the constructor.
+  // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
   public Chunker(byte[] data) throws IOException {
@@ -148,7 +154,8 @@ public final class Chunker {
     }, Digests.getDigestFromInputCache(actionInput, inputCache), chunkSize);
   }
 
-  private Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize)
+  @VisibleForTesting
+  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize)
       throws IOException {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.digest = checkNotNull(digest);
@@ -161,18 +168,16 @@ public final class Chunker {
 
   /**
    * Reset the {@link Chunker} state to when it was newly constructed.
+   *
+   * <p>Closes any open resources (file handles, ...).
    */
   public void reset() throws IOException {
     if (data != null) {
       data.close();
     }
-    try {
-      data = dataSupplier.get();
-    } catch (RuntimeException e) {
-      Throwables.propagateIfPossible(e.getCause(), IOException.class);
-      throw e;
-    }
+    data = null;
     offset = 0;
+    initialized = false;
     chunkCache = null;
   }
 
@@ -197,10 +202,7 @@ public final class Chunker {
       throw new NoSuchElementException();
     }
 
-    if (!initialized) {
-      reset();
-      initialized = true;
-    }
+    maybeInitialize();
 
     if (digest.getSizeBytes() == 0) {
       data = null;
@@ -245,5 +247,21 @@ public final class Chunker {
 
   private long bytesLeft() {
     return digest.getSizeBytes() - offset;
+  }
+
+  private void maybeInitialize() throws IOException {
+    if (initialized) {
+      return;
+    }
+    checkState(data == null);
+    checkState(offset == 0);
+    checkState(chunkCache == null);
+    try {
+      data = dataSupplier.get();
+    } catch (RuntimeException e) {
+      Throwables.propagateIfPossible(e.getCause(), IOException.class);
+      throw e;
+    }
+    initialized = true;
   }
 }
