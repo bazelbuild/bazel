@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.syntax.Type;
@@ -75,10 +76,11 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools", Mode.HOST);
 
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
-    List<String> jvmOpts = getJvmOpts(
-        ruleContext,
-        ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
-            javacDep.getLabel(), ImmutableList.of(javac)));
+    List<String> jvmOpts =
+        getJvmOpts(
+            ruleContext,
+            ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
+                AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac)));
 
     JavaToolchainData toolchainData =
         new JavaToolchainData(
