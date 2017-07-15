@@ -188,6 +188,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     private NestedSet<Artifact> javabaseInputs;
     private Artifact javacJar;
+    private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
@@ -318,6 +319,14 @@ public class JavaHeaderCompileAction extends SpawnAction {
       this.javacJar = javacJar;
       return this;
     }
+
+    /** Sets the tools jars. */
+    public Builder setToolsJars(NestedSet<Artifact> toolsJars) {
+      checkNotNull(toolsJars, "toolsJars must not be null");
+      this.toolsJars = toolsJars;
+      return this;
+    }
+
     /** Builds and registers the {@link JavaHeaderCompileAction} for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain) {
       ruleContext.registerAction(buildInternal(javaToolchain));
@@ -349,7 +358,12 @@ public class JavaHeaderCompileAction extends SpawnAction {
       // javac-turbine.
       boolean requiresAnnotationProcessing = !processorNames.isEmpty();
 
-      Iterable<Artifact> tools = ImmutableList.of(javacJar, javaToolchain.getHeaderCompiler());
+      NestedSet<Artifact> tools =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(javacJar)
+              .add(javaToolchain.getHeaderCompiler())
+              .addTransitive(toolsJars)
+              .build();
       ImmutableList<Artifact> outputs = ImmutableList.of(outputJar, outputDepsProto);
       NestedSet<Artifact> baseInputs =
           NestedSetBuilder.<Artifact>stableOrder()
@@ -357,7 +371,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
               .addAll(bootclasspathEntries)
               .addAll(sourceJars)
               .addAll(sourceFiles)
-              .addAll(tools)
+              .addTransitive(tools)
               .build();
 
       boolean noFallback =

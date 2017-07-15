@@ -72,6 +72,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
 
+    NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools", Mode.HOST);
+
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
     List<String> jvmOpts = getJvmOpts(
         ruleContext,
@@ -98,6 +100,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             extclasspath,
             configuration.getDefaultJavacFlags(),
             javac,
+            tools,
             javabuilder,
             headerCompiler,
             forciblyDisableHeaderCompilation,

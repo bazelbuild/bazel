@@ -414,7 +414,6 @@ public final class JavaCompileAction extends SpawnAction {
   private static CustomMultiArgv spawnCommandLineBase(
       final PathFragment javaExecutable,
       final Artifact javaBuilderJar,
-      final Artifact langtoolsJar,
       final ImmutableList<Artifact> instrumentationJars,
       final ImmutableList<String> javaBuilderJvmFlags,
       final String javaBuilderMainClass,
@@ -422,7 +421,6 @@ public final class JavaCompileAction extends SpawnAction {
     return new CustomMultiArgv() {
       @Override
       public Iterable<String> argv() {
-        checkNotNull(langtoolsJar);
         checkNotNull(javaBuilderJar);
 
         CustomCommandLine.Builder builder =
@@ -502,6 +500,7 @@ public final class JavaCompileAction extends SpawnAction {
     private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
     private Artifact javaBuilderJar;
     private Artifact langtoolsJar;
+    private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
@@ -590,14 +589,14 @@ public final class JavaCompileAction extends SpawnAction {
           paramFileContents, ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
       analysisEnvironment.registerAction(parameterFileWriteAction);
 
-      CustomMultiArgv spawnCommandLineBase = spawnCommandLineBase(
-          javaExecutable,
-          javaBuilderJar,
-          langtoolsJar,
-          instrumentationJars,
-          javacJvmOpts,
-          semantics.getJavaBuilderMainClass(),
-          pathSeparator);
+      CustomMultiArgv spawnCommandLineBase =
+          spawnCommandLineBase(
+              javaExecutable,
+              javaBuilderJar,
+              instrumentationJars,
+              javacJvmOpts,
+              semantics.getJavaBuilderMainClass(),
+              pathSeparator);
 
       // The actual params-file-based command line executed for a compile action.
       CommandLine javaBuilderCommandLine = CustomCommandLine.builder()
@@ -608,6 +607,7 @@ public final class JavaCompileAction extends SpawnAction {
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
               .add(langtoolsJar)
+              .addTransitive(toolsJars)
               .add(javaBuilderJar)
               .addAll(instrumentationJars)
               .build();
@@ -940,6 +940,13 @@ public final class JavaCompileAction extends SpawnAction {
 
     public Builder setLangtoolsJar(Artifact langtoolsJar) {
       this.langtoolsJar = langtoolsJar;
+      return this;
+    }
+
+    /** Sets the tools jars. */
+    public Builder setToolsJars(NestedSet<Artifact> toolsJars) {
+      checkNotNull(toolsJars, "toolsJars must not be null");
+      this.toolsJars = toolsJars;
       return this;
     }
 
