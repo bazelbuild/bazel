@@ -1443,6 +1443,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  densities = ['" + densities + "'],",
             "  resource_files = ['" + Joiner.on("', '").join(allResources) + "'])");
 
+    // No prefix should be added because of resource filtering.
+    assertThat(
+            binary
+                .getConfiguration()
+                .getFragment(AndroidConfiguration.class)
+                .getOutputDirectoryName())
+        .isNull();
+
     ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
 
     // Validate that the AndroidResourceProvider for this binary contains only the filtered values.

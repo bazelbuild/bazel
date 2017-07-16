@@ -911,6 +911,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public String getOutputDirectoryName() {
-    return configurationDistinguisher.suffix;
+    // We expect this value to be null most of the time - it will only become non-null when a
+    // dynamically configured transition changes the configuration's resource filter object.
+    String resourceFilterSuffix = resourceFilter.getOutputDirectorySuffix();
+
+    if (configurationDistinguisher.suffix == null) {
+      return resourceFilterSuffix;
+    }
+
+    if (resourceFilterSuffix == null) {
+      return configurationDistinguisher.suffix;
+    }
+
+    return configurationDistinguisher.suffix + "_" + resourceFilterSuffix;
   }
 }

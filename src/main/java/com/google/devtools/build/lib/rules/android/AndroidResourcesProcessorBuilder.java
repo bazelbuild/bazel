@@ -425,7 +425,7 @@ public class AndroidResourcesProcessorBuilder {
     if (resourceFilter.hasDensities() && !resourceFilter.isPrefiltering()) {
       builder.add("--densities").add(resourceFilter.getDensityString());
     }
-    ImmutableList<String> filteredResources = resourceFilter.getFilteredResources();
+    ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
       builder.add("--prefilteredResources").addJoinStrings(",", filteredResources);
     }
