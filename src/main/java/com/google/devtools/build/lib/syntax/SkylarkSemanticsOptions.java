@@ -191,7 +191,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, the API to create actions is only avaliable on `ctx.actions`, "
+      help = "If set to true, the API to create actions is only available on `ctx.actions`, "
           + "not on `ctx`."
   )
   public boolean incompatibleNewActionsApi;
