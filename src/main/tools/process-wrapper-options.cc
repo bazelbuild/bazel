@@ -50,13 +50,6 @@ static void Usage(char *program_name, const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
-static void ValidateIsAbsolutePath(char *path, char *program_name, char flag) {
-  if (path[0] != '/') {
-    Usage(program_name, "The -%c option must be used with absolute paths only.",
-          flag);
-  }
-}
-
 // Parses command line flags from an argv array and puts the results into the
 // global `opt` struct.
 static void ParseCommandLine(const std::vector<char *> &args) {
