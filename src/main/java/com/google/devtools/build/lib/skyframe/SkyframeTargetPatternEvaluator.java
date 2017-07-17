@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -115,9 +115,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         }
         String pattern = skyKeyOrException.getOriginalPattern();
         eventHandler.handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
-        if (eventHandler instanceof ParseFailureListener) {
-          ((ParseFailureListener) eventHandler).parsingError(pattern, e.getMessage());
-        }
+        eventHandler.post(new ParsingFailedEvent(pattern, e.getMessage()));
       }
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
@@ -188,10 +186,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         }
         finalTargetSetEvaluator.setError();
 
-        if (eventHandler instanceof ParseFailureListener) {
-          ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
-          parseListener.parsingError(rawPattern,  errorMessage);
-        }
+        eventHandler.post(new ParsingFailedEvent(rawPattern,  errorMessage));
       }
     }
 
