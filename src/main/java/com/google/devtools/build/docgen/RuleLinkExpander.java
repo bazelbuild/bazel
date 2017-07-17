@@ -33,8 +33,7 @@ public class RuleLinkExpander {
   private static final String FUNCTIONS_PAGE = "functions";
 
   private static final ImmutableSet<String> STATIC_PAGES =
-      ImmutableSet.<String>of(
-          "common-definitions", "make-variables", "predefined-python-variables");
+      ImmutableSet.<String>of("common-definitions", "make-variables");
   private static final ImmutableMap<String, String> FUNCTIONS =
       ImmutableMap.<String, String>builder()
           .put("load", FUNCTIONS_PAGE)

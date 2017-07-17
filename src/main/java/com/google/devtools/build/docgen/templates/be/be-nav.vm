@@ -15,7 +15,6 @@
     <ul class="collapse sidebar-nav sidebar-submenu" id="be-menu">
       <li><a href="${path}/common-definitions.html">Common Definitions</a></li>
       <li><a href="${path}/make-variables.html">"Make" variables</a></li>
-      <li><a href="${path}/predefined-python-variables.html">Predefined Python Variables</a></li>
     </ul>
   </li>
 
