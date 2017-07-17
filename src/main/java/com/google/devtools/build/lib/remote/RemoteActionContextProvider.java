@@ -60,17 +60,16 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     spawnRunner = new RemoteSpawnRunner(
         env.getExecRoot(),
         remoteOptions,
-        createFallbackRunner(actionInputPrefetcher),
+        createFallbackRunner(),
         cache,
         executor);
     spawnStrategy =
         new RemoteSpawnStrategy(
-            "remote",
             spawnRunner,
             executionOptions.verboseFailures);
   }
 
-  private SpawnRunner createFallbackRunner(ActionInputPrefetcher actionInputPrefetcher) {
+  private SpawnRunner createFallbackRunner() {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
@@ -79,7 +78,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     return
         new LocalSpawnRunner(
             env.getExecRoot(),
-            actionInputPrefetcher,
             localExecutionOptions,
             ResourceManager.instance(),
             env.getRuntime().getProductName(),

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Strategy that uses a distributed cache for sharing action input and output files. Optionally this
@@ -54,14 +56,15 @@ import java.util.concurrent.TimeUnit;
 )
 final class RemoteSpawnStrategy implements SpawnActionContext {
   private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
-  private final String strategyName;
   private final SpawnRunner spawnRunner;
   private final boolean verboseFailures;
+  private final ActionInputPrefetcher inputPrefetcher;
+  private final AtomicInteger execCount = new AtomicInteger();
 
-  RemoteSpawnStrategy(String strategyName, SpawnRunner spawnRunner, boolean verboseFailures) {
-    this.strategyName = strategyName;
+  RemoteSpawnStrategy(SpawnRunner spawnRunner, boolean verboseFailures) {
     this.spawnRunner = spawnRunner;
     this.verboseFailures = verboseFailures;
+    this.inputPrefetcher = ActionInputPrefetcher.NONE;
   }
 
   @Override
@@ -83,7 +86,20 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     if (actionExecutionContext.reportsSubcommands()) {
       actionExecutionContext.reportSubcommand(spawn);
     }
+    final int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
     SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
+      private final int id = execCount.incrementAndGet();
+
+      @Override
+      public int getId() {
+        return id;
+      }
+
+      @Override
+      public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
+        inputPrefetcher.prefetchFiles(inputs);
+      }
+
       @Override
       public ActionInputFileCache getActionInputFileCache() {
         return actionExecutionContext.getActionInputFileCache();
@@ -102,12 +118,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
 
       @Override
       public long getTimeoutMillis() {
-        try {
-          return TimeUnit.SECONDS.toMillis(Spawns.getTimeoutSeconds(spawn));
-        } catch (ExecException e) {
-          // The exec info is set internally, so we can never fail to parse the timeout.
-          throw new RuntimeException(e);
-        }
+        return TimeUnit.SECONDS.toMillis(timeoutSeconds);
       }
 
       @Override
@@ -125,12 +136,12 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       }
 
       @Override
-      public void report(ProgressStatus state) {
+      public void report(ProgressStatus state, String name) {
         EventBus eventBus = actionExecutionContext.getEventBus();
         switch (state) {
           case EXECUTING:
             eventBus.post(
-                ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), strategyName));
+                ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), name));
             break;
           case SCHEDULING:
             eventBus.post(ActionStatusMessage.schedulingStrategy(spawn.getResourceOwner()));

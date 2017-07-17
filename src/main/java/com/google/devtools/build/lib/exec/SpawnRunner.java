@@ -120,7 +120,38 @@ public interface SpawnRunner {
    * be used by different threads, so they MUST not call any shared non-thread-safe objects.
    */
   public interface SpawnExecutionPolicy {
-    /** The input file cache for this specific spawn. */
+    /**
+     * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
+     * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
+     * contain the identity of the spawn runner implementation.
+     */
+    int getId();
+
+    /**
+     * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
+     * network file system, and prefetching the files in parallel is a significant performance win.
+     * This should only be called by local strategies when local execution is imminent.
+     *
+     * <p>Should be called with the equivalent of:
+     * <code>
+     * policy.prefetchInputs(
+     *      Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
+     * </code>
+     *
+     * <p>Note in particular that {@link #getInputMapping} may return {@code null} values, but
+     * this method does not accept {@code null} values.
+     *
+     * <p>The reason why this method requires passing in the inputs is that getInputMapping may be
+     * slow to compute, so if the implementation already called it, we don't want to compute it
+     * again. I suppose we could require implementations to memoize getInputMapping (but not compute
+     * it eagerly), and that may change in the future.
+     */
+    void prefetchInputs(Iterable<ActionInput> inputs) throws IOException;
+
+    /**
+     * The input file metadata cache for this specific spawn, which can be used to efficiently
+     * obtain file digests and sizes.
+     */
     ActionInputFileCache getActionInputFileCache();
 
     /** An artifact expander. */
@@ -146,7 +177,7 @@ public interface SpawnRunner {
     SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException;
 
     /** Reports a progress update to the Spawn strategy. */
-    void report(ProgressStatus state);
+    void report(ProgressStatus state, String name);
   }
 
   /**

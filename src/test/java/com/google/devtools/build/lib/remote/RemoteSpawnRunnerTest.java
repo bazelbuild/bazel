@@ -186,6 +186,16 @@ public class RemoteSpawnRunnerTest {
     }
 
     @Override
+    public int getId() {
+      return 0;
+    }
+
+    @Override
+    public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void lockOutputFiles() throws InterruptedException {
       throw new UnsupportedOperationException();
     }
@@ -217,7 +227,7 @@ public class RemoteSpawnRunnerTest {
     }
 
     @Override
-    public void report(ProgressStatus state) {
+    public void report(ProgressStatus state, String name) {
       assertThat(state).isEqualTo(ProgressStatus.EXECUTING);
     }
   }
