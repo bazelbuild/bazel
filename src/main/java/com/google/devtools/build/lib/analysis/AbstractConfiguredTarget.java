@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -128,8 +129,11 @@ public abstract class AbstractConfiguredTarget
     if (declaredProvider != null) {
       return declaredProvider;
     }
-    throw new EvalException(loc, String.format(
-        "Object of type Target doesn't contain declared provider %s",
+    throw new EvalException(loc, Printer.format(
+        "%r%s doesn't contain declared provider '%s'",
+        this,
+        getTarget().getAssociatedRule() == null ? ""
+            : " (rule '" + getTarget().getAssociatedRule().getRuleClass() + "')",
         constructor.getPrintableName()));
   }
 

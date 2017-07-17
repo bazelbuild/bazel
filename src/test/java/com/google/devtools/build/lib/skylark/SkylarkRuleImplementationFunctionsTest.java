@@ -704,16 +704,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRunfilesBadMapGenericType() throws Exception {
     checkErrorContains(
-        "expected type 'string' for 'symlinks' key " + "but got type 'int' instead",
+        "expected type 'string' for 'symlinks' key but got type 'int' instead",
         "ruleContext.runfiles(symlinks = {123: ruleContext.files.srcs[0]})");
     checkErrorContains(
-        "expected type 'File' for 'symlinks' value " + "but got type 'int' instead",
+        "expected type 'File' for 'symlinks' value but got type 'int' instead",
         "ruleContext.runfiles(symlinks = {'some string': 123})");
     checkErrorContains(
-        "expected type 'string' for 'root_symlinks' key " + "but got type 'int' instead",
+        "expected type 'string' for 'root_symlinks' key but got type 'int' instead",
         "ruleContext.runfiles(root_symlinks = {123: ruleContext.files.srcs[0]})");
     checkErrorContains(
-        "expected type 'File' for 'root_symlinks' value " + "but got type 'int' instead",
+        "expected type 'File' for 'root_symlinks' value but got type 'int' instead",
         "ruleContext.runfiles(root_symlinks = {'some string': 123})");
   }
 
@@ -844,7 +844,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testNoSuchProviderErrorMessage() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:bar"),
-        "target (rule class of 'java_library') " + "doesn't have provider 'my_provider'.",
+        "<target //foo:jl> (rule 'java_library') doesn't have provider 'my_provider'",
         "ruleContext.attr.srcs[0].my_provider");
   }
 
@@ -1345,7 +1345,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     } catch (AssertionError expected) {
       assertThat(expected)
           .hasMessageThat()
-          .contains("Object of type Target doesn't " + "contain declared provider unused_provider");
+          .contains("<target //test:dep_rule> (rule 'foo_rule') doesn't contain "
+              + "declared provider 'unused_provider'");
     }
   }
 
@@ -1391,7 +1392,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       assertThat(expected)
           .hasMessageThat()
           .contains(
-              "Type Target only supports indexing " + "by object constructors, got string instead");
+              "Type Target only supports indexing by object constructors, got string instead");
     }
   }
 
@@ -1421,7 +1422,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     } catch (AssertionError expected) {
       assertThat(expected)
           .hasMessageThat()
-          .contains("Object of type Target doesn't " + "contain declared provider unused_provider");
+          .contains("<input file target //test:input.txt> doesn't contain "
+              + "declared provider 'unused_provider'");
     }
   }
 
@@ -1504,7 +1506,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       assertThat(expected)
           .hasMessageThat()
           .contains(
-              "Type Target only supports querying by object " + "constructors, got string instead");
+              "Type Target only supports querying by object constructors, got string instead");
     }
   }
 

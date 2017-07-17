@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -113,8 +114,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String errorMessage(String name) {
-    return String.format("target (rule class of '%s') doesn't have provider '%s'.",
-        getTarget().getRuleClass(), name);
+    return Printer.format("%r (rule '%s') doesn't have provider '%s'",
+        this, getTarget().getRuleClass(), name);
   }
 
   @Override
