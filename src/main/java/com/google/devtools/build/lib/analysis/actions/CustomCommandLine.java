@@ -411,22 +411,6 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * For every element in `artifacts`, adds the `arg` followed by the exec path of the artifact.
-     *
-     * <p>Results in adding: <code>[arg, execpath1, arg, execpath2, ...]</code>.
-     *
-     * <p>Has no effect if `artifacts` is null or empty.
-     */
-    public Builder addExecPaths(String arg, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(arg);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
-        arguments.add(
-            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ arg, /*formatEach=*/ null));
-      }
-      return this;
-    }
-
-    /**
      * Adds a placeholder TreeArtifact exec path. When the command line is used in an action
      * template, the placeholder will be replaced by the exec path of a {@link TreeFileArtifact}
      * inside the TreeArtifact at execution time for each expanded action.

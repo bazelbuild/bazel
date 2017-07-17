@@ -202,9 +202,12 @@ public class ResourceShrinkerActionBuilder {
 
     List<Artifact> dependencyManifests = getManifests(dependencyResources);
     if (!dependencyManifests.isEmpty()) {
-      commandLine.addExecPaths("--dependencyManifest", dependencyManifests);
-      inputs.addAll(dependencyManifests);
+      commandLine
+          .add("--dependencyManifests")
+          .addJoinExecPaths(
+              ruleContext.getConfiguration().getHostPathSeparator(), dependencyManifests);
     }
+    inputs.addAll(dependencyManifests);
 
     List<String> resourcePackages = getResourcePackages(primaryResources, dependencyResources);
     if (!resourcePackages.isEmpty()) {

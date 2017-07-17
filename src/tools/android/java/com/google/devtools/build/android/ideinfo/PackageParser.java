@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
@@ -80,16 +81,15 @@ public class PackageParser {
     public Path outputManifest;
 
     @Option(
-      name = "sources_execution_path",
-      allowMultiple = true,
+      name = "sources_execution_paths",
       defaultValue = "null",
-      converter = PathConverter.class,
+      converter = PathListConverter.class,
       category = "input",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "The execution paths of the java source files. You may use this flag multiple times, "
-              + "each instance should specify one path."
+          "The execution paths of the java source files. The expected format is a "
+              + "colon-separated list."
     )
     public List<Path> sourcesExecutionPaths;
   }

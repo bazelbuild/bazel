@@ -17,6 +17,7 @@ package com.google.devtools.build.android.ideinfo;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
@@ -105,7 +106,7 @@ public class JarFilterTest {
 
     String[] args =
         new String[] {
-          "--jar",
+          "--jars",
           filterJar.getPath(),
           "--output",
           outputJar.getPath(),
@@ -197,17 +198,13 @@ public class JarFilterTest {
 
     String[] args =
         new String[] {
-          "--keep_java_file",
-          fooJava.getPath(),
-          "--keep_java_file",
-          barJava.getPath(),
-          "--keep_source_jar",
-          srcJar.getPath(),
-          "--keep_source_jar",
-          src3Jar.getPath(),
-          "--filter_jar",
+          "--keep_java_files",
+          fooJava.getPath() + File.pathSeparator + barJava.getPath(),
+          "--keep_source_jars",
+          Joiner.on(File.pathSeparator).join(srcJar.getPath(), src3Jar.getPath()),
+          "--filter_jars",
           filterJar.getPath(),
-          "--filter_source_jar",
+          "--filter_source_jars",
           filterSrcJar.getPath(),
           "--filtered_jar",
           filteredJar.getPath(),

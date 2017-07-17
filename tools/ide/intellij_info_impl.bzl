@@ -451,18 +451,18 @@ def build_filtered_gen_jar(ctx, target, java, gen_java_sources, srcjars):
   filtered_jar = ctx.new_file(target.label.name + "-filtered-gen.jar")
   filtered_source_jar = ctx.new_file(target.label.name + "-filtered-gen-src.jar")
   args = []
-  for jar in jar_artifacts:
-    args += ["--filter_jar", jar.path]
-  for jar in source_jar_artifacts:
-    args += ["--filter_source_jar", jar.path]
+  args += ["--filter_jars"]
+  args += [":".join([jar.path for jar in jar_artifacts])]
+  args += ["--filter_source_jars"]
+  args += [":".join([jar.path for jar in source_jar_artifacts])]
   args += ["--filtered_jar", filtered_jar.path]
   args += ["--filtered_source_jar", filtered_source_jar.path]
   if gen_java_sources:
-    for java_file in gen_java_sources:
-      args += ["--keep_java_file", java_file.path]
+    args += ["--keep_java_files"]
+    args += [":".join([java_file.path for java_file in gen_java_sources])]
   if srcjars:
-    for source_jar in srcjars:
-      args += ["--keep_source_jar", source_jar.path]
+    args += ["--keep_source_jars"]
+    args += [":".join([source_jar.path for source_jar in srcjars])]
   ctx.action(
       inputs = jar_artifacts + source_jar_artifacts + gen_java_sources + srcjars,
       outputs = [filtered_jar, filtered_source_jar],

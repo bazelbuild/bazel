@@ -15,10 +15,10 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
@@ -68,10 +68,9 @@ public class LibraryRClassGeneratorAction {
     public String packageForR;
 
     @Option(
-      name = "symbol",
-      allowMultiple = true,
+      name = "symbols",
       defaultValue = "",
-      converter = PathConverter.class,
+      converter = PathListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       category = "config",
@@ -88,9 +87,6 @@ public class LibraryRClassGeneratorAction {
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
-    if (options.symbols == null) {
-      options.symbols = ImmutableList.of();
-    }
     logger.fine(
         String.format("Option parsing finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     try (ScopedTemporaryDirectory scopedTmp =
