@@ -21,7 +21,9 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -41,7 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -118,7 +122,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       }
 
       if (remoteExecutor == null) {
-        return execLocally(spawn, policy, remoteCache, actionKey);
+        return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
       }
 
       // Upload the command and all the inputs into the remote cache.
@@ -133,7 +137,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       ExecuteResponse reply = remoteExecutor.executeRemotely(request.build());
       result = reply.getResult();
       if (options.remoteLocalFallback && result.getExitCode() != 0) {
-        return execLocally(spawn, policy, remoteCache, actionKey);
+        return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
       }
       remoteCache.download(result, execRoot, policy.getFileOutErr());
       return new SpawnResult.Builder()
@@ -142,7 +146,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
           .build();
     } catch (IOException e) {
       if (options.remoteLocalFallback) {
-        return execLocally(spawn, policy, remoteCache, actionKey);
+        return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
       }
 
       io.grpc.Status grpcStatus = io.grpc.Status.fromThrowable(e);
@@ -155,7 +159,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       throw new EnvironmentalExecException(message, true);
     } catch (CacheNotFoundException e) {
       if (options.remoteLocalFallback) {
-        return execLocally(spawn, policy, remoteCache, actionKey);
+        return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
       }
 
       String message = "Failed to download from remote cache: " + e.getMessage();
@@ -198,6 +202,26 @@ final class RemoteSpawnRunner implements SpawnRunner {
     return command.build();
   }
 
+  Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
+    HashMap<Path, Long>  ctimes = new HashMap<>();
+    for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+      ActionInput input = e.getValue();
+      if (input == SpawnInputExpander.EMPTY_FILE || input instanceof VirtualActionInput) {
+        continue;
+      }
+      Path path = execRoot.getRelative(input.getExecPathString());
+      try {
+        ctimes.put(path, path.stat().getLastChangeTime());
+      } catch (IOException ex) {
+        // Put a token value indicating an exception; this is used so that if the exception
+        // is raised both before and after the execution, it is ignored, but if it is raised only
+        // one of the times, it triggers a remote cache upload skip.
+        ctimes.put(path, -1L);
+      }
+    }
+    return ctimes;
+  }
+
   /**
    * Fallback: execute the spawn locally. If an ActionKey is provided, try to upload results to
    * remote action cache.
@@ -205,25 +229,36 @@ final class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult execLocally(
       Spawn spawn,
       SpawnExecutionPolicy policy,
+      SortedMap<PathFragment, ActionInput> inputMap,
       RemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
-    SpawnResult result = fallbackRunner.exec(spawn, policy);
-    if (options.remoteUploadLocalResults && Spawns.mayBeCached(spawn) && remoteCache != null
-        && actionKey != null) {
-      ArrayList<Path> outputFiles = new ArrayList<>();
-      for (ActionInput output : spawn.getOutputFiles()) {
-        Path outputFile = execRoot.getRelative(output.getExecPathString());
-        // Ignore non-existent files.
-        // TODO(ulfjack): This is not ideal - in general, all spawn strategies should stat the
-        // output files and return a list of existing files. We shouldn't re-stat the files here.
-        if (!outputFile.exists()) {
-          continue;
-        }
-        outputFiles.add(outputFile);
-      }
-      remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr());
+    if (!options.remoteUploadLocalResults || !Spawns.mayBeCached(spawn) || remoteCache == null
+        || actionKey == null) {
+      // This is an optimization to not compute the ctimes in case remote upload is disabled.
+      return fallbackRunner.exec(spawn, policy);
     }
+    Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
+    SpawnResult result = fallbackRunner.exec(spawn, policy);
+    Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
+    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
+      // Skip uploading to remote cache, because an input was modified during execution.
+      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
+        return result;
+      }
+    }
+    ArrayList<Path> outputFiles = new ArrayList<>();
+    for (ActionInput output : spawn.getOutputFiles()) {
+      Path outputFile = execRoot.getRelative(output.getExecPathString());
+      // Ignore non-existent files.
+      // TODO(ulfjack): This is not ideal - in general, all spawn strategies should stat the
+      // output files and return a list of existing files. We shouldn't re-stat the files here.
+      if (!outputFile.exists()) {
+        continue;
+      }
+      outputFiles.add(outputFile);
+    }
+    remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr());
     return result;
   }
 
