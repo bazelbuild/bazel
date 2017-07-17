@@ -246,13 +246,18 @@ class TestBase(unittest.TestCase):
           'CC_CONFIGURE_DEBUG': '1'
       }
 
-      # TODO(pcloudy): Remove this hardcoded path after resolving
+      # TODO(pcloudy): Remove these hardcoded paths after resolving
       # https://github.com/bazelbuild/bazel/issues/3273
-      vc_path = (r'C:\Program Files (x86)\Microsoft Visual '
-                 r'Studio\2017\Professional\VC')
-      if not os.path.exists(vc_path):
-        vc_path = r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC'
-      env['BAZEL_VC'] = vc_path
+      env['BAZEL_VC'] = 'visual-studio-not-found'
+      for p in [
+          (r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional'
+           r'\VC'),
+          r'C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC',
+          r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC'
+      ]:
+        if os.path.exists(p):
+          env['BAZEL_VC'] = p
+          break
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 
