@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;

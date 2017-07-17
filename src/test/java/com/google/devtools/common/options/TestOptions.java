@@ -15,7 +15,6 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.InvocationPolicyEnforcerTestBase.ToListConverter;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /** Options for testing. */

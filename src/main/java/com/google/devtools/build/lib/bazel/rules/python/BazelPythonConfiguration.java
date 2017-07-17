@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.proto.OptionFilters;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /**
  * Bazel-specific Python configuration.
@@ -67,7 +67,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       category = "version",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = { OptionFilters.OptionMetadataTag.DEPRECATED },
+      metadataTags = { OptionMetadataTag.DEPRECATED },
       help = "Local path to the Python2 executable. "
                 + "Deprecated, please use python_path or python_top instead."
     )
@@ -80,7 +80,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       category = "version",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = { OptionFilters.OptionMetadataTag.DEPRECATED },
+      metadataTags = { OptionMetadataTag.DEPRECATED },
       help = "Local path to the Python3 executable. "
                 + "Deprecated, please use python_path or python_top instead."
     )

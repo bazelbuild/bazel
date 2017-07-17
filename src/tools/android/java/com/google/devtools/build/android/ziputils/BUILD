@@ -61,7 +61,6 @@ java_binary(
     deps = [
         ":splitter_lib",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
     ],
 )
@@ -76,7 +75,6 @@ java_binary(
     deps = [
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
     ],
 )
 
@@ -91,7 +89,6 @@ java_binary(
         ":splitter_lib",
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
     ],
 )
