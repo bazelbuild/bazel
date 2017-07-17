@@ -77,7 +77,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    semantics.createExecutable(ruleContext, common, ccLinkParamsStore, imports);
+    Artifact realExecutable =
+        semantics.createExecutable(ruleContext, common, ccLinkParamsStore, imports);
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics);
 
     Runfiles.Builder defaultRunfilesBuilder = new Runfiles.Builder(
@@ -117,7 +118,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     return builder
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
-        .setRunfilesSupport(runfilesSupport, common.getExecutable())
+        .setRunfilesSupport(runfilesSupport, realExecutable)
         .addNativeDeclaredProvider(new CcLinkParamsProvider(ccLinkParamsStore))
         .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
   }
@@ -127,6 +128,9 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     Runfiles.Builder builder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addArtifact(common.getExecutable());
+    if (common.getExecutableWrapper() != null) {
+      builder.addArtifact(common.getExecutableWrapper());
+    }
     if (common.getConvertedFiles() != null) {
       builder.addSymlinks(common.getConvertedFiles());
     } else {

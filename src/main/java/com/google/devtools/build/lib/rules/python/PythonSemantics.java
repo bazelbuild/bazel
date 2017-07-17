@@ -69,7 +69,7 @@ public interface PythonSemantics {
    *
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
-  void createExecutable(
+  Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
       CcLinkParamsStore ccLinkParamsStore,

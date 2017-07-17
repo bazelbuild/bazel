@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,7 +52,9 @@ import java.util.List;
  */
 public class BazelPythonSemantics implements PythonSemantics {
   private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "stub_template.txt");
+      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
+  private static final Template STUB_TEMPLATE_WINDOWS =
+      Template.forResource(BazelPythonSemantics.class, "python_stub_template_windows.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
       "srcs", "deps", "data");
@@ -123,7 +126,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void createExecutable(
+  public Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
       CcLinkParamsStore ccLinkParamsStore,
@@ -180,7 +183,21 @@ public class BazelPythonSemantics implements PythonSemantics {
               .useDefaultShellEnvironment()
               .setMnemonic("BuildBinary")
               .build(ruleContext));
+
+      if (OS.getCurrent() == OS.WINDOWS) {
+        Artifact executableWrapper = common.getExecutableWrapper();
+        ruleContext.registerAction(
+            new TemplateExpansionAction(
+                ruleContext.getActionOwner(),
+                executableWrapper,
+                STUB_TEMPLATE_WINDOWS,
+                ImmutableList.of(Substitution.of("%python_path%", pythonBinary)),
+                true));
+        return executableWrapper;
+      }
     }
+
+    return executable;
   }
 
   @Override
@@ -216,7 +233,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
-    // Note: This name has to be the same with the one in stub_template.txt.
+    // Note: This name has to be the same with the one in python_stub_template.txt.
     return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zipRunfilesPath).toString();
   }
 
