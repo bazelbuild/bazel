@@ -103,19 +103,31 @@ nav: docs
             <h3>Extensions</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Overview</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Language</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository rules</a></li>
-              <li><a href="/versions/{{ site.version }}/rule-challenges.html">Challenges of writing rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Examples</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#extensions-concepts" aria-expanded="false"
+                    aria-controls="extensions-concepts">
+                  Concepts <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="extensions-concepts">
+                  <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/rule-challenges.html">Challenges of writing rules</a></li>
+                </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Packaging rules</a></li>
               <li><a href="https://skydoc.bazel.build" target="_blank">Documenting rules</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/build-style.html">Style guide for BUILD files</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">Style guide for bzl files</a></li>
+
+              <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Examples</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Reference</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Language</a></li>
             </ul>
           </nav>
         </div>
