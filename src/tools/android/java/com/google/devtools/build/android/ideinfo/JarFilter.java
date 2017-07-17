@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
@@ -65,46 +64,58 @@ public final class JarFilter {
   /** The options for a {@JarFilter} action. */
   public static final class JarFilterOptions extends OptionsBase {
     @Option(
-      name = "filter_jars",
+      name = "filter_jar",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
-      help = "A list of the paths to target output jars to filter for generated sources."
+      help =
+          "Paths to target output jars to filter for generated sources. You may use this flag "
+              + "multiple times, specify each path with a separate instance of the flag."
     )
     public List<Path> filterJars;
 
     @Option(
-      name = "filter_source_jars",
+      name = "filter_source_jar",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
-      help = "A list of the paths to target output source jars to filter for generated sources."
+      help =
+          "Paths to target output source jars to filter for generated sources. You may use this "
+              + "flag multiple times, specify each path with a separate instance of the flag."
     )
     public List<Path> filterSourceJars;
 
     @Option(
-      name = "keep_java_files",
+      name = "keep_java_file",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
-      help = "A list of target input java files to keep."
+      help =
+          "Path of target input java files to keep. You may use this flag multiple times, "
+              + "specify each path with a separate instance of the flag."
     )
     public List<Path> keepJavaFiles;
 
     @Option(
-      name = "keep_source_jars",
+      name = "keep_source_jar",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
-      help = "A list of target input .srcjar files to keep."
+      help =
+          "Path of target input .srcjar files to keep. You may use this flag multiple times, "
+              + "specify each path with a separate instance of the flag."
     )
     public List<Path> keepSourceJars;
 
@@ -135,11 +146,12 @@ public final class JarFilter {
 
     @Deprecated
     @Option(
-      name = "jars",
+      name = "jar",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
       help = "A list of the paths to jars to filter for generated sources."
     )
@@ -235,10 +247,25 @@ public final class JarFilter {
     args = parseParamFileIfUsed(args);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(JarFilterOptions.class);
     optionsParser.parseAndExitUponError(args);
-
-    // Migrate options from v1 jar filter
     JarFilterOptions options = optionsParser.getOptions(JarFilterOptions.class);
-    if (options.filterJars == null && options.jars != null) {
+
+    if (options.filterJars == null) {
+      options.filterJars = ImmutableList.of();
+    }
+    if (options.filterSourceJars == null) {
+      options.filterSourceJars = ImmutableList.of();
+    }
+    if (options.keepJavaFiles == null) {
+      options.keepJavaFiles = ImmutableList.of();
+    }
+    if (options.keepSourceJars == null) {
+      options.keepSourceJars = ImmutableList.of();
+    }
+    if (options.jars == null) {
+      options.jars = ImmutableList.of();
+    }
+    // Migrate options from v1 jar filter
+    if (options.filterJars.isEmpty() && options.jars != null) {
       options.filterJars = options.jars;
     }
     if (options.filteredJar == null && options.output != null) {

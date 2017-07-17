@@ -26,7 +26,6 @@ import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOpti
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -63,7 +62,7 @@ import org.xml.sax.SAXException;
  *       --resources path to processed resources zip
  *       --rTxt path to processed resources R.txt
  *       --primaryManifest path to processed resources AndroidManifest.xml
- *       --dependencyManifests paths to dependency library manifests
+ *       --dependencyManifest path to dependency library manifest (repeated flag)
  *       --shrunkResourceApk path to write shrunk ap_
  *       --shrunkResources path to write shrunk resources zip
  * </pre>
@@ -130,13 +129,14 @@ public class ResourceShrinkerAction {
     public Path primaryManifest;
 
     @Option(
-      name = "dependencyManifests",
+      name = "dependencyManifest",
+      allowMultiple = true,
       defaultValue = "",
       category = "input",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of paths to the manifests of the dependencies."
+      help = "Paths to the manifests of the dependencies. Specify one path per flag."
     )
     public List<Path> dependencyManifests;
 
@@ -236,6 +236,9 @@ public class ResourceShrinkerAction {
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
+    if (options.dependencyManifests == null) {
+      options.dependencyManifests = ImmutableList.of();
+    }
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.

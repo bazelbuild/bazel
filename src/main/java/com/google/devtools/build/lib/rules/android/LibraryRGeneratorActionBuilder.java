@@ -80,11 +80,9 @@ public class LibraryRGeneratorActionBuilder {
             .toList();
 
     if (!symbolProviders.isEmpty()) {
-      builder
-          .add("--symbols")
-          .addJoinExecPaths(ruleContext.getConfiguration().getHostPathSeparator(), symbolProviders);
+      builder.addExecPaths("--symbol", symbolProviders);
+      inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbolProviders));
     }
-    inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbolProviders));
 
     builder
         .addExecPath("--classJarOutput", rJavaClassJar)

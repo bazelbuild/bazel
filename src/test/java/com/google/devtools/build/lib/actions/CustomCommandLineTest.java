@@ -103,14 +103,22 @@ public class CustomCommandLineTest {
   }
 
   @Test
+  public void testArtifactExecPaths() {
+    CustomCommandLine cl =
+        CustomCommandLine.builder()
+            .addExecPaths(ImmutableList.of(artifact1, artifact2))
+            .build();
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("dir/file1.txt", "dir/file2.txt"));
+  }
+
+  @Test
   public void testArtifactExecPathsArgs() {
     CustomCommandLine cl =
         CustomCommandLine.builder()
-            .add("--path")
-            .addExecPaths(ImmutableList.of(artifact1, artifact2))
+            .addExecPaths("--path", ImmutableList.of(artifact1, artifact2))
             .build();
     assertThat(cl.arguments())
-        .isEqualTo(ImmutableList.of("--path", "dir/file1.txt", "dir/file2.txt"));
+        .isEqualTo(ImmutableList.of("--path", "dir/file1.txt", "--path", "dir/file2.txt"));
   }
 
   @Test
@@ -195,6 +203,8 @@ public class CustomCommandLineTest {
             .add(ImmutableList.<String>of())
             .addExecPaths(null)
             .addExecPaths(ImmutableList.of())
+            .addExecPaths("foo", null)
+            .addExecPaths("foo", ImmutableList.of())
             .addExecPath("foo", null)
             .addPlaceholderTreeArtifactExecPath(null)
             .addJoinStrings("foo", null)
@@ -240,6 +250,7 @@ public class CustomCommandLineTest {
     npt.testMethod(obj, clazz.getMethod("addFormatEach", String.class, Iterable.class));
 
     npt.setDefault(Iterable.class, ImmutableList.of(artifact1));
+    npt.testMethod(obj, clazz.getMethod("addExecPaths", String.class, Iterable.class));
     npt.testMethod(obj, clazz.getMethod("addJoinExecPaths", String.class, Iterable.class));
     npt.testMethod(obj, clazz.getMethod("addBeforeEachExecPath", String.class, Iterable.class));
 
