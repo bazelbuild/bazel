@@ -38,7 +38,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Provides access to information about Java rules. Every Java-related target provides "
-          + "this struct, accessible as a 'java' field on a Target struct."
+          + "this struct, accessible as a <code>java</code> field on a "
+          + "<a href=\"Target.html\">target</a>."
 )
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
@@ -121,7 +122,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     name = "transitive_source_jars",
     doc =
         "Returns the Jars containing Java source files for the target and all of its transitive "
-            + "dependencies",
+            + "dependencies.",
     structField = true
   )
   public NestedSet<Artifact> getTransitiveSourceJars() {
