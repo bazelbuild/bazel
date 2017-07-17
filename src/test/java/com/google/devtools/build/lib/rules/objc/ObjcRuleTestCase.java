@@ -4894,7 +4894,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo("a.o");
   }
 
-  protected void checkCustomModuleMap(RuleType ruleType, boolean fromBinary) throws Exception {
+  protected void checkCustomModuleMap(RuleType ruleType) throws Exception {
     useConfiguration("--experimental_objc_enable_module_maps");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']", "deps", "['//z:testModuleMap']");
     scratch.file("x/a.m");
@@ -4919,15 +4919,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
     ObjcProvider provider = providerForTarget("//z:testModuleMap");
-
     assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    provider = fromBinary
-        ? getConfiguredTarget("//x:x")
-            .get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR)
-            .getDepsObjcProvider()
-        : providerForTarget("//x:x");
+    provider = providerForTarget("//x:x");
     assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 }

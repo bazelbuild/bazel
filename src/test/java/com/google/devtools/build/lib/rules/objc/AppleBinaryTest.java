@@ -1416,6 +1416,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(RULE_TYPE, true);
+    checkCustomModuleMap(RULE_TYPE);
   }
 }

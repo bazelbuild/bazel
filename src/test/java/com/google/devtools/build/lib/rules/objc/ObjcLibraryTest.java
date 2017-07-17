@@ -1599,6 +1599,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(RULE_TYPE, false);
+    checkCustomModuleMap(RULE_TYPE);
   }
 }

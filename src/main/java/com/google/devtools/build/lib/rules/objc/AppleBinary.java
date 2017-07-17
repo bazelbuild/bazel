@@ -164,6 +164,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
+    // TODO(cparsons): Stop propagating ObjcProvider directly from this rule.
+    targetBuilder.addProvider(ObjcProvider.class, objcProvider);
 
     switch (getBinaryType(ruleContext)) {
       case EXECUTABLE:
