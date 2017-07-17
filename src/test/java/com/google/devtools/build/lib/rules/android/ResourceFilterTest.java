@@ -19,9 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.BooleanSubject;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.rules.android.ResourceFilter.AddDynamicallyConfiguredResourceFilteringTransition;
 import com.google.devtools.build.lib.rules.android.ResourceFilter.FilterBehavior;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import java.util.ArrayList;
@@ -525,12 +529,16 @@ public class ResourceFilterTest extends ResourceTestBase {
       throws Exception {
 
     return ResourceFilter.forBaseAndAttrs(
-        ResourceFilter.empty(behavior),
-        FakeAttributeMapper.builder()
-            .withStringList(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME, resourceConfigurationFilters)
-            .withStringList(ResourceFilter.DENSITIES_NAME, densities)
-            .build());
+        ResourceFilter.empty(behavior), getAttributeMap(resourceConfigurationFilters, densities));
+  }
+
+  private AttributeMap getAttributeMap(
+      ImmutableList<String> resourceConfigurationFilters, ImmutableList<String> densities) {
+    return FakeAttributeMapper.builder()
+        .withStringList(
+            ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME, resourceConfigurationFilters)
+        .withStringList(ResourceFilter.DENSITIES_NAME, densities)
+        .build();
   }
 
   @Test
@@ -541,5 +549,160 @@ public class ResourceFilterTest extends ResourceTestBase {
                     FakeAttributeMapper.empty())
                 .hasFilters())
         .isFalse();
+  }
+
+  @Test
+  public void testGetTopLevelTransitionFilterInExecution() throws Exception {
+    assertThat(
+            getTopLevelTransition(
+                ImmutableList.of("en"),
+                ImmutableList.of("hdpi"),
+                FilterBehavior.FILTER_IN_EXECUTION,
+                true,
+                1))
+        .isNull();
+  }
+
+  @Test
+  public void testGetTopLevelTransitionFilterInAnalysis() throws Exception {
+    assertThat(
+            getTopLevelTransition(
+                ImmutableList.of("en"),
+                ImmutableList.of("hdpi"),
+                FilterBehavior.FILTER_IN_ANALYSIS,
+                true,
+                1))
+        .isNull();
+  }
+
+  @Test
+  public void testGetTopLevelTransitionMultipleTargets() throws Exception {
+    assertThat(
+            getTopLevelTransition(
+                ImmutableList.of("en"),
+                ImmutableList.of("hdpi"),
+                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
+                true,
+                2))
+        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
+  }
+
+  @Test
+  public void testGetTopLevelTransitionNotBinary() throws Exception {
+    assertThat(
+            getTopLevelTransition(
+                ImmutableList.of("en"),
+                ImmutableList.of("hdpi"),
+                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
+                false,
+                1))
+        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
+  }
+
+  @Test
+  public void testGetTopLevelTransitionNoFilters() throws Exception {
+    assertThat(
+            getTopLevelTransition(
+                ImmutableList.<String>of(),
+                ImmutableList.<String>of(),
+                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
+                true,
+                1))
+        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
+  }
+
+  @Test
+  public void testGetTopLevelTransition() throws Exception {
+    ImmutableList<String> resourceConfigurationFilters = ImmutableList.of("en");
+    ImmutableList<String> densities = ImmutableList.of("hdpi");
+    PatchTransition transition =
+        getTopLevelTransition(
+            resourceConfigurationFilters,
+            densities,
+            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
+            true,
+            1);
+
+    assertThat(transition).isInstanceOf(AddDynamicallyConfiguredResourceFilteringTransition.class);
+
+    AddDynamicallyConfiguredResourceFilteringTransition addTransition =
+        (AddDynamicallyConfiguredResourceFilteringTransition) transition;
+    ResourceFilter foundFilter =
+        ResourceFilter.forBaseAndAttrs(
+            ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
+            addTransition.getAttrs());
+
+    ResourceFilter expectedFilter =
+        makeResourceFilter(
+            resourceConfigurationFilters,
+            densities,
+            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION);
+    assertThat(foundFilter).isEqualTo(expectedFilter);
+  }
+
+  private PatchTransition getTopLevelTransition(
+      ImmutableList<String> resourceConfigurationFilters,
+      ImmutableList<String> densities,
+      FilterBehavior behavior,
+      boolean isBinary,
+      int topLevelTargetCount)
+      throws Exception {
+    AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
+    return makeResourceFilter("", "", behavior)
+        .getTopLevelPatchTransition(
+            isBinary ? "android_binary" : "android_library", topLevelTargetCount, attrs);
+  }
+
+  @Test
+  public void testRemoveDynamicConfigurationTransition() throws Exception {
+    assertPatchTransition(
+        makeResourceFilter(
+            "en", "ldpi", FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
+        ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION,
+        ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS));
+  }
+
+  @Test
+  public void testAddDynamicConfigurationTransitionDynamicConfiguration() throws Exception {
+    ImmutableList<String> resourceConfigurationFilters = ImmutableList.of("en", "es-rUS", "fr");
+    ImmutableList<String> densities = ImmutableList.of("ldpi", "hdpi");
+
+    AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
+
+    assertPatchTransition(
+        ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
+        new ResourceFilter.AddDynamicallyConfiguredResourceFilteringTransition(attrs),
+        makeResourceFilter(
+            resourceConfigurationFilters,
+            densities,
+            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION));
+  }
+
+  private void assertPatchTransition(
+      ResourceFilter oldResourceFilter,
+      PatchTransition transition,
+      ResourceFilter expectedNewResourceFilter) {
+    AndroidConfiguration.Options oldAndroidOptions = getAndroidOptions(oldResourceFilter);
+
+    BuildOptions oldOptions = BuildOptions.builder().add(oldAndroidOptions).build();
+    BuildOptions newOptions = transition.apply(oldOptions);
+
+    // The old options should not have been changed
+    assertThat(oldAndroidOptions.resourceFilter).isSameAs(oldResourceFilter);
+    assertThat(oldAndroidOptions).isEqualTo(getAndroidOptions(oldResourceFilter));
+
+    // Besides the ResourceFilter, the new options should be the same as the old ones
+    assertThat(newOptions.getOptions()).hasSize(1);
+    AndroidConfiguration.Options newAndroidOptions =
+        newOptions.get(AndroidConfiguration.Options.class);
+    assertThat(newAndroidOptions).isEqualTo(getAndroidOptions(expectedNewResourceFilter));
+  }
+
+  private AndroidConfiguration.Options getAndroidOptions(ResourceFilter resourceFilter) {
+    AndroidConfiguration.Options androidOptions =
+        (AndroidConfiguration.Options) new AndroidConfiguration.Options().getDefault();
+    androidOptions.resourceFilter = resourceFilter;
+
+    return androidOptions;
   }
 }

@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Filters resources based on their qualifiers.
@@ -216,6 +219,14 @@ public class ResourceFilter {
         extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
         extractFilters(attrs, DENSITIES_NAME),
         filterBehavior);
+  }
+
+  ResourceFilter withoutDynamicConfiguration() {
+    if (!usesDynamicConfiguration()) {
+      return this;
+    }
+
+    return empty(FilterBehavior.FILTER_IN_ANALYSIS);
   }
 
   private ImmutableList<FolderConfiguration> getConfigurationFilters(
@@ -738,5 +749,86 @@ public class ResourceFilter {
     public String getTypeDescription() {
       return filterEnumConverter.getTypeDescription();
     }
+  }
+
+  // Transitions for dealing with dynamically configured resource filtering:
+
+  @Nullable
+  PatchTransition getTopLevelPatchTransition(
+      String ruleClass, int topLevelTargetCount, AttributeMap attrs) {
+    if (!usesDynamicConfiguration()) {
+      // We're not using dynamic configuration, so we don't need to make a transition
+      return null;
+    }
+
+    if (topLevelTargetCount != 1 || !ruleClass.equals("android_binary")) {
+      // The presence of other top-level targets means we would potentially encounter multiple
+      // resource filtering settings, which, when combined with dynamic configuration, would
+      // probably split the build graph and slow everything down. For now, just use static resource
+      // filtering instead.
+      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
+    }
+
+    if (!ResourceFilter.hasFilters(attrs)) {
+      // This target doesn't specify any filtering settings, so dynamically configured resource
+      // filtering would be a waste of time.
+      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
+    }
+
+    // Continue using dynamically configured resource filtering, and propagate this target's
+    // filtering settings.
+    return new AddDynamicallyConfiguredResourceFilteringTransition(attrs);
+  }
+
+  public static final PatchTransition REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION =
+      new RemoveDynamicallyConfiguredResourceFilteringTransition();
+
+  private static final class RemoveDynamicallyConfiguredResourceFilteringTransition
+      extends BaseDynamicallyConfiguredResourceFilteringTransition {
+    @Override
+    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
+      return oldResourceFilter.withoutDynamicConfiguration();
+    }
+  }
+
+  @VisibleForTesting
+  static final class AddDynamicallyConfiguredResourceFilteringTransition
+      extends BaseDynamicallyConfiguredResourceFilteringTransition {
+    private final AttributeMap attrs;
+
+    AddDynamicallyConfiguredResourceFilteringTransition(AttributeMap attrs) {
+      this.attrs = attrs;
+    }
+
+    @Override
+    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
+      return oldResourceFilter.withAttrsFrom(attrs);
+    }
+
+    @VisibleForTesting
+    AttributeMap getAttrs() {
+      return attrs;
+    }
+  }
+
+  private abstract static class BaseDynamicallyConfiguredResourceFilteringTransition
+      implements PatchTransition {
+    @Override
+    public boolean defaultsToSelf() {
+      return false;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions newOptions = options.clone();
+
+      AndroidConfiguration.Options androidOptions =
+          newOptions.get(AndroidConfiguration.Options.class);
+      androidOptions.resourceFilter = getNewResourceFilter(androidOptions.resourceFilter);
+
+      return newOptions;
+    }
+
+    abstract ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter);
   }
 }
