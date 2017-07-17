@@ -178,6 +178,93 @@ class LauncherScriptTest(test_base.TestBase):
       self.AssertExitCode(exit_code, 0, stderr)
       self.assertEqual(stdout[0], 'hello batch')
 
+  def testPyBinaryLauncher(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/foo.bzl', [
+        'def _impl(ctx):',
+        '  ctx.action(',
+        '      arguments=[ctx.outputs.out.path],',
+        '      outputs=[ctx.outputs.out],',
+        '      executable=ctx.executable._hello_world,',
+        '      use_default_shell_env=True)',
+        '',
+        'helloworld = rule(',
+        '  implementation=_impl,',
+        '  attrs={',
+        '      "srcs": attr.label_list(allow_files=True),',
+        '      "out": attr.output(mandatory=True),',
+        '      "_hello_world": attr.label(executable=True, cfg="host",',
+        '                                 allow_files=True,',
+        '                                 default=Label("//foo:foo"))',
+        '  }',
+        ')',
+    ])
+    self.ScratchFile('foo/BUILD', [
+        'load(":foo.bzl", "helloworld")',
+        '',
+        'py_binary(',
+        '  name = "foo",',
+        '  srcs = ["foo.py"],',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+        '',
+        'helloworld(',
+        '  name = "hello",',
+        '  out = "hello.txt",',
+        ')'
+    ])
+    foo_py = self.ScratchFile('foo/foo.py', [
+        '#!/usr/bin/env python',
+        'import sys',
+        'if len(sys.argv) == 2:',
+        '  with open(sys.argv[1], "w") as f:',
+        '    f.write("Hello World!")',
+        'else:',
+        '  print "Hello World!"',
+    ])
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+    os.chmod(foo_py, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    # Verify that the build of our py_binary succeeds.
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:foo'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Verify that generated files exist.
+    foo_bin = os.path.join(bazel_bin, 'foo', 'foo.cmd'
+                           if self.IsWindows() else 'foo')
+    self.assertTrue(os.path.isfile(foo_bin))
+    self.assertTrue(os.path.isdir(os.path.join(bazel_bin, 'foo/foo.runfiles')))
+
+    # Verify contents of runfiles (manifest).
+    if self.IsWindows():
+      self.AssertRunfilesManifestContains(
+          os.path.join(bazel_bin, 'foo/foo.runfiles/MANIFEST'),
+          '__main__/bar/bar.txt')
+    else:
+      self.assertTrue(
+          os.path.islink(
+              os.path.join(bazel_bin, 'foo/foo.runfiles/__main__/bar/bar.txt')))
+
+    # Try to run the built py_binary.
+    exit_code, stdout, stderr = self.RunProgram([foo_bin])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual(stdout[0], 'Hello World!')
+
+    # Try to use the py_binary as an executable in a Skylark rule.
+    exit_code, stdout, stderr = self.RunBazel(['build', '//foo:hello'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Verify that the Skylark action generated the right output.
+    hello_path = os.path.join(bazel_bin, 'foo', 'hello.txt')
+    self.assertTrue(os.path.isfile(hello_path))
+    with open(hello_path, 'r') as f:
+      self.assertEqual(f.read(), 'Hello World!')
+
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:
       for l in f:
