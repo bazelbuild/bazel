@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -253,7 +254,10 @@ public class RunCommand implements BlazeCommand  {
             options.getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
             productName);
     List<String> cmdLine = new ArrayList<>();
-    if (runOptions.scriptPath == null) {
+    // process-wrapper does not work on Windows (nor is it necessary), so don't use it
+    // on that platform. Also we skip it when writing the command-line to a file instead
+    // of executing it directly.
+    if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
       PathFragment processWrapperPath =
           env.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
       Preconditions.checkNotNull(
