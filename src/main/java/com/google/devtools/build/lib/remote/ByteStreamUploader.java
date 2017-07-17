@@ -49,6 +49,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -58,6 +60,8 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>Users must call {@link #shutdown()} before exiting.
  */
 final class ByteStreamUploader {
+
+  private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
 
   private final String instanceName;
   private final Channel channel;
@@ -389,7 +393,16 @@ final class ByteStreamUploader {
 
                   call.sendMessage(request);
                 } catch (IOException e) {
-                  call.cancel("Failed to read next chunk.", e);
+                  try {
+                    chunker.reset();
+                  } catch (IOException e1) {
+                    // This exception indicates that closing the underlying input stream failed.
+                    // We don't expect this to ever happen, but don't want to swallow the exception
+                    // completely.
+                    logger.log(Level.WARNING, "Chunker failed closing data source.", e1);
+                  } finally {
+                    call.cancel("Failed to read next chunk.", e);
+                  }
                 }
               }
             }
