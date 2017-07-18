@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @SkylarkModule(
@@ -90,7 +91,7 @@ public class PlatformInfo extends SkylarkClassObject {
       };
 
   private final Label label;
-  private final ImmutableList<ConstraintValueInfo> constraints;
+  private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
   private final ImmutableMap<String, String> remoteExecutionProperties;
 
   private PlatformInfo(
@@ -106,8 +107,14 @@ public class PlatformInfo extends SkylarkClassObject {
         location);
 
     this.label = label;
-    this.constraints = constraints;
     this.remoteExecutionProperties = remoteExecutionProperties;
+
+    ImmutableMap.Builder<ConstraintSettingInfo, ConstraintValueInfo> constraintsBuilder =
+        new ImmutableMap.Builder<>();
+    for (ConstraintValueInfo constraint : constraints) {
+      constraintsBuilder.put(constraint.constraint(), constraint);
+    }
+    this.constraints = constraintsBuilder.build();
   }
 
   @SkylarkCallable(
@@ -126,8 +133,17 @@ public class PlatformInfo extends SkylarkClassObject {
             + "this platform.",
     structField = true
   )
-  public ImmutableList<ConstraintValueInfo> constraints() {
-    return constraints;
+  public Iterable<ConstraintValueInfo> constraints() {
+    return constraints.values();
+  }
+
+  /**
+   * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
+   * null} if none exists.
+   */
+  @Nullable
+  public ConstraintValueInfo getConstraint(ConstraintSettingInfo constraint) {
+    return constraints.get(constraint);
   }
 
   @SkylarkCallable(

@@ -24,8 +24,8 @@ import org.junit.Before;
 /** Utility methods for setting up platform and toolchain related tests. */
 public abstract class ToolchainTestCase extends SkylarkTestCase {
 
-  public PlatformInfo targetPlatform;
-  public PlatformInfo hostPlatform;
+  public PlatformInfo linuxPlatform;
+  public PlatformInfo macPlatform;
 
   public ConstraintSettingInfo setting;
   public ConstraintValueInfo linuxConstraint;
@@ -46,18 +46,22 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
     setting = ConstraintSettingInfo.create(makeLabel("//constraint:os"));
     linuxConstraint = ConstraintValueInfo.create(setting, makeLabel("//constraint:linux"));
     macConstraint = ConstraintValueInfo.create(setting, makeLabel("//constraint:mac"));
-  }
 
-  @Before
-  public void createPlatforms() throws Exception {
-    targetPlatform =
-        PlatformInfo.builder().setLabel(makeLabel("//platforms:target_platform")).build();
-    hostPlatform = PlatformInfo.builder().setLabel(makeLabel("//platforms:host_platform")).build();
+    linuxPlatform =
+        PlatformInfo.builder()
+            .setLabel(makeLabel("//platforms:target_platform"))
+            .addConstraint(linuxConstraint)
+            .build();
+    macPlatform =
+        PlatformInfo.builder()
+            .setLabel(makeLabel("//platforms:host_platform"))
+            .addConstraint(macConstraint)
+            .build();
   }
 
   @Before
   public void createToolchains() throws Exception {
-    rewriteWorkspace("register_toolchains('//toolchain:toolchain_1',  '//toolchain:toolchain_2')");
+    rewriteWorkspace("register_toolchains('//toolchain:toolchain_1', '//toolchain:toolchain_2')");
 
     scratch.file(
         "toolchain/BUILD",

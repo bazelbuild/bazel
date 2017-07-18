@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -63,25 +65,55 @@ public class ToolchainResolutionFunction implements SkyFunction {
     DeclaredToolchainInfo toolchain =
         resolveConstraints(
             key.toolchainType(),
-            key.targetPlatform(),
             key.execPlatform(),
+            key.targetPlatform(),
             toolchains.registeredToolchains());
+
+    if (toolchain == null) {
+      throw new ToolchainResolutionFunctionException(
+          new NoToolchainFoundException(key.toolchainType()));
+    }
     return ToolchainResolutionValue.create(toolchain.toolchainLabel());
   }
 
-  // TODO(katre): Implement real resolution.
-  private DeclaredToolchainInfo resolveConstraints(
+  @VisibleForTesting
+  static DeclaredToolchainInfo resolveConstraints(
       Label toolchainType,
-      PlatformInfo targetPlatform,
       PlatformInfo execPlatform,
-      ImmutableList<DeclaredToolchainInfo> toolchains)
-      throws ToolchainResolutionFunctionException {
+      PlatformInfo targetPlatform,
+      ImmutableList<DeclaredToolchainInfo> toolchains) {
     for (DeclaredToolchainInfo toolchain : toolchains) {
-      if (toolchain.toolchainType().equals(toolchainType)) {
-        return toolchain;
+      // Make sure the type matches.
+      if (!toolchain.toolchainType().equals(toolchainType)) {
+        continue;
+      }
+      if (!checkConstraints(toolchain.execConstraints(), execPlatform)) {
+        continue;
+      }
+      if (!checkConstraints(toolchain.targetConstraints(), targetPlatform)) {
+        continue;
+      }
+
+      return toolchain;
+    }
+
+    return null;
+  }
+
+  /**
+   * Returns {@code true} iff all constraints set by the toolchain are present in the {@link
+   * PlatformInfo}.
+   */
+  private static boolean checkConstraints(
+      Iterable<ConstraintValueInfo> toolchainConstraints, PlatformInfo platform) {
+
+    for (ConstraintValueInfo constraint : toolchainConstraints) {
+      ConstraintValueInfo found = platform.getConstraint(constraint.constraint());
+      if (!constraint.equals(found)) {
+        return false;
       }
     }
-    throw new ToolchainResolutionFunctionException(new NoToolchainFoundException(toolchainType));
+    return true;
   }
 
   @Nullable

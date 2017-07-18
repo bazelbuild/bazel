@@ -17,7 +17,15 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
+import com.google.common.truth.DefaultSubject;
+import com.google.common.truth.Subject;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -32,6 +40,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
+
     try {
       getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
       return SkyframeExecutorTestUtils.evaluate(
@@ -41,19 +50,17 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     }
   }
 
-  // TODO(katre): Current toolchain resolution does not actually check the constraints, it just
-  // returns the first toolchain available.
   @Test
   public void testResolution() throws Exception {
     SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, targetPlatform, hostPlatform);
+        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
     ToolchainResolutionValue toolchainResolutionValue = result.get(key);
     assertThat(toolchainResolutionValue.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_1"));
+        .isEqualTo(makeLabel("//toolchain:test_toolchain_2"));
   }
 
   @Test
@@ -62,7 +69,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     rewriteWorkspace();
 
     SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, targetPlatform, hostPlatform);
+        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)
@@ -70,6 +77,110 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains("no matching toolchain found for //toolchain:test_toolchain");
+  }
+
+  @Test
+  public void testResolveConstraints() throws Exception {
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(makeLabel("//constraint:setting1"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(makeLabel("//constraint:setting2"));
+    ConstraintValueInfo constraint1a =
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1a"));
+    ConstraintValueInfo constraint1b =
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1b"));
+    ConstraintValueInfo constraint2a =
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2a"));
+    ConstraintValueInfo constraint2b =
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2b"));
+
+    Label toolchainType1 = makeLabel("//toolchain:type1");
+    Label toolchainType2 = makeLabel("//toolchain:type2");
+
+    DeclaredToolchainInfo toolchain1a =
+        DeclaredToolchainInfo.create(
+            toolchainType1,
+            ImmutableList.of(constraint1a, constraint2a),
+            ImmutableList.of(constraint1a, constraint2a),
+            makeLabel("//toolchain:toolchain1a"));
+    DeclaredToolchainInfo toolchain1b =
+        DeclaredToolchainInfo.create(
+            toolchainType1,
+            ImmutableList.of(constraint1a, constraint2b),
+            ImmutableList.of(constraint1a, constraint2b),
+            makeLabel("//toolchain:toolchain1b"));
+    DeclaredToolchainInfo toolchain2a =
+        DeclaredToolchainInfo.create(
+            toolchainType2,
+            ImmutableList.of(constraint1b, constraint2a),
+            ImmutableList.of(constraint1b, constraint2a),
+            makeLabel("//toolchain:toolchain2a"));
+    DeclaredToolchainInfo toolchain2b =
+        DeclaredToolchainInfo.create(
+            toolchainType2,
+            ImmutableList.of(constraint1b, constraint2b),
+            ImmutableList.of(constraint1b, constraint2b),
+            makeLabel("//toolchain:toolchain2b"));
+
+    ImmutableList<DeclaredToolchainInfo> allToolchains =
+        ImmutableList.of(toolchain1a, toolchain1b, toolchain2a, toolchain2b);
+
+    assertToolchainResolution(
+            toolchainType1,
+            ImmutableList.of(constraint1a, constraint2a),
+            ImmutableList.of(constraint1a, constraint2a),
+            allToolchains)
+        .isEqualTo(toolchain1a);
+    assertToolchainResolution(
+            toolchainType1,
+            ImmutableList.of(constraint1a, constraint2b),
+            ImmutableList.of(constraint1a, constraint2b),
+            allToolchains)
+        .isEqualTo(toolchain1b);
+    assertToolchainResolution(
+            toolchainType2,
+            ImmutableList.of(constraint1b, constraint2a),
+            ImmutableList.of(constraint1b, constraint2a),
+            allToolchains)
+        .isEqualTo(toolchain2a);
+    assertToolchainResolution(
+            toolchainType2,
+            ImmutableList.of(constraint1b, constraint2b),
+            ImmutableList.of(constraint1b, constraint2b),
+            allToolchains)
+        .isEqualTo(toolchain2b);
+
+    // No toolchains of type.
+    assertToolchainResolution(
+            makeLabel("//toolchain:type3"),
+            ImmutableList.of(constraint1a, constraint2a),
+            ImmutableList.of(constraint1a, constraint2a),
+            allToolchains)
+        .isNull();
+  }
+
+  private Subject<DefaultSubject, Object> assertToolchainResolution(
+      Label toolchainType,
+      Iterable<ConstraintValueInfo> targetConstraints,
+      Iterable<ConstraintValueInfo> execConstraints,
+      ImmutableList<DeclaredToolchainInfo> toolchains)
+      throws Exception {
+
+    PlatformInfo execPlatform =
+        PlatformInfo.builder()
+            .setLabel(makeLabel("//platform:exec"))
+            .addConstraints(execConstraints)
+            .build();
+    PlatformInfo targetPlatform =
+        PlatformInfo.builder()
+            .setLabel(makeLabel("//platform:target"))
+            .addConstraints(targetConstraints)
+            .build();
+
+    DeclaredToolchainInfo resolvedToolchain =
+        ToolchainResolutionFunction.resolveConstraints(
+            toolchainType, execPlatform, targetPlatform, toolchains);
+    return assertThat(resolvedToolchain);
   }
 
   @Test
