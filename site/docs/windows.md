@@ -123,7 +123,7 @@ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
 
 On Windows, we build a self-extracting zip file for executable Python targets, you can even use
 `python ./bazel-bin/path/to/target` to run it in native Windows command line (cmd.exe).
-See more details in this [design doc](/designs/2016/09/05/build-python-on-windows.html).
+See more details in this [design doc](https://bazel.build/designs/2016/09/05/build-python-on-windows.html).
 
 ```bash
 bazel build examples/py_native:bin
