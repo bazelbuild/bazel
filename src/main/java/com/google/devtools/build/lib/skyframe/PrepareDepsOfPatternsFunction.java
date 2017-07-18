@@ -48,6 +48,11 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
       try {
         skyKeyBuilder.add(skyKeyOrException.getSkyKey());
       } catch (TargetParsingException e) {
+        // We post an event here rather than in handleTargetParsingException because the
+        // TargetPatternFunction already posts an event unless the pattern cannot be parsed, in
+        // which case the caller (i.e., us) needs to post an event.
+        eventHandler.post(
+            new ParsingFailedEvent(skyKeyOrException.getOriginalPattern(), e.getMessage()));
         handleTargetParsingException(eventHandler, skyKeyOrException.getOriginalPattern(), e);
       }
     }
@@ -112,7 +117,6 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
       ExtendedEventHandler eventHandler, String rawPattern, TargetParsingException e) {
     String errorMessage = e.getMessage();
     eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
-    eventHandler.post(new ParsingFailedEvent(rawPattern, errorMessage));
   }
 
   @Nullable

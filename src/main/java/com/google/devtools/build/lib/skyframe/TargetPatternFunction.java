@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -71,6 +72,7 @@ public class TargetPatternFunction implements SkyFunction {
       parsedPattern.eval(resolver, excludedSubdirectories, callback, RuntimeException.class);
       resolvedTargets = ResolvedTargets.<Target>builder().addAll(results).build();
     } catch (TargetParsingException e) {
+      env.getListener().post(new ParsingFailedEvent(patternKey.getPattern(),  e.getMessage()));
       throw new TargetPatternFunctionException(e);
     } catch (MissingDepException e) {
       // The EnvironmentBackedRecursivePackageProvider constructed above might throw

@@ -110,12 +110,16 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       try {
         builder.add(skyKeyOrException.getSkyKey());
       } catch (TargetParsingException e) {
+        // We report a parsing failed exception to the event bus here in case the pattern did not
+        // successfully parse (which happens before the SkyKey is created). Otherwise the
+        // TargetPatternFunction posts the event.
+        eventHandler.post(
+            new ParsingFailedEvent(skyKeyOrException.getOriginalPattern(),  e.getMessage()));
         if (!keepGoing) {
           throw e;
         }
         String pattern = skyKeyOrException.getOriginalPattern();
         eventHandler.handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
-        eventHandler.post(new ParsingFailedEvent(pattern, e.getMessage()));
       }
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
@@ -185,8 +189,6 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
           eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         }
         finalTargetSetEvaluator.setError();
-
-        eventHandler.post(new ParsingFailedEvent(rawPattern,  errorMessage));
       }
     }
 

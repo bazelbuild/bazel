@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
@@ -198,7 +199,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
-        // Skip.
+        // We generally skip patterns that don't parse. We report a parsing failed exception to the
+        // event bus here, but not in determineTests below, which goes through the same list. Note
+        // that the TargetPatternFunction otherwise reports these events (but only if the target
+        // pattern could be parsed successfully).
+        env.getListener().post(
+            new ParsingFailedEvent(keyOrException.getOriginalPattern(),  e.getMessage()));
       }
     }
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
@@ -214,7 +220,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       try {
         value = (TargetPatternValue) resolvedPatterns.get(key).get();
       } catch (TargetParsingException e) {
-        // TODO(ulfjack): Report to EventBus.
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));

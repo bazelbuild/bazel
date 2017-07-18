@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -34,7 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -551,6 +549,17 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasLoadingError()).isFalse();
   }
 
+  @Test
+  public void testParsingFailureReported() throws Exception {
+    LoadingResult loadingResult = tester.loadKeepGoing("//does_not_exist");
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    ParsingFailedEvent event = tester.findPost(ParsingFailedEvent.class);
+    assertThat(event).isNotNull();
+    assertThat(event.getPattern()).isEqualTo("//does_not_exist");
+    assertThat(event.getMessage()).contains("BUILD file not found on package path");
+    assertThat(Iterables.filter(tester.getPosts(), ParsingFailedEvent.class)).hasSize(1);
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);
@@ -672,20 +681,17 @@ public class LoadingPhaseRunnerTest {
       storedErrors.clear();
       LoadingResult result;
       try {
-        EventBus eventBus = new EventBus();
-        FilteredTargetListener listener = new FilteredTargetListener();
-        eventBus.register(listener);
         result =
             loadingPhaseRunner.execute(
-                new Reporter(eventBus, storedErrors),
+                storedErrors,
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,
                 options,
                 keepGoing,
                 determineTests,
                 loadingCallback);
-        this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
-        this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
+        this.targetParsingCompleteEvent = findPost(TargetParsingCompleteEvent.class);
+        this.loadingPhaseCompleteEvent = findPost(LoadingPhaseCompleteEvent.class);
       } catch (LoadingFailedException e) {
         System.err.println(storedErrors.getEvents());
         throw e;
@@ -796,20 +802,18 @@ public class LoadingPhaseRunnerTest {
       MoreAsserts.assertContainsEventWithFrequency(
           filteredEvents(), expectedMessage, expectedFrequency);
     }
-  }
 
-  public static class FilteredTargetListener {
-    private TargetParsingCompleteEvent targetParsingCompleteEvent;
-    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
-
-    @Subscribe
-    public void targetParsingComplete(TargetParsingCompleteEvent event) {
-      this.targetParsingCompleteEvent = event;
+    public Iterable<Postable> getPosts() {
+      return storedErrors.getPosts();
     }
 
-    @Subscribe
-    public void loadingPhaseComplete(LoadingPhaseCompleteEvent event) {
-      this.loadingPhaseCompleteEvent = event;
+    public <T extends Postable> T findPost(Class<T> clazz) {
+      for (Postable p : storedErrors.getPosts()) {
+        if (clazz.isInstance(p)) {
+          return clazz.cast(p);
+        }
+      }
+      return null;
     }
   }
 }
