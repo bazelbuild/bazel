@@ -32,9 +32,11 @@ final class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       BuildRequest buildRequest,
       Path sandboxBase,
       boolean verboseFailures,
-      String productName) {
+      String productName,
+      int timeoutGraceSeconds) {
     super(
         verboseFailures,
-        new ProcessWrapperSandboxedSpawnRunner(cmdEnv, buildRequest, sandboxBase, productName));
+        new ProcessWrapperSandboxedSpawnRunner(
+            cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
   }
 }

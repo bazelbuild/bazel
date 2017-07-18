@@ -41,11 +41,11 @@ final class ProcessWrapperRunner {
   }
 
   static List<String> getCommandLine(
-      Path processWrapper, List<String> spawnArguments, int timeout) {
+      Path processWrapper, List<String> spawnArguments, int timeout, int timeoutGraceSeconds) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
     commandLineArgs.add(processWrapper.getPathString());
     commandLineArgs.add("--timeout=" + timeout);
-    commandLineArgs.add("--kill_delay=5"); /* give some time to print stacktraces and whatnot. */
+    commandLineArgs.add("--kill_delay=" + timeoutGraceSeconds);
     commandLineArgs.addAll(spawnArguments);
     return commandLineArgs;
   }

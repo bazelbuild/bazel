@@ -93,13 +93,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path linuxSandbox;
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
+  private final int timeoutGraceSeconds;
 
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
       Path sandboxBase,
       Path inaccessibleHelperFile,
-      Path inaccessibleHelperDir) {
+      Path inaccessibleHelperDir,
+      int timeoutGraceSeconds) {
     super(
         cmdEnv,
         sandboxBase,
@@ -111,6 +113,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.linuxSandbox = getLinuxSandbox(cmdEnv);
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
+    this.timeoutGraceSeconds = timeoutGraceSeconds;
   }
 
   @Override
@@ -162,6 +165,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (timeoutSeconds != -1) {
       commandLineArgs.add("-T");
       commandLineArgs.add(Integer.toString(timeoutSeconds));
+    }
+
+    if (timeoutGraceSeconds != -1) {
+      commandLineArgs.add("-t");
+      commandLineArgs.add(Integer.toString(timeoutGraceSeconds));
     }
 
     // Create all needed directories.

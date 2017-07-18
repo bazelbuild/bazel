@@ -91,6 +91,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final boolean allowNetwork;
   private final String productName;
   private final Path processWrapper;
+  private final int timeoutGraceSeconds;
 
   /**
    * The set of directories that always should be writable, independent of the Spawn itself.
@@ -104,7 +105,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
       Path sandboxBase,
-      String productName) throws IOException {
+      String productName,
+      int timeoutGraceSeconds)
+      throws IOException {
     super(
         cmdEnv,
         sandboxBase,
@@ -115,6 +118,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getDirectories().getFileSystem());
     this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
     this.localEnvProvider = new XCodeLocalEnvProvider();
+    this.timeoutGraceSeconds = timeoutGraceSeconds;
   }
 
   private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
@@ -190,8 +194,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     int timeoutSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(policy.getTimeoutMillis());
-    List<String> arguments = computeCommandLine(
-        spawn, timeoutSeconds, sandboxConfigPath);
+    List<String> arguments =
+        computeCommandLine(spawn, timeoutSeconds, sandboxConfigPath, timeoutGraceSeconds);
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
 
@@ -214,13 +218,15 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return runSpawn(spawn, sandbox, policy, execRoot, timeoutSeconds);
   }
 
-  private List<String> computeCommandLine(Spawn spawn, int timeoutSeconds, Path sandboxConfigPath) {
+  private List<String> computeCommandLine(
+      Spawn spawn, int timeoutSeconds, Path sandboxConfigPath, int timeoutGraceSeconds) {
     List<String> commandLineArgs = new ArrayList<>();
     commandLineArgs.add(SANDBOX_EXEC);
     commandLineArgs.add("-f");
     commandLineArgs.add(sandboxConfigPath.getPathString());
     commandLineArgs.addAll(
-        ProcessWrapperRunner.getCommandLine(processWrapper, spawn.getArguments(), timeoutSeconds));
+        ProcessWrapperRunner.getCommandLine(
+            processWrapper, spawn.getArguments(), timeoutSeconds, timeoutGraceSeconds));
     return commandLineArgs;
   }
 
