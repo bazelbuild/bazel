@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -431,22 +432,23 @@ public final class CustomCommandLine extends CommandLine {
     // toString() results.
     private final List<Object> arguments = new ArrayList<>();
 
-    public Builder add(CharSequence arg) {
+    public Builder add(@Nullable CharSequence arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(Label arg) {
+    public Builder add(@Nullable Label arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(String arg, Iterable<String> args) {
-      if (arg != null && args != null) {
+    public Builder add(String arg, @Nullable Iterable<String> args) {
+      Preconditions.checkNotNull(arg);
+      if (args != null && !Iterables.isEmpty(args)) {
         arguments.add(arg);
         arguments.add(
             InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
@@ -454,24 +456,26 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder add(Iterable<String> args) {
-      if (args != null) {
+    public Builder add(@Nullable Iterable<String> args) {
+      if (args != null && !Iterables.isEmpty(args)) {
         arguments.add(
             InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addExecPath(String arg, Artifact artifact) {
-      if (arg != null && artifact != null) {
+    public Builder addExecPath(String arg, @Nullable Artifact artifact) {
+      Preconditions.checkNotNull(arg);
+      if (artifact != null) {
         arguments.add(arg);
         arguments.add(artifact.getExecPath());
       }
       return this;
     }
 
-    public Builder addExecPaths(String arg, Iterable<Artifact> artifacts) {
-      if (arg != null && artifacts != null) {
+    public Builder addExecPaths(String arg, @Nullable Iterable<Artifact> artifacts) {
+      Preconditions.checkNotNull(arg);
+      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
         arguments.add(arg);
         arguments.add(
             InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
@@ -479,8 +483,8 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder addExecPaths(Iterable<Artifact> artifacts) {
-      if (artifacts != null) {
+    public Builder addExecPaths(@Nullable Iterable<Artifact> artifacts) {
+      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
         arguments.add(
             InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
@@ -489,15 +493,16 @@ public final class CustomCommandLine extends CommandLine {
 
     /**
      * Adds a flag with the exec path of a placeholder TreeArtifact. When the command line is used
-     * in an action template, the placeholder will be replaced by the exec path of a
-     * {@link TreeFileArtifact} inside the TreeArtifact at execution time for each expanded action.
+     * in an action template, the placeholder will be replaced by the exec path of a {@link
+     * TreeFileArtifact} inside the TreeArtifact at execution time for each expanded action.
      *
      * @param arg the name of the argument
-     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child
-     *     {@link TreeFileArtifact} at execution time
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child {@link
+     *     TreeFileArtifact} at execution time
      */
-    public Builder addPlaceholderTreeArtifactExecPath(String arg, Artifact treeArtifact) {
-      if (arg != null && treeArtifact != null) {
+    public Builder addPlaceholderTreeArtifactExecPath(String arg, @Nullable Artifact treeArtifact) {
+      Preconditions.checkNotNull(arg);
+      if (treeArtifact != null) {
         arguments.add(arg);
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
@@ -509,18 +514,21 @@ public final class CustomCommandLine extends CommandLine {
      * template, the placeholder will be replaced by the exec path of a {@link TreeFileArtifact}
      * inside the TreeArtifact at execution time for each expanded action.
      *
-     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child
-     *     {@link TreeFileArtifact} at execution time
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child {@link
+     *     TreeFileArtifact} at execution time
      */
-    public Builder addPlaceholderTreeArtifactExecPath(Artifact treeArtifact) {
+    public Builder addPlaceholderTreeArtifactExecPath(@Nullable Artifact treeArtifact) {
       if (treeArtifact != null) {
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
       return this;
     }
 
-    public Builder addJoinStrings(String arg, String delimiter, Iterable<String> strings) {
-      if (arg != null && strings != null) {
+    public Builder addJoinStrings(
+        String arg, String delimiter, @Nullable Iterable<String> strings) {
+      Preconditions.checkNotNull(arg);
+      Preconditions.checkNotNull(delimiter);
+      if (strings != null && !Iterables.isEmpty(strings)) {
         arguments.add(arg);
         arguments.add(new JoinStringsArg(delimiter, strings));
       }
@@ -540,31 +548,38 @@ public final class CustomCommandLine extends CommandLine {
      * @param toString A function that transforms a value into a string
      */
     public <T> Builder addJoinValues(
-        String arg, String delimiter, Iterable<T> values, Function<T, String> toString) {
-      if (arg != null && arguments != null) {
+        String arg, String delimiter, @Nullable Iterable<T> values, Function<T, String> toString) {
+      Preconditions.checkNotNull(arg);
+      Preconditions.checkNotNull(delimiter);
+      Preconditions.checkNotNull(toString);
+      if (values != null && !Iterables.isEmpty(values)) {
         arguments.add(arg);
         arguments.add(new JoinValuesTransformed<T>(delimiter, values, toString));
       }
       return this;
     }
- 
-    public Builder addJoinExecPaths(String arg, String delimiter, Iterable<Artifact> artifacts) {
-      if (arg != null && artifacts != null) {
+
+    public Builder addJoinExecPaths(
+        String arg, String delimiter, @Nullable Iterable<Artifact> artifacts) {
+      Preconditions.checkNotNull(arg);
+      Preconditions.checkNotNull(delimiter);
+      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
         arguments.add(arg);
         arguments.add(new JoinExecPathsArg(delimiter, artifacts));
       }
       return this;
     }
 
-    public Builder addPath(PathFragment path) {
+    public Builder addPath(@Nullable PathFragment path) {
       if (path != null) {
         arguments.add(path);
       }
       return this;
     }
 
-    public Builder addPaths(String template, PathFragment... path) {
-      if (template != null && path != null) {
+    public Builder addPaths(String template, @Nullable PathFragment... path) {
+      Preconditions.checkNotNull(template);
+      if (path != null) {
         arguments.add(new PathWithTemplateArg(template, path));
       }
       return this;
@@ -576,7 +591,9 @@ public final class CustomCommandLine extends CommandLine {
      * @param paramFilePrefix The character that denotes a param file, commonly '@'
      * @param paramFile The param file artifact
      */
-    public Builder addParamFile(String paramFilePrefix, Artifact paramFile) {
+    public Builder addParamFile(String paramFilePrefix, @Nullable Artifact paramFile) {
+      Preconditions.checkNotNull(paramFilePrefix);
+      Preconditions.checkNotNull(paramFile);
       arguments.add(new ParamFileArgument(paramFilePrefix, paramFile.getExecPath()));
       return this;
     }
@@ -589,19 +606,21 @@ public final class CustomCommandLine extends CommandLine {
      *
      * @param template the string format template containing a single string format specifier (%s)
      *     to be replaced by the artifact exec path string.
-     * @param treeArtifact the TreeArtifact that will be evaluated to one of their child
-     *     {@link TreeFileArtifact} at execution time
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of their child {@link
+     *     TreeFileArtifact} at execution time
      */
     public Builder addPlaceholderTreeArtifactFormattedExecPath(
-        String template, Artifact treeArtifact) {
-      if (template != null && treeArtifact != null) {
+        String template, @Nullable Artifact treeArtifact) {
+      Preconditions.checkNotNull(template);
+      if (treeArtifact != null) {
         arguments.add(new TreeFileArtifactExecPathWithTemplateArg(template, treeArtifact));
       }
       return this;
     }
 
-    public Builder addJoinPaths(String delimiter, Iterable<PathFragment> paths) {
-      if (delimiter != null && paths != null) {
+    public Builder addJoinPaths(String delimiter, @Nullable Iterable<PathFragment> paths) {
+      Preconditions.checkNotNull(delimiter);
+      if (paths != null && !Iterables.isEmpty(paths)) {
         arguments.add(new JoinPathsArg(delimiter, paths));
       }
       return this;
@@ -615,6 +634,8 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to join.
      */
     public Builder addJoinExpandedTreeArtifactExecPath(String delimiter, Artifact treeArtifact) {
+      Preconditions.checkNotNull(delimiter);
+      Preconditions.checkNotNull(treeArtifact);
       arguments.add(new JoinExpandedTreeArtifactExecPathsArg(delimiter, treeArtifact));
       return this;
     }
@@ -626,46 +647,51 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      */
     public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
+      Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactExecPathsArg(treeArtifact));
       return this;
     }
 
-    public Builder addBeforeEachPath(String repeated, Iterable<PathFragment> paths) {
-      if (repeated != null && paths != null) {
+    public Builder addBeforeEachPath(String repeated, @Nullable Iterable<PathFragment> paths) {
+      Preconditions.checkNotNull(repeated);
+      if (paths != null && !Iterables.isEmpty(paths)) {
         arguments.add(InterspersingArgs.fromStrings(paths, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addBeforeEach(String repeated, Iterable<String> strings) {
-      if (repeated != null && strings != null) {
+    public Builder addBeforeEach(String repeated, @Nullable Iterable<String> strings) {
+      Preconditions.checkNotNull(repeated);
+      if (strings != null && !Iterables.isEmpty(strings)) {
         arguments.add(InterspersingArgs.fromStrings(strings, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addBeforeEachExecPath(String repeated, Iterable<Artifact> artifacts) {
-      if (repeated != null && artifacts != null) {
+    public Builder addBeforeEachExecPath(String repeated, @Nullable Iterable<Artifact> artifacts) {
+      Preconditions.checkNotNull(repeated);
+      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
         arguments.add(InterspersingArgs.fromExecPaths(artifacts, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addFormatEach(String format, Iterable<String> strings) {
-      if (format != null && strings != null) {
+    public Builder addFormatEach(String format, @Nullable Iterable<String> strings) {
+      Preconditions.checkNotNull(format);
+      if (strings != null && !Iterables.isEmpty(strings)) {
         arguments.add(InterspersingArgs.fromStrings(strings, /*beforeEach=*/null, format));
       }
       return this;
     }
 
-    public Builder add(CustomArgv arg) {
+    public Builder add(@Nullable CustomArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(CustomMultiArgv arg) {
+    public Builder add(@Nullable CustomMultiArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
