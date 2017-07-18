@@ -137,7 +137,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots,
+      Iterable<? extends SkyKey> roots,
       Version version,
       boolean keepGoing,
       int numThreads,

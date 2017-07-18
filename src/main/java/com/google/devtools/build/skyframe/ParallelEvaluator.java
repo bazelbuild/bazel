@@ -690,7 +690,7 @@ public final class ParallelEvaluator implements Evaluator {
 
   @Override
   @ThreadCompatible
-  public <T extends SkyValue> EvaluationResult<T> eval(Iterable<SkyKey> skyKeys)
+  public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 

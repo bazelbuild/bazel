@@ -270,7 +270,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
   }
 
-  private Map<SkyKey, SkyValue> getValuesMaybeFromError(Iterable<SkyKey> keys)
+  private Map<SkyKey, SkyValue> getValuesMaybeFromError(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates.  The map will be thrown away
@@ -341,7 +341,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Iterable<SkyKey> depKeys) throws InterruptedException {
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
     Map<SkyKey, SkyValue> values = getValuesMaybeFromError(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
@@ -449,13 +449,13 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           E4 extends Exception,
           E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-          Iterable<SkyKey> depKeys,
+          Iterable<? extends SkyKey> depKeys,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4,
           Class<E5> exceptionClass5)
-          throws InterruptedException {
+              throws InterruptedException {
     newlyRequestedDeps.startGroup();
     Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result =
         super.getValuesOrThrow(

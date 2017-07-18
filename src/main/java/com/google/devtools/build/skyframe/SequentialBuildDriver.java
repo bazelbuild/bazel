@@ -32,8 +32,9 @@ public class SequentialBuildDriver implements BuildDriver {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, ExtendedEventHandler reporter)
-      throws InterruptedException {
+      Iterable<? extends SkyKey> roots, boolean keepGoing, int numThreads,
+      ExtendedEventHandler reporter)
+          throws InterruptedException {
     try {
       return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, numThreads, reporter);
     } finally {

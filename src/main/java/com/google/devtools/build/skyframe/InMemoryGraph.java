@@ -28,7 +28,7 @@ public interface InMemoryGraph extends ProcessableGraph {
 
   @Override
   Map<SkyKey, ? extends NodeEntry> getBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   /**
    * Returns a read-only live view of the nodes in the graph. All node are included. Dirty values

@@ -155,7 +155,7 @@ public final class ActionsTestUtil {
 
     @Override
     protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Iterable<SkyKey> depKeys) {
+        Iterable<? extends SkyKey> depKeys) {
       EvaluationResult<SkyValue> evaluationResult;
       Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
       try {

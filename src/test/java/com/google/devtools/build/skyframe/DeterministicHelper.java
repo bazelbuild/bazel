@@ -90,8 +90,8 @@ public class DeterministicHelper extends NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
-        throws InterruptedException {
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+            throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }
@@ -119,8 +119,8 @@ public class DeterministicHelper extends NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
-        throws InterruptedException {
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+            throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }

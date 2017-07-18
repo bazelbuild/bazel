@@ -88,7 +88,7 @@ public class NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       return Maps.transformEntries(
           delegate.getBatch(requestor, reason, keys),
