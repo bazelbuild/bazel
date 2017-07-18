@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,7 +50,7 @@ import javax.annotation.Nullable;
     doc = "A root for files. The roots are the directories containing files, and they are mapped "
         + "together into a single directory tree to form the execution environment.")
 @Immutable
-public final class Root implements Comparable<Root>, Serializable {
+public final class Root implements Comparable<Root>, Serializable, SkylarkValue {
 
   /**
    * Returns the given path as a source root. The path may not be {@code null}.
@@ -216,5 +218,10 @@ public final class Root implements Comparable<Root>, Serializable {
   @Override
   public String toString() {
     return path + (isSourceRoot() ? "[source]" : "[derived]");
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(toString());
   }
 }
