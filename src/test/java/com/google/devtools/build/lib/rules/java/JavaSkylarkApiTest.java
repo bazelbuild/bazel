@@ -244,6 +244,91 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void javaProviderFieldsAreCorrectAfterCreatingProvider() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  my_provider = java_common.create_provider(",
+        "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        runtime_jars = ctx.files.runtime_jars,",
+        "        transitive_compile_time_jars = ctx.files.transitive_compile_time_jars,",
+        "        transitive_runtime_jars = ctx.files.transitive_runtime_jars,",
+        "        source_jars = depset(ctx.files.source_jars))",
+        "  return [my_provider]",
+        "my_rule = rule(_impl, ",
+        "    attrs = { ",
+        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
+        "        'transitive_compile_time_jars': attr.label_list(allow_files=['.jar']),",
+        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
+        "        'source_jars': attr.label_list(allow_files=['.jar'])",
+        "})");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'myrule',",
+        "    compile_time_jars = ['liba.jar'],",
+        "    runtime_jars = ['libb.jar'],",
+        "    transitive_compile_time_jars = ['libc.jar'],",
+        "    transitive_runtime_jars = ['libd.jar'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject = target.get(JavaProvider.JAVA_PROVIDER);
+
+    SkylarkNestedSet compileJars = (SkylarkNestedSet) skylarkClassObject.getValue("compile_jars");
+    assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
+
+    SkylarkNestedSet transitiveCompileTimeJars =
+        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_compile_time_jars");
+    assertThat(prettyJarNames(
+        transitiveCompileTimeJars.getSet(Artifact.class))).containsExactly("foo/libc.jar");
+
+    SkylarkNestedSet transitiveRuntimeJars =
+        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_jars");
+    assertThat(prettyJarNames(
+        transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
+  }
+
+  @Test
+  public void javaProviderFieldsAreCorrectAfterCreatingProviderSomeEmptyFields() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  my_provider = java_common.create_provider(",
+        "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        runtime_jars = [],",
+        "        transitive_compile_time_jars = [],",
+        "        transitive_runtime_jars = ctx.files.transitive_runtime_jars)",
+        "  return [my_provider]",
+        "my_rule = rule(_impl, ",
+        "    attrs = { ",
+        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
+        "})");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'myrule',",
+        "    compile_time_jars = ['liba.jar'],",
+        "    transitive_runtime_jars = ['libd.jar'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject = target.get(JavaProvider.JAVA_PROVIDER);
+
+    SkylarkNestedSet compileJars = (SkylarkNestedSet) skylarkClassObject.getValue("compile_jars");
+    assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
+
+    SkylarkNestedSet transitiveCompileTimeJars =
+        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_compile_time_jars");
+    assertThat(prettyJarNames(transitiveCompileTimeJars.getSet(Artifact.class))).isEmpty();
+
+    SkylarkNestedSet transitiveRuntimeJars =
+        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_jars");
+    assertThat(prettyJarNames(
+        transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
+  }
+
+  @Test
   public void constructJavaProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
@@ -263,15 +348,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
         "        'source_jars': attr.label_list(allow_files=['.jar'])",
         "})");
-    scratch.file("foo/liba.jar");
-    scratch.file("foo/libb.jar");
-    scratch.file("foo/liba-src.jar");
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "my_rule(name = 'myrule',",
         "    compile_time_jars = ['liba.jar'],",
         "    runtime_jars = ['libb.jar'],",
+        "    transitive_compile_time_jars = ['libc.jar'],",
+        "    transitive_runtime_jars = ['libd.jar'],",
         "    source_jars = ['liba-src.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
@@ -281,10 +365,17 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     List<String> compileTimeJars =
         prettyJarNames(provider.getJavaCompilationArgs().getCompileTimeJars());
     assertThat(compileTimeJars).containsExactly("foo/liba.jar");
-
     List<String> runtimeJars =
         prettyJarNames(provider.getJavaCompilationArgs().getRuntimeJars());
     assertThat(runtimeJars).containsExactly("foo/libb.jar");
+
+    List<String> transitiveCompileTimeJars =
+        prettyJarNames(provider.getRecursiveJavaCompilationArgs().getCompileTimeJars());
+    assertThat(transitiveCompileTimeJars).containsExactly("foo/libc.jar");
+    List<String> transitiveRuntimeJars =
+        prettyJarNames(provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
+    assertThat(transitiveRuntimeJars).containsExactly("foo/libd.jar");
+
     JavaSourceJarsProvider sourcesProvider =
         JavaProvider.getProvider(JavaSourceJarsProvider.class, target);
     List<String> sourceJars = prettyJarNames(sourcesProvider.getSourceJars());
