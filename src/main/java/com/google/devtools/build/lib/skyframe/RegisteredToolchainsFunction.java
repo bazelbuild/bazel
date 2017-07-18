@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.ExternalPackageUtil;
+import com.google.devtools.build.lib.rules.ExternalPackageUtil.ExternalPackageException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -44,20 +46,36 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     BuildConfiguration configuration = (BuildConfiguration) skyKey.argument();
 
-    // Get the registered toolchains.
-    List<Label> registeredToolchainLabels = ExternalPackageUtil.getRegisteredToolchainLabels(env);
-    if (registeredToolchainLabels == null) {
+    ImmutableList.Builder<Label> registeredToolchainLabels = new ImmutableList.Builder<>();
+
+    // Get the toolchains from the configuration.
+    PlatformConfiguration platformConfiguration =
+        configuration.getFragment(PlatformConfiguration.class);
+    registeredToolchainLabels.addAll(platformConfiguration.getExtraToolchains());
+
+    // Get the registered toolchains from the WORKSPACE.
+    registeredToolchainLabels.addAll(getWorkspaceToolchains(env));
+    if (env.valuesMissing()) {
       return null;
     }
 
     // Load the configured target for each, and get the declared toolchain providers.
     ImmutableList<DeclaredToolchainInfo> registeredToolchains =
-        configureRegisteredToolchains(env, configuration, registeredToolchainLabels);
+        configureRegisteredToolchains(env, configuration, registeredToolchainLabels.build());
     if (env.valuesMissing()) {
       return null;
     }
 
     return RegisteredToolchainsValue.create(registeredToolchains);
+  }
+
+  private Iterable<? extends Label> getWorkspaceToolchains(Environment env)
+      throws ExternalPackageException, InterruptedException {
+    List<Label> labels = ExternalPackageUtil.getRegisteredToolchainLabels(env);
+    if (labels == null) {
+      return ImmutableList.of();
+    }
+    return labels;
   }
 
   private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(

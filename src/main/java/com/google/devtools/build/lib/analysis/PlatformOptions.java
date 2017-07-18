@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Option;
@@ -50,6 +51,17 @@ public class PlatformOptions extends FragmentOptions {
     help = "Declare the platforms targeted by the current build"
   )
   public List<Label> platforms;
+
+  @Option(
+    name = "extra_toolchains",
+    converter = LabelListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.HIDDEN},
+    help = "Extra toolchains to be considered during toolchain resolution."
+  )
+  public List<Label> extraToolchains;
 
   @Override
   public PlatformOptions getHost(boolean fallback) {

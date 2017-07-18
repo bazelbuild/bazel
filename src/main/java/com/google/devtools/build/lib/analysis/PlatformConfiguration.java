@@ -34,11 +34,14 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
 
   private final Label executionPlatform;
   private final ImmutableList<Label> targetPlatforms;
+  private final ImmutableList<Label> extraToolchains;
 
-  public PlatformConfiguration(Label executionPlatform, List<Label> targetPlatforms) {
+  public PlatformConfiguration(
+      Label executionPlatform, List<Label> targetPlatforms, List<Label> extraToolchains) {
 
     this.executionPlatform = executionPlatform;
     this.targetPlatforms = ImmutableList.copyOf(targetPlatforms);
+    this.extraToolchains = ImmutableList.copyOf(extraToolchains);
   }
 
   @SkylarkCallable(
@@ -53,5 +56,10 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")
   public ImmutableList<Label> getTargetPlatforms() {
     return targetPlatforms;
+  }
+
+  /** Additional toolchains that should be considered during toolchain resolution. */
+  public ImmutableList<Label> getExtraToolchains() {
+    return extraToolchains;
   }
 }

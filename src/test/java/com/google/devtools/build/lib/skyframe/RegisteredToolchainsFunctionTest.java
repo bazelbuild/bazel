@@ -19,11 +19,15 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
+import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -75,6 +79,38 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void testRegisteredToolchains_flagOverride() throws Exception {
+
+    // Add an extra toolchain.
+    scratch.file(
+        "extra/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain(",
+        "    name = 'extra_toolchain',",
+        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    exec_compatible_with = ['//constraint:linux'],",
+        "    target_compatible_with = ['//constraint:linux'],",
+        "    toolchain = ':extra_toolchain_impl')",
+        "test_toolchain(",
+        "  name='extra_toolchain_impl',",
+        "  data = 'extra')");
+
+    rewriteWorkspace("register_toolchains('//toolchain:toolchain_1')");
+    useConfiguration("--extra_toolchains=//extra:extra_toolchain");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_toolchains flag is first in the list.
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsExactly(
+            makeLabel("//extra:extra_toolchain_impl"), makeLabel("//toolchain:test_toolchain_1"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredToolchains_notToolchain() throws Exception {
     rewriteWorkspace("register_toolchains(", "    '//error:not_a_toolchain')");
     scratch.file("error/BUILD", "filegroup(name = 'not_a_toolchain')");
@@ -98,10 +134,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
-    RegisteredToolchainsValue value = result.get(toolchainsKey);
-    assertThat(value.registeredToolchains()).hasSize(1);
-    assertThat(value.registeredToolchains().get(0).toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_1"));
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsExactly(makeLabel("//toolchain:test_toolchain_1"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_2')");
@@ -109,10 +143,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
-    value = result.get(toolchainsKey);
-    assertThat(value.registeredToolchains()).hasSize(1);
-    assertThat(value.registeredToolchains().get(0).toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_2"));
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsExactly(makeLabel("//toolchain:test_toolchain_2"));
   }
 
   @Test
@@ -138,5 +170,21 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain1)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)));
+  }
+
+  private static IterableSubject assertToolchainLabels(
+      RegisteredToolchainsValue registeredToolchainsValue) {
+    assertThat(registeredToolchainsValue).isNotNull();
+    ImmutableList<DeclaredToolchainInfo> declaredToolchains =
+        registeredToolchainsValue.registeredToolchains();
+    List<Label> labels = collectToolchainLabels(declaredToolchains);
+    return assertThat(labels);
+  }
+
+  private static List<Label> collectToolchainLabels(List<DeclaredToolchainInfo> toolchains) {
+    return toolchains
+        .stream()
+        .map((toolchain -> toolchain.toolchainLabel()))
+        .collect(Collectors.toList());
   }
 }
