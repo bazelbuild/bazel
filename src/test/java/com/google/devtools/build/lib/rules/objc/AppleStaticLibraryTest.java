@@ -540,4 +540,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         Iterables.getOnlyElement(
             provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
   }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipo.a", "-fl.a");
+  }
 }

@@ -159,7 +159,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns the bin dir for artifacts built for a given Apple architecture and minimum OS
    * version (as set by a configuration transition) and configuration distinguisher but the global
    * default for {@code --cpu}.
-   * 
+   *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}.
    * @param configurationDistinguisher the configuration distinguisher used to describe the
@@ -214,7 +214,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns the bin dir for artifacts built for a given Apple architecture (as set by a
    * configuration transition) and configuration distinguisher but the global default for
    * {@code --cpu} and the platform default for minimum OS.
-   * 
+   *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}
    * @param configurationDistinguisher the configuration distinguisher used to describe the
@@ -294,14 +294,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         platform.getNameInPlist()) + AppleToolchain.DEVELOPER_FRAMEWORK_PATH;
   }
 
-  /** 
-   * Creates an {@code objc_library} target writer for the label indicated by the given String. 
+  /**
+   * Creates an {@code objc_library} target writer for the label indicated by the given String.
    */
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
     return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
   }
 
-  /** 
+  /**
    * Creates an {@code objc_binary} target writer for the label indicated by the given String.
    */
   protected ScratchAttributeWriter createBinaryTargetWriter(String labelString) {
@@ -448,12 +448,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected List<BuildConfiguration> getSplitConfigurations(BuildConfiguration configuration,
       SplitTransition<BuildOptions> splitTransition) throws InterruptedException {
     ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
-  
+
     for (BuildOptions splitOptions : splitTransition.split(configuration.getOptions())) {
       splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(
           reporter, configuration.fragmentClasses(), splitOptions));
     }
-  
+
     return splitConfigs.build();
   }
 
@@ -483,7 +483,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
         .containsExactly("x/x_bin");
 
-    verifyLinkAction(Iterables.getOnlyElement(action.getOutputs()), 
+    verifyLinkAction(Iterables.getOnlyElement(action.getOutputs()),
         getBinArtifact("x-linker.objlist", "//x:x"), "i386",
         ImmutableList.of("libx.a", "liblib1.a", "liblib2.a"), ImmutableList.<PathFragment>of(),
         extraLinkArgs);
@@ -555,7 +555,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * @param filelistArtifact the input filelist artifact
    * @param arch the architecture (for example, "i386") which the binary is to be created for
    * @param inputArchives the suffixes (basenames or relative paths with basenames) of the input
-   *     archive files for the link action 
+   *     archive files for the link action
    * @param importedFrameworks custom framework path fragments
    * @param extraLinkArgs extra link arguments expected on the link action
    */
@@ -606,7 +606,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkLinkActionWithTransitiveCppDependency(
       RuleType ruleType, ExtraLinkArgs extraLinkArgs) throws Exception {
-    
+
     createLibraryTargetWriter("//lib1:lib1").setAndCreateFiles("srcs", "a.mm").write();
     createLibraryTargetWriter("//lib2:lib2")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -652,7 +652,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void assertAppleSdkVersionEnv(Map<String, String> env) throws Exception {
     assertAppleSdkVersionEnv(env, DEFAULT_IOS_SDK_VERSION);
   }
-  
+
   protected void assertAppleSdkVersionEnv(Map<String, String> env, DottedVersion versionNumber)
       throws Exception {
     assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionNumber.toString());
@@ -666,7 +666,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void assertAppleSdkVersionEnv(CommandAction action) throws Exception {
     assertAppleSdkVersionEnv(action, DEFAULT_IOS_SDK_VERSION.toString());
   }
-  
+
   protected void assertAppleSdkVersionEnv(CommandAction action, String versionString)
       throws Exception {
     assertThat(action.getEnvironment())
@@ -677,7 +677,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       throws Exception {
     assertThat(action.getEnvironment()).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
-  
+
   protected void assertXcodeVersionEnv(CommandAction action, String versionNumber)
       throws Exception {
     assertThat(action.getEnvironment()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
@@ -1088,7 +1088,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void assertRequiresDarwin(ExecutionInfoSpecifier action) {
     assertThat(action.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
   }
-  
+
   /**
    * Asserts that the given action can specify execution requirements, but does not require
    * execution on darwin.
@@ -1186,7 +1186,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch, "srcs", "['a.m', 'b.o']");
     assertThat(Artifact.toRootRelativePaths(archiveAction("//x:x").getInputs())).contains("x/b.o");
   }
-  
+
   protected void checkPopulatesBundling(RuleType ruleType) throws Exception {
     scratch.file("x/a.m");
     scratch.file("x/info.plist");
@@ -2001,7 +2001,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       String familyAttribute) throws Exception {
     checkReportsErrorsForInvalidFamiliesAttribute(ruleType, "a", familyAttribute, "['foo']");
     checkReportsErrorsForInvalidFamiliesAttribute(ruleType, "b", familyAttribute, "[]");
-    checkReportsErrorsForInvalidFamiliesAttribute(ruleType, "c", familyAttribute, 
+    checkReportsErrorsForInvalidFamiliesAttribute(ruleType, "c", familyAttribute,
         "['iphone', 'ipad', 'iphone']");
     checkReportsErrorsForInvalidFamiliesAttribute(ruleType, "d", familyAttribute,
         "['iphone', 'bar']");
@@ -2019,7 +2019,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       String... extraAttributes)
       throws Exception {
     scratch.file("lib/" + libFile);
-    
+
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .set(attributeName, "['" + libFile + "']")
@@ -2066,7 +2066,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected BinaryFileWriteAction bundleMergeControlAction(String binaryLabelString)
       throws Exception {
     Label binaryLabel = Label.parseAbsolute(binaryLabelString);
-    ConfiguredTarget binary = getConfiguredTarget(binaryLabelString);   
+    ConfiguredTarget binary = getConfiguredTarget(binaryLabelString);
     return (BinaryFileWriteAction) getGeneratingAction(
         getBinArtifact(binaryLabel.getName() + artifactName(".ipa-control"), binary));
   }
@@ -2593,18 +2593,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertThat(compileActionA.getArguments())
         .containsAllIn(allExpectedCoptsBuilder.build()).inOrder();
-    
+
   }
-  
+
   protected void checkLinkopts(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch, "linkopts", "['foo', 'bar']");
-    
+
     CommandAction linkAction = linkAction("//x:x");
     String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
     assertThat(linkArgs).contains("-Wl,foo");
     assertThat(linkArgs).contains("-Wl,bar");
   }
-  
+
   protected void checkMergesPartialInfoplists(RuleType ruleType) throws Exception {
     scratch.file("x/primary-Info.plist");
     ruleType.scratchTarget(scratch,
@@ -2695,12 +2695,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .setList("srcs", "a.cc")
         .setList("defines", "foo", "bar")
         .write();
- 
+
     ScratchAttributeWriter.fromLabelString(this, ruleType.getRuleTypeName(), "//objc:x")
         .setList("srcs", "a.m")
         .setList("deps", "//dep:lib")
         .write();
-   
+
     CommandAction compileAction = compileAction("//objc:x", "a.o");
     assertThat(compileAction.getArguments()).containsAllOf("-Dfoo", "-Dbar");
   }
@@ -3574,7 +3574,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     verifyObjlist(
         binBinAction, String.format("%s-linker.objlist", targetName),
         "lib/libcclib.a", String.format("x/lib%s.a", targetName));
-    
+
     assertThat(Artifact.toExecPaths(binBinAction.getInputs()))
         .containsAllOf(
             iosConfigurationCcDepsBin("i386", configurationDistinguisher) + "lib/libcclib.a",
@@ -3744,7 +3744,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
      CommandAction binBinAction = (CommandAction) getGeneratingAction(
         getFirstArtifactEndingWith(appLipoAction.getInputs(), "bin_bin"));
-     
+
      String i386Prefix = iosConfigurationCcDepsBin("i386", configurationDistinguisher);
      ImmutableList<String> archiveFilenames = ImmutableList.of(
          i386Prefix + "lib/libcclib.a",
@@ -4141,7 +4141,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   /**
    * Verifies that the given rule supports the minimum_os attribute, and adds compile and link
    * args to set the minimum os appropriately, including compile args for dependencies.
-   * 
+   *
    * @param ruleType the rule to test
    */
   protected void checkMinimumOsLinkAndCompileArg(RuleType ruleType) throws Exception {
@@ -4168,7 +4168,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Verifies that the given rule supports the minimum_os attribute under the watchOS platform
    * type, and adds compile and link args to set the minimum os appropriately for watchos,
    * including compile args for dependencies.
-   * 
+   *
    * @param ruleType the rule to test
    */
   protected void checkMinimumOsLinkAndCompileArg_watchos(RuleType ruleType) throws Exception {
@@ -4203,7 +4203,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             "foobar"),
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
   }
-  
+
   /**
    * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
    * value.
@@ -4215,7 +4215,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             "4.3alpha"),
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3alpha'"));
   }
-  
+
   /**
    * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
    * value.
@@ -4233,7 +4233,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "srcs", "['a.m']",
         "dylibs", "['//fx:framework_import']");
-    
+
     scratch.file("fx/MyFramework.framework/MyFramework");
     scratch.file("fx/BUILD",
         "objc_framework(",
@@ -4319,7 +4319,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     CommandAction i386BinAction = (CommandAction) getGeneratingAction(
         getFirstArtifactEndingWith(appLipoAction.getInputs(), i386Prefix + "x/x_bin"));
-    
+
     CommandAction x8664BinAction = (CommandAction) getGeneratingAction(
         getFirstArtifactEndingWith(appLipoAction.getInputs(), x8664Prefix + "x/x_bin"));
 
@@ -4329,7 +4329,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     verifyObjlist(
         x8664BinAction, "x/x-linker.objlist",
         "x/libx.a", "package/libcclib.a");
-    
+
     assertThat(Artifact.toExecPaths(i386BinAction.getInputs()))
         .containsAllOf(
             i386Prefix + "x/libx.a",
@@ -4409,7 +4409,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    srcs = ['ccdep.c'],",
         "    linkopts = ['-somelinkopt'],",
         ")");
-    
+
     ruleType.scratchTarget(scratch,
         "srcs", "['main.m']",
         "deps", "['//bin:objclib']");
@@ -4442,7 +4442,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    linkopts = ['-one-more-opt', '-framework UIKit'],",
         "    deps = ['cclib1'],",
         ")");
-    
+
     ruleType.scratchTarget(scratch,
         "srcs", "['main.m']",
         "deps", "['//bin:cclib2', '//bin:cclib3']");
@@ -4588,7 +4588,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "platform_type", "'watchos'");
     scratch.file("package/BUILD",
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
-    
+
     Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
 
     String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
@@ -4667,7 +4667,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("package/BUILD",
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
     useConfiguration("--xcode_version=5.8");
-    
+
     CommandAction action = linkAction("//x:x");
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
         "x/libx.a", "package/libobjcLib.a", "x/x-linker.objlist");
@@ -4754,7 +4754,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
      *        \                  /
      *        (   avoidLibDepTwo   )
      *
-     * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target. 
+     * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target.
      */
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
@@ -4841,7 +4841,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
         "package/libDylib2Lib.a")).isNull();
 
-    // Sanity check that the identical binary without dylibs would be fully linked. 
+    // Sanity check that the identical binary without dylibs would be fully linked.
     Action alternateLipobinAction = lipoBinAction("//package:alternate");
     Artifact alternateBinArtifact = getFirstArtifactEndingWith(alternateLipobinAction.getInputs(),
         "package/alternate_bin");
@@ -4924,5 +4924,59 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     provider = providerForTarget("//x:x");
     assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
+  }
+
+  /**
+   * Verifies that the given rule supports different minimum_os attribute values for two targets
+   * in the same build, and adds compile args to set the minimum os appropriately for
+   * dependencies of each.
+   *
+   * @param ruleType the rule to test
+   * @param multiArchArtifactSuffix the suffix of the artifact that the rule-under-test produces
+   * @param singleArchArtifactSuffix the suffix of the single-architecture artifact that is an
+   *     input to the rule-under-test's generating action
+   */
+  protected void checkMinimumOsDifferentTargets(RuleType ruleType, String multiArchArtifactSuffix,
+      String singleArchArtifactSuffix) throws Exception {
+    ruleType.scratchTarget("nine", "nine", scratch,
+        "deps", "['//package:objcLib']",
+        "minimum_os_version", "'9.0'");
+    ruleType.scratchTarget("eight", "eight", scratch,
+        "deps", "['//package:objcLib']",
+        "minimum_os_version", "'8.0'");
+    scratch.file("package/BUILD",
+        "genrule(name = 'root', srcs = ['//nine:nine', '//eight:eight'], outs = ['genout'],",
+        "    cmd = 'touch genout')",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+
+    ConfiguredTarget rootTarget = getConfiguredTarget("//package:root");
+    Artifact rootArtifact = getGenfilesArtifact("genout", rootTarget);
+
+    Action genruleAction = getGeneratingAction(rootArtifact);
+    Action eightLipoAction = getGeneratingAction(
+        getFirstArtifactEndingWith(genruleAction.getInputs(), "eight" + multiArchArtifactSuffix));
+    Action nineLipoAction = getGeneratingAction(
+        getFirstArtifactEndingWith(genruleAction.getInputs(), "nine" + multiArchArtifactSuffix));
+    Artifact eightBin =
+        getFirstArtifactEndingWith(eightLipoAction.getInputs(), singleArchArtifactSuffix);
+    Artifact nineBin =
+        getFirstArtifactEndingWith(nineLipoAction.getInputs(), singleArchArtifactSuffix);
+
+    CommandAction eightLinkAction = (CommandAction) getGeneratingAction(eightBin);
+    CommandAction nineLinkAction = (CommandAction) getGeneratingAction(nineBin);
+
+    CommandAction eightObjcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(eightLinkAction.getInputs(), "libobjcLib.a"));
+    CommandAction eightObjcLibCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(eightObjcLibArchiveAction.getInputs(), "b.o"));
+    CommandAction nineObjcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(nineLinkAction.getInputs(), "libobjcLib.a"));
+    CommandAction nineObjcLibCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(nineObjcLibArchiveAction.getInputs(), "b.o"));
+
+    assertThat(Joiner.on(" ").join(eightObjcLibCompileAction.getArguments()))
+        .contains("-mios-simulator-version-min=8.0");
+    assertThat(Joiner.on(" ").join(nineObjcLibCompileAction.getArguments()))
+        .contains("-mios-simulator-version-min=9.0");
   }
 }
