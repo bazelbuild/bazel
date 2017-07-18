@@ -217,7 +217,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
         new LoadingPhaseCompleteEvent(
             patternParsingValue.getTargets(),
             patternParsingValue.getTestSuiteTargets(),
-            packageManager.getStatistics(),
+            packageManager.getAndClearStatistics(),
             testSuiteTime));
     LOG.info("Target pattern evaluation finished");
     return patternParsingValue.toLoadingResult();
