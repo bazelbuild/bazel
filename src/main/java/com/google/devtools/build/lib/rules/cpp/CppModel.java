@@ -801,7 +801,7 @@ public final class CppModel {
       String outputName, Builder result, AnalysisEnvironment env, CppCompileActionBuilder builder)
       throws RuleErrorException {
     builder
-        .setOutputs(ruleContext, ArtifactCategory.CLIF_OUTPUT_PROTO, outputName, false)
+        .setOutputs(ruleContext, ArtifactCategory.CLIF_OUTPUT_PROTO, outputName, true)
         .setPicMode(false)
         // The additional headers in a clif action are both mandatory inputs and
         // need to be include-scanned.

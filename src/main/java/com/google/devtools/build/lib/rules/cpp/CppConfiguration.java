@@ -685,6 +685,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'objc++-compile'"
                   + "    action: 'c++-header-preprocessing'"
                   + "    action: 'c++-header-parsing'"
+                  + "    action: 'clif-match'"
                   + "    expand_if_all_available: 'dependency_file'"
                   + "    flag_group {"
                   + "      flag: '-MD'"
