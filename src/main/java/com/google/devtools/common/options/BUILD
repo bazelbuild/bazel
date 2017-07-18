@@ -4,13 +4,32 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
-    name = "options",
-    srcs = glob(["*.java"]),
+    name = "invocation_policy",
+    srcs = [
+        "InvocationPolicyEnforcer.java",
+        "InvocationPolicyParser.java",
+    ],
     deps = [
+        ":options",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "options",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "InvocationPolicyEnforcer.java",
+            "InvocationPolicyParser.java",
+        ],
+    ),
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
