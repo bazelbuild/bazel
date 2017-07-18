@@ -258,11 +258,20 @@ public class SkylarkRuleClassFunctions {
             + "<pre class=\"language-python\">data = provider()\n"
             + "d = data(x = 2, y = 3)\n"
             + "print(d.x + d.y) # prints 5</pre>",
+    parameters = {
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc =
+            "A description of the provider that can be extracted by documentation generating tools."
+      )
+    },
     useLocation = true
   )
   private static final BuiltinFunction provider =
       new BuiltinFunction("provider") {
-        public ClassObjectConstructor invoke(Location location) {
+        public ClassObjectConstructor invoke(String doc, Location location) {
           return new SkylarkClassObjectConstructor(
               "<no name>", // name is set on export.
               location);
@@ -391,6 +400,12 @@ public class SkylarkRuleClassFunctions {
                 + "If set, the set of toolchains this rule requires. Toolchains will be "
                 + "found by checking the current platform, and provided to the rule "
                 + "implementation via <code>ctx.toolchain</code>."
+      ),
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc = "A description of the rule that can be extracted by documentation generating tools."
       )
     },
     useAst = true,
@@ -411,6 +426,7 @@ public class SkylarkRuleClassFunctions {
             SkylarkList hostFragments,
             Boolean skylarkTestable,
             SkylarkList<String> toolchains,
+            String doc,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException, ConversionException {
@@ -605,6 +621,12 @@ public class SkylarkRuleClassFunctions {
                 + "If set, the set of toolchains this rule requires. Toolchains will be "
                 + "found by checking the current platform, and provided to the rule "
                 + "implementation via <code>ctx.toolchain</code>."
+      ),
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc = "A description of the aspect that can be extracted by documentation generating tools."
       )
     },
     useEnvironment = true,
@@ -621,6 +643,7 @@ public class SkylarkRuleClassFunctions {
             SkylarkList fragments,
             SkylarkList hostFragments,
             SkylarkList<String> toolchains,
+            String doc,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException {

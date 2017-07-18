@@ -205,6 +205,7 @@ public final class JavaCompilationHelper {
     builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setExtdirInputs(getExtdirInputs());
     builder.setLangtoolsJar(javaToolchain.getJavac());
+    builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
     builder.setOutputJar(classJar);
     builder.setManifestProtoOutput(manifestProtoOutput);
@@ -393,6 +394,7 @@ public final class JavaCompilationHelper {
             .addAll(additionalJavaBaseInputs)
             .build());
     builder.setJavacJar(javaToolchain.getJavac());
+    builder.setToolsJars(javaToolchain.getTools());
     builder.build(javaToolchain);
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);

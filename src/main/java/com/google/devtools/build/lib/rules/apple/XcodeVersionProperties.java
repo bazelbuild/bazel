@@ -18,9 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import java.util.Map;
@@ -28,14 +26,15 @@ import javax.annotation.Nullable;
 
 /** A tuple containing information about a version of xcode and its properties. */
 @Immutable
-public class XcodeVersionProperties extends SkylarkClassObject implements TransitiveInfoProvider {
+public class XcodeVersionProperties extends SkylarkClassObject {
 
   /** Skylark name for the XcodeVersionProperties provider. */
   public static final String SKYLARK_NAME = "XcodeProperties";
 
   /** Skylark constructor and identifier for XcodeVersionProperties provider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) { };
+  public static final NativeClassObjectConstructor<XcodeVersionProperties> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<XcodeVersionProperties>(
+          XcodeVersionProperties.class, SKYLARK_NAME) {};
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";

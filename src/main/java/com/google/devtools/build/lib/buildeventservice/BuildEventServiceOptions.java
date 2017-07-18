@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.buildeventservice;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.joda.time.Duration;
@@ -60,7 +60,7 @@ public class BuildEventServiceOptions extends OptionsBase {
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Specifies whether a failure to upload the BES protocol should also result in a build "
-            + "failure. If 'true', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
+            + "failure. If 'false', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
   )
   public boolean besBestEffort;
 

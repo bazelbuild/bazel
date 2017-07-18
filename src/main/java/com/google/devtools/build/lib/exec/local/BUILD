@@ -19,7 +19,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

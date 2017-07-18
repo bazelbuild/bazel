@@ -159,7 +159,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       for (NestedSet<?> nestedSet : transitiveItems) {
         builder.addTransitive(nestedSet);
       }
-    } catch (IllegalStateException e) {
+    } catch (IllegalArgumentException e) {
+      // Order mismatch between item and builder.
       throw new EvalException(loc, e.getMessage());
     }
     this.set = builder.build();
@@ -281,8 +282,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
    * Returns the contents of the set as a {@link Collection}.
    */
   public Collection<Object> toCollection() {
-    // Do not remove <Object>: workaround for Java 7 type inference.
-    return ImmutableList.<Object>copyOf(set.toCollection());
+    return ImmutableList.copyOf(set.toCollection());
   }
 
   /**

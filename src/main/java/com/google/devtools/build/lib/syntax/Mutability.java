@@ -148,9 +148,9 @@ public final class Mutability implements AutoCloseable, Serializable {
   }
 
   /**
-   * Remove the lock for a given {@link Freezable} that is associated with the given
-   * @{link Location}. It is an error if {@code object} does not belong to this mutability,
-   * or has no lock corresponding to {@code loc}.
+   * Remove the lock for a given {@link Freezable} that is associated with the given {@link
+   * Location}. It is an error if {@code object} does not belong to this mutability, or has no lock
+   * corresponding to {@code loc}.
    */
   public void unlock(Freezable object, Location loc) {
     if (!object.mutability().equals(this)) {

@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.analysis.featurecontrol;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -110,6 +112,39 @@ public final class FeaturePolicyConfiguration extends BuildConfiguration.Fragmen
       }
     }
     return false;
+  }
+
+  /**
+   * Checks whether the rule in the given RuleContext has access to a given feature and reports an
+   * error if not.
+   *
+   * @param ruleContext The context in which this check is being executed.
+   * @param policyName The name of the policy.
+   * @param feature The name of the feature being used, to be printed in the error if the policy
+   *     forbids access to this rule.
+   * @param additionalErrorMessage Additional text for the error message.
+   */
+  public static void checkAvailable(
+      RuleContext ruleContext, String policyName, String feature, String additionalErrorMessage)
+      throws RuleErrorException {
+    FeaturePolicyConfiguration policy = ruleContext.getFragment(FeaturePolicyConfiguration.class);
+    Label label = ruleContext.getLabel();
+    if (!policy.isFeatureEnabledForRule(policyName, label)) {
+      String message = "%s is not available in package '%s' according to policy '%s'.%s";
+      ruleContext.ruleError(
+          String.format(
+              message,
+              feature,
+              label.getPackageIdentifier(),
+              policy.getPolicyForFeature(policyName),
+              additionalErrorMessage == null ? "" : " " + additionalErrorMessage + "."));
+      throw new RuleErrorException();
+    }
+  }
+
+  public static void checkAvailable(RuleContext ruleContext, String policyName, String feature)
+      throws RuleErrorException {
+    checkAvailable(ruleContext, policyName, feature, null);
   }
 
   /**

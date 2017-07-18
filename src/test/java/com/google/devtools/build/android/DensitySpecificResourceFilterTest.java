@@ -18,8 +18,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
@@ -28,9 +30,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -219,13 +222,17 @@ public class DensitySpecificResourceFilterTest {
         new DensitySpecificResourceFilter(densities, out, working);
 
     final Path filteredResourceDir = filter.filter(tmp);
-    final ImmutableList.Builder<String> filteredResources = ImmutableList.<String>builder();
+    final List<Path> filteredResources = new ArrayList<>();
     try {
-      Files.walkFileTree(filteredResourceDir, EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-          Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
-            @Override public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+      Files.walkFileTree(
+          filteredResourceDir,
+          EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+          Integer.MAX_VALUE,
+          new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
                 throws IOException {
-              filteredResources.add(filteredResourceDir.relativize(path).toString());
+              filteredResources.add(filteredResourceDir.relativize(path));
               return FileVisitResult.CONTINUE;
             }
           });
@@ -233,15 +240,12 @@ public class DensitySpecificResourceFilterTest {
       throw new RuntimeException(e);
     }
 
-    String[] expected = new String[] {
-        "res/drawable-xxhdpi/btn_edit_pressed.png",
-        "res/drawable-xxhdpi-v11/btn_edit_pressed.png",
-        "res/drawable-xxhdpi-v19/btn_edit_pressed.png"
-    };
-    String[] actual = filteredResources.build().toArray(new String[0]);
-    Arrays.sort(expected);
-    Arrays.sort(actual);
-    assertThat(actual).isEqualTo(expected);
+    FileSystem fs = FileSystems.getDefault();
+    assertThat(filteredResources)
+        .containsExactly(
+            fs.getPath("res/drawable-xxhdpi/btn_edit_pressed.png"),
+            fs.getPath("res/drawable-xxhdpi-v11/btn_edit_pressed.png"),
+            fs.getPath("res/drawable-xxhdpi-v19/btn_edit_pressed.png"));
   }
 
   @Before
@@ -263,24 +267,23 @@ public class DensitySpecificResourceFilterTest {
   private void checkTransformedResources(List<String> resourcePaths,
       List<String> expectedResourcePaths, List<String> densities) throws MergingException {
     List<Path> resources = new ArrayList<>();
+    FileSystem fs = FileSystems.getDefault();
     for (String resourcePath : resourcePaths) {
-      resources.add(FileSystems.getDefault().getPath(resourcePath));
+      resources.add(fs.getPath(resourcePath));
     }
 
     DensitySpecificResourceFilter transformer =
         new DensitySpecificResourceFilter(densities, null, null);
-    List<Path> resourcesToRemove = transformer.getResourceToRemove(resources);
-    List<String> actualResourcePaths = new ArrayList<>(resourcePaths);
+    Set<Path> resourcesToRemove = new HashSet<>(transformer.getResourceToRemove(resources));
+    List<String> actualResourcePaths = new ArrayList<>();
 
-    for (Path path : resourcesToRemove) {
-      actualResourcePaths.remove(path.toString());
+    for (Path p : resources) {
+      if (!resourcesToRemove.contains(p)) {
+        actualResourcePaths.add(p.toString());
+      }
     }
 
-    String[] expected = expectedResourcePaths.toArray(new String[0]);
-    String[] actual = actualResourcePaths.toArray(new String[0]);
-    Arrays.sort(expected);
-    Arrays.sort(actual);
-
-    assertThat(actual).isEqualTo(expected);
+    List<String> expected = Lists.transform(expectedResourcePaths, n -> fs.getPath(n).toString());
+    assertThat(actualResourcePaths).containsExactlyElementsIn(expected);
   }
 }

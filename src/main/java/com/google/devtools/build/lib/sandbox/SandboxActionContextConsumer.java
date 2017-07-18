@@ -36,9 +36,9 @@ final class SandboxActionContextConsumer implements ActionContextConsumer {
         ImmutableMultimap.builder();
     ImmutableMap.Builder<String, String> spawnContexts = ImmutableMap.builder();
 
-    if (LinuxSandboxedStrategy.isSupported(cmdEnv)
-        || DarwinSandboxedStrategy.isSupported(cmdEnv)
-        || ProcessWrapperSandboxedStrategy.isSupported(cmdEnv)) {
+    if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)
+        || DarwinSandboxedSpawnRunner.isSupported(cmdEnv)
+        || ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
       // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
       // but it is not necessarily the default.
       contexts.put(SpawnActionContext.class, "sandboxed");

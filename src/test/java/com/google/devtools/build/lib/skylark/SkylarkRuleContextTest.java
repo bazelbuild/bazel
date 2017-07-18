@@ -1552,7 +1552,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       fail("Should have failed due to trying to access actions of a rule not marked "
           + "_skylark_testable");
     } catch (Exception e) {
-      assertThat(e).hasMessage("Object of type Target doesn't contain declared provider Actions");
+      assertThat(e).hasMessageThat().contains(
+          "<target //test:undertest> (rule 'undertest_rule') doesn't contain "
+              + "declared provider 'Actions'");
     }
   }
 

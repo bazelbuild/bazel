@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import java.util.HashMap;
@@ -39,8 +37,7 @@ import java.util.Map.Entry;
  * <p>Example: { "arm64": { "bitcode_symbols": Artifact, "dsym_binary": Artifact } }
  */
 @Immutable
-public final class AppleDebugOutputsProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public final class AppleDebugOutputsProvider extends SkylarkClassObject {
 
   /** Expected types of debug outputs. */
   enum OutputType {
@@ -64,8 +61,9 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
   public static final String SKYLARK_NAME = "AppleDebugOutputs";
 
   /** Skylark constructor and identifier for AppleDebugOutputsProvider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) { };
+  public static final NativeClassObjectConstructor<AppleDebugOutputsProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<AppleDebugOutputsProvider>(
+          AppleDebugOutputsProvider.class, SKYLARK_NAME) {};
 
   /**
    * Creates a new provider instance.

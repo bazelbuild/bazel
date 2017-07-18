@@ -26,12 +26,14 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -44,8 +46,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "build",
     converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help =
         "If specified, uses Xcode of the given version for relevant build actions. "
             + "If unspecified, uses the executor default version of Xcode."
@@ -59,8 +61,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Specifies the version of the iOS SDK to use to build iOS applications."
   )
   public DottedVersion iosSdkVersion;
@@ -70,8 +72,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Specifies the version of the watchOS SDK to use to build watchOS applications."
   )
   public DottedVersion watchOsSdkVersion;
@@ -81,8 +83,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Specifies the version of the tvOS SDK to use to build tvOS applications."
   )
   public DottedVersion tvOsSdkVersion;
@@ -92,8 +94,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Specifies the version of the macOS SDK to use to build macOS applications."
   )
   public DottedVersion macOsSdkVersion;
@@ -103,8 +105,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Minimum compatible iOS version for target simulators and devices."
   )
   public DottedVersion iosMinimumOs;
@@ -114,8 +116,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Minimum compatible watchOS version for target simulators and devices."
   )
   public DottedVersion watchosMinimumOs;
@@ -125,8 +127,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Minimum compatible tvOS version for target simulators and devices."
   )
   public DottedVersion tvosMinimumOs;
@@ -136,8 +138,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Minimum compatible macOS version for targets."
   )
   public DottedVersion macosMinimumOs;
@@ -167,8 +169,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "ios_cpu",
     defaultValue = DEFAULT_IOS_CPU,
     category = "build",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.DEPRECATED},
     help = "Specifies to target CPU of iOS compilation."
   )
   public String iosCpu;
@@ -178,8 +181,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "@bazel_tools//tools/cpp:toolchain",
     category = "version",
     converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
     help =
         "The label of the crosstool package to be used in Apple and Objc rules and their"
             + " dependencies."
@@ -189,10 +192,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_platform_type",
     defaultValue = "IOS",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = PlatformTypeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     help =
         "Don't set this value from the command line - it is derived from other flags and "
             + "configuration transitions derived from rule attributes"
@@ -202,9 +204,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_split_cpu",
     defaultValue = "",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     help =
         "Don't set this value from the command line - it is derived from other flags and "
             + "configuration transitions derived from rule attributes"
@@ -221,9 +222,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "apple configuration distinguisher",
     defaultValue = "UNKNOWN",
     converter = ConfigurationDistinguisherConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    metadataTags = {OptionMetadataTag.INTERNAL}
   )
   public ConfigurationDistinguisher configurationDistinguisher;
 
@@ -232,8 +233,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "Comma-separated list of architectures to build an ios_application with. The result "
             + "is a universal binary containing all specified architectures."
@@ -245,8 +246,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = DEFAULT_WATCHOS_CPU,
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Comma-separated list of architectures for which to build Apple watchOS binaries."
   )
   public List<String> watchosCpus;
@@ -256,8 +257,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = DEFAULT_TVOS_CPU,
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Comma-separated list of architectures for which to build Apple tvOS binaries."
   )
   public List<String> tvosCpus;
@@ -267,8 +268,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = DEFAULT_MACOS_CPU,
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Comma-separated list of architectures for which to build Apple macOS binaries."
   )
   public List<String> macosCpus;
@@ -276,9 +277,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "default_ios_provisioning_profile",
     defaultValue = "",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.SIGNING,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = DefaultProvisioningProfileConverter.class
   )
   public Label defaultProvisioningProfile;
@@ -286,10 +286,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "xcode_version_config",
     defaultValue = "@local_config_xcode//:host_xcodes",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "The label of the xcode_config rule to be used for selecting the Xcode version "
             + "in the build configuration."
@@ -314,8 +313,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "xcode_toolchain",
     defaultValue = "null",
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.ACTION_OPTIONS},
     help =
         "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
             + "that ship with Xcode are supported. For example, in addition to the default "
@@ -330,8 +329,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // TODO(blaze-team): Default to embedded_markers when fully implemented.
     defaultValue = "none",
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help =
         "Specify the Apple bitcode mode for compile steps. "
             + "Values: 'none', 'embedded_markers', 'embedded'."
@@ -341,9 +340,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_crosstool_transition",
     defaultValue = "true",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help = "If true, the apple crosstool is used for all apple rules."
   )
   public boolean enableAppleCrosstoolTransition;
@@ -351,21 +350,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "target_uses_apple_crosstool",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
   )
   public boolean targetUsesAppleCrosstool;
-
-  private ApplePlatform getPlatform() {
-    for (String architecture : iosMultiCpus) {
-      if (ApplePlatform.forTarget(PlatformType.IOS, architecture) == ApplePlatform.IOS_DEVICE) {
-        return ApplePlatform.IOS_DEVICE;
-      }
-    }
-    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
-  }
 
   /**
    * Returns the architecture implied by these options.
@@ -412,7 +401,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
             + "\"embedded\", and \"embedded_markers\""
   )
   @Immutable
-  public enum AppleBitcodeMode {
+  public enum AppleBitcodeMode implements SkylarkValue {
 
     /** Do not compile bitcode. */
     NONE("none", ImmutableList.<String>of()),
@@ -439,6 +428,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
     @Override
     public String toString() {
       return mode;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append(mode);
     }
 
     /** Returns the names of any crosstool features that correspond to this bitcode mode. */

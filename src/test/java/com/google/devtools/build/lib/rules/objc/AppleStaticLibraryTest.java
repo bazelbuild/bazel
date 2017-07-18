@@ -532,13 +532,17 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//lib:applelib");
     AppleStaticLibraryProvider provider =
-        (AppleStaticLibraryProvider) binTarget.get(
-            AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR.getKey());
+        binTarget.get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();
     assertThat(provider.getMultiArchArchive()).isEqualTo(
         Iterables.getOnlyElement(
             provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+  }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipo.a", "-fl.a");
   }
 }

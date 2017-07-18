@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.Map;

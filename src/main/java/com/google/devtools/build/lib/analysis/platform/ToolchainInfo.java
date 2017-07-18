@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -60,8 +58,9 @@ public class ToolchainInfo extends SkylarkClassObject {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.of(Label.class), SkylarkType.DICT));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME, SIGNATURE) {
+  public static final NativeClassObjectConstructor<ToolchainInfo> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<ToolchainInfo>(
+          ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected ToolchainInfo createInstanceFromSkylark(Object[] args, Location loc)
             throws EvalException {
@@ -72,10 +71,6 @@ public class ToolchainInfo extends SkylarkClassObject {
           return ToolchainInfo.create(type, data, loc);
         }
       };
-
-  /** Identifier used to retrieve this provider from rules which export it. */
-  public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
-      SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
   private final Label type;
 

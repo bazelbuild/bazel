@@ -50,8 +50,8 @@ public class SkylarkSignatureProcessor {
     Preconditions.checkArgument(name.equals(annotation.name()),
         "%s != %s", name, annotation.name());
     ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
-    HashMap<String, SkylarkType> enforcedTypes = enforcedTypesList == null
-        ? null : new HashMap<String, SkylarkType>();
+    HashMap<String, SkylarkType> enforcedTypes =
+        enforcedTypesList == null ? null : new HashMap<>();
 
     HashMap<String, String> doc = new HashMap<>();
     boolean documented = annotation.documented();
@@ -89,7 +89,7 @@ public class SkylarkSignatureProcessor {
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/true, /*defaultValue=*/null));
       }
       FunctionSignature.WithValues<Object, SkylarkType> signature =
-          FunctionSignature.WithValues.<Object, SkylarkType>of(paramList);
+          FunctionSignature.WithValues.of(paramList);
       for (String paramName : signature.getSignature().getNames()) {
         if (enforcedTypesList != null) {
           enforcedTypesList.add(enforcedTypes.get(paramName));

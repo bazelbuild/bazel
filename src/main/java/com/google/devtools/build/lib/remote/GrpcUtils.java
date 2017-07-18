@@ -18,21 +18,33 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.util.RoundRobinLoadBalancerFactory;
+
+import java.io.IOException;
 
 /** Helper methods for gRPC calls */
 @ThreadSafe
 final class GrpcUtils {
-  public static ManagedChannel createChannel(String target, ChannelOptions channelOptions) {
-    NettyChannelBuilder builder =
-        NettyChannelBuilder.forTarget(target)
-            .negotiationType(
-                channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-    if (channelOptions.getSslContext() != null) {
-      builder.sslContext(channelOptions.getSslContext());
-      if (channelOptions.getTlsAuthorityOverride() != null) {
-        builder.overrideAuthority(channelOptions.getTlsAuthorityOverride());
+  public static ManagedChannel createChannel(String target, ChannelOptions channelOptions)
+      throws IOException {
+    try {
+      NettyChannelBuilder builder =
+          NettyChannelBuilder.forTarget(target)
+              .negotiationType(
+                  channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+            .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance());
+      if (channelOptions.getSslContext() != null) {
+        builder.sslContext(channelOptions.getSslContext());
+        if (channelOptions.getTlsAuthorityOverride() != null) {
+          builder.overrideAuthority(channelOptions.getTlsAuthorityOverride());
+        }
       }
+      return builder.build();
+    } catch (RuntimeException e) {
+      // gRPC might throw all kinds of RuntimeExceptions: StatusRuntimeException,
+      // IllegalStateException, NullPointerException, ...
+      String message = "Failed to connect to the remote cache/executor '%s': %s";
+      throw new IOException(String.format(message, target, e.getMessage()));
     }
-    return builder.build();
   }
 }

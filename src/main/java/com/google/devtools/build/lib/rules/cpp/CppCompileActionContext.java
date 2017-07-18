@@ -54,10 +54,4 @@ public interface CppCompileActionContext extends ActionContext {
    */
   Reply execWithReply(CppCompileAction action,
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
-
-  /**
-   * Returns the executor reply from an exec exception, if available.
-   */
-  @Nullable Reply getReplyFromException(
-      ExecException e, CppCompileAction action);
 }

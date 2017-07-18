@@ -34,9 +34,9 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -540,6 +540,16 @@ public class CppOptions extends FragmentOptions {
    */
   public Label lipoContextForBuild;
 
+  @Option(
+    name = "experimental_toolchain_id_in_output_directory",
+    defaultValue = "true",
+    category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = OptionEffectTag.AFFECTS_OUTPUTS,
+    help = "Whether to embed the name of the C++ toolchain in the name of the output directory"
+  )
+  public boolean toolchainIdInOutputDirectory;
+
   /**
    * Returns the --lipo_context value if LIPO is specified and active for this configuration,
    * null otherwise.
@@ -585,9 +595,9 @@ public class CppOptions extends FragmentOptions {
   @Option(
     name = "lipo configuration state",
     defaultValue = "apply_lipo",
-    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INTERNAL},
     converter = LipoConfigurationStateConverter.class
   )
   public LipoConfigurationState lipoConfigurationState;
@@ -839,6 +849,11 @@ public class CppOptions extends FragmentOptions {
         host.crosstoolTop = hostCrosstoolTop;
       }
     }
+
+    // the name of the output directory for the host configuration is forced to be "host" in
+    // BuildConfiguration.Options#getHost(), but let's be prudent here in case someone ends up
+    // removing that
+    host.toolchainIdInOutputDirectory = toolchainIdInOutputDirectory;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.

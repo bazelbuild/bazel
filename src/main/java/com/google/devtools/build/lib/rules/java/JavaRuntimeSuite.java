@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /** Implementation for the {@code java_runtime_suite} rule. */
@@ -34,14 +35,20 @@ public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
     if (runtime == null) {
       runtime = ruleContext.getPrerequisite("default", Mode.TARGET);
     }
+
     if (runtime == null) {
       ruleContext.throwWithRuleError(
           "could not resolve runtime for cpu " + ruleContext.getConfiguration().getCpu());
     }
+
+    MakeVariableProvider makeVariableProvider =
+        runtime.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(JavaRuntimeProvider.class, runtime.getProvider(JavaRuntimeProvider.class))
+        .addNativeDeclaredProvider(runtime.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
         .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
+        .addNativeDeclaredProvider(makeVariableProvider)
         .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild())
         .build();
   }

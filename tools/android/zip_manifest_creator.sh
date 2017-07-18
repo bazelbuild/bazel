@@ -36,13 +36,26 @@ msys*|mingw*|cygwin*)
   IS_WINDOWS=true
 esac
 
+if "$IS_WINDOWS" && ! type rlocation &> /dev/null; then
+  function rlocation() {
+    # Use 'sed' instead of 'awk', so if the absolute path ($2) has spaces, it
+    # will be printed completely.
+    local result="$(grep "$1" "${RUNFILES_MANIFEST_FILE}" | head -1)"
+    # If the entry has a space, it is a mapping from a runfiles-path to absolute
+    # path, otherwise it resolves to itself.
+    echo "$result" | grep -q " " \
+        && echo "$result" | sed 's/^[^ ]* //' \
+        || echo "$result"
+  }
+fi
+
 # For @bazel_tools//tools/android:zip_manifest_creator in BUILD.tools, zipper is here:
 #   Windows (in MANIFEST):  <repository_name>/tools/zip/zipper/zipper.exe
 #   Linux/MacOS (symlink):  ${RUNFILES}/<repository_name>/tools/zip/zipper/zipper
 if "$IS_WINDOWS"; then
   ZIPPER="$(rlocation "[^/]*/tools/zip/zipper/zipper.exe")"
 else
-  ZIPPER="$(find "$RUNFILES" -path "*/tools/zip/zipper/zipper")"
+  ZIPPER="$(find "$RUNFILES" -path "*/tools/zip/zipper/zipper" | head -1)"
 fi
 if [ ! -x "$ZIPPER" ]; then
   # For //tools/android:zip_manifest_creator_test, zipper is here:
@@ -51,19 +64,19 @@ if [ ! -x "$ZIPPER" ]; then
   if "$IS_WINDOWS"; then
     ZIPPER="$(rlocation "[^/]*/third_party/ijar/zipper.exe")"
   else
-    ZIPPER="$(find "${RUNFILES}" -path "*/third_party/ijar/zipper")"
+    ZIPPER="$(find "${RUNFILES}" -path "*/third_party/ijar/zipper" | head -1)"
   fi
 fi
 if [ ! -x "$ZIPPER" ]; then
   echo >&2 "ERROR: $(basename $0): could not find zipper executable. Additional info:"
   echo >&2 "  \$0=($0)"
-  echo >&2 "  \$RUNFILES=($RUNFILES)"
-  echo >&2 "  \$RUNFILES_MANIFEST_FILE=($RUNFILES_MANIFEST_FILE)"
-  echo >&2 "  \$IS_WINDOWS=($IS_WINDOWS)"
+  echo >&2 "  RUNFILES=($RUNFILES)"
+  echo >&2 "  RUNFILES_MANIFEST_FILE=($RUNFILES_MANIFEST_FILE)"
+  echo >&2 "  IS_WINDOWS=($IS_WINDOWS)"
   if "$IS_WINDOWS"; then
     echo >&2 "  grep=($(grep zipper "$RUNFILES_MANIFEST_FILE"))"
   else
-    echo >&2 "  find=($(find "$RUNFILES" -name "zipper"))"
+    echo >&2 "  find=($(find "$RUNFILES" -name "zipper" | head -1))"
   fi
   exit 1
 fi

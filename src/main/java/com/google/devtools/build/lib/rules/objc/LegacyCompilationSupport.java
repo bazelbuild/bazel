@@ -335,7 +335,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
 
     // Add module map arguments.
-    if (moduleMap.isPresent()) {
+    if (moduleMap.isPresent() && !getCustomModuleMap(ruleContext).isPresent()) {
       // If modules are enabled for the rule, -fmodules is added to the copts already. (This implies
       // module map usage). Otherwise, we need to pass -fmodule-maps.
       if (!attributes.enableModules()) {
@@ -722,9 +722,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
 
     registerObjFilelistAction(objFiles, inputFileList);
 
-    if (objcConfiguration.shouldPrioritizeStaticLibs()) {
-      commandLine.add("-filelist").add(inputFileList.getExecPathString());
-    }
+    commandLine.add("-filelist").add(inputFileList.getExecPathString());
 
     AppleBitcodeMode bitcodeMode = appleConfiguration.getBitcodeMode();
     commandLine.add(bitcodeMode.getCompileAndLinkFlags());
@@ -755,13 +753,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add(DEFAULT_LINKER_FLAGS)
         .addBeforeEach("-framework", frameworkNames(objcProvider))
         .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
-        .addFormatEach("-l%s", libraryNames);
-
-    if (!objcConfiguration.shouldPrioritizeStaticLibs()) {
-      commandLine.add("-filelist").add(inputFileList.getExecPathString());
-    }
-
-    commandLine
+        .addFormatEach("-l%s", libraryNames)
         .addExecPath("-o", linkedBinary)
         .addBeforeEachExecPath("-force_load", forceLinkArtifacts)
         .add(extraLinkArgs)

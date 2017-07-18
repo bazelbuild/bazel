@@ -387,9 +387,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         if (bubbleErrorInfo == null) {
           addDep(depKey);
         }
-        for (Postable post : ValueWithMetadata.getPosts(depValue)) {
-          evaluatorContext.getReporter().post(post);
-        }
+        evaluatorContext
+            .getReplayingNestedSetPostableVisitor()
+            .visit(ValueWithMetadata.getPosts(depValue));
         evaluatorContext
             .getReplayingNestedSetEventVisitor()
             .visit(ValueWithMetadata.getEvents(depValue));
@@ -533,9 +533,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
     NestedSet<Postable> posts = buildPosts(primaryEntry);
     NestedSet<TaggedEvents> events = buildEvents(primaryEntry, /*missingChildren=*/ false);
-    for (ExtendedEventHandler.Postable post : posts) {
-      evaluatorContext.getReporter().post(post);
-    }
 
     Version valueVersion;
     SkyValue valueWithMetadata;
@@ -592,9 +589,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
 
-    for (Postable post : posts) {
-      evaluatorContext.getReporter().post(post);
-    }
+    evaluatorContext.getReplayingNestedSetPostableVisitor().visit(posts);
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
   }
 

@@ -452,4 +452,14 @@ public class JavaSkylarkCommon {
                 + " Only OFF and ERROR values are accepted.");
     }
   }
+
+  @SkylarkCallable(
+      name = JavaRuntimeProvider.SKYLARK_NAME,
+      doc = "The key used to retrieve the provider that contains information about the Java "
+          + "runtime being used.",
+      structField = true
+  )
+  public static ClassObjectConstructor getJavaRuntimeProvider() {
+    return JavaRuntimeProvider.SKYLARK_CONSTRUCTOR;
+  }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
@@ -132,14 +131,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
       return (Exception) super.getCause();
     }
   }
-
-  private static final Function<Dependency, SkyKey> TO_KEYS =
-      new Function<Dependency, SkyKey>() {
-    @Override
-    public SkyKey apply(Dependency input) {
-      return ConfiguredTargetValue.key(input.getLabel(), input.getConfiguration());
-    }
-  };
 
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
@@ -358,7 +349,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Resolve required aspects.
-    OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspects = resolveAspectDependencies(
+    OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects = resolveAspectDependencies(
         env, depValues, depValueNames.values(), transitivePackages);
     if (depAspects == null) {
       return null;
@@ -837,37 +828,36 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static OrderedSetMultimap<Attribute, ConfiguredTarget> mergeAspects(
       OrderedSetMultimap<Attribute, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
-      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap)
+      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspectMap)
       throws DuplicateException  {
     OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
-      SkyKey depKey = TO_KEYS.apply(dep);
+      SkyKey depKey = ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration());
       ConfiguredTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
       result.put(entry.getKey(),
-          MergedConfiguredTarget.of(depConfiguredTarget, depAspectMap.get(depKey)));
+          MergedConfiguredTarget.of(depConfiguredTarget, depAspectMap.get(dep)));
     }
 
     return result;
   }
 
   /**
-   * Given a list of {@link Dependency} objects, returns a multimap from the {@link SkyKey} of the
-   * dependency to the {@link ConfiguredAspect} instances that should be merged into it.
+   * Given a list of {@link Dependency} objects, returns a multimap from the
+   * {@link Dependency}s too the {@link ConfiguredAspect} instances that should be merged into it.
    *
    * <p>Returns null if the required aspects are not computed yet.
    */
   @Nullable
-  private static OrderedSetMultimap<SkyKey, ConfiguredAspect> resolveAspectDependencies(
+  private static OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependencies(
       Environment env,
       Map<SkyKey, ConfiguredTarget> configuredTargetMap,
       Iterable<Dependency> deps,
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException, InterruptedException {
-    OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
-    OrderedSetMultimap<SkyKey, SkyKey> processedAspects = OrderedSetMultimap.create();
+    OrderedSetMultimap<Dependency, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
       allAspectKeys.addAll(getAspectKeys(dep).values());
@@ -878,17 +868,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
             AspectCreationException.class, NoSuchThingException.class);
 
     for (Dependency dep : deps) {
-      SkyKey depKey = TO_KEYS.apply(dep);
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
 
-      ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
         SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
-        // Skip if the aspect was already applied to the target (perhaps through different
-        // attributes).
-        if (!processedAspects.put(depKey, aspectKey)) {
-          continue;
-        }
 
         AspectValue aspectValue;
         try {
@@ -908,11 +891,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // Dependent aspect has either not been computed yet or is in error.
           return null;
         }
-        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, aspectValue.getAspect())) {
+
+        // Validate that aspect is applicable to "bare" configured target.
+        ConfiguredTarget associatedTarget = configuredTargetMap
+            .get(ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration()));
+        if (!aspectMatchesConfiguredTarget(associatedTarget, aspectValue.getAspect())) {
           continue;
         }
 
-        result.put(depKey, aspectValue.getConfiguredAspect());
+        result.put(dep, aspectValue.getConfiguredAspect());
         transitivePackages.addTransitive(aspectValue.getTransitivePackages());
       }
     }
@@ -1039,7 +1026,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configValueNames) {
-      ConfiguredTarget value = configValues.get(TO_KEYS.apply(entry));
+      SkyKey baseKey = ConfiguredTargetValue.key(entry.getLabel(), entry.getConfiguration());
+      ConfiguredTarget value = configValues.get(baseKey);
       // The code above guarantees that value is non-null here.
       ConfigMatchingProvider provider = value.getProvider(ConfigMatchingProvider.class);
       if (provider != null) {
@@ -1072,7 +1060,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
     boolean failed = false;
-    Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
+    Iterable<SkyKey> depKeys = Iterables.transform(deps,
+        input -> ConfiguredTargetValue.key(input.getLabel(), input.getConfiguration()));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
             env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
     Map<SkyKey, ConfiguredTarget> result =

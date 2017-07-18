@@ -429,4 +429,14 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         "|   //skylark:two.bzl",
         "`-- //skylark:one.bzl"));
   }
+
+  @Test
+  public void testNoSeparateGenfilesDirectory() throws Exception {
+    BuildConfiguration target = create("--noexperimental_separate_genfiles_directory");
+    BuildConfiguration host = createHost("--noexperimental_separate_genfiles_directory");
+    assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
+    assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
+  }
 }

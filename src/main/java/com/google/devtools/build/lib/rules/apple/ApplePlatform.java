@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.HashMap;
 import java.util.Locale;
@@ -34,7 +36,7 @@ import javax.annotation.Nullable;
   doc = "Distinguishes between various apple platforms."
 )
 @Immutable
-public enum ApplePlatform {
+public enum ApplePlatform implements SkylarkValue {
   IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
   IOS_SIMULATOR("ios_simulator", "iPhoneSimulator", PlatformType.IOS, false),
   MACOS("macos", "MacOSX", PlatformType.MACOS, true),
@@ -186,12 +188,19 @@ public enum ApplePlatform {
 
   /** Returns a Skylark struct that contains the instances of this enum. */
   public static SkylarkClassObject getSkylarkStruct() {
-    ClassObjectConstructor constructor = new NativeClassObjectConstructor("platforms") { };
+    ClassObjectConstructor constructor =
+        new NativeClassObjectConstructor<SkylarkClassObject>(
+            SkylarkClassObject.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
     return new SkylarkClassObject(constructor, fields);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(toString());
   }
 
   /**
@@ -205,7 +214,7 @@ public enum ApplePlatform {
     doc = "Describes Apple platform \"type\", such as iOS, tvOS, macOS etc."
   )
   @Immutable
-  public enum PlatformType {
+  public enum PlatformType implements SkylarkValue {
     IOS("ios"),
     WATCHOS("watchos"),
     TVOS("tvos"),
@@ -242,12 +251,19 @@ public enum ApplePlatform {
 
     /** Returns a Skylark struct that contains the instances of this enum. */
     public static SkylarkClassObject getSkylarkStruct() {
-      ClassObjectConstructor constructor = new NativeClassObjectConstructor("platform_types") { };
+      ClassObjectConstructor constructor =
+          new NativeClassObjectConstructor<SkylarkClassObject>(
+              SkylarkClassObject.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);
       }
       return new SkylarkClassObject(constructor, fields);
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append(toString());
     }
   }
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -58,6 +59,7 @@ import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.rpc.Code;
 import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
@@ -106,6 +108,16 @@ public class GrpcRemoteExecutionClientTest {
   private final SpawnExecutionPolicy simplePolicy =
       new SpawnExecutionPolicy() {
         @Override
+        public int getId() {
+          return 0;
+        }
+
+        @Override
+        public void prefetchInputs(Iterable<ActionInput> inputs) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void lockOutputFiles() throws InterruptedException {
           throw new UnsupportedOperationException();
         }
@@ -113,6 +125,11 @@ public class GrpcRemoteExecutionClientTest {
         @Override
         public ActionInputFileCache getActionInputFileCache() {
           return fakeFileCache;
+        }
+
+        @Override
+        public ArtifactExpander getArtifactExpander() {
+          throw new UnsupportedOperationException();
         }
 
         @Override
@@ -132,7 +149,7 @@ public class GrpcRemoteExecutionClientTest {
         }
 
         @Override
-        public void report(ProgressStatus state) {
+        public void report(ProgressStatus state, String name) {
           // TODO(ulfjack): Test that the right calls are made.
         }
       };
@@ -161,7 +178,29 @@ public class GrpcRemoteExecutionClientTest {
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
             /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            /*outputs=*/ ImmutableList.<ActionInput>of(
+                new ActionInput() {
+                  @Override
+                  public String getExecPathString() {
+                    return "foo";
+                  }
+
+                  @Override
+                  public PathFragment getExecPath() {
+                    return null; // unused here.
+                  }
+                },
+                new ActionInput() {
+                  @Override
+                  public String getExecPathString() {
+                    return "bar";
+                  }
+
+                  @Override
+                  public PathFragment getExecPath() {
+                    return null; // unused here.
+                  }
+                }),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -170,9 +209,14 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    Retrier retrier = new Retrier(options);
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
-    GrpcRemoteExecutor executor = new GrpcRemoteExecutor(channel, ChannelOptions.DEFAULT, options);
-    GrpcRemoteCache remoteCache = new GrpcRemoteCache(channel, ChannelOptions.DEFAULT, options);
+    GrpcRemoteExecutor executor =
+        new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
+    ChannelOptions defaultOpts =
+        ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class));
+    GrpcRemoteCache remoteCache =
+        new GrpcRemoteCache(channel, defaultOpts, options, retrier);
     client = new RemoteSpawnRunner(execRoot, options, null, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
@@ -326,6 +370,10 @@ public class GrpcRemoteExecutionClientTest {
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            // Check that the output files are sorted.
+            assertThat(request.getAction().getOutputFilesList())
+                .containsExactly("bar", "foo")
+                .inOrder();
             responseObserver.onNext(
                 Operation.newBuilder()
                     .setDone(true)
@@ -397,73 +445,112 @@ public class GrpcRemoteExecutionClientTest {
             .setStderrRaw(ByteString.copyFromUtf8("stderr"))
             .build();
     final String opName = "operations/xyz";
-    serviceRegistry.addService(
-        new ExecutionImplBase() {
-          private int numErrors = 4;
 
-          @Override
-          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
-            if (numErrors-- <= 0) {
-              responseObserver.onNext(Operation.newBuilder().setName(opName).build());
+    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    Answer<Void> successAnswer =
+        invocationOnMock -> {
+          @SuppressWarnings("unchecked") StreamObserver<Operation> responseObserver =
+              (StreamObserver<Operation>) invocationOnMock.getArguments()[1];
+          responseObserver.onNext(Operation.newBuilder().setName(opName).build());
+          responseObserver.onCompleted();
+          return null;
+        };
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              @SuppressWarnings("unchecked") StreamObserver<Operation> responseObserver =
+                  (StreamObserver<Operation>) invocationOnMock.getArguments()[1];
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+              return null;
+            })
+        .doAnswer(successAnswer)
+        .doAnswer(successAnswer)
+        .when(mockExecutionImpl)
+        .execute(
+            Mockito.<ExecuteRequest>anyObject(), Mockito.<StreamObserver<Operation>>anyObject());
+    serviceRegistry.addService(mockExecutionImpl);
+
+    WatcherImplBase mockWatcherImpl = Mockito.mock(WatcherImplBase.class);
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+                  (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
+              // Retry the execution call as well as the watch call.
+              responseObserver.onNext(
+                  ChangeBatch.newBuilder()
+                      .addChanges(
+                          Change.newBuilder()
+                              .setState(Change.State.EXISTS)
+                              .setData(
+                                  Any.pack(
+                                      Operation.newBuilder()
+                                          .setName(opName)
+                                          .setError(
+                                              com.google.rpc.Status.newBuilder()
+                                                  .setCode(Code.INTERNAL.getNumber())
+                                                  .build())
+                                          .build()))
+                              .build())
+                      .build());
               responseObserver.onCompleted();
-            } else {
+              return null;
+            })
+        .doAnswer(
+            invocationOnMock -> {
+              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+                  (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
+              // Retry the watch call.
               responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
-            }
-          }
-        });
-    serviceRegistry.addService(
-        new WatcherImplBase() {
-          private int numErrors = 4;
-
-          @Override
-          public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
-            assertThat(request.getTarget()).isEqualTo(opName);
-            if (numErrors-- > 0) {
-              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
-              return;
-            }
-            // Some optional initial state.
-            responseObserver.onNext(
-                ChangeBatch.newBuilder()
-                    .addChanges(
-                        Change.newBuilder().setState(Change.State.INITIAL_STATE_SKIPPED).build())
-                    .build());
-            // Still executing.
-            responseObserver.onNext(
-                ChangeBatch.newBuilder()
-                    .addChanges(
-                        Change.newBuilder()
-                            .setState(Change.State.EXISTS)
-                            .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
-                            .build())
-                    .addChanges(
-                        Change.newBuilder()
-                            .setState(Change.State.EXISTS)
-                            .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
-                            .build())
-                    .build());
-            // Finished executing.
-            responseObserver.onNext(
-                ChangeBatch.newBuilder()
-                    .addChanges(
-                        Change.newBuilder()
-                            .setState(Change.State.EXISTS)
-                            .setData(
-                                Any.pack(
-                                    Operation.newBuilder()
-                                        .setName(opName)
-                                        .setDone(true)
-                                        .setResponse(
-                                            Any.pack(
-                                                ExecuteResponse.newBuilder()
-                                                    .setResult(actionResult)
-                                                    .build()))
-                                        .build()))
-                            .build())
-                    .build());
-            responseObserver.onCompleted();
-          }
-        });
+              return null;
+            })
+        .doAnswer(
+            invocationOnMock -> {
+              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+                  (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
+              // Some optional initial state.
+              responseObserver.onNext(
+                  ChangeBatch.newBuilder()
+                      .addChanges(
+                          Change.newBuilder().setState(Change.State.INITIAL_STATE_SKIPPED).build())
+                      .build());
+              // Still executing.
+              responseObserver.onNext(
+                  ChangeBatch.newBuilder()
+                      .addChanges(
+                          Change.newBuilder()
+                              .setState(Change.State.EXISTS)
+                              .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
+                              .build())
+                      .addChanges(
+                          Change.newBuilder()
+                              .setState(Change.State.EXISTS)
+                              .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
+                              .build())
+                      .build());
+              // Finished executing.
+              responseObserver.onNext(
+                  ChangeBatch.newBuilder()
+                      .addChanges(
+                          Change.newBuilder()
+                              .setState(Change.State.EXISTS)
+                              .setData(
+                                  Any.pack(
+                                      Operation.newBuilder()
+                                          .setName(opName)
+                                          .setDone(true)
+                                          .setResponse(
+                                              Any.pack(
+                                                  ExecuteResponse.newBuilder()
+                                                      .setResult(actionResult)
+                                                      .build()))
+                                          .build()))
+                              .build())
+                      .build());
+              responseObserver.onCompleted();
+              return null;
+            })
+        .when(mockWatcherImpl)
+        .watch(Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
+    serviceRegistry.addService(mockWatcherImpl);
     final Command command =
         Command.newBuilder()
             .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))
@@ -503,10 +590,10 @@ public class GrpcRemoteExecutionClientTest {
 
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
-        .thenAnswer(blobWriteAnswerError())                  // Error on command upload.
-        .thenAnswer(blobWriteAnswer(command.toByteArray()))  // Upload command successfully.
-        .thenAnswer(blobWriteAnswerError())                  // Error on the input file.
-        .thenAnswer(blobWriteAnswerError())                  // Error on the input file again.
+        .thenAnswer(blobWriteAnswerError()) // Error on command upload.
+        .thenAnswer(blobWriteAnswer(command.toByteArray())) // Upload command successfully.
+        .thenAnswer(blobWriteAnswerError()) // Error on the input file.
+        .thenAnswer(blobWriteAnswerError()) // Error on the input file again.
         .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
     serviceRegistry.addService(mockByteStreamImpl);
 
@@ -515,5 +602,11 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+    Mockito.verify(mockExecutionImpl, Mockito.times(3))
+        .execute(
+            Mockito.<ExecuteRequest>anyObject(), Mockito.<StreamObserver<Operation>>anyObject());
+    Mockito.verify(mockWatcherImpl, Mockito.times(3))
+        .watch(
+            Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
   }
 }

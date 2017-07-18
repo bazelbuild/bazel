@@ -1,5 +1,13 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
+# in a Bazel release
+load("//tools/jdk:alias_rules.bzl", "java_runtime_alias", "java_toolchain_alias")
+
+java_runtime_alias(name = "current_java_runtime")
+
+java_toolchain_alias(name = "current_java_toolchain")
+
 config_setting(
     name = "jdk7",
     values = {"define": "JAVA_VERSION=1.7"},
@@ -159,6 +167,7 @@ java_toolchain(
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     misc = [
         "-XDskipDuplicateBridges=true",
@@ -172,6 +181,7 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD-jdk",  # Tools are build from the workspace for tests.
+        "alias_rules.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",

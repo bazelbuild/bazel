@@ -340,7 +340,7 @@ public final class CustomCommandLine extends CommandLine {
    *
    * <p>This class could be used both with both the "before" and "format" features at the same
    * time, but this is probably more confusion than it is worth. If you need this functionality,
-   * consider using "before" only but storing the strings pre-formated in a {@link NestedSet}.
+   * consider using "before" only but storing the strings pre-formatted in a {@link NestedSet}.
    */
   private static final class InterspersingArgs extends ArgvFragment {
     private final Iterable<?> sequence;

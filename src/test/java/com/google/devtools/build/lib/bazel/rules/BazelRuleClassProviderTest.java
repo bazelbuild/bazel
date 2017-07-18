@@ -140,11 +140,6 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void androidStudioConsistency() {
-    checkModule(BazelRuleClassProvider.ANDROID_STUDIO_ASPECT);
-  }
-
-  @Test
   public void variousWorkspaceConsistency() {
     checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
   }

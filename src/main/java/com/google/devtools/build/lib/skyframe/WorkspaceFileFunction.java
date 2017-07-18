@@ -72,13 +72,17 @@ public class WorkspaceFileFunction implements SkyFunction {
         repoWorkspace, ruleClassProvider.getRunfilesPrefix());
 
     if (workspaceASTValue.getASTs().isEmpty()) {
-      return new WorkspaceFileValue(
-          builder.build(), // resulting package
-          ImmutableMap.<String, Extension>of(), // list of imports
-          ImmutableMap.<String, Object>of(), // list of symbol bindings
-          workspaceRoot, // Workspace root
-          0, // first fragment, idx = 0
-          false); // last fragment
+      try {
+        return new WorkspaceFileValue(
+            builder.build(), // resulting package
+            ImmutableMap.<String, Extension>of(), // list of imports
+            ImmutableMap.<String, Object>of(), // list of symbol bindings
+            workspaceRoot, // Workspace root
+            0, // first fragment, idx = 0
+            false); // last fragment
+      } catch (NoSuchPackageException e) {
+        throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
+      }
     }
     WorkspaceFactory parser;
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
@@ -115,13 +119,17 @@ public class WorkspaceFileFunction implements SkyFunction {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
-    return new WorkspaceFileValue(
-        builder.build(),
-        parser.getImportMap(),
-        parser.getVariableBindings(),
-        workspaceRoot,
-        key.getIndex(),
-        key.getIndex() < workspaceASTValue.getASTs().size() - 1);
+    try {
+      return new WorkspaceFileValue(
+          builder.build(),
+          parser.getImportMap(),
+          parser.getVariableBindings(),
+          workspaceRoot,
+          key.getIndex(),
+          key.getIndex() < workspaceASTValue.getASTs().size() - 1);
+    } catch (NoSuchPackageException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @Override

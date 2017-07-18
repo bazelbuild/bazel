@@ -52,6 +52,7 @@ java_binary(
     ],
     deps = [
         ":bitfield",
+        "//third_party:guava",
         "//third_party/java/jacoco:blaze-agent",
         "//third_party/java/jacoco:core",
         "//third_party/java/jacoco:report",
@@ -77,7 +78,7 @@ genrule(
     ],
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
     cmd = "\n".join([
-        "JARJAR=\"$$(mktemp)\"",
+        "JARJAR=\"$$(mktemp -t bazel.XXXXXXXX)\"",
         "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
         "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",

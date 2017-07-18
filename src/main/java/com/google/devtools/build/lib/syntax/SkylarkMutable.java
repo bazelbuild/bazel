@@ -86,7 +86,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     @Override
     public Iterator<E> iterator() {
       return getContentsUnsafe().iterator();
-    };
+    }
 
     @Override
     public int size() {
@@ -99,7 +99,7 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
 
     @Override
-    public final <Object> Object[] toArray(Object[] other) {
+    public final <T> T[] toArray(T[] other) {
       return getContentsUnsafe().toArray(other);
     }
 

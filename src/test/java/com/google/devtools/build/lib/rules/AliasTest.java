@@ -247,4 +247,9 @@ public class AliasTest extends BuildViewTestCase {
     useConfiguration("--crosstool_top=//a:cc");
     getConfiguredTarget("//a:a");
   }
+
+  @Test
+  public void testNoActual() throws Exception {
+    checkError("a", "a", "missing value for mandatory attribute 'actual'", "alias(name='a')");
+  }
 }

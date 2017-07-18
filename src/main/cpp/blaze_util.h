@@ -52,13 +52,14 @@ bool GetNullaryOption(const char *arg, const char *key);
 
 // Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
 // are omitted from the search.
-// Returns true iff key is a flag in args.
+// Returns the value of the 'key' flag iff it occurs in args.
+// Returns NULL otherwise.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key);
 
 // Searches for 'key' in 'args' using GetNullaryOption. Arguments found after
 // '--' are omitted from the search.
-// Returns the value of the 'key' flag iff it occurs in args.
+// Returns true iff key is a flag in args.
 bool SearchNullaryOption(const std::vector<std::string>& args,
                          const char* key);
 
@@ -81,6 +82,25 @@ bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
 
 // Returns true iff arg is a valid command line argument for bazel.
 bool IsArg(const std::string& arg);
+
+// Wait to see if the server process terminates. Checks the server's status
+// immediately, and repeats the check every 100ms until approximately
+// wait_seconds elapses or the server process terminates. Returns true if a
+// check sees that the server process terminated. Logs to stderr after 5, 10,
+// and 30 seconds if the wait lasts that long.
+bool AwaitServerProcessTermination(int pid, const std::string& output_base,
+                                   unsigned int wait_seconds);
+
+// The number of seconds the client will wait for the server process to
+// terminate itself after the client receives the final response from a command
+// that shuts down the server. After waiting this time, if the server process
+// remains, the client will forcibly kill the server.
+extern const unsigned int kPostShutdownGracePeriodSeconds;
+
+// The number of seconds the client will wait for the server process to
+// terminate after the client forcibly kills the server. After waiting this
+// time, if the server process remains, the client will die.
+extern const unsigned int kPostKillGracePeriodSeconds;
 
 // Returns the string representation of `value`.
 // Workaround for mingw where std::to_string is not implemented.

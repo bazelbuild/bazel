@@ -169,14 +169,12 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
     std::unique_ptr<StartupOptions> default_startup_options)
-    : initialized_(false),
-      workspace_layout_(workspace_layout),
+    : workspace_layout_(workspace_layout),
       parsed_startup_options_(std::move(default_startup_options)) {
 }
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
-    const vector<string>& args,
-    string* error) {
+    const vector<string>& args, string* error) const {
   const string lowercase_product_name =
       parsed_startup_options_->GetLowercaseProductName();
 
@@ -299,6 +297,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
 }
 
 namespace internal {
+
 vector<string> DedupeBlazercPaths(const vector<string>& paths) {
   set<string> canonical_paths;
   vector<string> result;
@@ -314,6 +313,7 @@ vector<string> DedupeBlazercPaths(const vector<string>& paths) {
   }
   return result;
 }
+
 }  // namespace internal
 
 // Parses the arguments provided in args using the workspace path and the
@@ -323,24 +323,19 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const string& workspace,
     const string& cwd,
     string* error) {
-  assert(!initialized_);
-  initialized_ = true;
 
-  args_ = args;
-  std::unique_ptr<CommandLine> cmd_line = SplitCommandLine(args, error);
-  if (cmd_line == nullptr) {
+  cmd_line_ = SplitCommandLine(args, error);
+  if (cmd_line_ == nullptr) {
     return blaze_exit_code::BAD_ARGV;
   }
-  explicit_command_arguments_ = cmd_line->command_args;
-
-  const char* blazerc = SearchUnaryOption(cmd_line->startup_args, "--blazerc");
+  const char* blazerc = SearchUnaryOption(cmd_line_->startup_args, "--blazerc");
   if (blazerc == NULL) {
-    blazerc = SearchUnaryOption(cmd_line->startup_args, "--bazelrc");
+    blazerc = SearchUnaryOption(cmd_line_->startup_args, "--bazelrc");
   }
 
   bool use_master_blazerc = true;
-  if (SearchNullaryOption(cmd_line->startup_args, "--nomaster_blazerc") ||
-      SearchNullaryOption(cmd_line->startup_args, "--nomaster_bazelrc")) {
+  if (SearchNullaryOption(cmd_line_->startup_args, "--nomaster_blazerc") ||
+      SearchNullaryOption(cmd_line_->startup_args, "--nomaster_bazelrc")) {
     use_master_blazerc = false;
   }
 
@@ -350,7 +345,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
     workspace_layout_->FindCandidateBlazercPaths(
-        workspace, cwd, cmd_line->path_to_binary, cmd_line->startup_args,
+        workspace, cwd, cmd_line_->path_to_binary, cmd_line_->startup_args,
         &candidate_blazerc_paths);
   }
 
@@ -386,100 +381,33 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
-  // Once we're done with startup options the next arg is the command.
-  if (startup_args_ + 1 >= args.size()) {
-    command_ = "";
-    return blaze_exit_code::SUCCESS;
-  }
-  command_ = args[startup_args_ + 1];
-
-  AddRcfileArgsAndOptions(cwd);
-
-  // The rest of the args are the command options.
-  for (unsigned int cmd_arg = startup_args_ + 2;
-       cmd_arg < args.size(); cmd_arg++) {
-    command_arguments_.push_back(args[cmd_arg]);
-  }
+  blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
+      cwd, blazercs_, rcoptions_);
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
-    int argc,
-    const char* argv[],
-    const string& workspace,
-    const string& cwd,
-    string* error) {
-  vector<string> args(argc);
-  for (int arg = 0; arg < argc; arg++) {
-    args[arg] = argv[arg];
-  }
+blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
+    std::string *error) {
+  std::vector<RcStartupFlag> rcstartup_flags;
 
-  return ParseOptions(args, workspace, cwd, error);
-}
-
-blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
-  // Process rcfile startup options
-  map< string, vector<RcOption> >::const_iterator it =
-      rcoptions_.find("startup");
-  blaze_exit_code::ExitCode process_arg_exit_code;
-  bool is_space_separated;
-  if (it != rcoptions_.end()) {
-    const vector<RcOption>& startup_options = it->second;
-    int i = 0;
-    // Process all elements except the last one.
-    for (; i < startup_options.size() - 1; i++) {
-      const RcOption& option = startup_options[i];
-      const string& blazerc = blazercs_[option.rcfile_index()]->Filename();
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          option.option(), startup_options[i + 1].option(), blazerc,
-          &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-      }
-      if (is_space_separated) {
-        i++;
-      }
-    }
-    // Process last element, if any.
-    if (i < startup_options.size()) {
-      const RcOption& option = startup_options[i];
-      if (IsArg(option.option())) {
-        const string& blazerc = blazercs_[option.rcfile_index()]->Filename();
-        process_arg_exit_code = parsed_startup_options_->ProcessArg(
-            option.option(), "", blazerc, &is_space_separated, error);
-        if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-        }
-      }
+  auto iter = rcoptions_.find("startup");
+  if (iter != rcoptions_.end()) {
+    const vector<RcOption>& startup_rcoptions = iter->second;
+    for (const RcOption& option : startup_rcoptions) {
+      rcstartup_flags.push_back(
+          RcStartupFlag(blazercs_[option.rcfile_index()]->Filename(),
+                        option.option()));
     }
   }
 
-  // Process command-line args next, so they override any of the same options
-  // from .blazerc. Stop on first non-arg, this includes --help
-  unsigned int i = 1;
-  if (!args_.empty()) {
-    for (;  (i < args_.size() - 1) && IsArg(args_[i]); i++) {
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          args_[i], args_[i + 1], "", &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-      }
-      if (is_space_separated) {
-        i++;
-      }
+  for (const std::string& arg : cmd_line_->startup_args) {
+    if (!IsArg(arg)) {
+      break;
     }
-    if (i < args_.size() && IsArg(args_[i])) {
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          args_[i], "", "", &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-      }
-      i++;
-    }
+    rcstartup_flags.push_back(RcStartupFlag("", arg));
   }
-  startup_args_ = i -1;
 
-  return blaze_exit_code::SUCCESS;
+  return parsed_startup_options_->ProcessArgs(rcstartup_flags, error);
 }
 
 static bool IsValidEnvName(const char* p) {
@@ -532,39 +460,34 @@ static void PreprocessEnvString(const string* env_str) {
 }
 #endif  // defined(COMPILER_MSVC)
 
-// Appends the command and arguments from argc/argv to the end of arg_vector,
-// and also splices in some additional terminal and environment options between
-// the command and the arguments. NB: Keep the options added here in sync with
+// IMPORTANT: Keep the options added here in sync with
 // BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
-void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
+std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
+    const std::string& cwd,
+    const std::vector<RcFile*>& blazercs,
+    const std::map<std::string, std::vector<RcOption>>& rcoptions) {
   // Provide terminal options as coming from the least important rc file.
-  command_arguments_.push_back("--rc_source=client");
-  command_arguments_.push_back("--default_override=0:common=--isatty=" +
-                               ToString(IsStandardTerminal()));
-  command_arguments_.push_back(
-      "--default_override=0:common=--terminal_columns=" +
-      ToString(GetTerminalColumns()));
+  std::vector<std::string> result = {
+    "--rc_source=client",
+    "--default_override=0:common=--isatty=" +
+        ToString(IsStandardTerminal()),
+    "--default_override=0:common=--terminal_columns=" +
+        ToString(GetTerminalColumns())};
 
   // Push the options mapping .blazerc numbers to filenames.
-  for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
-    const RcFile* blazerc = blazercs_[i_blazerc];
-    command_arguments_.push_back("--rc_source=" +
-                                 blaze::ConvertPath(blazerc->Filename()));
+  for (const RcFile* blazerc : blazercs) {
+    result.push_back("--rc_source=" + blaze::ConvertPath(blazerc->Filename()));
   }
 
-  // Push the option defaults
-  for (map<string, vector<RcOption> >::const_iterator it = rcoptions_.begin();
-       it != rcoptions_.end(); ++it) {
-    if (it->first == "startup") {
-      // Skip startup options, they are parsed in the C++ wrapper
-      continue;
-    }
-
-    for (int ii = 0; ii < it->second.size(); ii++) {
-      const RcOption& rcoption = it->second[ii];
-      command_arguments_.push_back(
-          "--default_override=" + ToString(rcoption.rcfile_index() + 1) + ":"
-          + it->first + "=" + rcoption.option());
+  // Process RcOptions exept for the startup flags that are already parsed
+  // by the client and shouldn't be handled by defult_overrides.
+  for (auto it = rcoptions.begin(); it != rcoptions.end(); ++it) {
+    if (it->first != "startup") {
+      for (const RcOption& rcoption : it->second) {
+        result.push_back(
+            "--default_override=" + ToString(rcoption.rcfile_index() + 1) + ":"
+            + it->first + "=" + rcoption.option());
+      }
     }
   }
 
@@ -573,31 +496,44 @@ void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
     string env_str(*env);
     if (IsValidEnvName(*env)) {
       PreprocessEnvString(&env_str);
-      command_arguments_.push_back("--client_env=" + env_str);
+      result.push_back("--client_env=" + env_str);
     }
   }
-  command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
+  result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
 
   if (IsEmacsTerminal()) {
-    command_arguments_.push_back("--emacs");
+    result.push_back("--emacs");
   }
+  return result;
 }
 
-void OptionProcessor::GetCommandArguments(vector<string>* result) const {
-  result->insert(result->end(),
-                 command_arguments_.begin(),
-                 command_arguments_.end());
+std::vector<std::string> OptionProcessor::GetCommandArguments() const {
+  assert(cmd_line_ != nullptr);
+  // When the user didn't specify a command, the server expects the command
+  // arguments to be empty in order to display the help message.
+  if (cmd_line_->command.empty()) {
+    return {};
+  }
+
+  std::vector<std::string> command_args = blazerc_and_env_command_args_;
+  command_args.insert(command_args.end(),
+                      cmd_line_->command_args.begin(),
+                      cmd_line_->command_args.end());
+  return command_args;
 }
 
 std::vector<std::string> OptionProcessor::GetExplicitCommandArguments() const {
-  return explicit_command_arguments_;
+  assert(cmd_line_ != nullptr);
+  return cmd_line_->command_args;
 }
 
-const string& OptionProcessor::GetCommand() const {
-  return command_;
+std::string OptionProcessor::GetCommand() const {
+  assert(cmd_line_ != nullptr);
+  return cmd_line_->command;
 }
 
 StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
+  assert(parsed_startup_options_ != NULL);
   return parsed_startup_options_.get();
 }
 

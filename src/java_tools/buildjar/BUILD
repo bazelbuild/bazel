@@ -73,6 +73,7 @@ java_toolchain(
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "8",

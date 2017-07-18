@@ -11,13 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.testing.coverage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardOpenOption.APPEND;
+import static java.nio.file.StandardOpenOption.CREATE;
+
+import com.google.common.collect.ImmutableSet;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +46,19 @@ import org.jacoco.report.ISourceFileLocator;
  */
 public class JacocoLCOVFormatter {
 
+  // Exec paths of the uninstrumented files that are being analyzed. This is helpful for files in
+  // jars passed through java_import or some custom rule where blaze doesn't have enough context to
+  // compute the right paths, but relies on these pre-computed exec paths.
+  private final ImmutableSet<String> execPathsOfUninstrumentedFiles;
+
+  public JacocoLCOVFormatter(ImmutableSet<String> execPathsOfUninstrumentedFiles) {
+    this.execPathsOfUninstrumentedFiles = execPathsOfUninstrumentedFiles;
+  }
+
+  public JacocoLCOVFormatter() {
+    this.execPathsOfUninstrumentedFiles = ImmutableSet.of();
+  }
+
   public IReportVisitor createVisitor(
       final File output, final Map<String, BranchCoverageDetail> branchCoverageDetail) {
     return new IReportVisitor() {
@@ -48,13 +66,22 @@ public class JacocoLCOVFormatter {
       private Map<String, Map<String, IClassCoverage>> sourceToClassCoverage = new TreeMap<>();
       private Map<String, ISourceFileCoverage> sourceToFileCoverage = new TreeMap<>();
 
+      private String getExecPathForEntryName(String fileName) {
+        for (String execPath : execPathsOfUninstrumentedFiles) {
+          if (execPath.endsWith("/" + fileName)) {
+            return execPath;
+          }
+        }
+        return fileName;
+      }
+
       @Override
       public void visitInfo(List<SessionInfo> sessionInfos, Collection<ExecutionData> executionData)
           throws IOException {}
 
       @Override
       public void visitEnd() throws IOException {
-        try (FileWriter fileWriter = new FileWriter(output, true);
+        try (Writer fileWriter = Files.newBufferedWriter(output.toPath(), UTF_8, CREATE, APPEND);
             PrintWriter printWriter = new PrintWriter(fileWriter)) {
           for (String sourceFile : sourceToClassCoverage.keySet()) {
             processSourceFile(printWriter, sourceFile);
@@ -73,7 +100,8 @@ public class JacocoLCOVFormatter {
         // information and process everything at the end.
         for (IPackageCoverage pkgCoverage : bundle.getPackages()) {
           for (IClassCoverage clsCoverage : pkgCoverage.getClasses()) {
-            String fileName = clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName();
+            String fileName = getExecPathForEntryName(
+                clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName());
             if (!sourceToClassCoverage.containsKey(fileName)) {
               sourceToClassCoverage.put(fileName, new TreeMap<String, IClassCoverage>());
             }
@@ -81,7 +109,8 @@ public class JacocoLCOVFormatter {
           }
           for (ISourceFileCoverage srcCoverage : pkgCoverage.getSourceFiles()) {
             sourceToFileCoverage.put(
-                srcCoverage.getPackageName() + "/" + srcCoverage.getName(), srcCoverage);
+                getExecPathForEntryName(srcCoverage.getPackageName() + "/" + srcCoverage.getName()),
+                srcCoverage);
           }
         }
       }

@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -90,6 +92,23 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "    outs = ['a/b', 'c/d'],",
         "    cmd = 'echo hi | tee $(@D)/a/b $(@D)/c/d',",
         ")");
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();
+  }
+
+  @Test
+  public void testToolchainMakeVariableExpansion() throws Exception {
+    scratch.file("a/BUILD",
+        "genrule(name='gr', srcs=[], outs=['out'], cmd='$(TEST_VARIABLE)', toolchains=[':v'])",
+        "make_variable_tester(name='v')");
+
+    String cmd = getCommand("//a:gr");
+    assertThat(cmd).endsWith("FOOBAR");
   }
 
   @Test

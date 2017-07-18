@@ -45,9 +45,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    ExecutionInfoProvider provider =
-        (ExecutionInfoProvider)
-            skylarkTarget.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey());
+    ExecutionInfoProvider provider = skylarkTarget.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
 
     assertThat(provider.getExecutionInfo().get("requires-darwin")).isEqualTo("1");
   }
@@ -73,8 +71,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     TestEnvironmentProvider provider =
-        (TestEnvironmentProvider)
-            skylarkTarget.get(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
+        skylarkTarget.get(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR);
 
     assertThat(provider.getEnvironment().get("XCODE_VERSION_OVERRIDE")).isEqualTo("7.3.1");
   }

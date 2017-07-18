@@ -210,6 +210,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return SkylarkList.createImmutable(getArguments());
   }
 
+  @Override
+  @VisibleForTesting
+  public Iterable<Artifact> getPossibleInputsForTesting() {
+    return getInputs();
+  }
+
   /** Returns command argument, argv[0]. */
   @VisibleForTesting
   public String getCommandFilename() {
@@ -648,7 +654,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       if (useDefaultShellEnvironment) {
         env = Preconditions.checkNotNull(configEnv);
       } else {
-        env = new ActionEnvironment(this.environment);
+        env = ActionEnvironment.create(this.environment);
       }
 
       if (disableSandboxing) {

@@ -40,6 +40,7 @@ public class AarGeneratorBuilder {
   private Artifact classes;
 
   private Artifact aarOut;
+  private boolean throwOnResourceConflict;
 
   private final RuleContext ruleContext;
   private final SpawnAction.Builder builder;
@@ -79,6 +80,11 @@ public class AarGeneratorBuilder {
     return this;
   }
 
+  public AarGeneratorBuilder setThrowOnResourceConflict(boolean throwOnResourceConflict) {
+    this.throwOnResourceConflict = throwOnResourceConflict;
+    return this;
+  }
+
   public void build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     List<Artifact> ins = new ArrayList<>();
@@ -114,6 +120,10 @@ public class AarGeneratorBuilder {
     args.add("--aarOutput");
     args.add(aarOut.getExecPathString());
     outs.add(aarOut);
+
+    if (throwOnResourceConflict) {
+      args.add("--throwOnResourceConflict");
+    }
 
     ruleContext.registerAction(
         this.builder

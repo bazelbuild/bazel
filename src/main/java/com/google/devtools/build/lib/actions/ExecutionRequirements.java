@@ -143,4 +143,10 @@ public class ExecutionRequirements {
 
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
+
+  /**
+   * Whether we should disable remote caching of an action. This can be set to force a rerun of an
+   * action even if there is a cache entry for it.
+   */
+  public static final String NO_CACHE = "no-cache";
 }

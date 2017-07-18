@@ -145,6 +145,20 @@ genrule(
     cmd = "cp \$< \$@",
 )
 EOF
+mkdir -p failingtool
+cat > failingtool/BUILD <<'EOF'
+genrule(
+    name = "tool",
+    outs = ["tool.sh"],
+    cmd = "false",
+)
+genrule(
+    name = "usestool",
+    outs = ["out.txt"],
+    tools = [":tool"],
+    cmd = "$(location :tool) > $@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -397,6 +411,7 @@ function test_query() {
 function test_command_whitelisting() {
   # We expect the "help" command to not generate a build-event stream,
   # but the "build" command to do.
+  bazel shutdown
   rm -f bep.txt
   bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
   ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
@@ -405,7 +420,7 @@ function test_command_whitelisting() {
   bazel build --build_event_text_file=bep.txt //pkg:true \
       || fail "bazel build failed"
   [ -f bep.txt ] || fail "build did not generate requested build-event file"
-  rm -f bep.txt
+  bazel shutdown
 }
 
 function test_multiple_transports() {
@@ -446,6 +461,17 @@ function test_root_cause_early() {
   local ncomplete=`grep -n '^completed' $TEST_log | cut -f 1 -d :`
   [ $naction -lt $ncomplete ] \
       || fail "failed action not before compelted target"
+}
+
+function test_action_conf() {
+  # Verify that the expected configurations for actions are reported.
+  # The example contains a configuration transition (from building for
+  # target to building for host). As the action fails, we expect the
+  # configuration of the action to be reported as well.
+  (bazel build --build_event_text_file=$TEST_log \
+         -k failingtool/... && fail "build failure expected") || true
+  count=`grep '^configuration' "${TEST_log}" | wc -l`
+  [ "${count}" -eq 2 ] || fail "Expected 2 configurations, found $count."
 }
 
 function test_loading_failure() {

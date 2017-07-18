@@ -29,7 +29,7 @@ public class WindowsJniLoader {
     try {
       System.loadLibrary("windows_jni");
     } catch (UnsatisfiedLinkError ex) {
-      // We are probably in tests, let's try to find the library in the runfiles
+      // Try to find the library in the runfiles.
       try {
         System.load(WindowsRunfiles.getRunfile("io_bazel/src/main/native/windows/windows_jni.dll"));
       } catch (IOException e) {

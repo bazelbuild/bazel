@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
@@ -83,6 +84,31 @@ public class WorkspaceFactoryTest {
         "workspace() function should be used only at the top of the WORKSPACE file");
   }
 
+  @Test
+  public void testRegisterToolchains() throws Exception {
+    WorkspaceFactoryHelper helper = parse("register_toolchains('//toolchain:tc1')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(Label.parseAbsolute("//toolchain:tc1"));
+  }
+
+  @Test
+  public void testRegisterToolchains_multipleLabels() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse("register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+  }
+
+  @Test
+  public void testRegisterToolchains_multipleCalls() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse("register_toolchains('//toolchain:tc1')", "register_toolchains('//toolchain:tc2')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+  }
+
   private WorkspaceFactoryHelper parse(String... args) {
     return new WorkspaceFactoryHelper(args);
   }
@@ -133,7 +159,7 @@ public class WorkspaceFactoryTest {
       this.exception = exception;
     }
 
-    public Package getPackage() throws InterruptedException {
+    public Package getPackage() throws InterruptedException, NoSuchPackageException {
       return builder.build();
     }
 

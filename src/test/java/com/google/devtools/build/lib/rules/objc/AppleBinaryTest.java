@@ -472,7 +472,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    srcs = ['a.m'],",
         "    deps = ['//protos:objc_protos_low_level',]",
         ")");
-    
+
     if (depBinaryType == BinaryType.DYLIB) {
       scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
       scratch.file(
@@ -858,6 +858,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testAliasedLinkoptsThroughObjcLibrary() throws Exception {
     checkAliasedLinkoptsThroughObjcLibrary(RULE_TYPE);
+  }
+
+  @Test
+  public void testObjcProviderLinkInputsInLinkAction() throws Exception {
+    checkObjcProviderLinkInputsInLinkAction(RULE_TYPE);
   }
 
   @Test
@@ -1360,8 +1365,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//bin:bin");
     AppleExecutableBinaryProvider executableBinaryProvider =
-        (AppleExecutableBinaryProvider) binTarget.get(
-            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+        binTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");
@@ -1408,5 +1412,15 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     CommandAction testLinkAction = linkAction("//test:test");
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
         .contains("@loader_path/Frameworks");
+  }
+
+  @Test
+  public void testCustomModuleMap() throws Exception {
+    checkCustomModuleMap(RULE_TYPE);
+  }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipobin", "_bin");
   }
 }

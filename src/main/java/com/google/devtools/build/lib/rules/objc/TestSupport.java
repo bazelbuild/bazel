@@ -257,9 +257,8 @@ public class TestSupport {
    */
   public Iterable<SkylarkClassObject> getExtraProviders() {
     IosDeviceProvider deviceProvider =
-        (IosDeviceProvider)
-            ruleContext.getPrerequisite(
-                IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.SKYLARK_CONSTRUCTOR.getKey());
+        ruleContext.getPrerequisite(
+            IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     DottedVersion xcodeVersion = deviceProvider.getXcodeVersion();
     AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
 

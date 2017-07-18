@@ -79,11 +79,10 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -232,6 +231,11 @@ public final class BuildConfiguration implements BuildEvent {
     @Nullable
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return null;
+    }
+
+    /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
+    public ImmutableSet<String> getReservedActionMnemonics() {
+      return ImmutableSet.of();
     }
   }
 
@@ -460,6 +464,16 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public static class Options extends FragmentOptions implements Cloneable {
     @Option(
+      name = "experimental_separate_genfiles_directory",
+      defaultValue = "true",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = { OptionEffectTag.AFFECTS_OUTPUTS },
+      help = "Whether to have a separate genfiles directory or fold it into the bin directory"
+    )
+
+    public boolean separateGenfilesDirectory;
+    @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "",
@@ -493,17 +507,16 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental multi cpu distinguisher",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String experimentalMultiCpuDistinguisher;
 
     @Option(
       name = "min_param_file_size",
       defaultValue = "32768",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Minimum command line length before creating a parameter file."
     )
@@ -512,8 +525,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables internal validation checks to make sure that configured target "
@@ -524,8 +536,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",
       defaultValue = "true",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
@@ -645,9 +656,9 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "output directory name",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String outputDirectoryName;
 
@@ -975,8 +986,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "enforce_constraints",
       defaultValue = "true",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Checks the environments each target is compatible with and reports errors if any "
@@ -1003,8 +1013,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental_transparent_compression",
       defaultValue = "true",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables gzip compression for the contents of FileWriteActions, which reduces "
@@ -1015,9 +1024,9 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "is host configuration",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INTERNAL},
       help = "Shows whether these options are set for host configuration."
     )
     public boolean isHost;
@@ -1058,10 +1067,9 @@ public final class BuildConfiguration implements BuildEvent {
       converter = EmptyToNullLabelConverter.class,
       defaultValue = "",
       category = "flags",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Declare the environment_group to use for automatically mapping cpu values to "
               + "target_environment values."
@@ -1099,9 +1107,8 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental_dynamic_configs",
       defaultValue = "notrim",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       converter = DynamicConfigsConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Dynamically instantiates build configurations instead of using the default "
@@ -1112,8 +1119,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental_enable_runfiles",
       defaultValue = "auto",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable runfiles; off on Windows, on on other platforms"
     )
@@ -1122,8 +1128,7 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "build_python_zip",
       defaultValue = "auto",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Build python executable zip; on on Windows, off on other platforms"
     )
@@ -1139,6 +1144,7 @@ public final class BuildConfiguration implements BuildEvent {
       host.useDynamicConfigurations = useDynamicConfigurations;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
+      host.separateGenfilesDirectory = separateGenfilesDirectory;
 
       if (fallback) {
         // In the fallback case, we have already tried the target options and they didn't work, so
@@ -1195,6 +1201,7 @@ public final class BuildConfiguration implements BuildEvent {
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final DynamicTransitionMapper dynamicTransitionMapper;
+  private final ImmutableSet<String> reservedActionMnemonics;
 
   /**
    * Directories in the output tree.
@@ -1297,6 +1304,8 @@ public final class BuildConfiguration implements BuildEvent {
   private final Root coverageDirectoryForMainRepository;
   private final Root testlogsDirectoryForMainRepository;
   private final Root middlemanDirectoryForMainRepository;
+
+  private final boolean separateGenfilesDirectory;
 
   // Cache this value for quicker access. We don't cache it inside BuildOptions because BuildOptions
   // is mutable, so a cached value there could fall out of date when it's updated.
@@ -1523,6 +1532,7 @@ public final class BuildConfiguration implements BuildEvent {
     this.buildOptions = buildOptions.clone();
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
+    this.separateGenfilesDirectory = options.separateGenfilesDirectory;
     this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
     this.dynamicTransitionMapper = dynamicTransitionMapper;
 
@@ -1589,6 +1599,12 @@ public final class BuildConfiguration implements BuildEvent {
 
     checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
     hashCode = computeHashCode();
+
+    ImmutableSet.Builder<String> reservedActionMnemonics = ImmutableSet.builder();
+    for (Fragment fragment : fragments.values()) {
+      reservedActionMnemonics.addAll(fragment.getReservedActionMnemonics());
+    }
+    this.reservedActionMnemonics = reservedActionMnemonics.build();
   }
 
   /**
@@ -1614,7 +1630,6 @@ public final class BuildConfiguration implements BuildEvent {
             options,
             mainRepositoryName.strippedName(),
             dynamicTransitionMapper);
-    newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
 
@@ -1711,8 +1726,11 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
+   * For static configurations, returns all configurations that can be reached from this one through
+   * any kind of configuration transition.
+   *
+   * <p>For dynamic configurations, returns the current configuration (since configurations aren't
+   * reached through other configurations).
    */
   public synchronized Collection<BuildConfiguration> getAllReachableConfigurations() {
     if (allReachableConfigurations == null) {
@@ -1723,11 +1741,10 @@ public final class BuildConfiguration implements BuildEvent {
     return allReachableConfigurations;
   }
 
-  /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
-   */
   private Set<BuildConfiguration> computeAllReachableConfigurations() {
+    if (useDynamicConfigurations()) {
+      return ImmutableSet.of(this);
+    }
     Set<BuildConfiguration> result = new LinkedHashSet<>();
     Queue<BuildConfiguration> queue = new LinkedList<>();
     queue.add(this);
@@ -2231,6 +2248,10 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   public Root getGenfilesDirectory(RepositoryName repositoryName) {
+    if (!separateGenfilesDirectory) {
+      return getBinDirectory(repositoryName);
+    }
+
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? genfilesDirectoryForMainRepository
         : OutputDirectory.GENFILES.getRoot(
@@ -2555,7 +2576,7 @@ public final class BuildConfiguration implements BuildEvent {
     return options.useLLVMCoverageMapFormat;
   }
 
-  /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
+  /** If false, AnalysisEnvironment doesn't register any actions created by the ConfiguredTarget. */
   public boolean isActionsEnabled() {
     return actionsEnabled;
   }
@@ -2772,6 +2793,10 @@ public final class BuildConfiguration implements BuildEvent {
 
   public ImmutableCollection<String> getSkylarkFragmentNames() {
     return skylarkVisibleFragments.keySet();
+  }
+
+  public ImmutableSet<String> getReservedActionMnemonics() {
+    return reservedActionMnemonics;
   }
 
   /**

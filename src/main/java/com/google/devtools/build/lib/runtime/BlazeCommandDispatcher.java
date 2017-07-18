@@ -55,6 +55,7 @@ import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -366,10 +367,13 @@ public class BlazeCommandDispatcher {
     OptionsProvider options = optionsResult.get();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = workspace.initCommand(commandAnnotation);
+    CommandEnvironment env = workspace.initCommand(commandAnnotation, options);
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 
+    // Temporary: there is one module that outputs events during beforeCommand, but the reporter
+    // isn't setup yet. Add the stored event handler to catch those events.
+    env.getReporter().addHandler(eventHandler);
     for (BlazeModule module : runtime.getBlazeModules()) {
       try {
         module.beforeCommand(env);
@@ -384,6 +388,7 @@ public class BlazeCommandDispatcher {
         earlyExitCode = e.getExitCode();
       }
     }
+    env.getReporter().removeHandler(eventHandler);
 
     // We may only start writing to outErr once we've given the modules the chance to hook into it.
     for (BlazeModule module : runtime.getBlazeModules()) {
@@ -428,11 +433,11 @@ public class BlazeCommandDispatcher {
     }
 
     if (!commandAnnotation.binaryStdOut()) {
-      outErr = lineBufferOut(outErr);
+      outErr = bufferOut(outErr, eventHandlerOptions.experimentalUi);
     }
 
     if (!commandAnnotation.binaryStdErr()) {
-      outErr = lineBufferErr(outErr);
+      outErr = bufferErr(outErr, eventHandlerOptions.experimentalUi);
     }
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
@@ -500,9 +505,6 @@ public class BlazeCommandDispatcher {
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();
-      }
-      for (BlazeModule module : runtime.getBlazeModules()) {
-        module.handleOptions(options);
       }
 
       env.getEventBus().post(originalCommandLine);
@@ -572,6 +574,16 @@ public class BlazeCommandDispatcher {
       // applied the invocation policy.
       AtomicReference<OptionsProvider> parsedOptions,
       List<String> rcfileNotes) {
+    OptionsParser optionsParser;
+    try {
+      optionsParser = createOptionsParser(command);
+      // We need to set this early so it's not null when we return.
+      parsedOptions.set(optionsParser);
+    } catch (OptionsParser.ConstructionException e) {
+      // This should never happen.
+      throw new IllegalStateException(e);
+    }
+
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
@@ -583,8 +595,6 @@ public class BlazeCommandDispatcher {
     }
 
     try {
-      OptionsParser optionsParser = createOptionsParser(command);
-
       // TODO(ulfjack): The second parameter is supposed to be the working directory, except that
       // the client passes that as part of CommonCommandOptions, and we can't know those until
       // after we've parsed them.
@@ -623,10 +633,6 @@ public class BlazeCommandDispatcher {
       for (String warning : optionsParser.getWarnings()) {
         eventHandler.handle(Event.warn(warning));
       }
-      parsedOptions.set(optionsParser);
-    } catch (OptionsParser.ConstructionException e) {
-      // This should never happen.
-      throw new IllegalStateException(e);
     } catch (OptionsParsingException e) {
       eventHandler.handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
@@ -723,13 +729,23 @@ public class BlazeCommandDispatcher {
     accumulator.add(commandAnnotation.name());
   }
 
-  private OutErr lineBufferOut(OutErr outErr) {
-    OutputStream wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
+  private OutErr bufferOut(OutErr outErr, boolean fully) {
+    OutputStream wrappedOut;
+    if (fully) {
+      wrappedOut = new BufferedOutputStream(outErr.getOutputStream());
+    } else {
+      wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
+    }
     return OutErr.create(wrappedOut, outErr.getErrorStream());
   }
 
-  private OutErr lineBufferErr(OutErr outErr) {
-    OutputStream wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
+  private OutErr bufferErr(OutErr outErr, boolean fully) {
+    OutputStream wrappedErr;
+    if (fully) {
+      wrappedErr = new BufferedOutputStream(outErr.getErrorStream());
+    } else {
+      wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
+    }
     return OutErr.create(outErr.getOutputStream(), wrappedErr);
   }
 

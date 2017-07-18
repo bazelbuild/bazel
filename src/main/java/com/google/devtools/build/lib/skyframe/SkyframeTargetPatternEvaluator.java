@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -110,14 +110,16 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       try {
         builder.add(skyKeyOrException.getSkyKey());
       } catch (TargetParsingException e) {
+        // We report a parsing failed exception to the event bus here in case the pattern did not
+        // successfully parse (which happens before the SkyKey is created). Otherwise the
+        // TargetPatternFunction posts the event.
+        eventHandler.post(
+            new ParsingFailedEvent(skyKeyOrException.getOriginalPattern(),  e.getMessage()));
         if (!keepGoing) {
           throw e;
         }
         String pattern = skyKeyOrException.getOriginalPattern();
         eventHandler.handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
-        if (eventHandler instanceof ParseFailureListener) {
-          ((ParseFailureListener) eventHandler).parsingError(pattern, e.getMessage());
-        }
       }
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
@@ -187,11 +189,6 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
           eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         }
         finalTargetSetEvaluator.setError();
-
-        if (eventHandler instanceof ParseFailureListener) {
-          ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
-          parseListener.parsingError(rawPattern,  errorMessage);
-        }
       }
     }
 

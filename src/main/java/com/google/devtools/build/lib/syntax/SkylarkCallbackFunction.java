@@ -55,7 +55,7 @@ public class SkylarkCallbackFunction {
    * required from the specified context.
    */
   private ImmutableList<Object> buildArgumentList(ClassObject ctx, Object... arguments) {
-    Builder<Object> builder = ImmutableList.<Object>builder();
+    Builder<Object> builder = ImmutableList.builder();
     ImmutableList<String> names = getParameterNames();
     int requiredParameters = names.size() - arguments.length;
     for (int pos = 0; pos < requiredParameters; ++pos) {

@@ -623,7 +623,6 @@ toolchain {
   compiler_flag: "-m64"
   compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
   # Don't pollute with GDI macros in windows.h.

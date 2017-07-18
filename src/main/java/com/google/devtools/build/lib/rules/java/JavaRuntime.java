@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -45,10 +47,13 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET);
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
-      PathFragment javaHomeAttribute = PathFragment.create(
-          ruleContext.attributes().get("java_home", Type.STRING));
+      PathFragment javaHomeAttribute = PathFragment.create(ruleContext.expandMakeVariables(
+          "java_home", ruleContext.attributes().get("java_home", Type.STRING)));
       if (!filesToBuild.isEmpty() && javaHomeAttribute.isAbsolute()) {
         ruleContext.ruleError("'java_home' with an absolute path requires 'srcs' to be empty.");
+      }
+
+      if (ruleContext.hasErrors()) {
         return null;
       }
 
@@ -67,12 +72,20 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         new Runfiles.Builder(ruleContext.getWorkspaceName())
             .addTransitiveArtifacts(filesToBuild)
             .build();
+
+    JavaRuntimeProvider javaRuntime = new JavaRuntimeProvider(
+        filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
+
+    MakeVariableProvider makeVariableProvider = new MakeVariableProvider(ImmutableMap.of(
+        "JAVA", javaBinaryExecPath.getPathString(),
+        "JAVABASE", javaHome.getPathString()));
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
-        .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(
-            filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath))
+        .addNativeDeclaredProvider(javaRuntime)
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
+        .addNativeDeclaredProvider(makeVariableProvider)
         .build();
   }
 

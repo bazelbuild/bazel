@@ -36,6 +36,17 @@ import java.util.logging.Logger;
 /** Handles the Merging of ParsedAndroidData. */
 class AndroidDataMerger {
 
+  public static class MergeConflictException extends RuntimeException {
+
+    private MergeConflictException(String message) {
+      super(message);
+    }
+
+    static MergeConflictException withMessage(String message) {
+      return new MergeConflictException(message);
+    }
+  }
+
   private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
 
   /** Interface for comparing paths. */
@@ -70,7 +81,7 @@ class AndroidDataMerger {
               // getFileSize did not return correct size.
               logger.severe(
                   String.format(
-                      "Filesystem size of %s (%s) or %s (%s) is inconsistant with bytes read %s.",
+                      "Filesystem size of %s (%s) or %s (%s) is inconsistent with bytes read %s.",
                       one, one.getFileSize(), two, two.getFileSize(), bytesRead));
               return false;
             }
@@ -131,15 +142,15 @@ class AndroidDataMerger {
    * ParsedAndroidData}.
    *
    * @see AndroidDataMerger#merge(ParsedAndroidData, ParsedAndroidData, UnvalidatedAndroidData,
-   *     boolean) for details.
+   *     boolean, boolean) for details.
    */
   UnwrittenMergedAndroidData loadAndMerge(
       List<? extends SerializedAndroidData> transitive,
       List<? extends SerializedAndroidData> direct,
       ParsedAndroidData primary,
       Path primaryManifest,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     Stopwatch timer = Stopwatch.createStarted();
     try {
       logger.fine(
@@ -150,7 +161,8 @@ class AndroidDataMerger {
           ParsedAndroidData.loadedFrom(direct, executorService, deserializer),
           primary,
           primaryManifest,
-          allowPrimaryOverrideAll);
+          allowPrimaryOverrideAll,
+          throwOnResourceConflict);
     } finally {
       logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     }
@@ -218,20 +230,26 @@ class AndroidDataMerger {
    *     the ultimate source of truth, provided it doesn't conflict with itself.
    * @return An UnwrittenMergedAndroidData, containing DataResource objects that can be written to
    *     disk for aapt processing or serialized for future merge passes.
-   * @throws MergingException if there are merge conflicts or issues with parsing resources from
+   * @throws MergingException if there are issues with parsing resources from
    *     primaryData.
+   * @throws MergeConflictException if there are merge conflicts
    */
   UnwrittenMergedAndroidData merge(
       ParsedAndroidData transitive,
       ParsedAndroidData direct,
       UnvalidatedAndroidData primaryData,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     try {
       // Extract the primary resources.
       ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primaryData);
       return doMerge(
-          transitive, direct, parsedPrimary, primaryData.getManifest(), allowPrimaryOverrideAll);
+          transitive,
+          direct,
+          parsedPrimary,
+          primaryData.getManifest(),
+          allowPrimaryOverrideAll,
+          throwOnResourceConflict);
     } catch (IOException e) {
       throw MergingException.wrapException(e);
     }
@@ -242,15 +260,14 @@ class AndroidDataMerger {
       ParsedAndroidData direct,
       ParsedAndroidData parsedPrimary,
       Path primaryManifest,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     try {
       // Create the builders for the final parsed data.
       final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
       final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
       final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
       final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
-
       final Set<MergeConflict> conflicts = new HashSet<>();
 
       // Find all internal conflicts.
@@ -286,7 +303,7 @@ class AndroidDataMerger {
         if (allowPrimaryOverrideAll && parsedPrimary.containsOverwritable(entry.getKey())) {
           continue;
         }
-        // If a transitive value is in the direct map report a conflict, as it is commonly
+        // If a transitive value is in the direct map, report a conflict, as it is commonly
         // unintentional.
         if (direct.containsOverwritable(entry.getKey())) {
           conflicts.add(direct.foundResourceConflict(entry.getKey(), entry.getValue()));
@@ -367,8 +384,11 @@ class AndroidDataMerger {
           }
         }
         if (!messages.isEmpty()) {
-          // TODO(corysmith): Turn these into errors.
-          logger.warning(Joiner.on("").join(messages));
+          String conflictMessage = Joiner.on("").join(messages);
+          if (throwOnResourceConflict) {
+            throw MergeConflictException.withMessage(conflictMessage);
+          }
+          logger.warning(conflictMessage);
         }
       }
       return UnwrittenMergedAndroidData.of(

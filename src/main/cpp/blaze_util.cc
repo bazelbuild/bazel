@@ -37,6 +37,10 @@ using std::vector;
 
 const char kServerPidFile[] = "server.pid.txt";
 
+const unsigned int kPostShutdownGracePeriodSeconds = 60;
+
+const unsigned int kPostKillGracePeriodSeconds = 10;
+
 string MakeAbsolute(const string &path) {
   if (path.empty()) {
     return blaze_util::GetCwd();
@@ -161,6 +165,47 @@ bool CheckJavaVersionIsAtLeast(const string &jvm_version,
 bool IsArg(const string& arg) {
   return blaze_util::starts_with(arg, "-") && (arg != "--help")
       && (arg != "-help") && (arg != "-h");
+}
+
+void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
+  SigPrintf("WARNING: Waiting for server process to terminate "
+            "(waited %d seconds, waiting at most %d)\n",
+            elapsed_seconds, wait_seconds);
+}
+
+bool AwaitServerProcessTermination(int pid, const string& output_base,
+                                   unsigned int wait_seconds) {
+  uint64_t st = GetMillisecondsMonotonic();
+  const unsigned int first_seconds = 5;
+  bool logged_first = false;
+  const unsigned int second_seconds = 10;
+  bool logged_second = false;
+  const unsigned int third_seconds = 30;
+  bool logged_third = false;
+
+  while (VerifyServerProcess(pid, output_base)) {
+    TrySleep(100);
+    uint64_t elapsed_millis = GetMillisecondsMonotonic() - st;
+    if (!logged_first && elapsed_millis > first_seconds * 1000) {
+      LogWait(first_seconds, wait_seconds);
+      logged_first = true;
+    }
+    if (!logged_second && elapsed_millis > second_seconds * 1000) {
+      LogWait(second_seconds, wait_seconds);
+      logged_second = true;
+    }
+    if (!logged_third && elapsed_millis > third_seconds * 1000) {
+      LogWait(third_seconds, wait_seconds);
+      logged_third = true;
+    }
+    if (elapsed_millis > wait_seconds * 1000) {
+      SigPrintf("INFO: Waited %d seconds for server process (pid=%d) to"
+                " terminate.\n",
+                wait_seconds, pid);
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace blaze

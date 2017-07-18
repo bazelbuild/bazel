@@ -501,7 +501,14 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionOnString() throws Exception {
-    newTest().testExactOrder("[x for x in 'abc']", "a", "b", "c");
+    newTest("--incompatible_string_is_not_iterable=false")
+        .testExactOrder("[x for x in 'abc']", "a", "b", "c");
+  }
+
+  @Test
+  public void testListComprehensionOnStringIsForbidden() throws Exception {
+    newTest("--incompatible_string_is_not_iterable=true")
+        .testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
   }
 
   @Test
@@ -608,20 +615,6 @@ public class EvaluationTest extends EvaluationTestCase {
       public void reprLegacy(SkylarkPrinter printer) {
         printer.append("<str legacy marker>");
       }
-
-      @Override
-      public boolean isImmutable() {
-        return false;
-      }
-    };
-  }
-
-  private Object createUnknownObj() {
-    return new Object() {
-      @Override
-      public String toString() {
-        return "<unknown object>";
-      }
     };
   }
 
@@ -634,8 +627,8 @@ public class EvaluationTest extends EvaluationTestCase {
         .update("obj", createObjWithStr())
         .testStatement("'%s' % obj", "<str legacy marker>");
     newTest()
-        .update("unknown", createUnknownObj())
-        .testStatement("'%s' % unknown", "<unknown object>");
+        .update("unknown", new Object())
+        .testStatement("'%s' % unknown", "<unknown object java.lang.Object>");
   }
 
   @Test
@@ -647,8 +640,10 @@ public class EvaluationTest extends EvaluationTestCase {
         .update("obj", createObjWithStr())
         .testStatement("'%s %s' % (obj, obj)", "<str legacy marker> <str legacy marker>");
     newTest()
-        .update("unknown", createUnknownObj())
-        .testStatement("'%s %s' % (unknown, unknown)", "<unknown object> <unknown object>");
+        .update("unknown", new Object())
+        .testStatement(
+            "'%s %s' % (unknown, unknown)",
+            "<unknown object java.lang.Object> <unknown object java.lang.Object>");
   }
 
   @Test

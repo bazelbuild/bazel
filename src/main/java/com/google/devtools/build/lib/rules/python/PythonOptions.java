@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.OptionEffectTag;
 
 /**
  * Python-related command-line options.
@@ -39,8 +39,8 @@ public class PythonOptions extends FragmentOptions {
     defaultValue = "null",
     category = "version",
     converter = PythonVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Overrides default_python_version attribute. Can be \"PY2\" or \"PY3\"."
   )
   public PythonVersion forcePython;
@@ -50,8 +50,8 @@ public class PythonOptions extends FragmentOptions {
     defaultValue = "null",
     category = "version",
     converter = PythonVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Overrides default_python_version attribute for the host configuration."
             + " Can be \"PY2\" or \"PY3\"."

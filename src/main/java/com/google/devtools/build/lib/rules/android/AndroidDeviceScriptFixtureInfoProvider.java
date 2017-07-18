@@ -30,8 +30,10 @@ public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject
     implements TransitiveInfoProvider {
 
   private static final String SKYLARK_NAME = "DeviceScriptFixtureInfo";
-  public static final NativeClassObjectConstructor ANDROID_DEVICE_SCRIPT_FIXTURE_INFO =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  public static final NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>
+      ANDROID_DEVICE_SCRIPT_FIXTURE_INFO =
+          new NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>(
+              AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact fixtureScript;
   private final NestedSet<Artifact> supportApks;

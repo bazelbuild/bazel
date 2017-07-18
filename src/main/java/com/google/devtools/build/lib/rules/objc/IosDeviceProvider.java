@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -29,7 +27,7 @@ import javax.annotation.Nullable;
 
 /** Provider that describes a simulator device. */
 @Immutable
-public final class IosDeviceProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class IosDeviceProvider extends SkylarkClassObject {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
     private String type;
@@ -78,8 +76,8 @@ public final class IosDeviceProvider extends SkylarkClassObject implements Trans
   public static final String SKYLARK_NAME = "IosDevice";
 
   /** Skylark constructor and identifier for the IosDeviceProvider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) { };
+  public static final NativeClassObjectConstructor<IosDeviceProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<IosDeviceProvider>(IosDeviceProvider.class, SKYLARK_NAME) {};
 
   private final String type;
   private final DottedVersion iosVersion;

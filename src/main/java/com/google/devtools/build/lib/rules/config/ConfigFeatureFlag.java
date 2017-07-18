@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -39,12 +40,14 @@ import java.util.List;
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
+  /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
+  public static final String POLICY_NAME = "config_feature_flag";
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ConfigFeatureFlagFeatureVisibility.checkAvailable(
-        ruleContext, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
+    FeaturePolicyConfiguration.checkAvailable(
+        ruleContext, POLICY_NAME, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
@@ -100,7 +103,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(ConfigFeatureFlagProvider.class, provider)
         .addNativeDeclaredProvider(provider)
         .build();
   }

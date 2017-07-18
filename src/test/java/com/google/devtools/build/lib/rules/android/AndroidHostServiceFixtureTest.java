@@ -162,7 +162,6 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
 
   private AndroidHostServiceFixtureInfoProvider getHostServiceFixtureInfoProvider(
       ConfiguredTarget ct) throws Exception {
-    return (AndroidHostServiceFixtureInfoProvider)
-        ct.get(AndroidHostServiceFixtureInfoProvider.ANDROID_HOST_SERVICE_FIXTURE_INFO.getKey());
+    return ct.get(AndroidHostServiceFixtureInfoProvider.ANDROID_HOST_SERVICE_FIXTURE_INFO);
   }
 }

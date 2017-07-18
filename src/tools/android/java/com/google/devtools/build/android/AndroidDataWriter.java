@@ -29,6 +29,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceMergingAction.Options;
+import com.google.devtools.build.android.junctions.JunctionCreator;
+import com.google.devtools.build.android.junctions.NoopJunctionCreator;
+import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -70,9 +73,12 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
     @Override
     public Boolean call() throws Exception {
-      try {
+      try (JunctionCreator junc =
+          System.getProperty("os.name").toLowerCase().startsWith("windows")
+              ? new WindowsJunctionCreator(Files.createTempDirectory("pngcrunch"))
+              : new NoopJunctionCreator()) {
         Files.createDirectories(destinationPath.getParent());
-        cruncher.crunchPng(0, source.toFile(), destinationPath.toFile());
+        cruncher.crunchPng(0, junc.create(source).toFile(), junc.create(destinationPath).toFile());
       } catch (PngException e) {
         throw MergingException.wrapException(e);
       }
@@ -197,26 +203,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         destination.resolve("assets"),
         NOOP_CRUNCHER,
         MoreExecutors.newDirectExecutorService());
-  }
-  
-  /**
-   * Creates a new writer for processing android libraries.
-   *
-   * <p>This writer has stub png cruncher that touches empty files for png resources.
-   *
-   * @param manifestDirectory The base directory for the AndroidManifest.
-   * @param resourceDirectory The directory to copy resources into.
-   * @param assetsDirectory The directory to copy assets into.
-   * @param executorService An execution service for multi-threaded writing.
-   * @return A new {@link AndroidDataWriter}.
-   */
-  public static AndroidDataWriter createForLibrary(
-      Path manifestDirectory,
-      Path resourceDirectory,
-      Path assetsDirectory,
-      ListeningExecutorService executorService) {
-    return createWith(
-        manifestDirectory, resourceDirectory, assetsDirectory, STUB_CRUNCHER, executorService);
   }
 
   /**

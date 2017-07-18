@@ -35,28 +35,13 @@ public class LegacyIosExtensionBinaryTest extends IosExtensionBinaryTest {
   }
 
   @Test
-  public void testCompilesSources() throws Exception {
-    checkCompilesSources(RULE_TYPE);
-  }
-
-  @Test
   public void testCompilesSourcesWithModuleMapsEnabled() throws Exception {
     checkCompilesSourcesWithModuleMapsEnabled(RULE_TYPE);
   }
 
   @Test
-  public void testCompileWithTextualHeaders() throws Exception {
-    checkCompileWithTextualHeaders(RULE_TYPE);
-  }
-
-  @Test
   public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
     checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testCompilesWithHdrs() throws Exception {
-    checkCompilesWithHdrs(RULE_TYPE);
   }
 
   @Test

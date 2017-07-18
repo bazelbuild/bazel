@@ -107,6 +107,10 @@ public final class SkyFunctions {
       SkyFunctionName.create("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
       SkyFunctionName.create("LOCAL_REPOSITORY_LOOKUP");
+  public static final SkyFunctionName REGISTERED_TOOLCHAINS =
+      SkyFunctionName.create("REGISTERED_TOOLCHAINS");
+  public static final SkyFunctionName TOOLCHAIN_RESOLUTION =
+      SkyFunctionName.create("TOOLCHAIN_RESOLUTION");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

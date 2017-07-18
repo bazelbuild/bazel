@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>  // PATH_MAX
 #include <poll.h>
 #include <pwd.h>
@@ -26,8 +27,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <cassert>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -68,7 +72,9 @@ static void handler(int signum) {
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -626,6 +632,26 @@ void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
 }
 
+bool KillServerProcess(int pid, const string& output_base) {
+  // Kill the process and make sure it's dead before proceeding.
+  killpg(pid, SIGKILL);
+  if (!AwaitServerProcessTermination(pid, output_base,
+                                     kPostKillGracePeriodSeconds)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Attempted to kill stale server process (pid=%d) using "
+        "SIGKILL, but it did not die in a timely fashion.",
+        pid);
+  }
+  return true;
+}
+
+void TrySleep(unsigned int milliseconds) {
+  unsigned int seconds_part = milliseconds / 1000;
+  unsigned int nanoseconds_part = (milliseconds % 1000) * 1000 * 1000;
+  struct timespec sleeptime = {seconds_part, nanoseconds_part};
+  nanosleep(&sleeptime, NULL);
+}
+
 string GetUserName() {
   string user = GetEnv("USER");
   if (!user.empty()) {
@@ -680,6 +706,60 @@ int GetTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
+}
+
+// Raises a resource limit to the maximum allowed value.
+//
+// This function raises the limit of the resource given in "resource" from its
+// soft limit to its hard limit. If the hard limit is unlimited, uses the
+// kernel-level limit fetched from the sysctl property given in "sysctl_name"
+// because setting the soft limit to unlimited may not work.
+//
+// Note that this is a best-effort operation. Any failure during this process
+// will result in a warning but execution will continue.
+static bool UnlimitResource(const int resource) {
+  struct rlimit rl;
+  if (getrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to get resource limit %d: %s\n", resource,
+            strerror(errno));
+    return false;
+  }
+
+  if (rl.rlim_cur == rl.rlim_max) {
+    // Nothing to do. Return early to prevent triggering any warnings caused by
+    // the code below. This way, we will only show warnings the first time the
+    // Blaze server is started and not on each command invocation.
+    return true;
+  }
+
+  rl.rlim_cur = rl.rlim_max;
+  if (rl.rlim_cur == RLIM_INFINITY) {
+    const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
+    if (explicit_limit <= 0) {
+      // If not implemented (-1) or on an error (0), do nothing and try to
+      // increase the soft limit to the hard one. This might fail, but it's good
+      // to try anyway.
+      assert(rl.rlim_cur == rl.rlim_max);
+    } else {
+      rl.rlim_cur = explicit_limit;
+    }
+  }
+
+  if (setrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to raise resource limit %d to %" PRIdMAX
+            ": %s\n", resource, static_cast<intmax_t>(rl.rlim_cur),
+            strerror(errno));
+    return false;
+  }
+
+  return true;
+}
+
+bool UnlimitResources() {
+  bool success = true;
+  success &= UnlimitResource(RLIMIT_NOFILE);
+  success &= UnlimitResource(RLIMIT_NPROC);
+  return success;
 }
 
 }   // namespace blaze.

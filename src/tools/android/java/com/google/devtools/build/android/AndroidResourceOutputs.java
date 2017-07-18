@@ -160,7 +160,7 @@ public class AndroidResourceOutputs {
     protected void addEntry(Path file, byte[] content) throws IOException {
       String prefix = directoryPrefix != null ? (directoryPrefix + "/") : "";
       String relativeName = root.relativize(file).toString();
-      ZipEntry entry = new ZipEntry(prefix + relativeName);
+      ZipEntry entry = new ZipEntry((prefix + relativeName).replace('\\', '/'));
       entry.setMethod(storageMethod);
       entry.setTime(normalizeTime(relativeName));
       entry.setSize(content.length);

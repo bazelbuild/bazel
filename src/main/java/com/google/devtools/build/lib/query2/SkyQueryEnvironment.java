@@ -232,6 +232,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
   }
 
+  @Override
+  public void close() {
+    if (executor != null) {
+      executor.shutdownNow();
+      executor = null;
+    }
+  }
+
   private void beforeEvaluateQuery() throws InterruptedException {
     if (graph == null || !graphFactory.isUpToDate(universeKey)) {
       // If this environment is uninitialized or the graph factory needs to evaluate, do so. We

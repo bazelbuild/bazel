@@ -211,6 +211,7 @@ public final class ActionsTestUtil {
           "dummy-configuration-mnemonic",
           null,
           "dummy-configuration",
+          null,
           null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =

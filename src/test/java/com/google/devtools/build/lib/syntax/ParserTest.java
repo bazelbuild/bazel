@@ -523,7 +523,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> body = ((FunctionDefStatement) file.get(0)).getStatements();
     assertThat(body).hasSize(1);
 
-    List<Statement> loop = ((ForStatement) body.get(0)).block();
+    List<Statement> loop = ((ForStatement) body.get(0)).getBlock();
     assertThat(loop).hasSize(3);
 
     assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);

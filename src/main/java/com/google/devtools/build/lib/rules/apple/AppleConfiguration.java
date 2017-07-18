@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,6 +91,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
+  private final DottedVersion xcodeVersionCommandLineFlag;
   private final boolean enableAppleCrosstool;
   @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -142,6 +142,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
+    this.xcodeVersionCommandLineFlag = appleOptions.xcodeVersion;
     this.enableAppleCrosstool = appleOptions.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
     this.xcodeToolchain = appleOptions.xcodeToolchain;
@@ -536,6 +537,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns the explicit Xcode version specified on the command line.
+   */
+  public DottedVersion getXcodeVersionCommandLineFlag() {
+    return xcodeVersionCommandLineFlag;
+  }
+
+  /**
    * Returns the unique identifier distinguishing configurations that are otherwise the same.
    *
    * <p>Use this value for situations in which two configurations create two outputs that are the
@@ -617,7 +625,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         throws InvalidConfigurationException, InterruptedException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
       String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
-      XcodeVersionProperties xcodeVersionProperties = getXcodeVersionProperties(env, appleOptions);
+      XcodeVersionProperties xcodeVersionProperties = XcodeConfig.
+          getXcodeVersionProperties(env, appleOptions);
 
       DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
           ? appleOptions.iosSdkVersion : xcodeVersionProperties.getDefaultIosSdkVersion();
@@ -674,28 +683,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
       return ImmutableSet.<Class<? extends FragmentOptions>>of(AppleCommandLineOptions.class);
     }
-    
-    /**
-     * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
-     * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
-     * effective xcode version properties. Returns absent if no explicit xcode version is declared,
-     * and host system defaults should be used.
-     *
-     * @param env the current configuration environment
-     * @param appleOptions the command line options
-     * @throws InvalidConfigurationException if the options given (or configuration targets) were
-     *     malformed and thus the xcode version could not be determined
-     */
-    private static XcodeVersionProperties getXcodeVersionProperties(
-        ConfigurationEnvironment env, AppleCommandLineOptions appleOptions)
-        throws InvalidConfigurationException, InterruptedException {
-      Optional<DottedVersion> xcodeVersionCommandLineFlag = 
-          Optional.fromNullable(appleOptions.xcodeVersion);
-      Label xcodeVersionConfigLabel = appleOptions.xcodeVersionConfig;
 
-      return XcodeConfig.resolveXcodeVersion(env, xcodeVersionConfigLabel,
-          xcodeVersionCommandLineFlag, "xcode_version_config");
-    }
   }
 
   /**
@@ -710,8 +698,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     IOS_APPLICATION("ios_application"),
     /** Split transition distinguisher for {@code ios_framework} rule. */
     FRAMEWORK("framework"),
-    /** Split transition distinguisher for {@code apple_watch1_extension} rule. */
-    WATCH_OS1_EXTENSION("watch_os1_extension"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */

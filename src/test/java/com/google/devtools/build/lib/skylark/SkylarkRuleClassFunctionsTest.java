@@ -493,7 +493,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testAttrDefaultValueBadType() throws Exception {
     checkErrorContains(
         "argument 'default' has type 'int', but should be 'string'\n"
-            + "in call to builtin function attr.string(*, default, mandatory, values)",
+            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
         "attr.string(default = 1)");
   }
 
@@ -559,6 +559,34 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrDoc() throws Exception {
+    // We don't actually store the doc in the attr definition; right now it's just meant to be
+    // extracted by documentation generating tools. So we don't have anything to assert and we just
+    // verify that no exceptions were thrown from building them.
+    buildAttribute("a1", "attr.bool(doc='foo')");
+    buildAttribute("a2", "attr.int(doc='foo')");
+    buildAttribute("a3", "attr.int_list(doc='foo')");
+    buildAttribute("a4", "attr.label(doc='foo')");
+    buildAttribute("a5", "attr.label_keyed_string_dict(doc='foo')");
+    buildAttribute("a6", "attr.label_list(doc='foo')");
+    buildAttribute("a7", "attr.license(doc='foo')");
+    buildAttribute("a8", "attr.output(doc='foo')");
+    buildAttribute("a9", "attr.output_list(doc='foo')");
+    buildAttribute("a10", "attr.string(doc='foo')");
+    buildAttribute("a11", "attr.string_dict(doc='foo')");
+    buildAttribute("a12", "attr.string_list(doc='foo')");
+    buildAttribute("a13", "attr.string_list_dict(doc='foo')");
+  }
+
+  @Test
+  public void testAttrDocValueBadType() throws Exception {
+    checkErrorContains(
+        "argument 'doc' has type 'int', but should be 'string'\n"
+            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
+        "attr.string(doc = 1)");
+  }
+
+  @Test
   public void testRuleImplementation() throws Exception {
     evalAndExport("def impl(ctx): return None", "rule1 = rule(impl)");
     RuleClass c = ((RuleFunction) lookup("rule1")).getRuleClass();
@@ -566,10 +594,15 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRuleDoc() throws Exception {
+    evalAndExport("def impl(ctx): return None", "rule1 = rule(impl, doc='foo')");
+  }
+
+  @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
     checkEvalError(
         "argument 'default' has type 'function', but should be 'string'\n"
-            + "in call to builtin function attr.string(*, default, mandatory, values)",
+            + "in call to builtin function attr.string(*, default, doc, mandatory, values)",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
   }
@@ -686,6 +719,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         "expected <String, Descriptor> type for 'attrs' but got <string, string> instead",
         "rule(impl, attrs = {'a1': 'some text'})");
+  }
+
+  @Test
+  public void testRuleBadTypeForDoc() throws Exception {
+    registerDummyUserDefinedFunction();
+    checkErrorContains(
+        "argument 'doc' has type 'int', but should be 'string'",
+        "rule(impl, doc = 1)");
   }
 
   @Test
@@ -1209,7 +1250,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-
   public void structsAsDeclaredProvidersTest() throws Exception {
     evalAndExport(
         "data = struct(x = 1)"
@@ -1219,6 +1259,18 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(data.getConstructor()).isEqualTo(NativeClassObjectConstructor.STRUCT);
     assertThat(data.getConstructor().getKey())
         .isEqualTo(NativeClassObjectConstructor.STRUCT.getKey());
+  }
+
+  @Test
+  public void declaredProvidersDoc() throws Exception {
+    evalAndExport("data1 = provider(doc='foo')");
+  }
+
+  @Test
+  public void declaredProvidersBadTypeForDoc() throws Exception {
+    checkErrorContains(
+        "argument 'doc' has type 'int', but should be 'string'",
+        "provider(doc = 1)");
   }
 
   @Test
@@ -1346,6 +1398,22 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     MoreAsserts.assertContainsEvent(ev.getEventCollector(),
         " Illegal argument: element in 'provides' is of unexpected type."
             + " Should be list of providers, but got int. ");
+  }
+
+  @Test
+  public void aspectDoc() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, doc='foo')");
+  }
+
+  @Test
+  public void aspectBadTypeForDoc() throws Exception {
+    registerDummyUserDefinedFunction();
+    checkErrorContains(
+        "argument 'doc' has type 'int', but should be 'string'",
+        "aspect(impl, doc = 1)");
   }
 
 

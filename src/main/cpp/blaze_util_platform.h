@@ -168,13 +168,17 @@ uint64_t AcquireLock(const std::string& output_base, bool batch_mode,
 void ReleaseLock(BlazeLock* blaze_lock);
 
 // Verifies whether the server process still exists. Returns true if it does.
-bool VerifyServerProcess(int pid, const std::string& output_base,
-                         const std::string& install_base);
+bool VerifyServerProcess(int pid, const std::string& output_base);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid);
+bool KillServerProcess(int pid, const std::string& output_base);
+
+// Wait for approximately the specified number of milliseconds. The actual
+// amount of time waited may be more or less because of interrupts or system
+// clock resolution.
+void TrySleep(unsigned int milliseconds);
 
 // Mark path as being excluded from backups (if supported by operating system).
 void ExcludePathFromBackup(const std::string& path);
@@ -209,6 +213,22 @@ bool IsStandardTerminal();
 // Returns the number of columns of the terminal to which stdout is
 // connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
+
+// Gets the system-wide explicit limit for the given resource.
+//
+// The resource is one of the RLIMIT_* constants defined in sys/resource.h.
+// Returns 0 if the limit could not be fetched and returns -1 if the function
+// is not implemented for this platform.
+//
+// It is OK to call this function with a parameter of -1 to check if the
+// function is implemented for the platform.
+int32_t GetExplicitSystemLimit(const int resource);
+
+// Raises soft system resource limits to hard limits in an attempt to let
+// large builds work. This is a best-effort operation and may or may not be
+// implemented for a given platform. Returns true if all limits were properly
+// raised; false otherwise.
+bool UnlimitResources();
 
 }  // namespace blaze
 

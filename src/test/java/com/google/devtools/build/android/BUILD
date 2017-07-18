@@ -1,8 +1,10 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/dexer:srcs",
+        "//src/test/java/com/google/devtools/build/android/junctions:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:srcs",
         "//src/test/java/com/google/devtools/build/android/ziputils:srcs",
@@ -11,8 +13,20 @@ filegroup(
 )
 
 java_test(
+    name = "AndroidResourceOutputsTest",
+    size = "small",
+    srcs = ["AndroidResourceOutputsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RClassGeneratorActionTest",
-    size = "medium",
+    size = "small",
     srcs = ["RClassGeneratorActionTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -24,6 +38,7 @@ java_test(
 
 java_test(
     name = "AaptCommandBuilderTest",
+    size = "small",
     srcs = ["AaptCommandBuilderTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -37,8 +52,8 @@ java_test(
 
 java_test(
     name = "AndroidDataMergerTest",
+    size = "small",
     srcs = ["AndroidDataMergerTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -52,8 +67,8 @@ java_test(
 
 java_test(
     name = "AndroidDataSerializerAndDeserializerTest",
+    size = "small",
     srcs = ["AndroidDataSerializerAndDeserializerTest.java"],
-    tags = ["no_windows"],
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -66,8 +81,8 @@ java_test(
 
 java_test(
     name = "AndroidDataWriterTest",
+    size = "small",
     srcs = ["AndroidDataWriterTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -81,8 +96,8 @@ java_test(
 
 java_test(
     name = "AndroidResourceClassWriterTest",
+    size = "small",
     srcs = ["AndroidResourceClassWriterTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -108,6 +123,7 @@ java_test(
 
 java_test(
     name = "DataResourceXmlTest",
+    size = "small",
     srcs = ["DataResourceXmlTest.java"],
     deps = [
         ":test_utils",
@@ -122,8 +138,8 @@ java_test(
 
 java_test(
     name = "DensitySpecificManifestProcessorTest",
+    size = "small",
     srcs = ["DensitySpecificManifestProcessorTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
@@ -135,8 +151,8 @@ java_test(
 
 java_test(
     name = "DensitySpecificResourceFilterTest",
+    size = "small",
     srcs = ["DensitySpecificResourceFilterTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
@@ -147,6 +163,7 @@ java_test(
 
 java_test(
     name = "DependencyAndroidDataTest",
+    size = "small",
     srcs = ["DependencyAndroidDataTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -159,18 +176,19 @@ java_test(
 
 java_test(
     name = "ManifestMergerActionTest",
+    size = "small",
     srcs = ["ManifestMergerActionTest.java"],
     data = [
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:test_data",
     ],
     jvm_flags = [
-        "-Dtestdatadir=src/test/java/com/google/devtools/build/android/testing/manifestmerge",
+        "-Dtestdatadir=io_bazel/src/test/java/com/google/devtools/build/android/testing/manifestmerge",
     ],
-    tags = ["no_windows"],
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -178,8 +196,8 @@ java_test(
 
 java_test(
     name = "ParsedAndroidDataTest",
+    size = "small",
     srcs = ["ParsedAndroidDataTest.java"],
-    tags = ["no_windows"],  # Test asserts forward slashes
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -193,6 +211,7 @@ java_test(
 
 java_test(
     name = "SerializedAndroidDataTest",
+    size = "small",
     srcs = ["SerializedAndroidDataTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -205,6 +224,7 @@ java_test(
 
 java_test(
     name = "SplitConfigurationFilterTest",
+    size = "small",
     srcs = ["SplitConfigurationFilterTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -218,6 +238,7 @@ java_test(
 
 java_test(
     name = "UnvalidatedAndroidDataTest",
+    size = "small",
     srcs = ["UnvalidatedAndroidDataTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
@@ -230,6 +251,7 @@ java_test(
 
 java_test(
     name = "UnvalidatedAndroidDirectoriesTest",
+    size = "small",
     srcs = ["UnvalidatedAndroidDirectoriesTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",

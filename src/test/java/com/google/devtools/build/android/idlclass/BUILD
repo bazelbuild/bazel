@@ -6,7 +6,7 @@ filegroup(
 
 java_test(
     name = "IdlClassTest",
-    size = "medium",
+    size = "small",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/protobuf:java_compilation_java_proto",

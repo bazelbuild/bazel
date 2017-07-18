@@ -240,9 +240,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryProvider executableProvider =
-              (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+              ruleContext.getPrerequisite(
                   BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
-                  AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+                  AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
         }
@@ -260,9 +260,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   private static Iterable<ObjcProvider> getDylibProviders(RuleContext ruleContext) {
     ImmutableList.Builder<ObjcProvider> dylibProviders = ImmutableList.builder();
     Iterable<AppleDynamicFrameworkProvider> frameworkProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET,
-            AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            AppleDynamicFrameworkProvider.class);
+        ruleContext.getPrerequisites(
+            DYLIBS_ATTR_NAME, Mode.TARGET, AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR);
     for (AppleDynamicFrameworkProvider frameworkProvider : frameworkProviders) {
       dylibProviders.add(frameworkProvider.getDepsObjcProvider());
     }
@@ -292,9 +291,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   private static Iterable<Artifact> getExtraLinkInputs(RuleContext ruleContext) {
     AppleExecutableBinaryProvider executableProvider =
-        (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+        ruleContext.getPrerequisite(
             BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
-            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }

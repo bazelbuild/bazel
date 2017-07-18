@@ -31,8 +31,15 @@ def _pkg_tar_impl(ctx):
       "--owner=" + ctx.attr.owner,
       "--owner_name=" + ctx.attr.ownername,
       ]
+  file_inputs = ctx.files.srcs
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
-           for f in ctx.files.files]
+           for f in ctx.files.srcs]
+  for target, f_dest_path in ctx.attr.files.items():
+    target_files = target.files.to_list()
+    if len(target_files) != 1:
+      fail("Inputs to pkg_tar.files_map must describe exactly one file.")
+    file_inputs += [target_files[0]]
+    args += ["--file=%s=%s" % (target_files[0].path, f_dest_path)]
   if ctx.attr.modes:
     args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
   if ctx.attr.owners:
@@ -53,7 +60,7 @@ def _pkg_tar_impl(ctx):
 
   ctx.action(
       command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
-      inputs = ctx.files.files + ctx.files.deps + [arg_file, build_tar],
+      inputs = file_inputs + ctx.files.deps + [arg_file, build_tar],
       outputs = [ctx.outputs.out],
       mnemonic="PackageTar",
       use_default_shell_env = True,
@@ -152,13 +159,14 @@ def _pkg_deb_impl(ctx):
       outputs = [ctx.outputs.out])
 
 # A rule for creating a tar file, see README.md
-pkg_tar = rule(
+_real_pkg_tar = rule(
     implementation = _pkg_tar_impl,
     attrs = {
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default="/"),
         "deps": attr.label_list(allow_files=tar_filetype),
-        "files": attr.label_list(allow_files=True),
+        "srcs": attr.label_list(allow_files=True),
+        "files": attr.label_keyed_string_dict(allow_files=True),
         "mode": attr.string(default="0555"),
         "modes": attr.string_dict(),
         "owner": attr.string(default="0.0"),
@@ -179,6 +187,15 @@ pkg_tar = rule(
     },
     executable = False)
 
+def pkg_tar(**kwargs):
+  # Compatibility with older versions of pkg_tar that define files as
+  # a flat list of labels.
+  if "srcs" not in kwargs:
+    if "files" in kwargs:
+      if not hasattr(kwargs["files"], "items"):
+        print("pkg_tar: renaming non-dict `files` attribute to `srcs`")
+        kwargs["srcs"] = kwargs.pop("files")
+  _real_pkg_tar(**kwargs)
 
 # A rule for creating a deb file, see README.md
 pkg_deb = rule(

@@ -273,7 +273,7 @@ public final class BinaryOperatorExpression extends Expression {
       }
     }
 
-    // TODO(bazel-team): Remove this case. Union of sets should use '|' instead of '+'.
+    // TODO(bazel-team): Deprecate + and | on depsets. Needs new API design.
     if (lval instanceof SkylarkNestedSet) {
       return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
     }
@@ -389,7 +389,7 @@ public final class BinaryOperatorExpression extends Expression {
   /**
    * Throws an exception signifying incorrect types for the given operator.
    */
-  private static final EvalException typeException(
+  private static EvalException typeException(
       Object lval, Object rval, Operator operator, Location location) {
     // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
     // though python raises a TypeError.

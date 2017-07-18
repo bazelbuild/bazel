@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Formattable;
@@ -351,10 +352,10 @@ public class Printer {
       } else if (o instanceof Integer || o instanceof Double) {
         this.append(o.toString());
 
-      } else if (o == Boolean.TRUE) {
+      } else if (Boolean.TRUE.equals(o)) {
         this.append("True");
 
-      } else if (o == Boolean.FALSE) {
+      } else if (Boolean.FALSE.equals(o)) {
         this.append("False");
 
       } else if (o instanceof Map<?, ?>) {
@@ -374,6 +375,9 @@ public class Printer {
       } else if (o instanceof PathFragment) {
         this.append(((PathFragment) o).getPathString());
 
+      } else if (o instanceof Path) {
+        append(o.toString());
+
       } else if (o instanceof Class<?>) {
         this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
 
@@ -383,8 +387,10 @@ public class Printer {
         this.append(o.toString());
 
       } else {
-        // TODO(bazel-team): change to a special representation for unknown objects
-        this.append(o.toString());
+        // Other types of objects shouldn't be leaked to Skylark, but if happens, their
+        // .toString method shouldn't be used because their return values are likely to contain
+        // memory addresses or other nondeterministic information.
+        this.append("<unknown object " + o.getClass().getName() + ">");
       }
 
       return this;

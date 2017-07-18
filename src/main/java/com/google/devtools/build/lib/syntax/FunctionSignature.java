@@ -167,7 +167,7 @@ public abstract class FunctionSignature implements Serializable {
 
   /** Intern a list of names */
   public static ImmutableList<String> names(String... names) {
-    return names(ImmutableList.<String>copyOf(names));
+    return names(ImmutableList.copyOf(names));
   }
 
   // Interner
@@ -363,15 +363,15 @@ public abstract class FunctionSignature implements Serializable {
         params.add(starStar);
         types.add(starStarType);
       }
-      return WithValues.<V, T>create(
+      return WithValues.create(
           FunctionSignature.create(
               Shape.create(
                   mandatoryPositionals, optionalPositionals,
                   mandatoryNamedOnly, optionalNamedOnly,
                   star != null, starStar != null),
-              ImmutableList.<String>copyOf(params)),
-          FunctionSignature.<V>valueListOrNull(defaults),
-          FunctionSignature.<T>valueListOrNull(types));
+              ImmutableList.copyOf(params)),
+          FunctionSignature.valueListOrNull(defaults),
+          FunctionSignature.valueListOrNull(types));
     }
 
     public StringBuilder toStringBuilder(final StringBuilder sb) {
@@ -384,8 +384,7 @@ public abstract class FunctionSignature implements Serializable {
      * @param sb Output StringBuffer
      * @param showDefaults Determines whether the default values of arguments should be printed (if
      *     present)
-     * @param skipMissingTypeNames Determines whether missing type names should be omitted (true) or
-     *     replaced with "object" (false).
+     * @param showTypes Determines whether parameter type information should be shown
      * @param skipFirstMandatory Determines whether the first mandatory parameter should be omitted.
      */
     public StringBuilder toStringBuilder(
@@ -528,7 +527,7 @@ public abstract class FunctionSignature implements Serializable {
         names.length - (kwArg ? 1 : 0) - (starArg ? 1 : 0)
             - numMandatoryPositionals - numOptionalPositionals - numMandatoryNamedOnly,
         starArg, kwArg),
-        ImmutableList.<String>copyOf(names));
+        ImmutableList.copyOf(names));
   }
 
   /**
@@ -588,6 +587,10 @@ public abstract class FunctionSignature implements Serializable {
       return parameter;
     }
   }
+
+  /** A ready-made signature to allow only positional arguments and put them in a star parameter */
+  public static final FunctionSignature POSITIONALS =
+      FunctionSignature.of(0, 0, 0, true, false, "star");
 
   /** A ready-made signature to allow only keyword arguments and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =

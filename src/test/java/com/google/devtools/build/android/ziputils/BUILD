@@ -6,6 +6,7 @@ filegroup(
 
 java_test(
     name = "ziputils-tests",
+    size = "small",
     srcs = glob(["*.java"]),
     tags = ["ziputils"],
     test_class = "com.google.devtools.build.android.ziputils.AllTests",

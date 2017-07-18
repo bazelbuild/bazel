@@ -30,7 +30,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
@@ -66,7 +65,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",

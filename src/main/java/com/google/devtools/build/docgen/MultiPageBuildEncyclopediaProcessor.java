@@ -47,7 +47,6 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
 
     writeStaticDoc(outputDir, expander, "make-variables");
-    writeStaticDoc(outputDir, expander, "predefined-python-variables");
     writeStaticDoc(outputDir, expander, "functions");
     writeCommonDefinitionsPage(outputDir, expander);
 

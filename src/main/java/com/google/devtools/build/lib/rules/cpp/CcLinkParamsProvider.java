@@ -17,30 +17,21 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 
 /** A target that provides C linker parameters. */
 @Immutable
-public final class CcLinkParamsProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
-  public static final ClassObjectConstructor CC_LINK_PARAMS =
-      new NativeClassObjectConstructor("link_params") { };
+public final class CcLinkParamsProvider extends SkylarkClassObject {
+  public static final NativeClassObjectConstructor<CcLinkParamsProvider> CC_LINK_PARAMS =
+      new NativeClassObjectConstructor<CcLinkParamsProvider>(
+          CcLinkParamsProvider.class, "link_params") {};
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
-
-        // Try native first...
-        CcLinkParamsProvider provider = input.getProvider(CcLinkParamsProvider.class);
-        if (provider != null) {
-          return provider.getCcLinkParamsStore();
-        }
-
         // ... then try Skylark.
-        provider = (CcLinkParamsProvider) input.get(CC_LINK_PARAMS.getKey());
+        CcLinkParamsProvider provider = input.get(CC_LINK_PARAMS);
         if (provider != null) {
           return provider.getCcLinkParamsStore();
         }

@@ -155,7 +155,7 @@ public abstract class JavaHelper {
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+    return jvm == null ? null :  jvm.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR);
   }
 
   public static JavaRuntimeProvider getHostJavaRuntime(RuleContext ruleContext) {
@@ -164,7 +164,7 @@ public abstract class JavaHelper {
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
-    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+    return jvm == null ? null :  jvm.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR);
   }
 
   /**

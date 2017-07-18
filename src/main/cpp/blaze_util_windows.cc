@@ -122,7 +122,9 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
             "\n%s caught third Ctrl+C handler signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -171,7 +173,9 @@ static void handler(int signum) {
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -1018,8 +1022,7 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
 // On Windows (and Linux) we use a combination of PID and start time to identify
 // the server process. That is supposed to be unique unless one can start more
 // processes than there are PIDs available within a single jiffy.
-bool VerifyServerProcess(
-    int pid, const string& output_base, const string& install_base) {
+bool VerifyServerProcess(int pid, const string& output_base) {
   AutoHandle process(
       ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   if (!process.IsValid()) {
@@ -1046,7 +1049,7 @@ bool VerifyServerProcess(
   return !file_present || recorded_start_time == ToString(start_time);
 }
 
-bool KillServerProcess(int pid) {
+bool KillServerProcess(int pid, const string& output_base) {
   AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
@@ -1058,10 +1061,16 @@ bool KillServerProcess(int pid) {
   }
 
   BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
-  if (!result) {
-    blaze_util::PrintError("Cannot terminate server process with PID %d", pid);
+  if (!result || !AwaitServerProcessTermination(pid, output_base,
+                                                kPostKillGracePeriodSeconds)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Cannot terminate server process with PID %d", pid);
   }
   return result;
+}
+
+void TrySleep(unsigned int milliseconds) {
+  Sleep(milliseconds);
 }
 
 // Not supported.
@@ -1433,6 +1442,10 @@ int GetTerminalColumns() {
   }
 
   return 80;  // default if not a terminal.
+}
+
+bool UnlimitResources() {
+  return true;  // Nothing to do so assume success.
 }
 
 }  // namespace blaze

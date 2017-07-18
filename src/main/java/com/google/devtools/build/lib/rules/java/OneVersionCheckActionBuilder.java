@@ -22,22 +22,58 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /** Utility for generating a call to the one-version binary. */
-public class OneVersionCheckActionBuilder {
+public final class OneVersionCheckActionBuilder {
 
-  public static void build(
-      RuleContext ruleContext,
-      NestedSet<Artifact> jarsToCheck,
-      Artifact oneVersionOutput,
+  private OneVersionCheckActionBuilder() {}
+
+  private OneVersionEnforcementLevel enforcementLevel;
+  private Artifact outputArtifact;
+  private JavaToolchainProvider javaToolchain;
+  private NestedSet<Artifact> jarsToCheck;
+
+  public static OneVersionCheckActionBuilder newBuilder() {
+    return new OneVersionCheckActionBuilder();
+  }
+
+  public OneVersionCheckActionBuilder useToolchain(JavaToolchainProvider toolchain) {
+    javaToolchain = toolchain;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder checkJars(NestedSet<Artifact> jarsToCheck) {
+    this.jarsToCheck = jarsToCheck;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder outputArtifact(Artifact outputArtifact) {
+    this.outputArtifact = outputArtifact;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder withEnforcementLevel(
       OneVersionEnforcementLevel enforcementLevel) {
-    JavaToolchainProvider javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
+    Preconditions.checkArgument(
+        enforcementLevel != OneVersionEnforcementLevel.OFF,
+        "one version enforcement actions shouldn't be built if the enforcement "
+            + "level is set to off");
+    this.enforcementLevel = enforcementLevel;
+    return this;
+  }
+
+  public Artifact build(RuleContext ruleContext) {
+    Preconditions.checkNotNull(enforcementLevel);
+    Preconditions.checkNotNull(outputArtifact);
+    Preconditions.checkNotNull(javaToolchain);
+    Preconditions.checkNotNull(jarsToCheck);
+
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
     if (oneVersionTool == null || oneVersionWhitelist == null) {
@@ -45,14 +81,15 @@ public class OneVersionCheckActionBuilder {
           String.format(
               "one version enforcement was requested but it is not supported by the current "
                   + "Java toolchain '%s'; see the "
-                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist attributes",
+                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
+                  + "attributes",
               javaToolchain.getToolchainLabel()));
-      return;
+      return outputArtifact;
     }
 
-    Builder oneVersionArgsBuilder =
+    CustomCommandLine.Builder oneVersionArgsBuilder =
         CustomCommandLine.builder()
-            .addExecPath("--output", oneVersionOutput)
+            .addExecPath("--output", outputArtifact)
             .addExecPath("--whitelist", oneVersionWhitelist);
     if (enforcementLevel == OneVersionEnforcementLevel.WARNING) {
       oneVersionArgsBuilder.add("--succeed_on_found_violations");
@@ -61,7 +98,7 @@ public class OneVersionCheckActionBuilder {
     CustomCommandLine oneVersionArgs = oneVersionArgsBuilder.build();
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addOutput(oneVersionOutput)
+            .addOutput(outputArtifact)
             .addInput(oneVersionWhitelist)
             .addTransitiveInputs(jarsToCheck)
             .setExecutable(oneVersionTool)
@@ -70,6 +107,7 @@ public class OneVersionCheckActionBuilder {
             .setMnemonic("JavaOneVersion")
             .setProgressMessage("Checking for one-version violations in " + ruleContext.getLabel())
             .build(ruleContext));
+    return outputArtifact;
   }
 
   private static class OneVersionJarMapArgv extends CustomMultiArgv {

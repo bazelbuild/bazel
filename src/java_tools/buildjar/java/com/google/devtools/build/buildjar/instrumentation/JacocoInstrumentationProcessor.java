@@ -50,18 +50,27 @@ public final class JacocoInstrumentationProcessor {
   }
 
   private final String metadataDir;
-  private final String metadataOutput;
+  private final String coverageInformation;
+  private final boolean isNewCoverageImplementation;
 
-  private JacocoInstrumentationProcessor(String metadataDir, String metadataOutput) {
+  private JacocoInstrumentationProcessor(String metadataDir, String coverageInfo) {
     this.metadataDir = metadataDir;
-    this.metadataOutput = metadataOutput;
+    this.coverageInformation = coverageInfo;
+    // This is part of the new Java coverage implementation where JacocoInstrumentationProcessor
+    // receives a file that includes the relative paths of the uninstrumented Java files, instead
+    // of the metadata jar.
+    this.isNewCoverageImplementation = coverageInfo.endsWith(".txt");
+  }
+
+  public boolean isNewCoverageImplementation() {
+    return isNewCoverageImplementation;
   }
 
   /**
    * Instruments classes using Jacoco and keeps copies of uninstrumented class files in
    * jacocoMetadataDir, to be zipped up in the output file jacocoMetadataOutput.
    */
-  public void processRequest(JavaLibraryBuildRequest build) throws IOException {
+  public void processRequest(JavaLibraryBuildRequest build, JarCreator jar) throws IOException {
     // Clean up jacocoMetadataDir to be used by postprocessing steps. This is important when
     // running JavaBuilder locally, to remove stale entries from previous builds.
     if (metadataDir != null) {
@@ -71,15 +80,19 @@ public final class JacocoInstrumentationProcessor {
       }
       Files.createDirectories(workDir);
     }
-
-    JarCreator jar = new JarCreator(metadataOutput);
+    if (jar == null) {
+      jar = new JarCreator(coverageInformation);
+    }
     jar.setNormalize(true);
     jar.setCompression(build.compressJar());
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
-    // TODO(bazel-team): not sure whether Emma did anything fancier than this (multithreaded?)
     instrumentRecursively(instr, Paths.get(build.getClassDir()));
     jar.addDirectory(metadataDir);
-    jar.execute();
+    if (isNewCoverageImplementation) {
+      jar.addEntry(coverageInformation, coverageInformation);
+    } else {
+      jar.execute();
+    }
   }
 
   /**
@@ -102,7 +115,14 @@ public final class JacocoInstrumentationProcessor {
             // We first move the original .class file to our metadata directory, then instrument it
             // and output the instrumented version in the regular classes output directory.
             Path instrumentedCopy = file;
-            Path uninstrumentedCopy = Paths.get(metadataDir).resolve(root.relativize(file));
+            Path uninstrumentedCopy;
+            if (isNewCoverageImplementation) {
+              Path absoluteUninstrumentedCopy = Paths.get(file + ".uninstrumented");
+              uninstrumentedCopy =
+                  Paths.get(metadataDir).resolve(root.relativize(absoluteUninstrumentedCopy));
+            } else {
+              uninstrumentedCopy = Paths.get(metadataDir).resolve(root.relativize(file));
+            }
             Files.createDirectories(uninstrumentedCopy.getParent());
             Files.move(file, uninstrumentedCopy);
             try (InputStream input =

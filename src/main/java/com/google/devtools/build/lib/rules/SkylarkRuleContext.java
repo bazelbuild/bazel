@@ -1035,7 +1035,11 @@ public final class SkylarkRuleContext implements SkylarkValue {
         attributeName,
         command,
         new ConfigurationMakeVariableContext(
-            ruleContext, ruleContext.getRule().getPackage(), ruleContext.getConfiguration()) {
+            // TODO(lberki): This should be removed. But only after either verifying that no one
+            // uses it or providing an alternative.
+            ruleContext.getMakeVariables(ImmutableList.of(":cc_toolchain")),
+            ruleContext.getRule().getPackage(),
+            ruleContext.getConfiguration()) {
           @Override
           public String lookupMakeVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutions.containsKey(variableName)) {

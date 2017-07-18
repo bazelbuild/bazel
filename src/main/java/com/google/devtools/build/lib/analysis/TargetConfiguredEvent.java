@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Collection;
 
@@ -34,8 +36,16 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   }
 
   @Override
-  public Collection<BuildConfiguration> getConfigurations() {
-    return configurations;
+  public Collection<BuildEvent> getConfigurations() {
+    ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
+    for (BuildConfiguration config : configurations) {
+      if (config != null) {
+        builder.add(config);
+      } else {
+        builder.add(new NullConfiguration());
+      }
+    }
+    return builder.build();
   }
 
   @Override

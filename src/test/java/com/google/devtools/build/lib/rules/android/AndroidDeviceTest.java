@@ -169,7 +169,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
     ExecutionInfoProvider executionInfoProvider =
-        (ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey());
+        target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(executionInfoProvider.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     TemplateExpansionAction stubAction = (TemplateExpansionAction) getGeneratingAction(
         getExecutable(target));
@@ -228,9 +228,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
     assertThat(action.getExecutionInfo())
         .containsEntry(REQUIRES_KVM, "");
     assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    assertThat(
-            ((ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
-                .getExecutionInfo())
+    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR).getExecutionInfo())
         .containsKey(REQUIRES_KVM);
   }
 
@@ -276,12 +274,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
     Iterable<String> biosFilesExecPathStrings =
         Iterables.transform(
             getToolDependency("//tools/android/emulator:emulator_x86_bios").getFilesToRun(),
-            new Function<Artifact, String>() {
-              @Override
-              public String apply(Artifact artifact) {
-                return artifact.getExecPathString();
-              }
-            });
+            Artifact::getExecPathString);
 
     assertWithMessage("Invalid boot commandline.")
         .that(action.getArguments())

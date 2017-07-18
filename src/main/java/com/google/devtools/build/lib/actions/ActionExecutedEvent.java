@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.ActionFailed;
 import com.google.devtools.build.lib.causes.Cause;
@@ -30,7 +32,7 @@ import java.util.Collection;
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
-public class ActionExecutedEvent implements BuildEvent {
+public class ActionExecutedEvent implements BuildEventWithConfiguration {
   private final Action action;
   private final ActionExecutionException exception;
   private final Path stdout;
@@ -84,6 +86,19 @@ public class ActionExecutedEvent implements BuildEvent {
   }
 
   @Override
+  public Collection<BuildEvent> getConfigurations() {
+    if (action.getOwner() != null) {
+      BuildEvent configuration = action.getOwner().getConfiguration();
+      if (configuration == null) {
+        configuration = new NullConfiguration();
+      }
+      return ImmutableList.of(configuration);
+    } else {
+      return ImmutableList.<BuildEvent>of();
+    }
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
@@ -108,13 +123,12 @@ public class ActionExecutedEvent implements BuildEvent {
     if (action.getOwner() != null && action.getOwner().getLabel() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
     }
-    // TODO(aehlig): ensure the configuration is shown in the stream, even if it is not
-    // one of the configurations of a top-level configured target.
     if (action.getOwner() != null) {
-      actionBuilder.setConfiguration(
-          BuildEventStreamProtos.BuildEventId.ConfigurationId.newBuilder()
-              .setId(action.getOwner().getConfigurationChecksum())
-              .build());
+      BuildEvent configuration = action.getOwner().getConfiguration();
+      if (configuration == null) {
+        configuration = new NullConfiguration();
+      }
+      actionBuilder.setConfiguration(configuration.getEventId().asStreamProto().getConfiguration());
     }
     if (exception == null) {
       actionBuilder.setPrimaryOutput(

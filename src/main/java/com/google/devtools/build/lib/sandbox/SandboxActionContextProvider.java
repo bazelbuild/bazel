@@ -42,22 +42,22 @@ final class SandboxActionContextProvider extends ActionContextProvider {
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
-    if (ProcessWrapperSandboxedStrategy.isSupported(cmdEnv)) {
+    if (ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
       contexts.add(
           new ProcessWrapperSandboxedStrategy(
               cmdEnv, buildRequest, sandboxBase, verboseFailures, productName));
     }
 
     // This is the preferred sandboxing strategy on Linux.
-    if (LinuxSandboxedStrategy.isSupported(cmdEnv)) {
+    if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
       contexts.add(
           LinuxSandboxedStrategy.create(cmdEnv, buildRequest, sandboxBase, verboseFailures));
     }
 
     // This is the preferred sandboxing strategy on macOS.
-    if (DarwinSandboxedStrategy.isSupported(cmdEnv)) {
+    if (DarwinSandboxedSpawnRunner.isSupported(cmdEnv)) {
       contexts.add(
-          DarwinSandboxedStrategy.create(
+          new DarwinSandboxedStrategy(
               cmdEnv, buildRequest, sandboxBase, verboseFailures, productName));
     }
 

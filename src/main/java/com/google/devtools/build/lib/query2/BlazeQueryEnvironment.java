@@ -112,6 +112,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
+  public void close() {
+    // BlazeQueryEnvironment has no resources that need to be cleaned up.
+  }
+
+  @Override
   public DigraphQueryEvalResult<Target> evaluateQuery(
       QueryExpression expr,
       ThreadSafeOutputFormatterCallback<Target> callback)

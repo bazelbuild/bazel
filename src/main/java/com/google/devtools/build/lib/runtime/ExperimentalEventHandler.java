@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -470,13 +471,28 @@ public class ExperimentalEventHandler implements EventHandler {
     }
   }
 
-  @Subscribe
-  public void noBuild(NoBuildEvent event) {
+  private void completeBuild() {
     synchronized (this) {
+      if (buildComplete) {
+        return;
+      }
       buildComplete = true;
     }
     stopUpdateThread();
     flushStdOutStdErrBuffers();
+  }
+
+  @Subscribe
+  public void noBuild(NoBuildEvent event) {
+    if (event.keepShowingProgress()) {
+      return;
+    }
+    completeBuild();
+  }
+
+  @Subscribe
+  public void noBuildFinished(NoBuildRequestFinishedEvent event) {
+    completeBuild();
   }
 
   @Subscribe

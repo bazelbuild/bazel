@@ -138,8 +138,26 @@ public abstract class RuleType {
    */
   public final String scratchTarget(Scratch scratch, String... checkSpecificAttrs)
       throws IOException {
-    String target = target(scratch, "x", "x", checkSpecificAttrs);
-    scratch.file("x/BUILD", target);
+    return scratchTarget("x", "x", scratch, checkSpecificAttrs);
+  }
+
+  /**
+   * Creates a target at a given package which is the only target in the BUILD file. Returns the
+   * string that is written to the scratch file as it is often useful for debugging purposes.
+   *
+   * @param packageDir the package of the target, for example "foo" in //foo:bar
+   * @param targetName the name of the target, for example "bar" in //foo:bar
+   * @param scratch the scratch object to use to create the build file
+   * @param checkSpecificAttrs alternating name/values of attributes to add to the rule that are
+   *     required for the check being performed to be defined a certain way. Pass
+   *     {@link #OMIT_REQUIRED_ATTR} for a value to prevent an attribute from being automatically
+   *     defined.
+   */
+  public final String scratchTarget(String packageDir, String targetName,
+      Scratch scratch, String... checkSpecificAttrs)
+      throws IOException {
+    String target = target(scratch, packageDir, targetName, checkSpecificAttrs);
+    scratch.file(packageDir + "/BUILD", target);
     return target;
   }
 }

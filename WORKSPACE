@@ -108,3 +108,13 @@ http_file(
         "https://cdn.azul.com/zulu/bin/zulu8.21.0.1-jdk8.0.131-win_x64.zip",
     ],
 )
+
+http_archive(
+    name = "bazel_toolchains",
+    urls = [
+        "http://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/bccee4855c049d34bac481083b4c68e2fab8cc50.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/bccee4855c049d34bac481083b4c68e2fab8cc50.tar.gz",
+    ],
+    strip_prefix = "bazel-toolchains-bccee4855c049d34bac481083b4c68e2fab8cc50",
+    sha256 = "3903fd93b96b42067e00b7973a2c16c34e761ad7a0b55e1557d408f352849e41",
+)

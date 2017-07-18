@@ -21,13 +21,22 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
+import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 
@@ -112,6 +121,46 @@ public class TestRuleClassProvider {
           .name("testing_rule_for_mandatory_providers")
           .ancestors(BaseRuleClasses.RuleBase.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
+  /**
+   * Stub rule to test Make variable expansion.
+   */
+  public static final class MakeVariableTester implements RuleConfiguredTargetFactory {
+
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException {
+      MakeVariableProvider variables = new MakeVariableProvider(ImmutableMap.of(
+          "TEST_VARIABLE", "FOOBAR"));
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+          .addProvider(RunfilesProvider.EMPTY)
+          .addNativeDeclaredProvider(variables)
+          .build();
+    }
+  }
+
+  /**
+   * Definition of a stub rule to test Make variable expansion.
+   */
+  public static final class MakeVariableTesterRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .advertiseProvider(MakeVariableProvider.class)
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("make_variable_tester")
+          .ancestors(
+              BaseRuleClasses.BaseRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
+          .factoryClass(MakeVariableTester.class)
           .build();
     }
   }

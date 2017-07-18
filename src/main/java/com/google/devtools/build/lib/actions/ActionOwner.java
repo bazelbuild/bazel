@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -34,8 +35,15 @@ import javax.annotation.Nullable;
 public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   public static final ActionOwner SYSTEM_ACTION_OWNER =
-      ActionOwner.create(null, ImmutableList.<AspectDescriptor>of(),
-          null, "system", "empty target kind", "system", null);
+      ActionOwner.create(
+          null,
+          ImmutableList.<AspectDescriptor>of(),
+          null,
+          "system",
+          "empty target kind",
+          "system",
+          null,
+          null);
 
   public static ActionOwner create(
       @Nullable Label label,
@@ -44,6 +52,7 @@ public abstract class ActionOwner {
       @Nullable String mnemonic,
       @Nullable String targetKind,
       String configurationChecksum,
+      @Nullable BuildEvent configuration,
       @Nullable String additionalProgressInfo) {
     return new AutoValue_ActionOwner(
         location,
@@ -51,6 +60,7 @@ public abstract class ActionOwner {
         aspectDescriptors,
         mnemonic,
         Preconditions.checkNotNull(configurationChecksum),
+        configuration,
         targetKind,
         additionalProgressInfo);
   }
@@ -76,6 +86,13 @@ public abstract class ActionOwner {
    * configuration is null, this should return "null".
    */
   public abstract String getConfigurationChecksum();
+
+  /**
+   * Return the configuration of the action owner, if any, as it should be reported in the build
+   * event protocol.
+   */
+  @Nullable
+  public abstract BuildEvent getConfiguration();
 
   /** Returns the target kind (rule class name) for this ActionOwner, if any; null otherwise. */
   @Nullable

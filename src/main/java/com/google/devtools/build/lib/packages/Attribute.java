@@ -393,8 +393,7 @@ public final class Attribute implements Comparable<Attribute> {
     public AllowedValueSet(Iterable<?> values) {
       Preconditions.checkNotNull(values);
       Preconditions.checkArgument(!Iterables.isEmpty(values));
-      // Do not remove <Object>: workaround for Java 7 type inference.
-      allowedValues = ImmutableSet.<Object>copyOf(values);
+      allowedValues = ImmutableSet.copyOf(values);
     }
 
     @Override
@@ -995,6 +994,11 @@ public final class Attribute implements Comparable<Attribute> {
       if (providers.iterator().hasNext()) {
         mandatoryProvidersList(ImmutableList.of(providers));
       }
+      return this;
+    }
+
+    public Builder<TYPE> mandatoryProviders(SkylarkProviderIdentifier... providers) {
+      mandatoryProviders(Arrays.asList(providers));
       return this;
     }
 

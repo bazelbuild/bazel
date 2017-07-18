@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -47,7 +46,6 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -63,15 +61,12 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
-  private final Logger logger;
+  private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
 
   private final String hostName;
-  private final AtomicInteger execCount;
-
-  private final ActionInputPrefetcher actionInputPrefetcher;
 
   private final LocalExecutionOptions localExecutionOptions;
 
@@ -86,23 +81,17 @@ public final class LocalSpawnRunner implements SpawnRunner {
   }
 
   public LocalSpawnRunner(
-      Logger logger,
-      AtomicInteger execCount,
       Path execRoot,
-      ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       boolean useProcessWrapper,
       OS localOs,
       String productName,
       LocalEnvProvider localEnvProvider) {
-    this.logger = logger;
     this.execRoot = execRoot;
-    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.findShortHostName();
-    this.execCount = execCount;
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
     this.productName = productName;
@@ -111,16 +100,12 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
   public LocalSpawnRunner(
       Path execRoot,
-      ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       String productName,
       LocalEnvProvider localEnvProvider) {
     this(
-        Logger.getLogger(LocalSpawnRunner.class.getName()),
-        new AtomicInteger(),
         execRoot,
-        actionInputPrefetcher,
         localExecutionOptions,
         resourceManager,
         OS.getCurrent() != OS.WINDOWS && getProcessWrapper(execRoot, OS.getCurrent()).exists(),
@@ -134,10 +119,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy) throws IOException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    policy.report(ProgressStatus.SCHEDULING);
+    policy.report(ProgressStatus.SCHEDULING, "local");
     try (ResourceHandle handle =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING);
+      policy.report(ProgressStatus.EXECUTING, "local");
       policy.lockOutputFiles();
       return new SubprocessHandler(spawn, policy).run();
     }
@@ -152,7 +137,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
     private State currentState = State.INITIALIZING;
     private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
 
-    private final int id = execCount.getAndIncrement();
+    private final int id;
 
     public SubprocessHandler(
         Spawn spawn,
@@ -160,6 +145,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
       Preconditions.checkArgument(!spawn.getArguments().isEmpty());
       this.spawn = spawn;
       this.policy = policy;
+      this.id = policy.getId();
       setState(State.PARSING);
     }
 
@@ -243,7 +229,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
-        actionInputPrefetcher.prefetchFiles(
+        policy.prefetchInputs(
             Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
       }
 

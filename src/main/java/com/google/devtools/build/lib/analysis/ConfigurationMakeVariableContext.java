@@ -38,13 +38,13 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
   // TODO(b/37567440): Remove when Skylark callers can be updated to get this from
   // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
   // pollute core with C++ specific constant.
-  private static final ImmutableList<String> defaultMakeVariableAttributes =
-      ImmutableList.of(":cc_toolchain");
+  protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
+      ImmutableList.of(":cc_toolchain", "toolchains");
 
   public ConfigurationMakeVariableContext(
       RuleContext ruleContext, Package pkg, BuildConfiguration configuration) {
     this(
-        ruleContext.getMakeVariables(defaultMakeVariableAttributes),
+        ruleContext.getMakeVariables(DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
         pkg,
         configuration,
         ImmutableList.<MakeVariableSupplier>of());
@@ -63,7 +63,7 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
       BuildConfiguration configuration,
       Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     this(
-        ruleContext.getMakeVariables(defaultMakeVariableAttributes),
+        ruleContext.getMakeVariables(DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
         pkg,
         configuration,
         makeVariableSuppliers);

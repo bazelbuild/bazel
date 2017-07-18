@@ -776,6 +776,10 @@ class ExperimentalStateTracker {
         sampleOldestActions(terminalWriter);
       }
     }
+    if (!shortVersion) {
+      reportOnDownloads(terminalWriter);
+      maybeReportBepTransports(terminalWriter);
+    }
   }
 
   void writeProgressBar(AnsiTerminalWriter terminalWriter, boolean shortVersion)

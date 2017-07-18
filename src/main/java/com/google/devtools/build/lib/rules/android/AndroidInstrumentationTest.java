@@ -184,8 +184,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             "instrumentations",
             Mode.TARGET,
-            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO.getKey(),
-            AndroidInstrumentationInfoProvider.class),
+            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO),
         AndroidInstrumentationInfoProvider::getTargetApk);
   }
 
@@ -198,8 +197,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             "instrumentations",
             Mode.TARGET,
-            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO.getKey(),
-            AndroidInstrumentationInfoProvider.class),
+            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO),
         AndroidInstrumentationInfoProvider::getInstrumentationApk);
   }
 
@@ -217,8 +215,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             "fixtures",
             Mode.TARGET,
-            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO.getKey(),
-            AndroidHostServiceFixtureInfoProvider.class)) {
+            AndroidHostServiceFixtureInfoProvider.ANDROID_HOST_SERVICE_FIXTURE_INFO)) {
       allSupportApks.addTransitive(fixture.getSupportApks());
     }
     return allSupportApks.build();
@@ -271,8 +268,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites(
                 "fixtures",
                 Mode.TARGET,
-                AndroidHostServiceFixtureInfoProvider.ANDROID_HOST_SERVICE_FIXTURE_INFO.getKey(),
-                AndroidHostServiceFixtureInfoProvider.class));
+                AndroidHostServiceFixtureInfoProvider.ANDROID_HOST_SERVICE_FIXTURE_INFO));
     if (hostServiceFixtures.size() > 1) {
       ruleContext.ruleError(
           "android_instrumentation_test accepts at most one android_host_service_fixture");
@@ -285,8 +281,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
     return ruleContext.getPrerequisites(
         "fixtures",
         Mode.TARGET,
-        AndroidDeviceScriptFixtureInfoProvider.ANDROID_DEVICE_SCRIPT_FIXTURE_INFO.getKey(),
-        AndroidDeviceScriptFixtureInfoProvider.class);
+        AndroidDeviceScriptFixtureInfoProvider.ANDROID_DEVICE_SCRIPT_FIXTURE_INFO);
   }
 
   private static String getDeviceBrokerType(RuleContext ruleContext) {
@@ -322,9 +317,8 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
    */
   private static ExecutionInfoProvider getExecutionInfoProvider(RuleContext ruleContext) {
     ExecutionInfoProvider executionInfoProvider =
-        (ExecutionInfoProvider)
             ruleContext.getPrerequisite(
-                "target_device", Mode.HOST, ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey());
+                "target_device", Mode.HOST, ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
     ImmutableMap<String, String> executionRequirements =
         (executionInfoProvider != null)
             ? executionInfoProvider.getExecutionInfo()

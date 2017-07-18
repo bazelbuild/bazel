@@ -226,6 +226,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final Label crosstoolTop;
   private final String hostSystemName;
   private final String compiler;
+  // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
+  // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
+  // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
+  // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
+  private final String desiredCpu;
   private final String targetCpu;
   private final String targetSystemName;
   private final String targetLibc;
@@ -313,12 +318,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   private final boolean lipoContextCollector;
 
+  /** If true, add the toolchain identifier to the name of the output directory. */
+  private final boolean toolchainIdInOutputDirectory;
+
   protected CppConfiguration(CppConfigurationParameters params)
       throws InvalidConfigurationException {
     CrosstoolConfig.CToolchain toolchain = params.toolchain;
     cppOptions = params.cppOptions;
+    this.toolchainIdInOutputDirectory = cppOptions.toolchainIdInOutputDirectory;
     this.hostSystemName = toolchain.getHostSystemName();
     this.compiler = toolchain.getCompiler();
+    this.desiredCpu = Preconditions.checkNotNull(params.commonOptions.cpu);
     this.targetCpu = toolchain.getTargetCpu();
     this.lipoMode = cppOptions.getLipoMode();
     this.targetSystemName = toolchain.getTargetSystemName();
@@ -1602,7 +1612,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean isLipoOptimization() {
     // The LIPO optimization bits are set in the LIPO context collector configuration, too.
-    return cppOptions.isLipoOptimization();
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return cppOptions.isLipoOptimization() && !isLLVMCompiler();
   }
 
   /**
@@ -1612,7 +1623,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * down the dependency tree.
    */
   public boolean isDataConfigurationForLipoOptimization() {
-    return cppOptions.isDataConfigurationForLipoOptimization();
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return cppOptions.isDataConfigurationForLipoOptimization() && !isLLVMCompiler();
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
@@ -2066,7 +2078,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     } else {
       lipoSuffix = "";
     }
-    return toolchainIdentifier + lipoSuffix;
+    String toolchainPrefix = toolchainIdInOutputDirectory
+        ? toolchainIdentifier : desiredCpu;
+    return toolchainPrefix + lipoSuffix;
   }
 
   @Override

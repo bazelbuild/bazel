@@ -48,39 +48,81 @@ use this tool:
     >    --maven_project=/path/to/my/project \
     >    --artifact=groupId:artifactId:version \
     >    --artifact=groupId:artifactId:version
-    Wrote:
-    /tmp/1437415510621-0/2015-07-20-14-05-10.WORKSPACE
-    /tmp/1437415510621-0/2015-07-20-14-05-10.BUILD
+    Wrote
+    /usr/local/.../generate_workspace.runfiles/__main__/generate_workspace.bzl
     ```
 
-2.  The tool creates one outputs, a `generate_workspace.bzl` file that contains
+    The tool creates one outputs, a `generate_workspace.bzl` file that contains
     two macros:
 
     1.  The `generated_maven_jars` macro that will contain the transitive
         dependencies of the given projects and artifacts.
 
-        If you specify multiple Maven projects or artifacts,
-        they will all be combined into one `generate_workspace.bzl` file. For
-        example, if an artifact depends on junit and the Maven project also
-        depends on junit, then junit will only appear once as a dependency
-        in the output.
-
     2.  The `generated_java_libraries` macro will contain a library
         for each maven_jar.
 
-3.  Copy the `generate_workspace.bzl` file to your workspace. The `.bzl` file's
-    original location is listed in the commandline output.
+    If you specify multiple Maven projects or artifacts, they will all be
+    combined into one `generate_workspace.bzl` file. For example, if an
+    artifact depends on junit and the Maven project also depends on junit, then
+    junit will only appear once as a dependency in the output.
 
-    Add the following to your WORKSPACE file:
+2.  Copy the `generate_workspace.bzl` file to your workspace. The `.bzl`
+    file's original location is listed in the commandline output.
 
-    ```
-    load("//:generate_workspace.bzl", "generated_maven_jars")
-    generated_maven_jars()
-    ```
+    To access external dependencies:
 
-    You can now access any of the jars in `generate_workspace.bzl`.
+    1.  Add the following to your WORKSPACE file:
 
-4.  Ensure `generate_workspace.bzl` lists the correct version of each
+        ```
+        load("//:generate_workspace.bzl", "generated_maven_jars")
+        generated_maven_jars()
+        ```
+
+        You can now access any of the jars in `generate_workspace.bzl`.
+
+        This reference points to the jar, but not to any dependencies
+        that the jar itself may have. To have a target depend on one of these
+        jars, you must list the jar as well as each of that jar's dependencies.
+
+        For example, to depend on the Guava jar from the
+        [Guava project](https://github.com/google/guava/tree/master/guava),
+        in the target definition you will need to list the jar and its
+        transitive dependencies:
+
+        ```bash
+        deps = [
+          "@com_google_guava_guava//jar",
+          "@com_google_code_findbugs_jsr305//jar",
+          "@com_google_errorprone_error_prone_annotations//jar",
+          "@com_google_j2objc_j2objc_annotations//jar",
+        ]
+        ```
+
+    2.  Optionally, you can also access the libraries. When you list a library
+        as a dependency, the transitive dependencies are already included, and
+        so you don't need to list them manually.
+
+        To access the libraries, add the following to a BUILD file:
+
+        ```
+        load("//:generate_workspace.bzl", "generated_java_libraries")
+        generated_java_libraries()
+        ```
+
+        The recommended location for this BUILD file is in a directory called
+        `third_party`.
+
+        You can now access any of the Java library targets in
+        `generate_workspace.bzl`.
+
+        For example, for a target to depend on Guava and its transitive
+        dependencies, in the target definition you will need to list:
+
+        ```bash
+        deps = ["//third_party:com_google_guava_guava"]
+        ```
+
+3.  Ensure `generate_workspace.bzl` lists the correct version of each
     dependency.
 
     If several different versions of an artifact are requested (for example, by

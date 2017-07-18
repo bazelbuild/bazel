@@ -875,7 +875,7 @@ public abstract class CompilationSupport {
       }
     }
 
-    if (attributes.enableModules()) {
+    if (attributes.enableModules() && !getCustomModuleMap(ruleContext).isPresent()) {
       copts.add("-fmodules");
     }
     if (copts.contains("-fmodules")) {
@@ -1483,5 +1483,12 @@ public abstract class CompilationSupport {
     } else {
       return null;
     }
+  }
+
+  public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {
+      return Optional.fromNullable(ruleContext.getPrerequisiteArtifact("module_map", Mode.TARGET));
+    }
+    return Optional.absent();
   }
 }

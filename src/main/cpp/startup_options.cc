@@ -376,6 +376,30 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   return blaze_exit_code::SUCCESS;
 }
 
+blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
+    const std::vector<RcStartupFlag>& rcstartup_flags,
+    std::string *error) {
+  std::vector<RcStartupFlag>::size_type i = 0;
+  while (i < rcstartup_flags.size()) {
+    bool is_space_separated;
+    const bool is_last_elem = i == rcstartup_flags.size() - 1;
+    const blaze_exit_code::ExitCode process_arg_exit_code =
+        ProcessArg(rcstartup_flags[i].value,
+                   is_last_elem ? "" : rcstartup_flags[i + 1].value,
+                   rcstartup_flags[i].source,
+                   &is_space_separated,
+                   error);
+    if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
+      return process_arg_exit_code;
+    }
+    if (is_space_separated) {
+      i++;
+    }
+    i++;
+  }
+  return blaze_exit_code::SUCCESS;
+}
+
 blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
     const char *arg, const char *next_arg, const string &rcfile,
     const char **value, bool *is_processed, string *error) {

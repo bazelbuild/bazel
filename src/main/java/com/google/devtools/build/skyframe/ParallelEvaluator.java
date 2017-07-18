@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -1088,9 +1087,9 @@ public final class ParallelEvaluator implements Evaluator {
         continue;
       }
       SkyValue value = valueWithMetadata.getValue();
-      for (Postable post : valueWithMetadata.getTransitivePostables()) {
-        evaluatorContext.getReporter().post(post);
-      }
+      evaluatorContext
+          .getReplayingNestedSetPostableVisitor()
+          .visit(valueWithMetadata.getTransitivePostables());
       // TODO(bazel-team): Verify that message replay is fast and works in failure
       // modes [skyframe-core]
       // Note that replaying events here is only necessary on null builds, because otherwise we

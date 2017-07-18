@@ -530,7 +530,9 @@ message CrosstoolRelease {
   required string major_version = 1;
   required string minor_version = 2;
 
-  // The default cpu to use if none was specified.
+  // Deprecated. Used to be the default CPU if not otherwise specified, but it's
+  // not used for that purpose (or anything else) anymore. Please also don't add
+  // new uses of this field.
   required string default_target_cpu = 3;
   // The default toolchain to use for each given cpu.
   repeated DefaultCpuToolchain default_toolchain = 4;

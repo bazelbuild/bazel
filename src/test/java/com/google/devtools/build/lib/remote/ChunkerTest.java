@@ -14,68 +14,154 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static junit.framework.TestCase.fail;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.protobuf.ByteString;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.NoSuchElementException;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link Chunker}. */
 @RunWith(JUnit4.class)
 public class ChunkerTest {
 
   @Test
-  public void testChunker() throws Exception {
-    byte[] b1 = "abcdefg".getBytes(UTF_8);
-    byte[] b2 = "hij".getBytes(UTF_8);
-    byte[] b3 = "klmnopqrstuvwxyz".getBytes(UTF_8);
-    Digest d1 = Digests.computeDigest(b1);
-    Digest d2 = Digests.computeDigest(b2);
-    Digest d3 = Digests.computeDigest(b3);
-    Chunker c = new Chunker.Builder().chunkSize(5).addInput(b1).addInput(b2).addInput(b3).build();
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d1, "abcde".getBytes(UTF_8), 0));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d1, "fg".getBytes(UTF_8), 5));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d2, "hij".getBytes(UTF_8), 0));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "klmno".getBytes(UTF_8), 0));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "pqrst".getBytes(UTF_8), 5));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "uvwxy".getBytes(UTF_8), 10));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "z".getBytes(UTF_8), 15));
-    assertThat(c.hasNext()).isFalse();
+  public void chunkingShouldWork() throws IOException {
+    Random rand = new Random();
+    byte[] expectedData = new byte[21];
+    rand.nextBytes(expectedData);
+    Digest expectedDigest = Digests.computeDigest(expectedData);
+
+    Chunker chunker = new Chunker(expectedData, 10);
+
+    ByteArrayOutputStream actualData = new ByteArrayOutputStream();
+
+    assertThat(chunker.hasNext()).isTrue();
+    Chunk next = chunker.next();
+    assertThat(next.getOffset()).isEqualTo(0);
+    assertThat(next.getData()).hasSize(10);
+    assertThat(next.getDigest()).isEqualTo(expectedDigest);
+    next.getData().writeTo(actualData);
+
+    assertThat(chunker.hasNext()).isTrue();
+    next = chunker.next();
+    assertThat(next.getOffset()).isEqualTo(10);
+    assertThat(next.getData()).hasSize(10);
+    assertThat(next.getDigest()).isEqualTo(expectedDigest);
+    next.getData().writeTo(actualData);
+
+    assertThat(chunker.hasNext()).isTrue();
+    next = chunker.next();
+    assertThat(next.getOffset()).isEqualTo(20);
+    assertThat(next.getData()).hasSize(1);
+    assertThat(next.getDigest()).isEqualTo(expectedDigest);
+    next.getData().writeTo(actualData);
+
+    assertThat(chunker.hasNext()).isFalse();
+
+    assertThat(expectedData).isEqualTo(actualData.toByteArray());
   }
 
   @Test
-  public void testIgnoresUnmentionedDigests() throws Exception {
-    byte[] b1 = "a".getBytes(UTF_8);
-    byte[] b2 = "bb".getBytes(UTF_8);
-    byte[] b3 = "ccc".getBytes(UTF_8);
-    byte[] b4 = "dddd".getBytes(UTF_8);
-    Digest d1 = Digests.computeDigest(b1);
-    Digest d3 = Digests.computeDigest(b3);
-    Chunker c =
-        new Chunker.Builder()
-            .chunkSize(2)
-            .onlyUseDigests(ImmutableSet.of(d1, d3))
-            .addInput(b1)
-            .addInput(b2)
-            .addInput(b3)
-            .addInput(b4)
-            .build();
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d1, "a".getBytes(UTF_8), 0));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "cc".getBytes(UTF_8), 0));
-    assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(new Chunk(d3, "c".getBytes(UTF_8), 2));
-    assertThat(c.hasNext()).isFalse();
+  public void nextShouldThrowIfNoMoreData() throws IOException {
+    byte[] data = new byte[10];
+    Chunker chunker = new Chunker(data, 10);
+
+    assertThat(chunker.hasNext()).isTrue();
+    assertThat(chunker.next()).isNotNull();
+
+    assertThat(chunker.hasNext()).isFalse();
+
+    try {
+      chunker.next();
+      fail("Should have thrown an exception");
+    } catch (NoSuchElementException expected) {
+      // Intentionally left empty.
+    }
+  }
+
+  @Test
+  public void emptyData() throws Exception {
+    byte[] data = new byte[0];
+    Chunker chunker = new Chunker(data);
+
+    assertThat(chunker.hasNext()).isTrue();
+
+    Chunk next = chunker.next();
+
+    assertThat(next).isNotNull();
+    assertThat(next.getData()).isEmpty();
+    assertThat(next.getOffset()).isEqualTo(0);
+
+    assertThat(chunker.hasNext()).isFalse();
+
+    try {
+      chunker.next();
+      fail("Should have thrown an exception");
+    } catch (NoSuchElementException expected) {
+      // Intentionally left empty.
+    }
+  }
+
+  @Test
+  public void reset() throws Exception {
+    byte[] data = new byte[]{1, 2, 3};
+    Chunker chunker = new Chunker(data, 1);
+
+    assertNextEquals(chunker, (byte) 1);
+    assertNextEquals(chunker, (byte) 2);
+
+    chunker.reset();
+
+    assertNextEquals(chunker, (byte) 1);
+    assertNextEquals(chunker, (byte) 2);
+    assertNextEquals(chunker, (byte) 3);
+
+    chunker.reset();
+
+    assertNextEquals(chunker, (byte) 1);
+  }
+
+  @Test
+  public void resourcesShouldBeReleased() throws IOException {
+    // Test that after having consumed all data or after reset() is called (whatever happens first)
+    // the underlying InputStream should be closed.
+
+    byte[] data = new byte[] {1, 2};
+    final AtomicReference<InputStream> in = new AtomicReference<>();
+    Supplier<InputStream> supplier = () -> {
+      in.set(Mockito.spy(new ByteArrayInputStream(data)));
+      return in.get();
+    };
+    Digest digest = Digests.computeDigest(data);
+
+    Chunker chunker = new Chunker(supplier, digest, 1);
+    assertThat(in.get()).isNull();
+    assertNextEquals(chunker, (byte) 1);
+    Mockito.verify(in.get(), Mockito.never()).close();
+    assertNextEquals(chunker, (byte) 2);
+    Mockito.verify(in.get()).close();
+
+    chunker.reset();
+    chunker.next();
+    chunker.reset();
+    Mockito.verify(in.get()).close();
+  }
+
+  private void assertNextEquals(Chunker chunker, byte... data) throws IOException {
+    assertThat(chunker.hasNext()).isTrue();
+    ByteString next = chunker.next().getData();
+    assertThat(next.toByteArray()).isEqualTo(data);
   }
 }

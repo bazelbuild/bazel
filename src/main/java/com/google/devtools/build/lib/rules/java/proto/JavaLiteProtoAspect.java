@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
@@ -84,14 +85,17 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
+  private final LateBoundLabel<BuildConfiguration> hostJdkAttribute;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
-      String defaultProtoToolchainLabel) {
+      String defaultProtoToolchainLabel,
+      LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
+    this.hostJdkAttribute = hostJdkAttribute;
   }
 
   @Override
@@ -125,7 +129,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
-            .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
+            .add(attr(":host_jdk", LABEL).cfg(HOST).value(hostJdkAttribute))
             .add(
                 attr(":java_toolchain", LABEL)
                     .useOutputLicenses()

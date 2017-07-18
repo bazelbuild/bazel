@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
-import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
-import com.google.bytestream.ByteStreamProto.WriteRequest;
-import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -53,23 +52,18 @@ import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
-import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
+import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -79,12 +73,21 @@ public class GrpcRemoteCache implements RemoteActionCache {
   private final Channel channel;
   private final Retrier retrier;
 
+  private final ByteStreamUploader uploader;
+
+  private final ListeningScheduledExecutorService retryScheduler =
+      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
   @VisibleForTesting
-  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
+  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options,
+      Retrier retrier) {
     this.options = options;
     this.channelOptions = channelOptions;
     this.channel = channel;
-    this.retrier = new Retrier(options);
+    this.retrier = retrier;
+
+    uploader = new ByteStreamUploader(options.remoteInstanceName, channel,
+        channelOptions.getCallCredentials(), options.remoteTimeout, retrier, retryScheduler);
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
@@ -99,12 +102,6 @@ public class GrpcRemoteCache implements RemoteActionCache {
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
-  private ByteStreamStub bsStub() {
-    return ByteStreamGrpc.newStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
-  }
-
   private ActionCacheBlockingStub acBlockingStub() {
     return ActionCacheGrpc.newBlockingStub(channel)
         .withCallCredentials(channelOptions.getCallCredentials())
@@ -112,7 +109,10 @@ public class GrpcRemoteCache implements RemoteActionCache {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    retryScheduler.shutdownNow();
+    uploader.shutdown();
+  }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
     return options.remoteCache != null;
@@ -174,11 +174,17 @@ public class GrpcRemoteCache implements RemoteActionCache {
     }
     uploadBlob(command.toByteArray());
     if (!actionInputs.isEmpty()) {
-      uploadChunks(
-          actionInputs.size(),
-          new Chunker.Builder()
-              .addAllInputs(actionInputs, repository.getInputFileCache(), execRoot)
-              .onlyUseDigests(missingDigests));
+      List<Chunker> inputsToUpload = new ArrayList<>();
+      ActionInputFileCache inputFileCache = repository.getInputFileCache();
+      for (ActionInput actionInput : actionInputs) {
+        Digest digest = Digests.getDigestFromInputCache(actionInput, inputFileCache);
+        if (missingDigests.contains(digest)) {
+          Chunker chunker = new Chunker(actionInput, inputFileCache, execRoot);
+          inputsToUpload.add(chunker);
+        }
+      }
+
+      uploader.uploadBlobs(inputsToUpload);
     }
   }
 
@@ -316,8 +322,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
 
   void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
       throws IOException, InterruptedException {
-    ArrayList<Digest> digests = new ArrayList<>();
-    Chunker.Builder b = new Chunker.Builder();
+    Map<Digest, Path> digestToFile = new HashMap<>();
     for (Path file : files) {
       if (!file.exists()) {
         // We ignore requested results that have not been generated by the action.
@@ -328,23 +333,31 @@ public class GrpcRemoteCache implements RemoteActionCache {
         // TreeNodeRepository to call uploadTree.
         throw new UnsupportedOperationException("Storing a directory is not yet supported.");
       }
-      digests.add(Digests.computeDigest(file));
-      b.addInput(file);
-    }
-    ImmutableSet<Digest> missing = getMissingDigests(digests);
-    if (!missing.isEmpty()) {
-      uploadChunks(missing.size(), b.onlyUseDigests(missing));
-    }
-    int index = 0;
-    for (Path file : files) {
-      // Add to protobuf.
+
+      Digest digest = Digests.computeDigest(file);
       // TODO(olaola): inline small results here.
       result
           .addOutputFilesBuilder()
           .setPath(file.relativeTo(execRoot).getPathString())
-          .setDigest(digests.get(index++))
+          .setDigest(digest)
           .setIsExecutable(file.isExecutable());
+      digestToFile.put(digest, file);
     }
+
+    ImmutableSet<Digest> digestsToUpload = getMissingDigests(digestToFile.keySet());
+    List<Chunker> filesToUpload = new ArrayList<>();
+    for (Digest digest : digestsToUpload) {
+      Path file = digestToFile.get(digest);
+      if (file == null) {
+        String message = "FindMissingBlobs call returned an unknown digest: " + digest;
+        throw new IOException(message);
+      }
+      filesToUpload.add(new Chunker(file));
+    }
+    if (!filesToUpload.isEmpty()) {
+      uploader.uploadBlobs(filesToUpload);
+    }
+
     // TODO(olaola): inline small stdout/stderr here.
     if (outErr.getErrorPath().exists()) {
       Digest stderr = uploadFileContents(outErr.getErrorPath());
@@ -366,7 +379,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
     Digest digest = Digests.computeDigest(file);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, new Chunker.Builder().addInput(file));
+      uploader.uploadBlob(new Chunker(file));
     }
     return digest;
   }
@@ -382,108 +395,16 @@ public class GrpcRemoteCache implements RemoteActionCache {
     Digest digest = Digests.getDigestFromInputCache(input, inputCache);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, new Chunker.Builder().addInput(input, inputCache, execRoot));
+      uploader.uploadBlob(new Chunker(input, inputCache, execRoot));
     }
     return digest;
-  }
-
-  private void uploadChunks(int numItems, Chunker.Builder chunkerBuilder)
-      throws InterruptedException, IOException {
-    String resourceName = "";
-    if (!options.remoteInstanceName.isEmpty()) {
-      resourceName += options.remoteInstanceName + "/";
-    }
-    Retrier.Backoff backoff = retrier.newBackoff();
-    Chunker chunker = chunkerBuilder.build();
-    while (true) { // Retry until either uploaded everything or raised an exception.
-      CountDownLatch finishLatch = new CountDownLatch(numItems);
-      AtomicReference<IOException> crashException = new AtomicReference<>(null);
-      List<Status> errors = Collections.synchronizedList(new ArrayList<Status>());
-      Set<Digest> failedDigests = Collections.synchronizedSet(new HashSet<Digest>());
-      StreamObserver<WriteRequest> requestObserver = null;
-      while (chunker.hasNext()) {
-        Chunker.Chunk chunk = chunker.next();
-        Digest digest = chunk.getDigest();
-        long offset = chunk.getOffset();
-        WriteRequest.Builder request = WriteRequest.newBuilder();
-        if (offset == 0) { // Beginning of new upload.
-          numItems--;
-          request.setResourceName(
-              String.format(
-                  "%s/uploads/%s/blobs/%s/%d",
-                  resourceName, UUID.randomUUID(), digest.getHash(), digest.getSizeBytes()));
-          // The batches execute simultaneously.
-          requestObserver =
-              bsStub()
-                  .write(
-                      new StreamObserver<WriteResponse>() {
-                        private long bytesLeft = digest.getSizeBytes();
-
-                        @Override
-                        public void onNext(WriteResponse reply) {
-                          bytesLeft -= reply.getCommittedSize();
-                        }
-
-                        @Override
-                        public void onError(Throwable t) {
-                          // In theory, this can be any error, even though it's supposed to usually
-                          // be only StatusException or StatusRuntimeException. We have to check
-                          // for other errors, in order to not accidentally retry them!
-                          if (!(t instanceof StatusRuntimeException
-                              || t instanceof StatusException)) {
-                            crashException.compareAndSet(null, new IOException(t));
-                          }
-
-                          failedDigests.add(digest);
-                          errors.add(Status.fromThrowable(t));
-                          finishLatch.countDown();
-                        }
-
-                        @Override
-                        public void onCompleted() {
-                          // This can actually happen even if we did not send all the bytes,
-                          // if the server has and is able to reuse parts of the uploaded blob.
-                          finishLatch.countDown();
-                        }
-                      });
-        }
-        byte[] data = chunk.getData();
-        boolean finishWrite = offset + data.length == digest.getSizeBytes();
-        request
-            .setData(ByteString.copyFrom(data))
-            .setWriteOffset(offset)
-            .setFinishWrite(finishWrite);
-        requestObserver.onNext(request.build());
-        if (finishWrite) {
-          requestObserver.onCompleted();
-        }
-        if (finishLatch.getCount() <= numItems) {
-          // Current RPC errored before we finished sending.
-          if (!finishWrite) {
-            chunker.advanceInput();
-          }
-        }
-      }
-      finishLatch.await(options.remoteTimeout, TimeUnit.SECONDS);
-      if (crashException.get() != null) {
-        throw crashException.get(); // Re-throw the exception that is supposed to never happen.
-      }
-      if (failedDigests.isEmpty()) {
-        return; // Successfully sent everything.
-      }
-      retrier.onFailures(backoff, errors); // This will throw when out of retries.
-      // We don't have to synchronize on failedDigests now, because after finishLatch.await we're
-      // back to single threaded execution.
-      chunker = chunkerBuilder.onlyUseDigests(failedDigests).build();
-      numItems = failedDigests.size();
-    }
   }
 
   Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
     Digest digest = Digests.computeDigest(blob);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, new Chunker.Builder().addInput(blob));
+      uploader.uploadBlob(new Chunker(blob));
     }
     return digest;
   }

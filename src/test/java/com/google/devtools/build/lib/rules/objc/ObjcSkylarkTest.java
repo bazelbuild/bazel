@@ -130,7 +130,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
       assertThat(e).hasMessageThat().contains("dep.objc");
       assertThat(e)
           .hasMessageThat()
-          .contains("target (rule class of 'cc_library') doesn't have provider 'objc'.");
+          .contains("<target //examples/apple_skylark:lib> (rule 'cc_library') "
+              + "doesn't have provider 'objc'");
     }
   }
 

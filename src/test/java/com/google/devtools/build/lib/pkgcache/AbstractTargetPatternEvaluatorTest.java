@@ -91,14 +91,13 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   protected Pair<Set<Label>, Boolean> parseListKeepGoing(String... patterns)
       throws TargetParsingException, InterruptedException {
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
-            Arrays.asList(patterns), true);
+    ResolvedTargets<Target> result =
+        parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), true);
     return Pair.of(targetsToLabels(result.getTargets()), result.hasError());
   }
 
   /** Event handler that records all parsing errors. */
-  protected static final class RecordingParsingListener extends DelegatingEventHandler
-      implements ParseFailureListener {
+  protected static final class RecordingParsingListener extends DelegatingEventHandler {
     protected final List<Pair<String, String>> events = new ArrayList<>();
 
     private RecordingParsingListener(ExtendedEventHandler delegate) {
@@ -106,8 +105,12 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
     }
 
     @Override
-    public void parsingError(String targetPattern, String message) {
-      events.add(Pair.of(targetPattern, message));
+    public void post(Postable post) {
+      super.post(post);
+      if (post instanceof ParsingFailedEvent) {
+        ParsingFailedEvent e = (ParsingFailedEvent) post;
+        events.add(Pair.of(e.getPattern(), e.getMessage()));
+      }
     }
 
     protected void assertEmpty() {

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.UPLOAD_FAILED_MESSAGE;
 import static java.lang.String.format;
@@ -23,10 +22,8 @@ import static java.lang.String.format;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -45,8 +42,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -64,25 +59,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
 
-  private CommandEnvironment commandEnvironment;
-  private SynchronizedOutputStream out;
-  private SynchronizedOutputStream err;
-  private boolean disabled;
-
-  private static class BuildEventRecorder {
-    private final List<BuildEvent> events = new ArrayList<>();
-
-    @Subscribe
-    public void buildEvent(BuildEvent event) {
-      events.add(event);
-    }
-
-    List<BuildEvent> getEvents() {
-      return events;
-    }
-  }
-
-  private BuildEventRecorder buildEventRecorder;
+  private OutErr outErr;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -92,25 +69,15 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Override
   public void beforeCommand(CommandEnvironment commandEnvironment)
       throws AbruptExitException {
-    disabled = false;
+    // Reset to null in case afterCommand was not called.
+    this.outErr = null;
     if (!whitelistedCommands().contains(commandEnvironment.getCommandName())) {
-      disabled = true;
       return;
     }
-    this.commandEnvironment = commandEnvironment;
-    this.buildEventRecorder = new BuildEventRecorder();
-    commandEnvironment.getEventBus().register(buildEventRecorder);
-  }
 
-  @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    if (disabled) {
-      return;
-    }
-    checkState(commandEnvironment != null, "Methods called out of order");
     BuildEventStreamer streamer =
         tryCreateStreamer(
-            optionsProvider,
+            commandEnvironment.getOptions(),
             commandEnvironment.getReporter(),
             commandEnvironment.getBlazeModuleEnvironment(),
             commandEnvironment.getRuntime().getClock(),
@@ -122,58 +89,35 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
 
-      final SynchronizedOutputStream theOut = this.out;
-      final SynchronizedOutputStream theErr = this.err;
-      // out and err should be non-null at this point, as getOutputListener is supposed to
-      // be always called before handleOptions. But let's still prefer a stream with no
-      // stdout/stderr over an aborted build.
+      final SynchronizedOutputStream out = new SynchronizedOutputStream();
+      final SynchronizedOutputStream err = new SynchronizedOutputStream();
+      this.outErr = OutErr.create(out, err);
       streamer.registerOutErrProvider(
           new BuildEventStreamer.OutErrProvider() {
             @Override
             public String getOut() {
-              if (theOut == null) {
-                return null;
-              }
-              return theOut.readAndReset();
+              return out.readAndReset();
             }
 
             @Override
             public String getErr() {
-              if (theErr == null) {
-                return null;
-              }
-              return theErr.readAndReset();
+              return err.readAndReset();
             }
           });
-      if (theErr != null) {
-        theErr.registerStreamer(streamer);
-      }
-      if (theOut != null) {
-        theOut.registerStreamer(streamer);
-      }
-      for (BuildEvent event : buildEventRecorder.getEvents()) {
-        streamer.buildEvent(event);
-      }
+      err.registerStreamer(streamer);
+      out.registerStreamer(streamer);
       logger.fine("BuildEventStreamer created and registered successfully.");
-    } else {
-      // If there is no streamer to consume the output, we should not try to accumulate it.
-      this.out.setDiscardAll();
-      this.err.setDiscardAll();
     }
-    commandEnvironment.getEventBus().unregister(buildEventRecorder);
-    this.buildEventRecorder = null;
-    this.out = null;
-    this.err = null;
   }
 
   @Override
   public OutErr getOutputListener() {
-    if (disabled) {
-      return null;
-    }
-    this.out = new SynchronizedOutputStream();
-    this.err = new SynchronizedOutputStream();
-    return OutErr.create(this.out, this.err);
+    return outErr;
+  }
+
+  @Override
+  public void afterCommand() {
+    this.outErr = null;
   }
 
   /**

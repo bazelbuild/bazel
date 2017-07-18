@@ -19,17 +19,17 @@ import java.io.IOException;
 /** Syntax node for an index expression. e.g. obj[field], but not obj[from:to] */
 public final class IndexExpression extends Expression {
 
-  private final Expression obj;
+  private final Expression object;
 
   private final Expression key;
 
-  public IndexExpression(Expression obj, Expression key) {
-    this.obj = obj;
+  public IndexExpression(Expression object, Expression key) {
+    this.object = object;
     this.key = key;
   }
 
   public Expression getObject() {
-    return obj;
+    return object;
   }
 
   public Expression getKey() {
@@ -38,7 +38,7 @@ public final class IndexExpression extends Expression {
 
   @Override
   public void prettyPrint(Appendable buffer) throws IOException {
-    obj.prettyPrint(buffer);
+    object.prettyPrint(buffer);
     buffer.append('[');
     key.prettyPrint(buffer);
     buffer.append(']');
@@ -46,7 +46,7 @@ public final class IndexExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    Object objValue = obj.eval(env);
+    Object objValue = object.eval(env);
     return eval(env, objValue);
   }
 
@@ -81,6 +81,6 @@ public final class IndexExpression extends Expression {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    obj.validate(env);
+    object.validate(env);
   }
 }

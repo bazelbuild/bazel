@@ -48,7 +48,7 @@ public final class DefaultProvider extends SkylarkClassObject {
 
   public static final String SKYLARK_NAME = "DefaultInfo";
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {
+      new NativeClassObjectConstructor<SkylarkClassObject>(SkylarkClassObject.class, SKYLARK_NAME) {
         @Override
         protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc) {
           @SuppressWarnings("unchecked")

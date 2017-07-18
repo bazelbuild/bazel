@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import org.junit.Test;
@@ -105,5 +108,13 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    all_files = ':every-file',",
         "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
         "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+  }
+
+  @Test
+  public void testToolchainAlias() throws Exception {
+    ConfiguredTarget reference = scratchConfiguredTarget("a", "ref",
+        "cc_toolchain_alias(name='ref')");
+    assertThat(reference.getProvider(CcToolchainProvider.class)).isNotNull();
+    assertThat(reference.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
   }
 }

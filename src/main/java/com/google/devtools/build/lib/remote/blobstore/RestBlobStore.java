@@ -17,6 +17,8 @@ import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -53,7 +55,8 @@ public final class RestBlobStore implements SimpleBlobStore {
    * @param baseUrl base URL for the remote cache
    * @param poolSize maximum number of simultaneous connections
    */
-  public RestBlobStore(String baseUrl, int poolSize) {
+  public RestBlobStore(String baseUrl, int poolSize) throws IOException {
+    validateUrl(baseUrl);
     this.baseUrl = baseUrl;
     connMan = new PoolingHttpClientConnectionManager();
     connMan.setDefaultMaxPerRoute(poolSize);
@@ -121,5 +124,13 @@ public final class RestBlobStore implements SimpleBlobStore {
           }
           return null;
         });
+  }
+
+  private void validateUrl(String url) throws IOException {
+    try {
+      new URI(url);
+    } catch (URISyntaxException e) {
+      throw new IOException("Failed to parse remote REST cache URL: " + baseUrl, e);
+    }
   }
 }

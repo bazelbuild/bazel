@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -80,6 +79,7 @@ public final class CommandEnvironment {
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
+  private final OptionsProvider options;
 
   private String[] crashData;
 
@@ -88,8 +88,6 @@ public final class CommandEnvironment {
   private OutputService outputService;
   private Path workingDirectory;
   private String workspaceName;
-
-  private OptionsProvider options;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
@@ -121,7 +119,7 @@ public final class CommandEnvironment {
    */
   CommandEnvironment(
       BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
-      Command command) {
+      Command command, OptionsProvider options) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -130,6 +128,7 @@ public final class CommandEnvironment {
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.command = command;
+    this.options = options;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -144,22 +143,31 @@ public final class CommandEnvironment {
     this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
-  }
 
-  /**
-   * Same as CommandEnvironment(BlazeRuntime, BlazeWorkspace, EventBus, Thread) but with an
-   * explicit commandName and options.
-   *
-   * ONLY for testing.
-   */
-  @VisibleForTesting
-  CommandEnvironment(
-      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
-      Command command, OptionsProvider optionsForTesting) {
-    this(runtime, workspace, eventBus, commandThread, command);
-    // Options are normally set by beforeCommand(); however this method is not called in tests (i.e.
-    // tests use BlazeRuntimeWrapper). These fields should only be set for testing.
-    this.options = optionsForTesting;
+    updateClientEnv(options.getOptions(CommonCommandOptions.class).clientEnv);
+
+    // actionClientEnv contains the environment where values from actionEnvironment are overridden.
+    actionClientEnv.putAll(clientEnv);
+
+    if (command.builds()) {
+      // Compute the set of environment variables that are whitelisted on the commandline
+      // for inheritance.
+      for (Map.Entry<String, String> entry :
+          options.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
+        if (entry.getValue() == null) {
+          visibleActionEnv.add(entry.getKey());
+        } else {
+          visibleActionEnv.remove(entry.getKey());
+          actionClientEnv.put(entry.getKey(), entry.getValue());
+        }
+      }
+      for (Map.Entry<String, String> entry :
+          options.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+        if (entry.getValue() == null) {
+          visibleTestEnv.add(entry.getKey());
+        }
+      }
+    }
   }
 
   public BlazeRuntime getRuntime() {
@@ -236,8 +244,7 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  @VisibleForTesting
-  void updateClientEnv(List<Map.Entry<String, String>> clientEnvList) {
+  private void updateClientEnv(List<Map.Entry<String, String>> clientEnvList) {
     Preconditions.checkState(clientEnv.isEmpty());
 
     Collection<Map.Entry<String, String>> env = clientEnvList;
@@ -545,7 +552,6 @@ public final class CommandEnvironment {
       InvocationPolicy invocationPolicy)
       throws AbruptExitException {
     commandStartTime -= commonOptions.startupTime;
-    this.options = options;
 
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
@@ -584,8 +590,6 @@ public final class CommandEnvironment {
     this.relativeWorkingDirectory = workingDirectory.relativeTo(workspace);
     this.workingDirectory = workingDirectory;
 
-    updateClientEnv(commonOptions.clientEnv);
-
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out if it needs to store graph edges for this build.
@@ -595,29 +599,6 @@ public final class CommandEnvironment {
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions, execStartTimeNanos);
-
-    // actionClientEnv contains the environment where values from actionEnvironment are overridden.
-    actionClientEnv.putAll(clientEnv);
-
-    if (command.builds()) {
-      // Compute the set of environment variables that are whitelisted on the commandline
-      // for inheritance.
-      for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
-        if (entry.getValue() == null) {
-          visibleActionEnv.add(entry.getKey());
-        } else {
-          visibleActionEnv.remove(entry.getKey());
-          actionClientEnv.put(entry.getKey(), entry.getValue());
-        }
-      }
-      for (Map.Entry<String, String> entry :
-          options.getOptions(BuildConfiguration.Options.class).testEnvironment) {
-        if (entry.getValue() == null) {
-          visibleTestEnv.add(entry.getKey());
-        }
-      }
-    }
 
     eventBus.post(new CommandStartEvent(
         command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),

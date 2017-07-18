@@ -161,7 +161,7 @@ public class BazelCppRuleClasses {
       return builder
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                  .value(CppRuleClasses.CC_TOOLCHAIN))
+                  .value(CppRuleClasses.ccToolchainAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .build();
     }

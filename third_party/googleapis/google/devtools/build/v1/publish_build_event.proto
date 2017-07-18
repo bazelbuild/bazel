@@ -17,9 +17,7 @@ syntax = "proto3";
 package google.devtools.build.v1;
 
 import "google/api/annotations.proto";
-import "google/api/auth.proto";
 import "google/devtools/build/v1/build_events.proto";
-import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
@@ -133,4 +131,30 @@ message OrderedBuildEvent {
 
   // The actual event.
   BuildEvent event = 3;
+}
+
+message PublishBuildToolEventStreamRequest {
+  // The fist 3 fields are identical to OrderedBuildEvent so we can have wire-
+  // compatibility when migrating BES publishers.
+
+  // Which build event stream this event belongs to.
+  google.devtools.build.v1.StreamId stream_id = 1 [deprecated = true];
+
+  // The position of this event in the stream. The sequence numbers for a build
+  // event stream should be a sequence of consecutive natural numbers starting
+  // from one. (1, 2, 3, ...)
+  int64 sequence_number = 2 [deprecated = true];
+
+  // The actual event.
+  google.devtools.build.v1.BuildEvent event = 3 [deprecated = true];
+
+  // The build event with position info.
+  // New publishing clients should use this field rather than the 3 above.
+  OrderedBuildEvent ordered_build_event = 4;
+
+  // The keywords to be attached to the notification which notifies the start
+  // of a new build event stream. BES only reads this field when sequence_number
+  // or ordered_build_event.sequence_number is 1 in this message. If this field
+  // is empty, BES will not publish notification messages for this stream.
+  repeated string notification_keywords = 5;
 }

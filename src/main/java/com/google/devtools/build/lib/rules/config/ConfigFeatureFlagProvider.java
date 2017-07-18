@@ -17,16 +17,12 @@ package com.google.devtools.build.lib.rules.config;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 @SkylarkModule(
@@ -34,24 +30,15 @@ import com.google.devtools.build.lib.util.Preconditions;
   doc = "A provider used to access information about config_feature_flag rules."
 )
 @Immutable
-public class ConfigFeatureFlagProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class ConfigFeatureFlagProvider extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /** Skylark constructor and identifier for ConfigFeatureFlagProvider. */
-  static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
-
-  /**
-   * Identifier used to retrieve this provider from rules which export it.
-   *
-   * <p>Prefer to use {@link #fromTarget(TransitiveInfoCollection)} for the purposes of getting this
-   * provider from a TransitiveInfoCollection; this should be used for mandatoryProviders only.
-   */
-  public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
-      SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
+  public static final NativeClassObjectConstructor<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<ConfigFeatureFlagProvider>(
+          ConfigFeatureFlagProvider.class, SKYLARK_NAME) {};
 
   private final String value;
   private final Predicate<String> validityPredicate;
@@ -70,12 +57,7 @@ public class ConfigFeatureFlagProvider extends SkylarkClassObject
 
   /** Retrieves and casts the provider from the given target. */
   public static ConfigFeatureFlagProvider fromTarget(TransitiveInfoCollection target) {
-    Object provider = target.get(SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConfigFeatureFlagProvider);
-    return (ConfigFeatureFlagProvider) provider;
+    return target.get(SKYLARK_CONSTRUCTOR);
   }
 
   /** Gets the current value of the flag in the flag's current configuration. */

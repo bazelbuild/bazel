@@ -20,13 +20,14 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.AliasProvider;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagFeatureVisibility;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import java.util.Map;
 
@@ -67,8 +68,8 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
       return ImmutableMap.of();
     }
 
-    ConfigFeatureFlagFeatureVisibility.checkAvailable(
-        ruleContext, "the " + FEATURE_FLAG_ATTR + " attribute");
+    FeaturePolicyConfiguration.checkAvailable(
+        ruleContext, ConfigFeatureFlag.POLICY_NAME, "the " + FEATURE_FLAG_ATTR + " attribute");
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
         ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);

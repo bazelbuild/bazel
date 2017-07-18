@@ -773,6 +773,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Rewrites the WORKSPACE to have the required boilerplate and the given lines of content.
+   *
+   * <p>Triggers Skyframe to reinitialize everything.
+   */
+  public void rewriteWorkspace(String... lines) throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .addAll(ImmutableList.copyOf(lines))
+            .build());
+
+    invalidatePackages();
+    // Need to re-initialize the workspace status.
+    getSkyframeExecutor().injectWorkspaceStatusData("test");
+  }
+
+  /**
    * Create and return a configured scratch rule.
    *
    * @param packageName the package name of the rule.

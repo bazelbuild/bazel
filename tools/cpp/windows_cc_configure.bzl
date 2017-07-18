@@ -147,18 +147,19 @@ def _find_vc_path(repository_ctx):
   auto_configure_warning("Looking for Visual C++ through registry")
   reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
   vc_dir = None
-  for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
-    if vc_dir:
-      break
-    result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VC7", "/v", version])
-    if is_cc_configure_debug(repository_ctx):
-      auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                             (version, result.stdout, result.stderr))
-    if not result.stderr:
-      for line in result.stdout.split("\n"):
-        line = line.strip()
-        if line.startswith(version) and line.find("REG_SZ") != -1:
-          vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
+  for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
+    for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
+      if vc_dir:
+        break
+      result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
+      if is_cc_configure_debug(repository_ctx):
+        auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                               (version, result.stdout, result.stderr))
+      if not result.stderr:
+        for line in result.stdout.split("\n"):
+          line = line.strip()
+          if line.startswith(version) and line.find("REG_SZ") != -1:
+            vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
   if not vc_dir:
     auto_configure_fail("Visual C++ build tools not found on your machine.")
@@ -183,7 +184,7 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     vcvarsall = vc_path + "\\VCVARSALL.BAT"
 
   if not repository_ctx.path(vcvarsall).exists:
-    auto_configure_fail("vcvarsall.bat doesn't exist, please check your VC++ installation")
+    auto_configure_fail(vcvarsall + " doesn't exist, please check your VC++ installation")
   return vcvarsall
 
 
@@ -264,10 +265,10 @@ def _get_crt_library(repository_ctx, debug = False):
   return crt_library + ".lib"
 
 
-def _is_no_msvc_wrapper(repository_ctx):
-  """Returns True if NO_MSVC_WRAPPER is set to 1."""
+def _is_use_msvc_wrapper(repository_ctx):
+  """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
-  return "NO_MSVC_WRAPPER" in env and env["NO_MSVC_WRAPPER"] == "1"
+  return "USE_MSVC_WRAPPER" in env and env["USE_MSVC_WRAPPER"] == "1"
 
 
 def _get_compilation_mode_content():
@@ -324,7 +325,7 @@ def configure_windows_toolchain(repository_ctx):
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
-  if not _is_no_msvc_wrapper(repository_ctx):
+  if _is_use_msvc_wrapper(repository_ctx):
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:

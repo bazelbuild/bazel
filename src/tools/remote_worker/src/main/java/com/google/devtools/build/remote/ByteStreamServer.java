@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.protobuf.StatusProto;
@@ -80,10 +79,10 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c = new Chunker.Builder().addInput(cache.downloadBlob(digest)).build();
+      Chunker c = new Chunker(cache.downloadBlob(digest));
       while (c.hasNext()) {
         responseObserver.onNext(
-            ReadResponse.newBuilder().setData(ByteString.copyFrom(c.next().getData())).build());
+            ReadResponse.newBuilder().setData(c.next().getData()).build());
       }
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
@@ -179,7 +178,9 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
       @Override
       public void onError(Throwable t) {
-        logger.log(WARNING, "Write request failed remotely.", t);
+        if (io.grpc.Status.fromThrowable(t).getCode() != io.grpc.Status.Code.CANCELLED) {
+          logger.log(WARNING, "Write request failed remotely.", t);
+        }
         closed = true;
         try {
           temp.delete();

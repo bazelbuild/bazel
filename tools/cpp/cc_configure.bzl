@@ -59,7 +59,7 @@ cc_autoconf = repository_rule(
         "HOMEBREW_RUBY_PATH",
         "NO_WHOLE_ARCHIVE_OPTION",
         "USE_DYNAMIC_CRT",
-        "NO_MSVC_WRAPPER",
+        "USE_MSVC_WRAPPER",
         "SYSTEMROOT",
         "VS90COMNTOOLS",
         "VS100COMNTOOLS",

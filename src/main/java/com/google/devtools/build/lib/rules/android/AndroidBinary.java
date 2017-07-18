@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -62,11 +64,13 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
@@ -231,7 +235,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ResourceFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
@@ -253,7 +256,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
                   resourceDeps,
-                  ResourceFilter.fromRuleContext(ruleContext),
                   ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
@@ -266,7 +268,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext,
                   getDxArtifact(ruleContext, "android_instant_run.ap_"),
                   resourceDeps,
-                  ResourceFilter.fromRuleContext(ruleContext),
                   ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"));
@@ -279,7 +280,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext,
                   getDxArtifact(ruleContext, "android_resources.ap_"),
                   resourceDeps,
-                  ResourceFilter.fromRuleContext(ruleContext),
                   ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
@@ -369,6 +369,29 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         derivedJarFunction);
 
+    OneVersionEnforcementLevel oneVersionEnforcementLevel =
+        ruleContext.getFragment(JavaConfiguration.class).oneVersionEnforcementLevel();
+    Artifact oneVersionOutputArtifact = null;
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+      NestedSet<Artifact> transitiveDependencies =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addAll(
+                  Iterables.transform(resourceClasses.getRuntimeClassPath(), derivedJarFunction))
+              .addAll(
+                  Iterables.transform(
+                      androidCommon.getJarsProducedForRuntime(), derivedJarFunction))
+              .build();
+
+      oneVersionOutputArtifact =
+          OneVersionCheckActionBuilder.newBuilder()
+              .withEnforcementLevel(oneVersionEnforcementLevel)
+              .outputArtifact(
+                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
+              .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
+              .checkJars(transitiveDependencies)
+              .build(ruleContext);
+    }
+
     Artifact proguardMapping = ruleContext.getPrerequisiteArtifact(
         "proguard_apply_mapping", Mode.TARGET);
 
@@ -392,7 +415,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         resourceClasses,
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
-        proguardMapping);
+        proguardMapping,
+        oneVersionOutputArtifact);
   }
 
   public static RuleConfiguredTargetBuilder createAndroidBinary(
@@ -415,7 +439,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
-      Artifact proguardMapping)
+      Artifact proguardMapping,
+      @Nullable Artifact oneVersionEnforcementArtifact)
       throws InterruptedException, RuleErrorException {
 
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
@@ -785,6 +810,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ProguardMappingProvider.create(finalProguardMap));
     }
 
+    if (oneVersionEnforcementArtifact != null) {
+      builder.addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, oneVersionEnforcementArtifact);
+    }
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addProvider(
@@ -818,7 +847,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup("mobile_install_split" + INTERNAL_SUFFIX, splitInstallOutputGroup)
         .addOutputGroup("apk_manifest", apkManifest)
         .addOutputGroup("apk_manifest_text", apkManifestText)
-        .addOutputGroup("android_deploy_info", deployInfo);
+        .addOutputGroup("android_deploy_info", deployInfo)
+        .addOutputGroup("android_incremental_deploy_info", incrementalDeployInfo);
   }
 
   private static void createSplitInstallAction(RuleContext ruleContext,

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -193,6 +194,8 @@ public class Package {
   private ImmutableList<Event> events;
   private ImmutableList<Postable> posts;
 
+  private ImmutableList<Label> registeredToolchainLabels;
+
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
    * given name.
@@ -317,6 +320,7 @@ public class Package {
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
     this.posts = ImmutableList.copyOf(builder.posts);
+    this.registeredToolchainLabels = ImmutableList.copyOf(builder.registeredToolchainLabels);
   }
 
   /**
@@ -643,6 +647,10 @@ public class Package {
     return defaultRestrictedTo;
   }
 
+  public ImmutableList<Label> getRegisteredToolchainLabels() {
+    return registeredToolchainLabels;
+  }
+
   @Override
   public String toString() {
     return "Package(" + name + ")="
@@ -694,6 +702,7 @@ public class Package {
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
+
     public static interface Helper {
       /**
        * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
@@ -743,6 +752,8 @@ public class Package {
     private List<String> features = new ArrayList<>();
     private List<Event> events = Lists.newArrayList();
     private List<Postable> posts = Lists.newArrayList();
+    @Nullable String ioExceptionMessage = null;
+    @Nullable private IOException ioException = null;
     private boolean containsErrors = false;
 
     private License defaultLicense = License.NO_LICENSE;
@@ -755,6 +766,8 @@ public class Package {
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
     protected ExternalPackageBuilder externalPackageData = new ExternalPackageBuilder();
+
+    protected List<Label> registeredToolchainLabels = new ArrayList<>();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -916,6 +929,12 @@ public class Package {
     public Builder addFeatures(Iterable<String> features) {
       Iterables.addAll(this.features, features);
       return this;
+    }
+
+    Builder setIOExceptionAndMessage(IOException e, String message) {
+      this.ioException = e;
+      this.ioExceptionMessage = message;
+      return setContainsErrors();
     }
 
     /**
@@ -1270,11 +1289,19 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    private Builder beforeBuild(boolean discoverAssumedInputFiles) throws InterruptedException {
+    void addRegisteredToolchainLabels(List<Label> toolchains) {
+      this.registeredToolchainLabels.addAll(toolchains);
+    }
+
+    private Builder beforeBuild(boolean discoverAssumedInputFiles)
+        throws InterruptedException, NoSuchPackageException {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
       Preconditions.checkNotNull(makeEnv);
+      if (ioException != null) {
+        throw new NoSuchPackageException(getPackageIdentifier(), ioExceptionMessage, ioException);
+      }
       // Freeze subincludes.
       subincludes = (subincludes == null)
           ? Collections.<Label, Path>emptyMap()
@@ -1323,7 +1350,7 @@ public class Package {
     }
 
     /** Intended for use by {@link com.google.devtools.build.lib.skyframe.PackageFunction} only. */
-    public Builder buildPartial() throws InterruptedException {
+    public Builder buildPartial() throws InterruptedException, NoSuchPackageException {
       if (alreadyBuilt) {
         return this;
       }
@@ -1371,15 +1398,16 @@ public class Package {
       return externalPackageData;
     }
 
-    public Package build() throws InterruptedException {
+    public Package build() throws InterruptedException, NoSuchPackageException {
       return build(/*discoverAssumedInputFiles=*/ true);
     }
 
     /**
-     * Build the package, optionally adding any labels in the package not already associated with
-     * a target as an input file.
+     * Build the package, optionally adding any labels in the package not already associated with a
+     * target as an input file.
      */
-    public Package build(boolean discoverAssumedInputFiles) throws InterruptedException {
+    public Package build(boolean discoverAssumedInputFiles)
+        throws InterruptedException, NoSuchPackageException {
       if (alreadyBuilt) {
         return pkg;
       }

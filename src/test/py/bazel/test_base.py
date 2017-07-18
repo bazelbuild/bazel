@@ -243,12 +243,21 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe',
           # TODO(pcloudy): Remove this after no longer need to debug
           # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG': '1',
-          # TODO(pcloudy): Remove this hardcoded path after resolving
-          # https://github.com/bazelbuild/bazel/issues/3273
-          'BAZEL_VC':
-          'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC',
+          'CC_CONFIGURE_DEBUG': '1'
       }
+
+      # TODO(pcloudy): Remove these hardcoded paths after resolving
+      # https://github.com/bazelbuild/bazel/issues/3273
+      env['BAZEL_VC'] = 'visual-studio-not-found'
+      for p in [
+          (r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional'
+           r'\VC'),
+          r'C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC',
+          r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC'
+      ]:
+        if os.path.exists(p):
+          env['BAZEL_VC'] = p
+          break
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 

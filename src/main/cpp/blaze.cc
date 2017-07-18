@@ -640,8 +640,8 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
             globals->options->product_name.c_str());
   }
   string command = globals->option_processor->GetCommand();
-  vector<string> command_arguments;
-  globals->option_processor->GetCommandArguments(&command_arguments);
+  const vector<string> command_arguments =
+      globals->option_processor->GetCommandArguments();
 
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
@@ -731,9 +731,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   // disaster.
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
-    if (VerifyServerProcess(server_pid, globals->options->output_base,
-                            globals->options->install_base)) {
-      if (KillServerProcess(server_pid)) {
+    if (VerifyServerProcess(server_pid, globals->options->output_base)) {
+      if (KillServerProcess(server_pid, globals->options->output_base)) {
         fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
                 server_pid);
         SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
@@ -1155,10 +1154,13 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
 
 // Parse the options, storing parsed values in globals.
 static void ParseOptions(int argc, const char *argv[]) {
-  string error;
-  blaze_exit_code::ExitCode parse_exit_code =
-      globals->option_processor->ParseOptions(argc, argv, globals->workspace,
-                                              globals->cwd, &error);
+  std::string error;
+  std::vector<std::string> args;
+  args.insert(args.end(), argv, argv + argc);
+  const blaze_exit_code::ExitCode parse_exit_code =
+      globals->option_processor->ParseOptions(
+          args, globals->workspace, globals->cwd, &error);
+
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     die(parse_exit_code, "%s", error.c_str());
   }
@@ -1334,6 +1336,12 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
 
+  // Best-effort operation to raise the resource limits from soft to hard.  We
+  // do this early during the main program instead of just before execing the
+  // Blaze server binary, because it's easier (for testing purposes) and because
+  // the Blaze client also benefits from this (e.g. during installation).
+  UnlimitResources();
+
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
@@ -1449,8 +1457,7 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!VerifyServerProcess(server_pid, globals->options->output_base,
-      globals->options->install_base)) {
+  if (!VerifyServerProcess(server_pid, globals->options->output_base)) {
     return false;
   }
 
@@ -1578,11 +1585,13 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {
   }
 
-  // Kill the server process for good measure (if we know the server PID)
+  // Wait for the server process to terminate (if we know the server PID).
+  // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
-      VerifyServerProcess(globals->server_pid, globals->options->output_base,
-                          globals->options->install_base)) {
-    KillServerProcess(globals->server_pid);
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   connected_ = false;
@@ -1590,6 +1599,7 @@ void GrpcBlazeServer::KillRunningServer() {
 
 unsigned int GrpcBlazeServer::Communicate() {
   assert(connected_);
+  assert(globals->server_pid > 0);
 
   vector<string> arg_vector;
   string command = globals->option_processor->GetCommand();
@@ -1598,7 +1608,13 @@ unsigned int GrpcBlazeServer::Communicate() {
     AddLoggingArgs(&arg_vector);
   }
 
-  globals->option_processor->GetCommandArguments(&arg_vector);
+  const vector<string> command_args =
+      globals->option_processor->GetCommandArguments();
+  if (!command_args.empty()) {
+    arg_vector.insert(arg_vector.end(),
+                      command_args.begin(),
+                      command_args.end());
+  }
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
@@ -1628,6 +1644,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   int exit_code = -1;
   bool finished = false;
   bool finished_warning_emitted = false;
+  bool termination_expected = false;
 
   while (reader->Read(&response)) {
     if (finished && !finished_warning_emitted) {
@@ -1644,6 +1661,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (response.finished()) {
       exit_code = response.exit_code();
+      termination_expected = response.termination_expected();
       finished = true;
     }
 
@@ -1677,6 +1695,15 @@ unsigned int GrpcBlazeServer::Communicate() {
       command_id_set = true;
       SendAction(CancelThreadAction::COMMAND_ID_RECEIVED);
     }
+  }
+
+  // If the server has shut down, but does not terminate itself within a 1m
+  // grace period, terminate it.
+  if (termination_expected &&
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   SendAction(CancelThreadAction::JOIN);

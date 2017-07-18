@@ -303,6 +303,7 @@ public final class CcLibraryHelper {
   private final FdoSupportProvider fdoSupport;
   private String linkedArtifactNameSuffix = "";
   private boolean useDeps = true;
+  private boolean generateModuleMap = true;
 
   /**
    * Creates a CcLibraryHelper.
@@ -1083,7 +1084,7 @@ public final class CcLibraryHelper {
           new CcSpecificLinkParamsProvider(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     } else {
-      providers.add(
+      providers.put(
           new CcLinkParamsProvider(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }
@@ -1388,13 +1389,17 @@ public final class CcLibraryHelper {
           featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
               || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
       Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
-      Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-      if (umbrellaHeader.isPresent()) {
+
+      if (generateModuleMap) {
+        Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
+        if (umbrellaHeader.isPresent()) {
+          ruleContext.registerAction(
+              createUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders));
+        }
+
         ruleContext.registerAction(
-            createUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders));
+            createModuleMapAction(cppModuleMap, publicHeaders, dependentModuleMaps, compiled));
       }
-      ruleContext.registerAction(
-          createModuleMapAction(cppModuleMap, publicHeaders, dependentModuleMaps, compiled));
       if (model.getGeneratesPicHeaderModule()) {
         contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
       }
@@ -1487,8 +1492,8 @@ public final class CcLibraryHelper {
       RuleContext ruleContext, CcCompilationOutputs ccCompilationOutputs) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET,
-            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(), OutputGroupProvider.class)) {
+        ruleContext.getPrerequisites(
+            "deps", Mode.TARGET, OutputGroupProvider.SKYLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcLibraryHelper.HIDDEN_HEADER_TOKENS));
     }
     if (ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies()) {
@@ -1593,5 +1598,13 @@ public final class CcLibraryHelper {
 
   public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
     this.additionalCppModuleMaps.add(Preconditions.checkNotNull(cppModuleMap));
+  }
+
+  /**
+   * Don't generate a module map for this target if a custom module map is provided.
+   */
+  public CcLibraryHelper doNotGenerateModuleMap() {
+    generateModuleMap = false;
+    return this;
   }
 }

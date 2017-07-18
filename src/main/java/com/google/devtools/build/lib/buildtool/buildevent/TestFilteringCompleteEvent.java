@@ -42,13 +42,8 @@ public class TestFilteringCompleteEvent {
   public TestFilteringCompleteEvent(
       Collection<? extends ConfiguredTarget> targets,
       Collection<? extends ConfiguredTarget> testTargets) {
-    // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
-    this.targets = ImmutableList.<ConfiguredTarget>copyOf(targets);
-    this.testTargets =
-        testTargets == null
-            ? null
-            // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
-            : ImmutableList.<ConfiguredTarget>copyOf(testTargets);
+    this.targets = ImmutableList.copyOf(targets);
+    this.testTargets = testTargets == null ? null : ImmutableList.copyOf(testTargets);
     if (testTargets == null) {
       return;
     }

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -206,18 +206,16 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private static class GenericConfigurationEvent implements BuildEventWithConfiguration {
     private final BuildEventId id;
     private final Collection<BuildEventId> children;
-    private final Collection<BuildConfiguration> configurations;
+    private final Collection<BuildEvent> configurations;
 
     GenericConfigurationEvent(
-        BuildEventId id,
-        Collection<BuildEventId> children,
-        Collection<BuildConfiguration> configurations) {
+        BuildEventId id, Collection<BuildEventId> children, Collection<BuildEvent> configurations) {
       this.id = id;
       this.children = children;
       this.configurations = configurations;
     }
 
-    GenericConfigurationEvent(BuildEventId id, BuildConfiguration configuration) {
+    GenericConfigurationEvent(BuildEventId id, BuildEvent configuration) {
       this(id, ImmutableSet.<BuildEventId>of(), ImmutableSet.of(configuration));
     }
 
@@ -232,7 +230,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public Collection<BuildConfiguration> getConfigurations() {
+    public Collection<BuildEvent> getConfigurations() {
       return configurations;
     }
 
@@ -269,7 +267,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   @Test(timeout = 5000)
   public void testSimpleStream() {
     // Verify that a well-formed event is passed through and that completion of the
-    // build clears the pending progress-update event.
+    // build clears the pending progress-update event. However, there is no guarantee
+    // on the order of the flushed events.
+    // Additionally, assert that the actual last event has the last_message flag set.
 
     EventBusHandler handler = new EventBusHandler();
     eventBus.register(handler);
@@ -295,8 +295,14 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> finalStream = transport.getEvents();
     assertThat(finalStream).hasSize(3);
-    assertThat(finalStream.get(1).getEventId()).isEqualTo(BuildEventId.buildFinished());
-    assertThat(finalStream.get(2).getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertThat(ImmutableSet.of(finalStream.get(1).getEventId(), finalStream.get(2).getEventId()))
+        .isEqualTo(
+            ImmutableSet.of(BuildEventId.buildFinished(), ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    // verify the "last_message" flag.
+    assertThat(transport.getEventProtos().get(0).getLastMessage()).isFalse();
+    assertThat(transport.getEventProtos().get(1).getLastMessage()).isFalse();
+    assertThat(transport.getEventProtos().get(2).getLastMessage()).isTrue();
 
     while (!handler.transportSet.isEmpty()) {
       LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));

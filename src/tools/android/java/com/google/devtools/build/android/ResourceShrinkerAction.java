@@ -31,9 +31,9 @@ import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -287,6 +287,7 @@ public class ResourceShrinkerAction {
 
       // Build ap_ with shrunk resources.
       resourceProcessor.processResources(
+          working,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -303,8 +304,8 @@ public class ResourceShrinkerAction {
           options.shrunkApk,
           null /* proguardOutput */,
           null /* mainDexProguardOutput */,
-         null /* publicResourcesOut */,
-         null /* dataBindingInfoOut */);
+          null /* publicResourcesOut */,
+          null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
         AndroidResourceOutputs.createResourcesZip(
             shrunkResources,

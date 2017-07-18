@@ -635,7 +635,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   private void flowStatementInsideFunction(String statement) throws Exception {
     checkEvalErrorContains(statement + " statement must be inside a for loop",
         "def foo():",
-        "  " + statement + "",
+        "  " + statement,
         "x = foo()");
   }
 
@@ -644,7 +644,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "def foo2():",
         "   for i in range(0, 3):",
         "      pass",
-        "   " + statement + "",
+        "   " + statement,
         "y = foo2()");
   }
 
@@ -1404,8 +1404,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
   static final class SkylarkClassObjectWithSkylarkCallables extends SkylarkClassObject {
-    private static final NativeClassObjectConstructor CONSTRUCTOR =
-        new NativeClassObjectConstructor("struct_with_skylark_callables") {};
+    private static final NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>
+        CONSTRUCTOR =
+            new NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>(
+                SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
 
     SkylarkClassObjectWithSkylarkCallables() {
       super(

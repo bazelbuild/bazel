@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;

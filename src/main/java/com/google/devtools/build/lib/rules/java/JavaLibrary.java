@@ -227,7 +227,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addProvider(new JavaNeverlinkInfoProvider(neverLink))
         .addProvider(transitiveCppDeps)
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .addProvider(ccLinkParamsProvider)
         .addNativeDeclaredProvider(ccLinkParamsProvider)
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))

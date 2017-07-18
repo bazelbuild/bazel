@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
@@ -80,6 +81,7 @@ public final class PyCommon {
   private final RuleContext ruleContext;
 
   private Artifact executable = null;
+  private Artifact executableWrapper = null;
 
   private NestedSet<Artifact> transitivePythonSources;
 
@@ -114,15 +116,21 @@ public final class PyCommon {
 
     validatePackageName();
     executable = ruleContext.createOutputArtifact();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      executableWrapper =
+          ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
+    }
     if (this.version == PythonVersion.PY2AND3) {
       // TODO(bazel-team): we need to create two actions
       ruleContext.ruleError("PY2AND3 is not yet implemented");
     }
 
-    filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(srcs)
-        .add(executable)
-        .build();
+    NestedSetBuilder<Artifact> filesToBuildBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().addAll(srcs).add(executable);
+    if (executableWrapper != null) {
+      filesToBuildBuilder.add(executableWrapper);
+    }
+    filesToBuild = filesToBuildBuilder.build();
 
     if (ruleContext.hasErrors()) {
       return;
@@ -445,6 +453,10 @@ public final class PyCommon {
 
   public Artifact getExecutable() {
     return executable;
+  }
+
+  public Artifact getExecutableWrapper() {
+    return executableWrapper;
   }
 
   public Map<PathFragment, Artifact> getConvertedFiles() {

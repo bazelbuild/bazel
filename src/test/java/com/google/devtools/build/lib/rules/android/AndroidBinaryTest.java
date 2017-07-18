@@ -1443,6 +1443,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "  densities = ['" + densities + "'],",
             "  resource_files = ['" + Joiner.on("', '").join(allResources) + "'])");
 
+    // No prefix should be added because of resource filtering.
+    assertThat(
+            binary
+                .getConfiguration()
+                .getFragment(AndroidConfiguration.class)
+                .getOutputDirectoryName())
+        .isNull();
+
     ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
 
     // Validate that the AndroidResourceProvider for this binary contains only the filtered values.
@@ -1567,6 +1575,24 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
       assertThat(arg).doesNotContain(removedLibraryDir);
       assertThat(arg).doesNotContain(removedBinaryDir);
     }
+  }
+
+  @Test
+  public void testThrowOnResourceConflictFlagGetsPropagated() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_binary(",
+        "  name = 'r',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/values/foo.xml'],",
+        ")");
+    useConfiguration("--experimental_android_throw_on_resource_conflict");
+    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+
+    List<String> resourceProcessingArgs =
+        resourceGeneratingAction(getResourceContainer(binary)).getArguments();
+
+    assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
   }
 
   /**

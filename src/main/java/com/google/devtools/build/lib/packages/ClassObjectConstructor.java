@@ -92,6 +92,9 @@ public abstract class ClassObjectConstructor extends BaseFunction {
    */
   public abstract String getErrorMessageFormatForInstances();
 
+  public SkylarkProviderIdentifier id() {
+    return SkylarkProviderIdentifier.forKey(getKey());
+  }
 
   @Override
   protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)

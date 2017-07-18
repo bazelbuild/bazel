@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
@@ -291,16 +290,13 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
 
-    private static final ImmutableList<String> makeVariableAttributes =
-        ImmutableList.of(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, "toolchains");
-
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild,
         Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
       super(
-          ruleContext.getMakeVariables(makeVariableAttributes),
+          ruleContext,
           ruleContext.getRule().getPackage(),
           ruleContext.getConfiguration(),
           makeVariableSuppliers);
@@ -352,7 +348,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         }
       } else if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
         return new ConfigurationMakeVariableContext(
-                ruleContext.getMakeVariables(makeVariableAttributes),
+                ruleContext.getMakeVariables(
+                    ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
                 ruleContext.getTarget().getPackage(),
                 ruleContext.getHostConfiguration())
             .lookupMakeVariable(variableName);

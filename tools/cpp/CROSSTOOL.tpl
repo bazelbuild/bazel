@@ -172,8 +172,10 @@ toolchain {
   needsPic: false
 
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
+
+  # Don't define min/max macros in windows.h.
+  compiler_flag: "/DNOMINMAX"
 
   # Platform defines.
   compiler_flag: "/D_WIN32_WINNT=0x0600"

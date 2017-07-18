@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Collection;
@@ -98,8 +97,11 @@ public final class BuildConfigurationCollection {
   }
 
   /**
-   * Returns all configurations that can be reached from the target configuration through any kind
-   * of configuration transition.
+   * For static configurations, returns all configurations that can be reached from the target
+   * configurations through any kind of configuration transition.
+   *
+   * <p>For dynamic configurations, returns the target configurations (since configurations aren't
+   * reached through other configurations).
    */
   public Collection<BuildConfiguration> getAllConfigurations() {
     Set<BuildConfiguration> result = new LinkedHashSet<>();
@@ -172,13 +174,13 @@ public final class BuildConfigurationCollection {
     public Transitions(BuildConfiguration configuration,
         Map<? extends Transition, ConfigurationHolder> transitionTable,
         ListMultimap<? extends SplitTransition<?>, BuildConfiguration> splitTransitionTable) {
+      Preconditions.checkState(!configuration.useDynamicConfigurations(),
+          "Dynamic configurations don't use this class and static configurations are going away. "
+              + "Anything added here is dead code. Contact Blaze developers if you need help.");
+
       this.configuration = configuration;
       this.transitionTable = ImmutableMap.copyOf(transitionTable);
-      // Do not remove <SplitTransition<?>, BuildConfiguration>:
-      // workaround for Java 7 type inference.
-      this.splitTransitionTable =
-          ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>copyOf(
-              splitTransitionTable);
+      this.splitTransitionTable = ImmutableListMultimap.copyOf(splitTransitionTable);
     }
 
     public Map<? extends Transition, ConfigurationHolder> getTransitionTable() {

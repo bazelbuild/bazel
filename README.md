@@ -1,44 +1,52 @@
-# [Bazel](http://bazel.build) ([Beta](http://bazel.build/roadmap.html#beta))
+# [Bazel](https://bazel.build)
 
 *{Fast, Correct} - Choose two*
 
-Bazel is a build tool that builds code quickly and reliably. It is used to build
-the majority of Google's software, and thus it has been designed to handle
-build problems present in Google's development environment, including:
+Build and test software of any size, quickly and reliably.
 
-* **A massive, shared code repository, in which all software is built from
-source.** Bazel has been built for speed, using both caching and parallelism
-to achieve this. Bazel is critical to Google's ability to continue
-to scale its software development practices as the company grows.
+* **Speed up your builds and tests**:
+  Bazel only rebuilds what is necessary.
+  With advanced local and distributed caching, optimized dependency analysis and
+  parallel execution, you get fast and incremental builds.
 
-* **An emphasis on automated testing and releases.** Bazel has
-been built for correctness and reproducibility, meaning that a build performed
-on a continuous build machine or in a release pipeline will generate
-bitwise-identical outputs to those generated on a developer's machine.
+* **One tool, multiple languages**: Build and test Java, C++, Android, iOS, Go
+  and a wide variety of other language platforms. Bazel runs on Windows, macOS,
+  and Linux.
 
-* **Language and platform diversity.** Bazel's architecture is general enough to
-support many different programming languages within Google, and can be
-used to build both client and server software targeting multiple
-architectures from the same underlying codebase.
+* **Scalable**: Bazel helps you scale your organization, codebase and Continuous
+  Integration system.
+  It handles codebases of any size, in multiple repositories or a huge monorepo.
 
-Find more background about Bazel in our [FAQ](http://bazel.build/faq.html).
+* **Extensible to your needs**: Easily add support for new languages and
+  platforms with Bazel's familiar extension language. Share and re-use language
+  rules written by the growing Bazel community.
 
 ## Getting Started
 
-  * How to [install Bazel](http://bazel.build/docs/install.html)
-  * How to [get started using Bazel](http://bazel.build/docs/getting-started.html)
-  * The Bazel command line is documented in the  [user manual](http://bazel.build/docs/bazel-user-manual.html)
-  * The rule reference documentation is in the [build encyclopedia](http://bazel.build/docs/be/overview.html)
-  * How to [use the query command](http://bazel.build/docs/query.html)
-  * How to [extend Bazel](http://bazel.build/docs/skylark/index.html)
-  * The test environment is described on the page [writing tests](http://bazel.build/docs/test-encyclopedia.html)
+  * [Install Bazel](https://docs.bazel.build/install.html)
+  * [Get started with Bazel](https://docs.bazel.build/getting-started.html)
+  * Follow our tutorials:
 
-## About the Bazel project
+    - [Build C++](https://docs.bazel.build/tutorial/cpp.html)
+    - [Build Java](https://docs.bazel.build/tutorial/java.html)
+    - [Android and iOS](https://docs.bazel.build/tutorial/app.html)
 
-  * How to [contribute to Bazel](http://bazel.build/contributing.html)
-  * Our [governance plan](http://bazel.build/governance.html)
-  * Future plans are in the [roadmap](http://bazel.build/roadmap.html)
-  * For each feature, which level of [support](http://bazel.build/support.html) to expect
-  * [Current Bazel Release Candidate](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aopen%20label%3A%22Release%20blocker%22%20label%3A%22type%3A%20process%22)
+## Documentation
+
+  * [Bazel command line](https://docs.bazel.build/bazel-user-manual.html)
+  * [Rule reference](https://docs.bazel.build/be/overview.html)
+  * [Use the query command](https://docs.bazel.build/query.html)
+  * [Extend Bazel](https://docs.bazel.build/skylark/index.html)
+  * [Write tests](https://docs.bazel.build/test-encyclopedia.html)
+  * [Roadmap](https://bazel.build/roadmap.html)
+  * [Who is using Bazel?](https://github.com/bazelbuild/bazel/wiki/Bazel-Users)
+
+## Contributing to Bazel
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 [![Build Status](http://ci.bazel.io/buildStatus/icon?job=bazel-tests)](http://ci.bazel.io/job/bazel-tests)
+
+Bazel is released in 'Beta'.
+See the [product roadmap](https://bazel.build/roadmap.html) to learn about the
+path toward a stable 1.0 release.

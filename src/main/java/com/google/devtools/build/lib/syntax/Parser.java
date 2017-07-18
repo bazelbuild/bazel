@@ -425,7 +425,7 @@ public class Parser {
 
   // Convenience wrapper around ASTNode.setLocation that returns the node.
   private <NODE extends ASTNode> NODE setLocation(NODE node, Location location) {
-    return ASTNode.<NODE>setLocation(location, node);
+    return ASTNode.setLocation(location, node);
   }
 
   // Another convenience wrapper method around ASTNode.setLocation
@@ -681,7 +681,7 @@ public class Parser {
           nextToken();
           // check for the empty tuple literal
           if (token.kind == TokenKind.RPAREN) {
-            ListLiteral literal = ListLiteral.makeTuple(Collections.<Expression>emptyList());
+            ListLiteral literal = ListLiteral.makeTuple(Collections.emptyList());
             setLocation(literal, start, token.right);
             nextToken();
             return literal;
@@ -811,12 +811,12 @@ public class Parser {
     while (true) {
       if (token.kind == TokenKind.FOR) {
         nextToken();
-        Expression loopVar = parseForLoopVariables();
+        Expression lhs = parseForLoopVariables();
         expect(TokenKind.IN);
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
         Expression listExpression = parseNonTupleExpression(0);
-        comprehensionBuilder.addFor(loopVar, listExpression);
+        comprehensionBuilder.addFor(new LValue(lhs), listExpression);
       } else if (token.kind == TokenKind.IF) {
         nextToken();
         // [x for x in li if 1, 2]  # parse error
@@ -1312,11 +1312,11 @@ public class Parser {
   private FunctionSignature.WithValues<Expression, Expression> functionSignature(
       List<Parameter<Expression, Expression>> parameters) {
     try {
-      return FunctionSignature.WithValues.<Expression, Expression>of(parameters);
+      return FunctionSignature.WithValues.of(parameters);
     } catch (FunctionSignature.SignatureException e) {
       reportError(e.getParameter().getLocation(), e.getMessage());
       // return bogus empty signature
-      return FunctionSignature.WithValues.<Expression, Expression>create(FunctionSignature.of());
+      return FunctionSignature.WithValues.create(FunctionSignature.of());
     }
   }
 

@@ -75,12 +75,25 @@ nav: docs
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/build-ref.html">Concepts and Terminology</a></li>
               <li><a href="/versions/{{ site.version }}/bazel-user-manual.html">User Manual</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#java-menu" aria-expanded="false"
+                    aria-controls="java-menu">
+                  Java and Bazel <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
+                  <li><a href="/versions/{{ site.version }}/tutorial/java.html">Tutorial: Build a Java Project</a></li>
+                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven to Bazel</a></li>
+                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Generate External Dependencies from Maven</a></li>
+                </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
               <li><a href="/versions/{{ site.version }}/query.html">Query Language</a></li>
               <li><a href="/versions/{{ site.version }}/query-how-to.html">Query How-To</a></li>
               <li><a href="/versions/{{ site.version }}/mobile-install.html">mobile-install (Android)</a></li>
               <li><a href="/versions/{{ site.version }}/external.html">External Dependencies</a></li>
-              <li><a href="/versions/{{ site.version }}/generate-workspace.html">Generate External Dependencies from Maven</a></li>
               <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command-line Reference</a></li>
               <li><a href="/versions/{{ site.version }}/output_directories.html">Output Directories</a></li>
               <li><a href="/versions/{{ site.version }}/windows.html">Bazel on Windows</a></li>
@@ -90,19 +103,31 @@ nav: docs
             <h3>Extensions</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Overview</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Language</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository rules</a></li>
-              <li><a href="/versions/{{ site.version }}/rule-challenges.html">Challenges of writing rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Examples</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#extensions-concepts" aria-expanded="false"
+                    aria-controls="extensions-concepts">
+                  Concepts <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="extensions-concepts">
+                  <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/rule-challenges.html">Challenges of writing rules</a></li>
+                </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Packaging rules</a></li>
               <li><a href="https://skydoc.bazel.build" target="_blank">Documenting rules</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/build-style.html">Style guide for BUILD files</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">Style guide for bzl files</a></li>
+
+              <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Examples</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Reference</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Language</a></li>
             </ul>
           </nav>
         </div>
@@ -115,9 +140,10 @@ nav: docs
             // if there is an edit button and we are not in the Build Encyclopedia
             if (editButton
                 && window.location.pathname.match(versionDocsURLRegex)
-                && window.location.pathname.lastIndexOf('/be/') == -1) {
+                && window.location.pathname.lastIndexOf('/be/') == -1
+                && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
               var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
-              // some pages are now using markdown :(
+              // some pages are not using markdown :(
               if (docFile !== 'bazel-user-manual.html'
                   && docFile !== 'build-ref.html'
                   && docFile !== 'query.html'

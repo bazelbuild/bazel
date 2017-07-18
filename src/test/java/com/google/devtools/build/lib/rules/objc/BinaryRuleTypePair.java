@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule.WATCH_APP_DEPS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
@@ -23,14 +22,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBu
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_IMAGE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_STORYBOARD_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.PROVISIONING_PROFILE_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_ASSET_CATALOGS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_BUNDLE_ID_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_INFOPLISTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_PROVISIONING_PROFILE_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_STORYBOARDS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_BUNDLE_ID_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_INFOPLISTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_PROVISIONING_PROFILE_ATTR;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -131,16 +122,6 @@ final class BinaryRuleTypePair {
         case PROVISIONING_PROFILE_ATTR:
         case ENTITLEMENTS_ATTR:
         case INFOPLIST_ATTR:
-        case AppleWatch1ExtensionRule.WATCH_EXT_FAMILIES_ATTR:
-        case WATCH_EXT_INFOPLISTS_ATTR:
-        case WATCH_APP_INFOPLISTS_ATTR:
-        case WATCH_APP_PROVISIONING_PROFILE_ATTR:
-        case WATCH_EXT_PROVISIONING_PROFILE_ATTR:
-        case WATCH_EXT_BUNDLE_ID_ATTR:
-        case WATCH_APP_BUNDLE_ID_ATTR:
-        case WATCH_APP_STORYBOARDS_ATTR:
-        case WATCH_APP_ASSET_CATALOGS_ATTR:
-        case WATCH_APP_DEPS_ATTR:
           bundlingAttributes.add(attributeName, value);
           break;
         default:

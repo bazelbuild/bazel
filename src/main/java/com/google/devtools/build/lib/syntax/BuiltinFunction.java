@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public class BuiltinFunction extends BaseFunction {
 
   /** ExtraArgKind so you can tweek your function's own calling convention */
-  public static enum ExtraArgKind {
+  public enum ExtraArgKind {
     LOCATION,
     SYNTAX_TREE,
     ENVIRONMENT;
@@ -305,7 +305,7 @@ public class BuiltinFunction extends BaseFunction {
       }
     }
     // No need for the enforcedArgumentTypes List if all the types were Simple
-    enforcedArgumentTypes = FunctionSignature.<SkylarkType>valueListOrNull(enforcedArgumentTypes);
+    enforcedArgumentTypes = FunctionSignature.valueListOrNull(enforcedArgumentTypes);
 
     if (returnType != null) {
       Class<?> type = returnType;

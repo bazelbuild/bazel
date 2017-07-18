@@ -33,11 +33,13 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import javax.tools.StandardLocation;
 
 /**
@@ -202,18 +204,39 @@ public class BlazeJavacMain {
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(JavacFileManager.class.getClassLoader()) {
+          new ClassLoader(null) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
-              if (name.startsWith("com.google.errorprone.")) {
-                return Class.forName(name);
-              } else if (name.startsWith("org.checkerframework.dataflow.")) {
-                return Class.forName(name);
-              } else {
-                throw new ClassNotFoundException(name);
+              Class<?> c = Class.forName(name);
+              if (name.startsWith("com.google.errorprone.")
+                  || name.startsWith("org.checkerframework.dataflow.")
+                  || name.startsWith("com.sun.source.")
+                  || name.startsWith("com.sun.tools.")) {
+                return c;
               }
+              if (c.getClassLoader() == null
+                  || Objects.equals(getClassLoaderName(c.getClassLoader()), "platform")) {
+                return c;
+              }
+              throw new ClassNotFoundException(name);
             }
           });
+    }
+  }
+
+  // TODO(cushon): remove this use of reflection if Java 9 is released.
+  private static String getClassLoaderName(ClassLoader classLoader) {
+    Method method;
+    try {
+      method = ClassLoader.class.getMethod("getName");
+    } catch (NoSuchMethodException e) {
+      // ClassLoader#getName doesn't exist in JDK 8 and earlier.
+      return null;
+    }
+    try {
+      return (String) method.invoke(classLoader, new Object[] {});
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
     }
   }
 

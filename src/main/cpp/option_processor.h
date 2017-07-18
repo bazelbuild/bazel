@@ -73,9 +73,9 @@ class OptionProcessor {
   //
   // If the method fails then error will contain the cause, otherwise error
   // remains untouched.
-  std::unique_ptr<CommandLine> SplitCommandLine(
+  virtual std::unique_ptr<CommandLine> SplitCommandLine(
       const std::vector<std::string>& args,
-      std::string* error);
+      std::string* error) const;
 
   // Parse a command line and the appropriate blazerc files. This should be
   // invoked only once per OptionProcessor object.
@@ -84,25 +84,20 @@ class OptionProcessor {
                                          const std::string& cwd,
                                          std::string* error);
 
-  blaze_exit_code::ExitCode ParseOptions(int argc, const char* argv[],
-                                         const std::string& workspace,
-                                         const std::string& cwd,
-                                         std::string* error);
-
   // Get the Blaze command to be executed.
   // Returns an empty string if no command was found on the command line.
-  const std::string& GetCommand() const;
+  std::string GetCommand() const;
 
   // Gets the arguments to the command. This is put together from the default
   // options specified in the blazerc file(s), the command line, and various
   // bits and pieces of information about the environment the blaze binary is
   // executed in.
-  void GetCommandArguments(std::vector<std::string>* result) const;
+  std::vector<std::string> GetCommandArguments() const;
 
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 
-  StartupOptions* GetParsedStartupOptions() const;
+  virtual StartupOptions* GetParsedStartupOptions() const;
 
   virtual blaze_exit_code::ExitCode FindUserBlazerc(
       const char* cmdLineRcFile,
@@ -145,31 +140,30 @@ class OptionProcessor {
     int index_;
   };
 
-  void AddRcfileArgsAndOptions(const std::string& cwd);
   blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
+
+  static std::vector<std::string> GetBlazercAndEnvCommandArgs(
+      const std::string& cwd,
+      const std::vector<RcFile*>& blazercs,
+      const std::map<std::string, std::vector<RcOption>>& rcoptions);
 
   // The list of parsed rc files, this field is initialized by ParseOptions.
   std::vector<RcFile*> blazercs_;
-  std::map<std::string, std::vector<RcOption> > rcoptions_;
-  // The original args given by the user, this field is initialized by
-  // ParseOptions.
-  std::vector<std::string> args_;
-  // The index in args where the last startup option occurs, this field is
-  // initialized by ParseOptions.
-  unsigned int startup_args_;
-  // The command found in args, this field is initialized by ParseOptions.
-  std::string command_;
-  // The list of command options. This is put together from the default
-  // options specified in the bazelrc file(s), the command line, and various
-  // bits and pieces of information about the environment the bazel binary is
-  // executed in. This field is initialized by ParseOptions.
-  std::vector<std::string> command_arguments_;
-  // The list of command options found in args, this field is initialized by
-  // ParseOptions.
-  std::vector<std::string> explicit_command_arguments_;
-  // Whether ParseOptions has been called.
-  bool initialized_;
+
+  // A map representing the flags parsed from the bazelrc files.
+  // A key is a command (e.g. 'build', 'startup') and its value is an ordered
+  // list of RcOptions.
+  std::map<std::string, std::vector<RcOption>> rcoptions_;
+
+  // An ordered list of command args that contain information about the
+  // execution environment and the flags passed via the bazelrc files.
+  std::vector<std::string> blazerc_and_env_command_args_;
+
+  // The command line constructed after calling ParseOptions.
+  std::unique_ptr<CommandLine> cmd_line_;
+
   const WorkspaceLayout* workspace_layout_;
+
   // The startup options parsed from args, this field is initialized by
   // ParseOptions.
   std::unique_ptr<StartupOptions> parsed_startup_options_;

@@ -20,11 +20,14 @@ import com.android.resources.Density;
 import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -40,12 +43,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Filters resources based on their qualifiers.
  *
  * <p>This includes filtering resources based on both the "resource_configuration_filters" and
  * "densities" attributes.
+ *
+ * <p>Whenever a new field is added to this class, be sure to add it to the {@link #equals(Object)}
+ * and {@link #hashCode()} methods. Failure to do so isn't just bad practice; it could seriously
+ * interfere with Bazel's caching performance.
  */
 public class ResourceFilter {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
@@ -115,7 +123,12 @@ public class ResourceFilter {
   }
 
   private static boolean hasAttr(AttributeMap attrs, String attrName) {
-    return attrs.isAttributeValueExplicitlySpecified(attrName);
+    if (!attrs.isAttributeValueExplicitlySpecified(attrName)) {
+      return false;
+    }
+
+    List<String> values = attrs.get(attrName, Type.STRING_LIST);
+    return values != null && !values.isEmpty();
   }
 
   static boolean hasFilters(RuleContext ruleContext) {
@@ -151,7 +164,9 @@ public class ResourceFilter {
      * does nothing (even if non-empty filters were also provided).
      */
     List<String> rawValues = attrs.get(attrName, Type.STRING_LIST);
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
+
+    // Use an ImmutableSet to remove duplicate values
+    ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
     for (String rawValue : rawValues) {
       if (rawValue.contains(",")) {
@@ -165,7 +180,9 @@ public class ResourceFilter {
       }
     }
 
-    return builder.build();
+    // Create a sorted copy so that ResourceFilter objects with the same filters are treated the
+    // the same regardless of the ordering of those filters.
+    return ImmutableList.sortedCopyOf(builder.build());
   }
 
   static ResourceFilter fromRuleContext(RuleContext ruleContext) {
@@ -175,10 +192,14 @@ public class ResourceFilter {
       return empty(DEFAULT_BEHAVIOR);
     }
 
-    return ruleContext
-        .getFragment(AndroidConfiguration.class)
-        .getResourceFilter()
-        .withAttrsFrom(ruleContext.attributes());
+    return forBaseAndAttrs(
+        ruleContext.getFragment(AndroidConfiguration.class).getResourceFilter(),
+        ruleContext.attributes());
+  }
+
+  @VisibleForTesting
+  static ResourceFilter forBaseAndAttrs(ResourceFilter base, AttributeMap attrs) {
+    return base.withAttrsFrom(attrs);
   }
 
   /**
@@ -198,6 +219,14 @@ public class ResourceFilter {
         extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
         extractFilters(attrs, DENSITIES_NAME),
         filterBehavior);
+  }
+
+  ResourceFilter withoutDynamicConfiguration() {
+    if (!usesDynamicConfiguration()) {
+      return this;
+    }
+
+    return empty(FilterBehavior.FILTER_IN_ANALYSIS);
   }
 
   private ImmutableList<FolderConfiguration> getConfigurationFilters(
@@ -344,7 +373,8 @@ public class ResourceFilter {
     return empty(fromRuleContext(ruleContext).filterBehavior);
   }
 
-  private static ResourceFilter empty(FilterBehavior filterBehavior) {
+  @VisibleForTesting
+  static ResourceFilter empty(FilterBehavior filterBehavior) {
     return new ResourceFilter(
         ImmutableList.<String>of(), ImmutableList.<String>of(), filterBehavior);
   }
@@ -355,9 +385,10 @@ public class ResourceFilter {
    */
   NestedSet<ResourceContainer> filterDependencies(
       RuleErrorConsumer ruleErrorConsumer, NestedSet<ResourceContainer> resources) {
-    if (!isPrefiltering()) {
+    if (!isPrefiltering() || usesDynamicConfiguration()) {
       /*
-       * If the filter is empty or resource prefiltering is disabled, just return the original,
+       * If the filter is empty, resource prefiltering is disabled, or the resources of dependencies
+       * have already been filtered thanks to dynamic configuration, just return the original,
        * rather than make a copy.
        *
        * Resources should only be prefiltered in top-level android targets (such as android_binary).
@@ -433,7 +464,10 @@ public class ResourceFilter {
         }
       }
 
-      if (!kept) {
+      // In FilterBehavior.FILTER_IN_ANALYSIS, this class needs to record any resources that were
+      // filtered out so that resource processing ignores references to them in symbols files of
+      // dependencies.
+      if (!kept && !usesDynamicConfiguration()) {
         String parentDir = artifact.getPath().getParentDirectory().getBaseName();
         filteredResources.add(parentDir + "/" + artifact.getFilename());
       }
@@ -637,24 +671,64 @@ public class ResourceFilter {
   }
 
   boolean isPrefiltering() {
-    return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS
-        || filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
+    return hasFilters() && filterBehavior != FilterBehavior.FILTER_IN_EXECUTION;
+  }
+
+  boolean hasFilters() {
+    return hasConfigurationFilters() || hasDensities();
+  }
+
+  public String getOutputDirectorySuffix() {
+    if (!hasFilters()) {
+      return null;
+    }
+
+    return getConfigurationFilterString() + "_" + getDensityString();
+  }
+
+  boolean usesDynamicConfiguration() {
+    return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
+  }
+
+  /*
+   * TODO: Stop tracking these once {@link FilterBehavior#FILTER_IN_ANALYSIS} is fully replaced by
+   * {@link FilterBehavior#FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION}.
+   *
+   * <p>Currently, when using {@link FilterBehavior#FILTER_IN_ANALYSIS}, android_library targets do
+   * no filtering, and all resources are built into their symbol files. The android_binary target
+   * filters out these resources in analysis. However, the filtered resources must be passed to
+   * resource processing at execution time so the code knows to ignore resources that were filtered
+   * out. Without this, resource processing code would see references to those resources in
+   * dependencies's symbol files, but then be unable to follow those references or know whether they
+   * were missing due to resource filtering or a bug.
+   */
+  ImmutableList<String> getResourcesToIgnoreInExecution() {
+    return filteredResources.build().asList();
   }
 
   /**
-   * TODO: Stop tracking these once android_library targets also filter resources correctly.
+   * {@inheritDoc}
    *
-   * <p>Currently, android_library targets pass do no filtering, and all resources are built into
-   * their symbol files. The android_binary target filters out these resources in analysis. However,
-   * the filtered resources must be passed to resource processing at execution time so the code
-   * knows to ignore resources that were filtered out. Without this, resource processing code would
-   * see references to those resources in dependencies's symbol files, but then be unable to follow
-   * those references or know whether they were missing due to resource filtering or a bug.
-   *
-   * @return a list of resources that were filtered out by this filter
+   * <p>ResourceFilter requires an accurately overridden equals() method to work correctly with
+   * Bazel's caching and dynamic configuration.
    */
-  ImmutableList<String> getFilteredResources() {
-    return filteredResources.build().asList();
+  @Override
+  public boolean equals(Object object) {
+    if (!(object instanceof ResourceFilter)) {
+      return false;
+    }
+
+    ResourceFilter other = (ResourceFilter) object;
+
+    return filterBehavior == other.filterBehavior
+        && configFilters.equals(other.configFilters)
+        && densities.equals(other.densities)
+        && filteredResources.build().equals(other.filteredResources.build());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(filterBehavior, configFilters, densities, filteredResources.build());
   }
 
   /**
@@ -675,5 +749,86 @@ public class ResourceFilter {
     public String getTypeDescription() {
       return filterEnumConverter.getTypeDescription();
     }
+  }
+
+  // Transitions for dealing with dynamically configured resource filtering:
+
+  @Nullable
+  PatchTransition getTopLevelPatchTransition(
+      String ruleClass, int topLevelTargetCount, AttributeMap attrs) {
+    if (!usesDynamicConfiguration()) {
+      // We're not using dynamic configuration, so we don't need to make a transition
+      return null;
+    }
+
+    if (topLevelTargetCount != 1 || !ruleClass.equals("android_binary")) {
+      // The presence of other top-level targets means we would potentially encounter multiple
+      // resource filtering settings, which, when combined with dynamic configuration, would
+      // probably split the build graph and slow everything down. For now, just use static resource
+      // filtering instead.
+      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
+    }
+
+    if (!ResourceFilter.hasFilters(attrs)) {
+      // This target doesn't specify any filtering settings, so dynamically configured resource
+      // filtering would be a waste of time.
+      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
+    }
+
+    // Continue using dynamically configured resource filtering, and propagate this target's
+    // filtering settings.
+    return new AddDynamicallyConfiguredResourceFilteringTransition(attrs);
+  }
+
+  public static final PatchTransition REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION =
+      new RemoveDynamicallyConfiguredResourceFilteringTransition();
+
+  private static final class RemoveDynamicallyConfiguredResourceFilteringTransition
+      extends BaseDynamicallyConfiguredResourceFilteringTransition {
+    @Override
+    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
+      return oldResourceFilter.withoutDynamicConfiguration();
+    }
+  }
+
+  @VisibleForTesting
+  static final class AddDynamicallyConfiguredResourceFilteringTransition
+      extends BaseDynamicallyConfiguredResourceFilteringTransition {
+    private final AttributeMap attrs;
+
+    AddDynamicallyConfiguredResourceFilteringTransition(AttributeMap attrs) {
+      this.attrs = attrs;
+    }
+
+    @Override
+    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
+      return oldResourceFilter.withAttrsFrom(attrs);
+    }
+
+    @VisibleForTesting
+    AttributeMap getAttrs() {
+      return attrs;
+    }
+  }
+
+  private abstract static class BaseDynamicallyConfiguredResourceFilteringTransition
+      implements PatchTransition {
+    @Override
+    public boolean defaultsToSelf() {
+      return false;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions newOptions = options.clone();
+
+      AndroidConfiguration.Options androidOptions =
+          newOptions.get(AndroidConfiguration.Options.class);
+      androidOptions.resourceFilter = getNewResourceFilter(androidOptions.resourceFilter);
+
+      return newOptions;
+    }
+
+    abstract ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter);
   }
 }

@@ -46,11 +46,14 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,7 +63,6 @@ import javax.annotation.Nullable;
  * Parser for WORKSPACE files.  Fills in an ExternalPackage.Builder
  */
 public class WorkspaceFactory {
-  public static final String BIND = "bind";
   private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
 
   // List of static function added by #addWorkspaceFunctions. Used to trim them out from the
@@ -260,6 +262,7 @@ public class WorkspaceFactory {
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }
+    builder.addRegisteredToolchainLabels(aPackage.getRegisteredToolchainLabels());
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
         // The old rule references another Package instance and we wan't to keep the invariant that
@@ -382,6 +385,56 @@ public class WorkspaceFactory {
     };
   }
 
+  @SkylarkSignature(
+    name = "register_toolchains",
+    objectType = Object.class,
+    returnType = NoneType.class,
+    doc =
+        "Registers a toolchain created with the toolchain() rule so that it is available for "
+            + "toolchain resolution.",
+    extraPositionals =
+        @Param(
+          name = "toolchain_labels",
+          type = SkylarkList.class,
+          generic1 = String.class,
+          doc = "The labels of the toolchains to register."
+        ),
+    useAst = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction.Factory newRegisterToolchainsFunction =
+      new BuiltinFunction.Factory("register_toolchains") {
+        public BuiltinFunction create(final RuleFactory ruleFactory) {
+          return new BuiltinFunction(
+              "register_toolchains", FunctionSignature.POSITIONALS, BuiltinFunction.USE_AST_ENV) {
+            public Object invoke(
+                SkylarkList<String> toolchainLabels, FuncallExpression ast, Environment env)
+                throws EvalException, InterruptedException {
+
+              // Collect the toolchain labels.
+              List<Label> toolchains = new ArrayList<>();
+              for (String rawLabel :
+                  toolchainLabels.getContents(String.class, "toolchain_labels")) {
+                try {
+                  toolchains.add(Label.parseAbsolute(rawLabel));
+                } catch (LabelSyntaxException e) {
+                  throw new EvalException(
+                      ast.getLocation(),
+                      String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()),
+                      e);
+                }
+              }
+
+              // Add to the package definition for later.
+              Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+              builder.addRegisteredToolchainLabels(toolchains);
+
+              return NONE;
+            }
+          };
+        }
+      };
+
   /**
    * Returns a function-value implementing the build rule "ruleClass" (e.g. cc_library) in the
    * specified package context.
@@ -426,15 +479,16 @@ public class WorkspaceFactory {
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
       boolean allowOverride, RuleFactory ruleFactory) {
-    ImmutableMap.Builder<String, BaseFunction> mapBuilder = ImmutableMap.builder();
-    mapBuilder.put(BIND, newBindFunction(ruleFactory));
+    Map<String, BaseFunction> map = new HashMap<>();
+    map.put("bind", newBindFunction(ruleFactory));
+    map.put("register_toolchains", newRegisterToolchainsFunction.apply(ruleFactory));
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      if (!ruleClass.equals(BIND)) {
+      if (!map.containsKey(ruleClass)) {
         BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
-        mapBuilder.put(ruleClass, ruleFunction);
+        map.put(ruleClass, ruleFunction);
       }
     }
-    return mapBuilder.build();
+    return ImmutableMap.copyOf(map);
   }
 
   private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {

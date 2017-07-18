@@ -262,22 +262,22 @@ public final class Environment implements Freezable {
    */
   private static final class Continuation {
     /** The {@link BaseFunction} being evaluated that will return into this Continuation. */
-    BaseFunction function;
+    final BaseFunction function;
 
     /** The {@link FuncallExpression} to which this Continuation will return. */
-    FuncallExpression caller;
+    final FuncallExpression caller;
 
     /** The next Continuation after this Continuation. */
-    @Nullable Continuation continuation;
+    @Nullable final Continuation continuation;
 
     /** The lexical Frame of the caller. */
-    Frame lexicalFrame;
+    final Frame lexicalFrame;
 
     /** The global Frame of the caller. */
-    Frame globalFrame;
+    final Frame globalFrame;
 
     /** The set of known global variables of the caller. */
-    @Nullable Set<String> knownGlobalVariables;
+    @Nullable final Set<String> knownGlobalVariables;
 
     Continuation(
         Continuation continuation,
@@ -940,16 +940,28 @@ public final class Environment implements Freezable {
     }
   }
 
+  /** An exception thrown by {@link #FAIL_FAST_HANDLER}. */
+  // TODO(bazel-team): Possibly extend RuntimeException instead of IllegalArgumentException.
+  public static class FailFastException extends IllegalArgumentException {
+    public FailFastException(String s) {
+      super(s);
+    }
+  }
 
   /**
-   * The fail fast handler, which throws an {@link IllegalArgumentException} whenever an error or
-   * warning occurs.
+   * A handler that immediately throws {@link FailFastException} whenever an error or warning
+   * occurs.
+   *
+   * We do not reuse an existing unchecked exception type, because callers (e.g., test assertions)
+   * need to be able to distinguish between organically occurring exceptions and exceptions thrown
+   * by this handler.
    */
   public static final EventHandler FAIL_FAST_HANDLER = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        Preconditions.checkArgument(
-            !EventKind.ERRORS_AND_WARNINGS.contains(event.getKind()), event);
+    @Override
+    public void handle(Event event) {
+      if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
+        throw new FailFastException(event.toString());
       }
-    };
+    }
+  };
 }

@@ -28,11 +28,21 @@ public final class NoBuildEvent implements BuildEvent {
   private final String command;
   private final Long startTimeMillis;
   private final boolean separateFinishedEvent;
+  private final boolean keepShowingProgress;
 
-  public NoBuildEvent(String command, Long startTimeMillis, boolean separateFinishedEvent) {
+  public NoBuildEvent(
+      String command,
+      Long startTimeMillis,
+      boolean separateFinishedEvent,
+      boolean keepShowingProgress) {
     this.command = command;
     this.startTimeMillis = startTimeMillis;
     this.separateFinishedEvent = separateFinishedEvent;
+    this.keepShowingProgress = keepShowingProgress;
+  }
+
+  public NoBuildEvent(String command, Long startTimeMillis, boolean separateFinishedEvent) {
+    this(command, startTimeMillis, separateFinishedEvent, false);
   }
 
   public NoBuildEvent() {
@@ -69,5 +79,9 @@ public final class NoBuildEvent implements BuildEvent {
 
   public boolean separateFinishedEvent() {
     return separateFinishedEvent;
+  }
+
+  public boolean keepShowingProgress() {
+    return keepShowingProgress;
   }
 }

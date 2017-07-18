@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.authandtls;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Common options for authentication and TLS.
@@ -86,8 +86,8 @@ public class AuthAndTLSOptions extends OptionsBase {
     name = "tls_authority_override",
     defaultValue = "null",
     category = "remote",
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    metadataTags = {OptionMetadataTag.HIDDEN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "

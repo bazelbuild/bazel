@@ -378,6 +378,36 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testNonPropagatedDepsDiamond() throws Exception {
+    // Non-propagated.
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "a.h")
+        .write();
+    // Conflicts with non-propagated.
+    createLibraryTargetWriter("//objc2:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "a.h")
+        .write();
+
+    createLibraryTargetWriter("//objc3:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "b.h")
+        .setList("non_propagated_deps", "//objc:lib")
+        .write();
+
+    createLibraryTargetWriter("//objc4:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .setList("deps", "//objc2:lib", "//objc3:lib")
+        .write();
+
+    CommandAction action = compileAction("//objc4:lib", "a.o");
+    assertThat(Artifact.toRootRelativePaths(action.getPossibleInputsForTesting()))
+        .containsAllOf("objc2/a.h", "objc3/b.h", "objc4/c.h", "objc4/a.m", "objc4/private.h");
+  }
+
+  @Test
   public void testCompilationActions_simulator() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
@@ -1258,6 +1288,29 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(ObjcLibraryTest.RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesAssemblyWithPreprocessing() throws Exception {
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.S")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileAction = compileAction("//objc:lib", "b.o");
+
+    // Clang automatically preprocesses .S files, so the assembler-with-cpp flag is unnecessary.
+    // Regression test for b/22636858.
+    assertThat(compileAction.getArguments()).doesNotContain("-x");
+    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
+    assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
+        .containsAllOf("c.h", "b.S");
+  }
+
+  @Test
   public void testUsesDotdPruning() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL, "--objc_use_dotd_pruning");
@@ -1542,5 +1595,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
     CommandAction compileAction = compileAction("//x:objc", "source.o");
     assertThat(compileAction.getArguments()).contains("-dummy");
+  }
+
+  @Test
+  public void testCustomModuleMap() throws Exception {
+    checkCustomModuleMap(RULE_TYPE);
   }
 }

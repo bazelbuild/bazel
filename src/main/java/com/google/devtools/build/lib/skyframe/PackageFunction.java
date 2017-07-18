@@ -453,7 +453,9 @@ public class PackageFunction implements SkyFunction {
       env.getListener().post(post);
     }
 
-    packageFactory.afterDoneLoadingPackage(pkg);
+    if (packageFactory != null) {
+      packageFactory.afterDoneLoadingPackage(pkg);
+    }
     return new PackageValue(pkg);
   }
 
@@ -565,7 +567,11 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     Package.Builder pkgBuilder = packageBuilderAndGlobDeps.value;
-    pkgBuilder.buildPartial();
+    try {
+      pkgBuilder.buildPartial();
+    } catch (NoSuchPackageException e) {
+      throw new PackageFunctionException(e, Transience.TRANSIENT);
+    }
     try {
       // Since the Skyframe dependencies we request below in
       // markDependenciesAndPropagateFilesystemExceptions are requested independently of

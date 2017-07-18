@@ -27,7 +27,9 @@ public interface SkylarkValue {
    * <p>Immutability is deep, i.e. in order for a value to be immutable, all values it is composed
    * of must be immutable, too.
    */
-  boolean isImmutable();
+  default boolean isImmutable() {
+      return false;
+  }
 
   /**
    * Print an official representation of object x.

@@ -25,6 +25,13 @@ public final class Spawns {
   private Spawns() {}
 
   /**
+   * Returns {@code true} if the result of {@code spawn} may be cached.
+   */
+  public static boolean mayBeCached(Spawn spawn) {
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE);
+  }
+
+  /**
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */
   public static int getTimeoutSeconds(Spawn spawn) throws ExecException {

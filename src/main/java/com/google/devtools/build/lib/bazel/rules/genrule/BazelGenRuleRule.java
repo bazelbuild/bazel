@@ -50,8 +50,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("stamp", BOOLEAN).value(false))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                .value(GenRuleBaseRule.CC_TOOLCHAIN))
-        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
+                .value(GenRuleBaseRule.ccToolchainAttribute(env)))
+        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(env)))
         .build();
   }
 

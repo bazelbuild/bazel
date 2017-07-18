@@ -118,9 +118,7 @@ public class SkylarkActionFactory implements SkylarkValue {
       name = "declare_directory",
       doc =
           "Declares that rule or aspect create a directory with the given name, in the "
-              + "current package. You must create an action that generates the file. <br>"
-              + "Files that are specified in rule's outputs do not need to be declared and are "
-              + "available through  <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+              + "current package. You must create an action that generates the directory.",
       parameters = {
           @Param(
               name = "filename",
@@ -592,8 +590,7 @@ public class SkylarkActionFactory implements SkylarkValue {
       }
     }
 
-    String mnemonic =
-        mnemonicUnchecked == Runtime.NONE ? "Generating" : (String) mnemonicUnchecked;
+    String mnemonic = getMnemonic(mnemonicUnchecked);
     builder.setMnemonic(mnemonic);
     if (envUnchecked != Runtime.NONE) {
       builder.setEnvironment(
@@ -624,6 +621,19 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
     // Always register the action
     ruleContext.registerAction(builder.build(ruleContext));
+  }
+
+  private String getMnemonic(Object mnemonicUnchecked) {
+    String mnemonic =
+        mnemonicUnchecked == Runtime.NONE ? "SkylarkAction" : (String) mnemonicUnchecked;
+    if (ruleContext.getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
+      mnemonic = mangleMnemonic(mnemonic);
+    }
+    return mnemonic;
+  }
+
+  private static String mangleMnemonic(String mnemonic) {
+    return mnemonic + "FromSkylark";
   }
 
   @SkylarkCallable(

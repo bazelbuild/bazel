@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
-import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -49,9 +47,7 @@ import javax.annotation.Nullable;
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
-  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> extraActionInputs;
-  private final Iterable<Artifact> originalShadowedActionInputs;
 
   /**
    * A long way to say (ExtraAction xa) -> xa.getShadowedAction().
@@ -79,11 +75,7 @@ public final class ExtraAction extends SpawnAction {
     super(
         shadowedAction.getOwner(),
         ImmutableList.<Artifact>of(),
-        createInputs(
-            shadowedAction.getInputs(),
-            ImmutableList.<Artifact>of(),
-            extraActionInputs,
-            runfilesSupplier),
+        createInputs(shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
@@ -91,14 +83,11 @@ public final class ExtraAction extends SpawnAction {
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        // TODO(michajlo): Do we need the runfiles manifest as an input / should this be composite?
-        shadowedAction.getRunfilesSupplier(),
+        new CompositeRunfilesSupplier(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
         false,
         null);
-    this.originalShadowedActionInputs = shadowedAction.getInputs();
     this.shadowedAction = shadowedAction;
-    this.runfilesSupplier = runfilesSupplier;
     this.createDummyOutput = createDummyOutput;
 
     this.extraActionInputs = extraActionInputs;
@@ -125,11 +114,11 @@ public final class ExtraAction extends SpawnAction {
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
     Iterable<Artifact> oldInputs = getInputs();
-    updateInputs(createInputs(
-        shadowedAction.getInputs(),
-        shadowedAction.getInputFilesForExtraAction(actionExecutionContext),
-        extraActionInputs,
-        runfilesSupplier));
+    updateInputs(
+        createInputs(
+            shadowedAction.getInputs(),
+            shadowedAction.getInputFilesForExtraAction(actionExecutionContext),
+            extraActionInputs));
     return Sets.<Artifact>difference(
         ImmutableSet.<Artifact>copyOf(getInputs()), ImmutableSet.<Artifact>copyOf(oldInputs));
   }
@@ -137,8 +126,7 @@ public final class ExtraAction extends SpawnAction {
   private static NestedSet<Artifact> createInputs(
       Iterable<Artifact> shadowedActionInputs,
       Iterable<Artifact> inputFilesForExtraAction,
-      ImmutableSet<Artifact> extraActionInputs,
-      RunfilesSupplier extraActionRunfilesSupplier) {
+      ImmutableSet<Artifact> extraActionInputs) {
     NestedSetBuilder<Artifact> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     for (Iterable<Artifact> inputSet : ImmutableList.of(
         shadowedActionInputs, inputFilesForExtraAction)) {
@@ -148,7 +136,6 @@ public final class ExtraAction extends SpawnAction {
         result.addAll(inputSet);
       }
     }
-    result.addAll(extraActionRunfilesSupplier.getArtifacts());
     return result.addAll(extraActionInputs).build();
   }
 
@@ -184,27 +171,6 @@ public final class ExtraAction extends SpawnAction {
         }
       }
     }
-  }
-
-  /**
-   * The spawn command for ExtraAction needs to be slightly modified from
-   * regular SpawnActions:
-   * -the extraActionInfo file needs to be added to the list of inputs.
-   * -the extraActionInfo file that is an output file of this task is created
-   * before the SpawnAction so should not be listed as one of its outputs.
-   */
-  // TODO(bazel-team): Add more tests that execute this code path!
-  @Override
-  public Spawn getSpawn(Map<String, String> clientEnv) {
-    final Spawn base = super.getSpawn(clientEnv);
-    return new DelegateSpawn(base) {
-      @Override
-      public RunfilesSupplier getRunfilesSupplier() {
-        return new CompositeRunfilesSupplier(super.getRunfilesSupplier(), runfilesSupplier);
-      }
-
-      @Override public String getMnemonic() { return ExtraAction.this.getMnemonic(); }
-    };
   }
 
   /**

@@ -42,6 +42,6 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected Set<String> whitelistedCommands() {
-    return ImmutableSet.of("build", "test", "run", "query", "coverage", "mobile-install");
+    return ImmutableSet.of("fetch", "build", "test", "run", "query", "coverage", "mobile-install");
   }
 }

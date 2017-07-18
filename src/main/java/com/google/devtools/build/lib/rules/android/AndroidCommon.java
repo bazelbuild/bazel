@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
@@ -100,25 +100,12 @@ public class AndroidCommon {
   }
 
   public static final <T extends SkylarkClassObject> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, Mode mode, SkylarkClassObjectConstructor.Key key,
-      final Class<T> classType) {
+      RuleContext ruleContext, Mode mode, NativeClassObjectConstructor<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (attributes.has(attr, BuildType.LABEL_LIST)) {
-        builder.add(ruleContext.getPrerequisites(attr, mode, key, classType));
-      }
-    }
-    return builder.build();
-  }
-
-
-  public static final Iterable<TransitiveInfoCollection> collectTransitiveInfo(
-      RuleContext ruleContext, Mode mode) {
-    ImmutableList.Builder<TransitiveInfoCollection> builder = ImmutableList.builder();
-    for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
-        builder.addAll(ruleContext.getPrerequisites(attr, mode));
+        builder.add(ruleContext.getPrerequisites(attr, mode, key));
       }
     }
     return builder.build();
@@ -403,9 +390,7 @@ public class AndroidCommon {
     // If the rule does not have the Android configuration fragment, we default to false.
     boolean exportsManifestDefault =
         ruleContext.isLegalFragment(AndroidConfiguration.class)
-            && ruleContext
-                .getFragment(AndroidConfiguration.class)
-                .getExportsManifestDefault(ruleContext);
+            && ruleContext.getFragment(AndroidConfiguration.class).getExportsManifestDefault();
     return attributeValue == TriState.YES
         || (attributeValue == TriState.AUTO && exportsManifestDefault);
   }
@@ -938,9 +923,8 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupProvider provider :
-        getTransitivePrerequisites(ruleContext, Mode.TARGET,
-            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            OutputGroupProvider.class)) {
+        getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, OutputGroupProvider.SKYLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }
     return builder.build();

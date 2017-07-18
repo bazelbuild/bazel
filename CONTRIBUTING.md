@@ -1,27 +1,21 @@
-Want to contribute? Great! First, read this page (including the small print at the end).
+# Contributing to Bazel
 
-### Before you contribute
-**Before we can use your code, you must sign the
-[Google Individual Contributor License Agreement](https://developers.google.com/open-source/cla/individual?csw=1)
-(CLA)**, which you can do online.
+## Contributor License Agreement
 
-The CLA is necessary mainly because you own the copyright to your changes,
-even after your contribution becomes part of our codebase, so we need your
-permission to use and distribute your code. We also need to be sure of
-various other things — for instance that you'll tell us if you know that
-your code infringes on other people's patents. You don't have to sign
-the CLA until after you've submitted your code for review and a member has
-approved it, but you must do it before we can put your code into our codebase.
+Contributions to this project must be accompanied by a Contributor License
+Agreement. You (or your employer) retain the copyright to your contribution,
+this simply gives us permission to use and redistribute your contributions as
+part of the project. Head over to <https://cla.developers.google.com/> to see
+your current agreements on file or to sign a new one.
 
-Before you start working on a larger contribution, you should get in touch
-with us first. Use the issue tracker to explain your idea so we can help and
-possibly guide you.
+You generally only need to submit a CLA once, so if you've already submitted one
+(even if it was for a different project), you probably don't need to do it
+again.
 
-### Code reviews and other contributions.
-**All submissions, including submissions by project members, require review.**
-Please follow the instructions in [the contributors documentation](http://bazel.build/contributing.html).
+## Patch Acceptance Process
 
-### The small print
-Contributions made by corporations are covered by a different agreement than
-the one above, the
-[Software Grant and Corporate Contributor License Agreement](https://cla.developers.google.com/about/google-corporate).
+Read how to [contribute to Bazel](https://bazel.build/contributing.html)
+
+## Setting up your development environment
+
+Read how to [set up your development environment](https://bazel.build/contributing.html)

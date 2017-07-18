@@ -18,10 +18,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
@@ -36,8 +34,6 @@ public final class ValidationEnvironment {
   private final ValidationEnvironment parent;
 
   private final Set<String> variables = new HashSet<>();
-
-  private final Map<String, Location> variableLocations = new HashMap<>();
 
   private final Set<String> readOnlyVariables = new HashSet<>();
 
@@ -84,7 +80,6 @@ public final class ValidationEnvironment {
       }
     }
     variables.add(varname);
-    variableLocations.put(varname, location);
   }
 
   private void checkReadonly(String varname, Location location) throws EvalException {
@@ -197,7 +192,7 @@ public final class ValidationEnvironment {
     for (Statement statement : statements) {
       if (statement instanceof FunctionDefStatement) {
         FunctionDefStatement fct = (FunctionDefStatement) statement;
-        declare(fct.getIdent().getName(), fct.getLocation());
+        declare(fct.getIdentifier().getName(), fct.getLocation());
       }
     }
 

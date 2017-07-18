@@ -98,7 +98,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
-              ResourceFilter.empty(ruleContext),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
               DataBinding.isEnabled(ruleContext)
@@ -180,6 +179,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           .withPrimary(resourceContainer)
           .withDependencies(resourceApk.getResourceDependencies())
           .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+          .setThrowOnResourceConflict(
+              ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
           .build(ruleContext);
     }
 
@@ -189,6 +190,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .withRtxt(primaryResources.getRTxt())
       .withClasses(classesJar)
       .setAAROut(aarOut)
+      .setThrowOnResourceConflict(
+          ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
       .build(ruleContext);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);

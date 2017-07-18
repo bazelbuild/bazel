@@ -16,19 +16,13 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.SkylarkProviderCollection;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Utility methods to help locate platform-related providers. */
 public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link PlatformInfo} provider from the given target. */
   public static PlatformInfo platform(SkylarkProviderCollection target) {
-    Object provider = target.get(PlatformInfo.SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof PlatformInfo);
-    return (PlatformInfo) provider;
+    return target.get(PlatformInfo.SKYLARK_CONSTRUCTOR);
   }
 
   /** Retrieves and casts {@link PlatformInfo} providers from the given targets. */
@@ -39,12 +33,7 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
   public static ConstraintSettingInfo constraintSetting(SkylarkProviderCollection target) {
-    Object provider = target.get(ConstraintSettingInfo.SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConstraintSettingInfo);
-    return (ConstraintSettingInfo) provider;
+    return target.get(ConstraintSettingInfo.SKYLARK_CONSTRUCTOR);
   }
 
   /** Retrieves and casts {@link ConstraintSettingInfo} providers from the given targets. */
@@ -55,12 +44,7 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
   public static ConstraintValueInfo constraintValue(SkylarkProviderCollection target) {
-    Object provider = target.get(ConstraintValueInfo.SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConstraintValueInfo);
-    return (ConstraintValueInfo) provider;
+    return target.get(ConstraintValueInfo.SKYLARK_CONSTRUCTOR);
   }
 
   /** Retrieves and casts {@link ConstraintValueInfo} providers from the given targets. */
@@ -71,11 +55,6 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
   public static ToolchainInfo toolchain(SkylarkProviderCollection target) {
-    Object provider = target.get(ToolchainInfo.SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ToolchainInfo);
-    return (ToolchainInfo) provider;
+    return target.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
   }
 }

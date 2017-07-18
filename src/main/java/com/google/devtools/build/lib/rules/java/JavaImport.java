@@ -173,7 +173,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
+        .addNativeDeclaredProvider(new CcLinkParamsProvider(ccLinkParamsStore))
         .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .add(
             JavaNativeLibraryProvider.class,

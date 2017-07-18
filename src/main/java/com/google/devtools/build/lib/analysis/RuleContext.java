@@ -60,12 +60,12 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -96,6 +96,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -422,6 +423,7 @@ public final class RuleContext extends TargetContext
         configuration.getMnemonic(),
         rule.getTargetKind(),
         configuration.checksum(),
+        configuration,
         configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null);
   }
 
@@ -819,6 +821,28 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * For a given attribute, returns all declared provider provided by targets
+   * of that attribute. Each declared provider is keyed by the
+   * {@link BuildConfiguration} under which the provider was created.
+   */
+  public <C extends SkylarkClassObject> ImmutableListMultimap<BuildConfiguration, C>
+  getPrerequisitesByConfiguration(String attributeName, Mode mode,
+      final NativeClassObjectConstructor<C> provider) {
+    List<? extends TransitiveInfoCollection> transitiveInfoCollections =
+        getPrerequisites(attributeName, mode);
+
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (TransitiveInfoCollection prerequisite : transitiveInfoCollections) {
+      C prerequisiteProvider = prerequisite.get(provider);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
    * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets
    * of that attribute. Each {@link TransitiveInfoCollection} is keyed by the
    * {@link BuildConfiguration} under which the collection was created.
@@ -851,10 +875,8 @@ public final class RuleContext extends TargetContext
    * specified attribute of this target in the BUILD file.
    */
   public <T extends SkylarkClassObject> Iterable<T> getPrerequisites(
-      String attributeName, Mode mode,
-      final ClassObjectConstructor.Key skylarkKey,
-      Class<T> result) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey, result);
+      String attributeName, Mode mode, final NativeClassObjectConstructor<T> skylarkKey) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
   /**
@@ -863,8 +885,8 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public SkylarkClassObject getPrerequisite(
-      String attributeName, Mode mode, final ClassObjectConstructor.Key skylarkKey) {
+  public <T extends SkylarkClassObject> T getPrerequisite(
+      String attributeName, Mode mode, final NativeClassObjectConstructor<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
@@ -1052,27 +1074,23 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    // Using an ImmutableBuilder to complain about duplicate keys. This traversal order of
-    // getPrerequisites isn't well-defined, so this makes sure providers don't secretly stomp on
-    // each other.
-    ImmutableMap.Builder<String, String> makeVariableBuilder = ImmutableMap.builder();
-    ImmutableSet.Builder<MakeVariableProvider> makeVariableProvidersBuilder =
-        ImmutableSet.builder();
+    ArrayList<MakeVariableProvider> makeVariableProviders = new ArrayList<>();
 
     for (String attributeName : attributeNames) {
       // TODO(b/37567440): Remove this continue statement.
       if (!attributes().has(attributeName)) {
         continue;
       }
-      makeVariableProvidersBuilder.addAll(
-          getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.class));
+      Iterables.addAll(makeVariableProviders,
+          getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.SKYLARK_CONSTRUCTOR));
     }
 
-    for (MakeVariableProvider makeVariableProvider : makeVariableProvidersBuilder.build()) {
-      makeVariableBuilder.putAll(makeVariableProvider.getMakeVariables());
+    LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();
+    for (MakeVariableProvider makeVariableProvider : makeVariableProviders) {
+      makeVariables.putAll(makeVariableProvider.getMakeVariables());
     }
 
-    return makeVariableBuilder.build();
+    return ImmutableMap.copyOf(makeVariables);
   }
 
   /**
@@ -1108,11 +1126,12 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Return a context that maps Make variable names (string) to values (string).
+   * Expands the make variables in {@code expression}.
    *
-   * <p>Uses {@NoopExpansionInterceptor}.
-   *
-   * @return a ConfigurationMakeVariableContext.
+   * @param attributeName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
+   * @param expression the string to expand.
+   * @return the expanded string.
    */
   public String expandMakeVariables(String attributeName, String expression) {
     return expandMakeVariables(attributeName, expression, ImmutableList.<MakeVariableSupplier>of());
