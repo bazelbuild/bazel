@@ -364,13 +364,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void useConfiguration(ObjcCrosstoolMode objcCrosstoolMode, String... args)
       throws Exception {
     ImmutableList.Builder<String> extraArgsBuilder = ImmutableList.builder();
-    if (objcCrosstoolMode != ObjcCrosstoolMode.OFF) {
-      String crosstoolModeFlag =
-          objcCrosstoolMode == ObjcCrosstoolMode.ALL
-              ? "--experimental_objc_crosstool=all"
-              : "--experimental_objc_crosstool=library";
-      extraArgsBuilder.add(crosstoolModeFlag);
+    switch(objcCrosstoolMode) {
+      case ALL:
+        extraArgsBuilder.add("--experimental_objc_crosstool=all");
+        break;
+      case LIBRARY:
+        extraArgsBuilder.add("--experimental_objc_crosstool=library");
+        break;
+      case OFF:
+        extraArgsBuilder.add("--experimental_objc_crosstool=off");
+        break;
     }
+
     extraArgsBuilder
         .add("--experimental_disable_go")
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
@@ -4674,9 +4679,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool(RuleType ruleType) throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all");
+    useConfiguration(ObjcCrosstoolMode.ALL);
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
     ConfiguredTarget target = getConfiguredTarget("//x:x");
 
@@ -4687,9 +4690,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool_singleArch(RuleType ruleType) throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all");
+    useConfiguration(ObjcCrosstoolMode.ALL);
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If bin is indeed using the c++ backend, then its archive action should be a CppLinkAction.
@@ -4702,10 +4703,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool_multiArch(RuleType ruleType) throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all",
-        "--ios_multi_cpus=i386,x86_64");
+    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If bin is indeed using the c++ backend, then its archive action should be a CppLinkAction.

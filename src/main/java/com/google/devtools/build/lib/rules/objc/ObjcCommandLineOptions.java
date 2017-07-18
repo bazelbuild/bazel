@@ -275,7 +275,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_objc_crosstool",
-    defaultValue = "off",
+    defaultValue = "all",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

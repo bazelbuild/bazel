@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
@@ -69,9 +69,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCanUseCrosstool() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all");
+    useConfiguration(ObjcCrosstoolMode.ALL);
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If the target is indeed using the c++ backend, then its archive action should be a
@@ -84,10 +82,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCanUseCrosstool_multiArch() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all",
-        "--ios_multi_cpus=i386,x86_64");
+    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If the target is indeed using the c++ backend, then its archive action should be a
