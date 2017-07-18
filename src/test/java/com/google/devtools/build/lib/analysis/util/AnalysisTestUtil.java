@@ -412,9 +412,10 @@ public final class AnalysisTestUtil {
     rootMap.put(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles");
+        "bin");
     rootMap.put(
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal");
@@ -423,9 +424,10 @@ public final class AnalysisTestUtil {
     rootMap.put(
         hostConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin(host)");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles(host)");
+        "bin(host)");
     rootMap.put(
         hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal(host)");
