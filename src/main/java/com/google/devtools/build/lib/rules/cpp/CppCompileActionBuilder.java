@@ -350,6 +350,9 @@ public class CppCompileActionBuilder {
           featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements()) {
         executionInfo.put(executionRequirement, "");
       }
+    } else {
+      errorCollector.accept(
+          String.format("Expected action_config for '%s' to be configured", getActionName()));
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();

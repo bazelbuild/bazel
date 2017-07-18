@@ -125,6 +125,23 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testMisconfiguredCrosstoolRaisesErrorWhenCompiling() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration();
+
+    checkError(
+        "test",
+        "test",
+        "Expected action_config for 'c++-compile' to be configured",
+        "cc_library(name = 'test', srcs = ['test.cc'])");
+  }
+
+  @Test
   public void testFilesToBuild() throws Exception {
     useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
