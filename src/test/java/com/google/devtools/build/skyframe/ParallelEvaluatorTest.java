@@ -17,8 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.fail;
@@ -33,11 +31,12 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
@@ -70,14 +69,14 @@ public class ParallelEvaluatorTest {
   protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
 
-  private EventCollector eventCollector;
+  private StoredEventHandler storedEventHandler;
 
   private DirtyTrackingProgressReceiver revalidationReceiver =
       new DirtyTrackingProgressReceiver(null);
 
   @Before
   public void initializeReporter() {
-    eventCollector = new EventCollector();
+    storedEventHandler = new StoredEventHandler();
   }
 
   @After
@@ -96,7 +95,7 @@ public class ParallelEvaluatorTest {
         graph,
         oldGraphVersion,
         builders,
-        new Reporter(new EventBus(), eventCollector),
+        storedEventHandler,
         new MemoizingEvaluator.EmittedEventState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
@@ -143,7 +142,8 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate("ab").addDependency("a").addDependency("b").setComputedValue(CONCATENATE);
     StringValue value = (StringValue) eval(false, GraphTester.toSkyKey("ab"));
     assertThat(value.getValue()).isEqualTo("ab");
-    assertNoEvents(eventCollector);
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+    assertThat(storedEventHandler.getPosts()).isEmpty();
   }
 
   /**
@@ -412,8 +412,8 @@ public class ParallelEvaluatorTest {
     set("a", "a").setWarning("warning on 'a'");
     StringValue value = (StringValue) eval(false, GraphTester.toSkyKey("a"));
     assertThat(value.getValue()).isEqualTo("a");
-    assertContainsEvent(eventCollector, "warning on 'a'");
-    assertEventCount(1, eventCollector);
+    assertContainsEvent(storedEventHandler.getEvents(), "warning on 'a'");
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
   }
 
   /** Regression test: events from already-done value not replayed. */
@@ -426,15 +426,36 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
     // Build a so that it is already in the graph.
     eval(false, a);
-    assertEventCount(1, eventCollector);
-    eventCollector.clear();
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    storedEventHandler.clear();
     // Build top. The warning from a should be reprinted.
     eval(false, top);
-    assertEventCount(1, eventCollector);
-    eventCollector.clear();
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    storedEventHandler.clear();
     // Build top again. The warning should have been stored in the value.
     eval(false, top);
-    assertEventCount(1, eventCollector);
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+  }
+
+  @Test
+  public void postableFromDoneChildRecorded() throws Exception {
+    graph = new InMemoryGraphImpl();
+    Postable post = new Postable() {};
+    set("a", "a").setPostable(post);
+    SkyKey a = GraphTester.toSkyKey("a");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
+    // Build a so that it is already in the graph.
+    eval(false, a);
+    assertThat(storedEventHandler.getPosts()).containsExactly(post);
+    storedEventHandler.clear();
+    // Build top. The warning from a should be reprinted.
+    eval(false, top);
+    assertThat(storedEventHandler.getPosts()).containsExactly(post);
+    storedEventHandler.clear();
+    // Build top again. The warning should have been stored in the value.
+    eval(false, top);
+    assertThat(storedEventHandler.getPosts()).containsExactly(post);
   }
 
   @Test
@@ -476,16 +497,16 @@ public class ParallelEvaluatorTest {
             });
     evaluator.eval(ImmutableList.of(a));
     assertThat(evaluated.get()).isTrue();
-    assertEventCount(2, eventCollector);
-    assertContainsEvent(eventCollector, "boop");
-    assertContainsEvent(eventCollector, "beep");
-    eventCollector.clear();
+    assertThat(storedEventHandler.getEvents()).hasSize(2);
+    assertContainsEvent(storedEventHandler.getEvents(), "boop");
+    assertContainsEvent(storedEventHandler.getEvents(), "beep");
+    storedEventHandler.clear();
     evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false);
     evaluated.set(false);
     evaluator.eval(ImmutableList.of(a));
     assertThat(evaluated.get()).isFalse();
-    assertEventCount(1, eventCollector);
-    assertContainsEvent(eventCollector, "boop");
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertContainsEvent(storedEventHandler.getEvents(), "boop");
   }
 
   @Test
