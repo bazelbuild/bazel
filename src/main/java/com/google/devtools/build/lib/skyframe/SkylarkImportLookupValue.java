@@ -102,4 +102,22 @@ public class SkylarkImportLookupValue implements SkyValue {
     return LegacySkyKey.create(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupKey(importLabel, inWorkspace));
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SkylarkImportLookupValue)) {
+      return false;
+    }
+    SkylarkImportLookupValue other = (SkylarkImportLookupValue) obj;
+    return environmentExtension.equals(other.getEnvironmentExtension())
+        && dependency.equals(other.getDependency());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(environmentExtension, dependency);
+  }
 }
