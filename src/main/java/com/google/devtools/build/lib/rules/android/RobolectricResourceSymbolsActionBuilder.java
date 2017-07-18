@@ -84,12 +84,11 @@ public class RobolectricResourceSymbolsActionBuilder {
     inputs.add(sdk.getAndroidJar());
 
     if (!Iterables.isEmpty(dependencies.getResources())) {
-      builder
-          .add("--data")
-          .addJoinValues(
-              RESOURCE_CONTAINER_TO_ARG.listSeparator(),
-              dependencies.getResources(),
-              RESOURCE_CONTAINER_TO_ARG);
+      builder.addJoinValues(
+          "--data",
+          RESOURCE_CONTAINER_TO_ARG.listSeparator(),
+          dependencies.getResources(),
+          RESOURCE_CONTAINER_TO_ARG);
     }
 
     // This flattens the nested set.

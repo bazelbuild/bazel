@@ -427,8 +427,8 @@ public final class JavaCompileAction extends SpawnAction {
             CustomCommandLine.builder().addPath(javaExecutable).add(javaBuilderJvmFlags);
         if (!instrumentationJars.isEmpty()) {
           builder
-              .add("-cp")
               .addJoinExecPaths(
+                  "-cp",
                   pathDelimiter,
                   Iterables.concat(instrumentationJars, ImmutableList.of(javaBuilderJar)))
               .add(javaBuilderMainClass);
@@ -679,34 +679,35 @@ public final class JavaCompileAction extends SpawnAction {
         result.addExecPath("--output_deps_proto", outputDepsProto);
       }
       if (!extdirInputs.isEmpty()) {
-        result.add("--extclasspath").addExecPaths(extdirInputs);
+        result.addExecPaths("--extclasspath", extdirInputs);
       }
       if (!bootclasspathEntries.isEmpty()) {
-        result.add("--bootclasspath").addExecPaths(bootclasspathEntries);
+        result.addExecPaths("--bootclasspath", bootclasspathEntries);
       }
       if (!sourcePathEntries.isEmpty()) {
-        result.add("--sourcepath").addExecPaths(sourcePathEntries);
+        result.addExecPaths("--sourcepath", sourcePathEntries);
       }
       if (!processorPath.isEmpty()) {
-        result.add("--processorpath").addExecPaths(processorPath);
+        result.addExecPaths("--processorpath", processorPath);
       }
       if (!processorNames.isEmpty()) {
-        result.add("--processors").add(processorNames);
+        result.add("--processors", processorNames);
       }
       if (!processorFlags.isEmpty()) {
-        result.add("--javacopts").add(processorFlags);
+        result.add("--javacopts", processorFlags);
       }
       if (!sourceJars.isEmpty()) {
-        result.add("--source_jars").addExecPaths(sourceJars);
+        result.addExecPaths("--source_jars", sourceJars);
       }
       if (!sourceFiles.isEmpty()) {
-        result.add("--sources").addExecPaths(sourceFiles);
+        result.addExecPaths("--sources", sourceFiles);
       }
       if (!javacOpts.isEmpty()) {
-        result.add("--javacopts").add(javacOpts);
+        result.add("--javacopts", javacOpts);
       }
       if (ruleKind != null) {
-        result.add("--rule_kind").add(ruleKind);
+        result.add("--rule_kind");
+        result.add(ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");
@@ -724,37 +725,34 @@ public final class JavaCompileAction extends SpawnAction {
       }
 
       if (!classpathEntries.isEmpty()) {
-        result.add("--classpath").addExecPaths(classpathEntries);
+        result.addExecPaths("--classpath", classpathEntries);
       }
 
       // strict_java_deps controls whether the mapping from jars to targets is
       // written out and whether we try to minimize the compile-time classpath.
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result
-            .add("--strict_java_deps")
-            .add(strictJavaDeps.toString())
-            .add(new JarsToTargetsArgv(classpathEntries, directJars));
+        result.add("--strict_java_deps");
+        result.add(strictJavaDeps.toString());
+        result.add(new JarsToTargetsArgv(classpathEntries, directJars));
 
         if (configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath()
             == JavaClasspathMode.JAVABUILDER) {
           result.add("--reduce_classpath");
 
           if (!compileTimeDependencyArtifacts.isEmpty()) {
-            result.add("--deps_artifacts").addExecPaths(compileTimeDependencyArtifacts);
+            result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
           }
         }
       }
       if (metadata != null) {
-        result
-            .add("--post_processor")
-            .addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata)
-            .addPath(
-                configuration
-                    .getCoverageMetadataDirectory(
-                        targetLabel.getPackageIdentifier().getRepository())
-                    .getExecPath())
-            .add("-*Test")
-            .add("-*TestCase");
+        result.add("--post_processor");
+        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+        result.addPath(
+            configuration
+                .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
+                .getExecPath());
+        result.add("-*Test");
+        result.add("-*TestCase");
       }
       return result.build();
     }
@@ -969,7 +967,7 @@ public final class JavaCompileAction extends SpawnAction {
       this.targetLabel = targetLabel;
       return this;
     }
-
+    
     public Builder setTestOnly(boolean testOnly) {
       this.testOnly = testOnly;
       return this;

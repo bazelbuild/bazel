@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -44,20 +43,40 @@ import javax.annotation.Nullable;
 @Immutable
 public final class CustomCommandLine extends CommandLine {
 
-  private interface ArgvFragment {
-    void eval(ImmutableList.Builder<String> builder);
+  private abstract static class ArgvFragment {
+    abstract void eval(ImmutableList.Builder<String> builder);
   }
 
   /**
-   * A command line argument that can expand enclosed TreeArtifacts into a list of child {@link
-   * TreeFileArtifact}s at execution time before argument evaluation.
+   * A command line argument for {@link TreeFileArtifact}.
    *
-   * <p>The main difference between this class and {@link TreeFileArtifactExecPathArg} is that
-   * {@link TreeFileArtifactExecPathArg} is used in {@link SpawnActionTemplate} to substitutes a
+   * <p>Since {@link TreeFileArtifact} is not known or available at analysis time, subclasses should
+   * enclose its parent TreeFileArtifact instead at analysis time. This interface provides method
+   * {@link #substituteTreeArtifact} to generate another argument object that replaces the enclosed
+   * TreeArtifact with one of its {@link TreeFileArtifact} at execution time.
+   */
+  private abstract static class TreeFileArtifactArgvFragment {
+    /**
+     * Substitutes this ArgvFragment with another arg object, with the original TreeArtifacts
+     * contained in this ArgvFragment replaced by their associated TreeFileArtifacts.
+     *
+     * @param substitutionMap A map between TreeArtifacts and their associated TreeFileArtifacts
+     *     used to replace them.
+     */
+    abstract Object substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap);
+  }
+
+  /**
+   * A command line argument that can expand enclosed TreeArtifacts into a list of child
+   * {@link TreeFileArtifact}s at execution time before argument evaluation.
+   *
+   * <p>The main difference between this class and {@link TreeFileArtifactArgvFragment} is that
+   * {@link TreeFileArtifactArgvFragment} is used in {@link SpawnActionTemplate} to substitutes a
    * TreeArtifact with *one* of its child TreeFileArtifacts, while this class expands a TreeArtifact
    * into *all* of its child TreeFileArtifacts.
+   *
    */
-  private abstract static class TreeArtifactExpansionArgvFragment implements ArgvFragment {
+  private abstract static class TreeArtifactExpansionArgvFragment extends ArgvFragment {
     /**
      * Evaluates this argument fragment into an argument string and adds it into {@code builder}.
      * The enclosed TreeArtifact will be expanded using {@code artifactExpander}.
@@ -79,13 +98,13 @@ public final class CustomCommandLine extends CommandLine {
      * <p>Internally this method just calls {@link #describe}.
      */
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.add(describe());
     }
   }
 
   // It's better to avoid anonymous classes if we want to serialize command lines
-  private static final class JoinExecPathsArg implements ArgvFragment {
+  private static final class JoinExecPathsArg extends ArgvFragment {
 
     private final String delimiter;
     private final Iterable<Artifact> artifacts;
@@ -96,7 +115,7 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.add(Artifact.joinExecPaths(delimiter, artifacts));
     }
   }
@@ -161,7 +180,7 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  private static final class PathWithTemplateArg implements ArgvFragment {
+  private static final class PathWithTemplateArg extends ArgvFragment {
 
     private final String template;
     private final PathFragment[] paths;
@@ -172,13 +191,13 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       // PathFragment.toString() uses getPathString()
       builder.add(String.format(template, (Object[]) paths));
     }
   }
 
-  private static final class ParamFileArgument implements ArgvFragment {
+  private static final class ParamFileArgument extends ArgvFragment {
     private final String paramFilePrefix;
     private final PathFragment path;
 
@@ -188,37 +207,84 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.add(paramFilePrefix + path);
+    }
+  }
+
+  /**
+   * An argument object that evaluates to a formatted string for {@link TreeFileArtifact} exec
+   * paths, enclosing the associated string format template and {@link TreeFileArtifact}s.
+   */
+  private static final class TreeFileArtifactExecPathWithTemplateArg
+      extends TreeFileArtifactArgvFragment {
+
+    private final String template;
+    private final Artifact placeHolderTreeArtifact;
+
+    private TreeFileArtifactExecPathWithTemplateArg(String template, Artifact artifact) {
+      Preconditions.checkArgument(artifact.isTreeArtifact(), "%s must be a TreeArtifact",
+          artifact);
+      this.template = template;
+      this.placeHolderTreeArtifact = artifact;
+    }
+
+    @Override
+    ArgvFragment substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap) {
+      Artifact treeFileArtifact = substitutionMap.get(placeHolderTreeArtifact);
+      Preconditions.checkNotNull(treeFileArtifact, "Artifact to substitute: %s",
+          placeHolderTreeArtifact);
+
+      return new PathWithTemplateArg(template, treeFileArtifact.getExecPath());
     }
   }
 
   // TODO(bazel-team): CustomArgv and CustomMultiArgv is  going to be difficult to expose
   // in Skylark. Maybe we can get rid of them by refactoring JavaCompileAction. It also
   // raises immutability / serialization issues.
-  /** Custom Java code producing a String argument. Usage of this class is discouraged. */
-  public abstract static class CustomArgv implements ArgvFragment {
+  /**
+   * Custom Java code producing a String argument. Usage of this class is discouraged.
+   */
+  public abstract static class CustomArgv extends ArgvFragment {
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.add(argv());
     }
 
     public abstract String argv();
   }
 
-  /** Custom Java code producing a List of String arguments. Usage of this class is discouraged. */
-  public abstract static class CustomMultiArgv implements ArgvFragment {
+  /**
+   * Custom Java code producing a List of String arguments. Usage of this class is discouraged.
+   */
+  public abstract static class CustomMultiArgv extends ArgvFragment {
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.addAll(argv());
     }
 
     public abstract Iterable<String> argv();
   }
 
-  private static final class JoinStringsArg implements ArgvFragment {
+  private static final class JoinPathsArg extends ArgvFragment {
+
+    private final String delimiter;
+    private final Iterable<PathFragment> paths;
+
+    private JoinPathsArg(String delimiter, Iterable<PathFragment> paths) {
+      this.delimiter = delimiter;
+      this.paths = CollectionUtils.makeImmutable(paths);
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.add(Joiner.on(delimiter).join(paths));
+    }
+  }
+
+  private static final class JoinStringsArg extends ArgvFragment {
 
     private final String delimiter;
     private final Iterable<String> strings;
@@ -229,12 +295,12 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       builder.add(Joiner.on(delimiter).join(strings));
     }
   }
 
-  private static final class JoinValuesTransformed<T> implements ArgvFragment {
+  private static final class JoinValuesTransformed<T> extends ArgvFragment {
 
     private final String delimiter;
     private final Iterable<T> values;
@@ -248,7 +314,7 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       StringBuilder arg = new StringBuilder();
       Iterator<T> parts = values.iterator();
       if (parts.hasNext()) {
@@ -265,19 +331,18 @@ public final class CustomCommandLine extends CommandLine {
   /**
    * Arguments that intersperse strings between the items in a sequence. There are two forms of
    * interspersing, and either may be used by this implementation:
-   *
    * <ul>
-   *   <li>before each - a string is added before each item in a sequence. e.g. {@code -f foo -f bar
-   *       -f baz}
-   *   <li>format each - a format string is used to format each item in a sequence. e.g. {@code
-   *       -I/foo -I/bar -I/baz} for the format {@code "-I%s"}
+   *   <li>before each - a string is added before each item in a sequence. e.g.
+   *       {@code -f foo -f bar -f baz}
+   *   <li>format each - a format string is used to format each item in a sequence. e.g.
+   *       {@code -I/foo -I/bar -I/baz} for the format {@code "-I%s"}
    * </ul>
    *
-   * <p>This class could be used both with both the "before" and "format" features at the same time,
-   * but this is probably more confusion than it is worth. If you need this functionality, consider
-   * using "before" only but storing the strings pre-formatted in a {@link NestedSet}.
+   * <p>This class could be used both with both the "before" and "format" features at the same
+   * time, but this is probably more confusion than it is worth. If you need this functionality,
+   * consider using "before" only but storing the strings pre-formatted in a {@link NestedSet}.
    */
-  private static final class InterspersingArgs implements ArgvFragment {
+  private static final class InterspersingArgs extends ArgvFragment {
     private final Iterable<?> sequence;
     private final String beforeEach;
     private final String formatEach;
@@ -305,7 +370,7 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void eval(ImmutableList.Builder<String> builder) {
+    void eval(ImmutableList.Builder<String> builder) {
       for (Object item : sequence) {
         if (item == null) {
           continue;
@@ -323,11 +388,12 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
+
   /**
-   * An argument object that evaluates to the exec path of a {@link TreeFileArtifact}, enclosing the
-   * associated {@link TreeFileArtifact}.
+   * An argument object that evaluates to the exec path of a {@link TreeFileArtifact}, enclosing
+   * the associated {@link TreeFileArtifact}.
    */
-  private static final class TreeFileArtifactExecPathArg {
+  private static final class TreeFileArtifactExecPathArg extends TreeFileArtifactArgvFragment {
     private final Artifact placeHolderTreeArtifact;
 
     private TreeFileArtifactExecPathArg(Artifact artifact) {
@@ -335,13 +401,7 @@ public final class CustomCommandLine extends CommandLine {
       placeHolderTreeArtifact = artifact;
     }
 
-    /**
-     * Substitutes this ArgvFragment with another arg object, with the original TreeArtifacts
-     * contained in this ArgvFragment replaced by their associated TreeFileArtifacts.
-     *
-     * @param substitutionMap A map between TreeArtifacts and their associated TreeFileArtifacts
-     *     used to replace them.
-     */
+    @Override
     Object substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap) {
       Artifact artifact = substitutionMap.get(placeHolderTreeArtifact);
       Preconditions.checkNotNull(artifact, "Artifact to substitute: %s", placeHolderTreeArtifact);
@@ -371,41 +431,75 @@ public final class CustomCommandLine extends CommandLine {
     // toString() results.
     private final List<Object> arguments = new ArrayList<>();
 
-    public Builder add(@Nullable CharSequence arg) {
+    public Builder add(CharSequence arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(@Nullable Label arg) {
+    public Builder add(Label arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(@Nullable Iterable<String> args) {
-      if (args != null && !Iterables.isEmpty(args)) {
+    public Builder add(String arg, Iterable<String> args) {
+      if (arg != null && args != null) {
+        arguments.add(arg);
         arguments.add(
             InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addExecPath(String arg, @Nullable Artifact artifact) {
-      Preconditions.checkNotNull(arg);
-      if (artifact != null) {
+    public Builder add(Iterable<String> args) {
+      if (args != null) {
+        arguments.add(
+            InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
+      }
+      return this;
+    }
+
+    public Builder addExecPath(String arg, Artifact artifact) {
+      if (arg != null && artifact != null) {
         arguments.add(arg);
         arguments.add(artifact.getExecPath());
       }
       return this;
     }
 
-    public Builder addExecPaths(@Nullable Iterable<Artifact> artifacts) {
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
+    public Builder addExecPaths(String arg, Iterable<Artifact> artifacts) {
+      if (arg != null && artifacts != null) {
+        arguments.add(arg);
         arguments.add(
             InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
+      }
+      return this;
+    }
+
+    public Builder addExecPaths(Iterable<Artifact> artifacts) {
+      if (artifacts != null) {
+        arguments.add(
+            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
+      }
+      return this;
+    }
+
+    /**
+     * Adds a flag with the exec path of a placeholder TreeArtifact. When the command line is used
+     * in an action template, the placeholder will be replaced by the exec path of a
+     * {@link TreeFileArtifact} inside the TreeArtifact at execution time for each expanded action.
+     *
+     * @param arg the name of the argument
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child
+     *     {@link TreeFileArtifact} at execution time
+     */
+    public Builder addPlaceholderTreeArtifactExecPath(String arg, Artifact treeArtifact) {
+      if (arg != null && treeArtifact != null) {
+        arguments.add(arg);
+        arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
       return this;
     }
@@ -415,19 +509,19 @@ public final class CustomCommandLine extends CommandLine {
      * template, the placeholder will be replaced by the exec path of a {@link TreeFileArtifact}
      * inside the TreeArtifact at execution time for each expanded action.
      *
-     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child {@link
-     *     TreeFileArtifact} at execution time
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of its child
+     *     {@link TreeFileArtifact} at execution time
      */
-    public Builder addPlaceholderTreeArtifactExecPath(@Nullable Artifact treeArtifact) {
+    public Builder addPlaceholderTreeArtifactExecPath(Artifact treeArtifact) {
       if (treeArtifact != null) {
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
       return this;
     }
 
-    public Builder addJoinStrings(String delimiter, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(delimiter);
-      if (strings != null && !Iterables.isEmpty(strings)) {
+    public Builder addJoinStrings(String arg, String delimiter, Iterable<String> strings) {
+      if (arg != null && strings != null) {
+        arguments.add(arg);
         arguments.add(new JoinStringsArg(delimiter, strings));
       }
       return this;
@@ -440,38 +534,37 @@ public final class CustomCommandLine extends CommandLine {
      * this class, expansion of the nested set is deferred until action execution instead of
      * retained on the heap.
      *
+     * @param arg The argument
      * @param delimiter A delimiter string placed in between each transformed value
      * @param values The values to expand into a list
      * @param toString A function that transforms a value into a string
      */
     public <T> Builder addJoinValues(
-        String delimiter, @Nullable Iterable<T> values, Function<T, String> toString) {
-      Preconditions.checkNotNull(delimiter);
-      Preconditions.checkNotNull(toString);
-      if (values != null && !Iterables.isEmpty(values)) {
+        String arg, String delimiter, Iterable<T> values, Function<T, String> toString) {
+      if (arg != null && arguments != null) {
+        arguments.add(arg);
         arguments.add(new JoinValuesTransformed<T>(delimiter, values, toString));
       }
       return this;
     }
-
-    public Builder addJoinExecPaths(String delimiter, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(delimiter);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
+ 
+    public Builder addJoinExecPaths(String arg, String delimiter, Iterable<Artifact> artifacts) {
+      if (arg != null && artifacts != null) {
+        arguments.add(arg);
         arguments.add(new JoinExecPathsArg(delimiter, artifacts));
       }
       return this;
     }
 
-    public Builder addPath(@Nullable PathFragment path) {
+    public Builder addPath(PathFragment path) {
       if (path != null) {
         arguments.add(path);
       }
       return this;
     }
 
-    public Builder addPaths(String template, @Nullable PathFragment... path) {
-      Preconditions.checkNotNull(template);
-      if (path != null && path.length > 0) {
+    public Builder addPaths(String template, PathFragment... path) {
+      if (template != null && path != null) {
         arguments.add(new PathWithTemplateArg(template, path));
       }
       return this;
@@ -480,18 +573,37 @@ public final class CustomCommandLine extends CommandLine {
     /**
      * Adds a param file as an argument.
      *
-     * <p>Memory consumption consideration: though `addPaths` could also do the job of this method,
-     * this one is more memory-efficient because it delays string constructions as much as possible.
-     * Using `addPaths` would look like: <code>.addPaths(paramFilePrefix + "%s", paramFile)</code>,
-     * meaning we'd eagerly create an extra String for every param file.
-     *
      * @param paramFilePrefix The character that denotes a param file, commonly '@'
      * @param paramFile The param file artifact
      */
     public Builder addParamFile(String paramFilePrefix, Artifact paramFile) {
-      Preconditions.checkNotNull(paramFilePrefix);
-      Preconditions.checkNotNull(paramFile);
       arguments.add(new ParamFileArgument(paramFilePrefix, paramFile.getExecPath()));
+      return this;
+    }
+
+    /**
+     * Adds a formatted string containing the exec path of a placeholder TreeArtifact. When the
+     * command line is used in an action template, the placeholder will be replaced by the exec path
+     * of a {@link TreeFileArtifact} inside the TreeArtifact at execution time for each expanded
+     * action.
+     *
+     * @param template the string format template containing a single string format specifier (%s)
+     *     to be replaced by the artifact exec path string.
+     * @param treeArtifact the TreeArtifact that will be evaluated to one of their child
+     *     {@link TreeFileArtifact} at execution time
+     */
+    public Builder addPlaceholderTreeArtifactFormattedExecPath(
+        String template, Artifact treeArtifact) {
+      if (template != null && treeArtifact != null) {
+        arguments.add(new TreeFileArtifactExecPathWithTemplateArg(template, treeArtifact));
+      }
+      return this;
+    }
+
+    public Builder addJoinPaths(String delimiter, Iterable<PathFragment> paths) {
+      if (delimiter != null && paths != null) {
+        arguments.add(new JoinPathsArg(delimiter, paths));
+      }
       return this;
     }
 
@@ -503,8 +615,6 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to join.
      */
     public Builder addJoinExpandedTreeArtifactExecPath(String delimiter, Artifact treeArtifact) {
-      Preconditions.checkNotNull(delimiter);
-      Preconditions.checkNotNull(treeArtifact);
       arguments.add(new JoinExpandedTreeArtifactExecPathsArg(delimiter, treeArtifact));
       return this;
     }
@@ -516,51 +626,46 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      */
     public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
-      Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactExecPathsArg(treeArtifact));
       return this;
     }
 
-    public Builder addBeforeEachPath(String repeated, @Nullable Iterable<PathFragment> paths) {
-      Preconditions.checkNotNull(repeated);
-      if (paths != null && !Iterables.isEmpty(paths)) {
+    public Builder addBeforeEachPath(String repeated, Iterable<PathFragment> paths) {
+      if (repeated != null && paths != null) {
         arguments.add(InterspersingArgs.fromStrings(paths, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addBeforeEach(String repeated, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(repeated);
-      if (strings != null && !Iterables.isEmpty(strings)) {
+    public Builder addBeforeEach(String repeated, Iterable<String> strings) {
+      if (repeated != null && strings != null) {
         arguments.add(InterspersingArgs.fromStrings(strings, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addBeforeEachExecPath(String repeated, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(repeated);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
+    public Builder addBeforeEachExecPath(String repeated, Iterable<Artifact> artifacts) {
+      if (repeated != null && artifacts != null) {
         arguments.add(InterspersingArgs.fromExecPaths(artifacts, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
-    public Builder addFormatEach(String format, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(format);
-      if (strings != null && !Iterables.isEmpty(strings)) {
+    public Builder addFormatEach(String format, Iterable<String> strings) {
+      if (format != null && strings != null) {
         arguments.add(InterspersingArgs.fromStrings(strings, /*beforeEach=*/null, format));
       }
       return this;
     }
 
-    public Builder add(@Nullable CustomArgv arg) {
+    public Builder add(CustomArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(@Nullable CustomMultiArgv arg) {
+    public Builder add(CustomMultiArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
@@ -578,12 +683,13 @@ public final class CustomCommandLine extends CommandLine {
 
   private final ImmutableList<Object> arguments;
 
+
   /**
    * A map between enclosed TreeArtifacts and their associated {@link TreeFileArtifacts} for
    * substitution.
    *
-   * <p>This map is used to support TreeArtifact substitutions in {@link
-   * TreeFileArtifactExecPathArg}s.
+   * <p> This map is used to support TreeArtifact substitutions in
+   * {@link TreeFileArtifactArgvFragment}s.
    */
   private final Map<Artifact, TreeFileArtifact> substitutionMap;
 
@@ -600,8 +706,8 @@ public final class CustomCommandLine extends CommandLine {
 
   /**
    * Given the list of {@link TreeFileArtifact}s, returns another CustomCommandLine that replaces
-   * their parent TreeArtifacts with the TreeFileArtifacts in all {@link
-   * TreeFileArtifactExecPathArg} argument objects.
+   * their parent TreeArtifacts with the TreeFileArtifacts in all
+   * {@link TreeFileArtifactArgvFragment} argument objects.
    */
   @VisibleForTesting
   public CustomCommandLine evaluateTreeFileArtifacts(Iterable<TreeFileArtifact> treeFileArtifacts) {
@@ -644,14 +750,14 @@ public final class CustomCommandLine extends CommandLine {
   }
 
   /**
-   * If the given arg is a {@link TreeFileArtifactExecPathArg} and we have its associated
+   * If the given arg is a {@link TreeFileArtifactArgvFragment} and we have its associated
    * TreeArtifact substitution map, returns another argument object that has its enclosing
    * TreeArtifact substituted by one of its {@link TreeFileArtifact}. Otherwise, returns the given
    * arg unmodified.
    */
   private Object substituteTreeFileArtifactArgvFragment(Object arg) {
-    if (arg instanceof TreeFileArtifactExecPathArg) {
-      TreeFileArtifactExecPathArg argvFragment = (TreeFileArtifactExecPathArg) arg;
+    if (arg instanceof TreeFileArtifactArgvFragment) {
+      TreeFileArtifactArgvFragment argvFragment = (TreeFileArtifactArgvFragment) arg;
       return argvFragment.substituteTreeArtifact(
           Preconditions.checkNotNull(substitutionMap, argvFragment));
     } else {

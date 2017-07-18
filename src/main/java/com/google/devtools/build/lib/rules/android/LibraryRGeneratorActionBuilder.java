@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 
 /** Builder for the action that generates the R class for libraries. */
 public class LibraryRGeneratorActionBuilder {
+  static final Function<ResourceContainer, Artifact> TO_SYMBOL_ARTIFACT =
+      ResourceContainer::getSymbols;
+  static final Function<ResourceContainer, String> TO_SYMBOL_PATH =
+      (ResourceContainer container) -> container.getSymbols().getExecPathString();
 
   private String javaPackage;
   private Iterable<ResourceContainer> deps = ImmutableList.<ResourceContainer>of();
@@ -69,26 +74,20 @@ public class LibraryRGeneratorActionBuilder {
       builder.add("--packageForR").add(javaPackage);
     }
 
-    // Memory consumption consideration: normally we'd not convert this FluentIterable to a list, to
-    // keep a potentially quadratic memory usage linear. However, since `symbolProviders` is wrapped
-    // in a NestedSet a few lines below, and NestedSetBuilder.wrap calls ImmutableList.copyOf on its
-    // argument, we're not using extra memory.
-    ImmutableList<Artifact> symbolProviders =
-        FluentIterable.from(deps)
-            .append(resourceContainer)
-            .transform(ResourceContainer::getSymbols)
-            .toList();
+    FluentIterable<ResourceContainer> symbolProviders =
+        FluentIterable.from(deps).append(resourceContainer);
 
-    if (!symbolProviders.isEmpty()) {
-      builder
-          .add("--symbols")
-          .addJoinExecPaths(ruleContext.getConfiguration().getHostPathSeparator(), symbolProviders);
-    }
-    inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbolProviders));
+    builder.addJoinStrings(
+        "--symbols",
+        ruleContext.getConfiguration().getHostPathSeparator(),
+        symbolProviders.transform(TO_SYMBOL_PATH));
+    inputs.addTransitive(
+        NestedSetBuilder.wrap(
+            Order.NAIVE_LINK_ORDER, symbolProviders.transform(TO_SYMBOL_ARTIFACT)));
 
-    builder
-        .addExecPath("--classJarOutput", rJavaClassJar)
-        .addExecPath("--androidJar", sdk.getAndroidJar());
+    builder.addExecPath("--classJarOutput", rJavaClassJar);
+
+    builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     // Create the spawn action.

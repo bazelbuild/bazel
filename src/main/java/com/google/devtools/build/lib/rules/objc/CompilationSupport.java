@@ -34,6 +34,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -1098,34 +1099,25 @@ public abstract class CompilationSupport {
                   .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.class)
                   .get(LIBRARY));
 
-      CustomCommandLine.Builder commandLineBuilder =
+      CustomCommandLine commandLine =
           CustomCommandLine.builder()
               .addExecPath("--input_archive", j2objcArchive)
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
-              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable());
-      if (!j2ObjcDependencyMappingFiles.isEmpty()) {
-        commandLineBuilder
-            .add("--dependency_mapping_files")
-            .addJoinExecPaths(",", j2ObjcDependencyMappingFiles);
-      }
-      if (!j2ObjcHeaderMappingFiles.isEmpty()) {
-        commandLineBuilder
-            .add("--header_mapping_files")
-            .addJoinExecPaths(",", j2ObjcHeaderMappingFiles);
-      }
-      if (!j2ObjcArchiveSourceMappingFiles.isEmpty()) {
-        commandLineBuilder
-            .add("--archive_source_mapping_files")
-            .addJoinExecPaths(",", j2ObjcArchiveSourceMappingFiles);
-      }
-      commandLineBuilder.add("--entry_classes").addJoinStrings(",", entryClasses);
+              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
+              .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+              .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+              .addJoinExecPaths(
+                  "--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
+              .add("--entry_classes")
+              .add(Joiner.on(",").join(entryClasses))
+              .build();
 
       ruleContext.registerAction(
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
               paramFile,
-              commandLineBuilder.build(),
+              commandLine,
               ParameterFile.ParameterFileType.UNQUOTED,
               ISO_8859_1));
       ruleContext.registerAction(
@@ -1147,7 +1139,7 @@ public abstract class CompilationSupport {
               .build(ruleContext));
     }
   }
-
+  
   /** Returns archives arising from j2objc transpilation after dead code removal. */
   protected Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
@@ -1429,7 +1421,9 @@ public abstract class CompilationSupport {
             .add(appleConfiguration.getXcodeVersion().toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
-      cmdLine.addJoinExecPaths(":", ImmutableList.of(info.sourceFile, info.headersListFile));
+      cmdLine.addJoinPaths(
+          ":",
+          Lists.newArrayList(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
       builder.addInput(info.sourceFile).addOutput(info.headersListFile);
     }
     ruleContext.registerAction(

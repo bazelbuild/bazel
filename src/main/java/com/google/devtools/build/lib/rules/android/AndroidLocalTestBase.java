@@ -240,14 +240,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     CustomCommandLine.Builder cmdLineArgs = CustomCommandLine.builder();
     if (!transitiveAars.isEmpty()) {
-      cmdLineArgs
-          .add("--android_libraries")
-          .addJoinValues(",", transitiveAars, AndroidLocalTestBase::aarCmdLineArg);
+      cmdLineArgs.addJoinValues(
+          "--android_libraries", ",", transitiveAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     if (!strictAars.isEmpty()) {
-      cmdLineArgs
-          .add("--strict_libraries")
-          .addJoinValues(",", strictAars, AndroidLocalTestBase::aarCmdLineArg);
+      cmdLineArgs.addJoinValues(
+          "--strict_libraries", ",", strictAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(

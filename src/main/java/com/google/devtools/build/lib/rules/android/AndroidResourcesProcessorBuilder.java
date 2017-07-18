@@ -427,16 +427,16 @@ public class AndroidResourcesProcessorBuilder {
     }
     ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
-      builder.add("--prefilteredResources").addJoinStrings(",", filteredResources);
+      builder.addJoinStrings("--prefilteredResources", ",", filteredResources);
     }
     if (!uncompressedExtensions.isEmpty()) {
-      builder.add("--uncompressedExtensions").addJoinStrings(",", uncompressedExtensions);
+      builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
     }
     if (!crunchPng) {
       builder.add("--useAaptCruncher=no");
     }
     if (!assetsToIgnore.isEmpty()) {
-      builder.add("--assetsToIgnore").addJoinStrings(",", assetsToIgnore);
+      builder.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);
     }
     if (debug) {
       builder.add("--debug");

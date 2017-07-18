@@ -91,9 +91,6 @@ public final class ParamFileHelper {
       List<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
     return CustomCommandLine.builder()
         .add(executableArgs)
-        // Bazel creates a lot of parameter files, so use a param-file-specific adder method instead
-        // of `addPaths`, which would work too but create extra String garbage:
-        //   .addPaths(paramFileInfo.getFlag() + "%s", parameterFile)
         .addParamFile(paramFileInfo.getFlag(), parameterFile)
         .build();
   }

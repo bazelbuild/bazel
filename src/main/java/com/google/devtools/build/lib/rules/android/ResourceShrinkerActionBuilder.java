@@ -165,10 +165,10 @@ public class ResourceShrinkerActionBuilder {
     inputs.add(sdk.getAndroidJar());
 
     if (!uncompressedExtensions.isEmpty()) {
-      commandLine.add("--uncompressedExtensions").addJoinStrings(",", uncompressedExtensions);
+      commandLine.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
     }
     if (!assetsToIgnore.isEmpty()) {
-      commandLine.add("--assetsToIgnore").addJoinStrings(",", assetsToIgnore);
+      commandLine.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);
     }
     if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
       commandLine.add("--debug");
@@ -201,18 +201,14 @@ public class ResourceShrinkerActionBuilder {
     inputs.add(primaryResources.getManifest());
 
     List<Artifact> dependencyManifests = getManifests(dependencyResources);
-    if (!dependencyManifests.isEmpty()) {
-      commandLine
-          .add("--dependencyManifests")
-          .addJoinExecPaths(
-              ruleContext.getConfiguration().getHostPathSeparator(), dependencyManifests);
-    }
+    commandLine.addJoinExecPaths(
+        "--dependencyManifests",
+        ruleContext.getConfiguration().getHostPathSeparator(),
+        dependencyManifests);
     inputs.addAll(dependencyManifests);
 
     List<String> resourcePackages = getResourcePackages(primaryResources, dependencyResources);
-    if (!resourcePackages.isEmpty()) {
-      commandLine.add("--resourcePackages").addJoinStrings(",", resourcePackages);
-    }
+    commandLine.addJoinStrings("--resourcePackages", ",", resourcePackages);
 
     commandLine.addExecPath("--shrunkResourceApk", resourceApkOut);
     outputs.add(resourceApkOut);
