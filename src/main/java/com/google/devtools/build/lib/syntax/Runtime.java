@@ -97,7 +97,8 @@ public final class Runtime {
   public static final NoneType NONE = new NoneType();
 
   @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "The name of the package being evaluated. "
+      doc = "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> "
+          + "instead.</b> The name of the package being evaluated. "
           + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
           + "will be <code>some/package</code>. "
           + "If the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will "
@@ -117,7 +118,8 @@ public final class Runtime {
   public static final String PKG_NAME = "PACKAGE_NAME";
 
   @SkylarkSignature(name = "REPOSITORY_NAME", returnType = String.class,
-      doc = "The name of the repository the rule or build extension is called from. "
+      doc = "<b>Deprecated. Use <a href=\"native.html#repository_name\">repository_name()</a> "
+          + "instead.</b> The name of the repository the rule or build extension is called from. "
           + "For example, in packages that are called into existence by the WORKSPACE stanza "
           + "<code>local_repository(name='local', path=...)</code> it will be set to "
           + "<code>@local</code>. In packages in the main repository, it will be empty. "

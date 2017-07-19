@@ -24,7 +24,7 @@ def my_macro(name, visibility=None):
 ```
 
 If you need to know the package name (i.e. which BUILD file is calling the
-macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
+macro), use the function [native.package_name()](lib/native.html#package_name).
 
 ## Examples
 
