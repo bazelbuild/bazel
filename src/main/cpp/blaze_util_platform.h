@@ -230,6 +230,8 @@ int32_t GetExplicitSystemLimit(const int resource);
 // raised; false otherwise.
 bool UnlimitResources();
 
+void DetectBashOrDie();
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

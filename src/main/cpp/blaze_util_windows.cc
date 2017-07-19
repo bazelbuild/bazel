@@ -1448,4 +1448,263 @@ bool UnlimitResources() {
   return true;  // Nothing to do so assume success.
 }
 
+static const int MAX_KEY_LENGTH = 255;
+// We do not care about registry values longer than MAX_PATH
+static const int REG_VALUE_BUFFER_SIZE = MAX_PATH;
+
+// Implements heuristics to discover msys2 installation.
+static string GetMsysBash() {
+  HKEY h_uninstall;
+
+  // MSYS2 installer writes its registry into HKCU, although documentation
+  // (https://msdn.microsoft.com/en-us/library/ms954376.aspx)
+  // clearly states that it should go to HKLM.
+  static const char* const key =
+      "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
+  if (RegOpenKeyExA(HKEY_CURRENT_USER,  // _In_     HKEY    hKey,
+                    key,                // _In_opt_ LPCTSTR lpSubKey,
+                    0,                  // _In_     DWORD   ulOptions,
+                    KEY_ENUMERATE_SUB_KEYS |
+                        KEY_QUERY_VALUE,  // _In_     REGSAM  samDesired,
+                    &h_uninstall          // _Out_    PHKEY   phkResult
+                    )) {
+    debug_log("Cannot open HKCU\\%s", key);
+    return string();
+  }
+  AutoHandle auto_uninstall(h_uninstall);
+
+  // Since MSYS2 decided to generate a new product key for each installation,
+  // we enumerate all keys under
+  // HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall and find the first
+  // with MSYS2 64bit display name.
+  static const char* const msys_display_name = "MSYS2 64bit";
+  DWORD n_subkeys;
+
+  if (RegQueryInfoKey(h_uninstall,  // _In_        HKEY      hKey,
+                      0,            // _Out_opt_   LPTSTR    lpClass,
+                      0,            // _Inout_opt_ LPDWORD   lpcClass,
+                      0,            // _Reserved_  LPDWORD   lpReserved,
+                      &n_subkeys,   // _Out_opt_   LPDWORD   lpcSubKeys,
+                      0,            // _Out_opt_   LPDWORD   lpcMaxSubKeyLen,
+                      0,            // _Out_opt_   LPDWORD   lpcMaxClassLen,
+                      0,            // _Out_opt_   LPDWORD   lpcValues,
+                      0,            // _Out_opt_   LPDWORD   lpcMaxValueNameLen,
+                      0,            // _Out_opt_   LPDWORD   lpcMaxValueLen,
+                      0,  // _Out_opt_   LPDWORD   lpcbSecurityDescriptor,
+                      0   // _Out_opt_   PFILETIME lpftLastWriteTime
+                      )) {
+    debug_log("Cannot query HKCU\\%s", key);
+    return string();
+  }
+
+  for (DWORD key_index = 0; key_index < n_subkeys; key_index++) {
+    char subkey_name[MAX_KEY_LENGTH];
+    if (RegEnumKeyA(h_uninstall,         // _In_  HKEY   hKey,
+                    key_index,           // _In_  DWORD  dwIndex,
+                    subkey_name,         // _Out_ LPTSTR lpName,
+                    sizeof(subkey_name)  // _In_  DWORD  cchName
+                    )) {
+      debug_log("Cannot get %d subkey of HKCU\\%s", key_index, key);
+      continue;  // try next subkey
+    }
+
+    HKEY h_subkey;
+    if (RegOpenKeyEx(h_uninstall,      // _In_     HKEY    hKey,
+                     subkey_name,      // _In_opt_ LPCTSTR lpSubKey,
+                     0,                // _In_     DWORD   ulOptions,
+                     KEY_QUERY_VALUE,  // _In_     REGSAM  samDesired,
+                     &h_subkey         // _Out_    PHKEY   phkResult
+                     )) {
+      debug_log("Failed to open subkey HKCU\\%s\\%s", key, subkey_name);
+      continue;  // try next subkey
+    }
+    AutoHandle auto_subkey(h_subkey);
+
+    BYTE value[REG_VALUE_BUFFER_SIZE];
+    DWORD value_length = sizeof(value);
+    DWORD value_type;
+
+    if (RegQueryValueEx(h_subkey,       // _In_        HKEY    hKey,
+                        "DisplayName",  // _In_opt_    LPCTSTR lpValueName,
+                        0,              // _Reserved_  LPDWORD lpReserved,
+                        &value_type,    // _Out_opt_   LPDWORD lpType,
+                        value,          // _Out_opt_   LPBYTE  lpData,
+                        &value_length   // _Inout_opt_ LPDWORD lpcbData
+                        )) {
+      debug_log("Failed to query DisplayName of HKCU\\%s\\%s", key,
+                subkey_name);
+      continue;  // try next subkey
+    }
+
+    if (value_type == REG_SZ &&
+        0 == memcmp(msys_display_name, value, sizeof(msys_display_name))) {
+      debug_log("Getting install location of HKCU\\%s\\%s", key, subkey_name);
+      BYTE path[REG_VALUE_BUFFER_SIZE];
+      DWORD path_length = sizeof(path);
+      DWORD path_type;
+      if (RegQueryValueEx(
+              h_subkey,           // _In_        HKEY    hKey,
+              "InstallLocation",  // _In_opt_    LPCTSTR lpValueName,
+              0,                  // _Reserved_  LPDWORD lpReserved,
+              &path_type,         // _Out_opt_   LPDWORD lpType,
+              path,               // _Out_opt_   LPBYTE  lpData,
+              &path_length        // _Inout_opt_ LPDWORD lpcbData
+              )) {
+        debug_log("Failed to query InstallLocation of HKCU\\%s\\%s", key,
+                  subkey_name);
+        continue;  // try next subkey
+      }
+
+      if (path_length == 0 || path_type != REG_SZ) {
+        debug_log("Zero-length (%d) install location or wrong type (%d)",
+                  path_length, path_type);
+        continue;  // try next subkey
+      }
+
+      debug_log("Install location of HKCU\\%s\\%s is %s", key, subkey_name,
+                path);
+      string path_as_string(path, path + path_length - 1);
+      string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
+      if (!blaze_util::PathExists(bash_exe)) {
+        debug_log("%s does not exist", bash_exe.c_str());
+        continue;  // try next subkey
+      }
+
+      debug_log("Detected msys bash at %s", bash_exe.c_str());
+      return bash_exe;
+    }
+  }
+  return string();
+}
+
+// Implements heuristics to discover Git-on-Win installation.
+static string GetBashFromGitOnWin() {
+  HKEY h_GitOnWin_uninstall;
+
+  // Well-known registry key for Git-on-Windows.
+  static const char* const key =
+      "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1";
+  if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,    // _In_     HKEY    hKey,
+                    key,                   // _In_opt_ LPCTSTR lpSubKey,
+                    0,                     // _In_     DWORD   ulOptions,
+                    KEY_QUERY_VALUE,       // _In_     REGSAM  samDesired,
+                    &h_GitOnWin_uninstall  // _Out_    PHKEY   phkResult
+                    )) {
+    debug_log("Cannot open HKCU\\%s", key);
+    return string();
+  }
+  AutoHandle auto_h_GitOnWin_uninstall(h_GitOnWin_uninstall);
+
+  debug_log("Getting install location of HKLM\\%s", key);
+  BYTE path[REG_VALUE_BUFFER_SIZE];
+  DWORD path_length = sizeof(path);
+  DWORD path_type;
+  if (RegQueryValueEx(h_GitOnWin_uninstall,  // _In_        HKEY    hKey,
+                      "InstallLocation",     // _In_opt_    LPCTSTR lpValueName,
+                      0,                     // _Reserved_  LPDWORD lpReserved,
+                      &path_type,            // _Out_opt_   LPDWORD lpType,
+                      path,                  // _Out_opt_   LPBYTE  lpData,
+                      &path_length           // _Inout_opt_ LPDWORD lpcbData
+                      )) {
+    debug_log("Failed to query InstallLocation of HKLM\\%s", key);
+    return string();
+  }
+
+  if (path_length == 0 || path_type != REG_SZ) {
+    debug_log("Zero-length (%d) install location or wrong type (%d)",
+              path_length, path_type);
+    return string();
+  }
+
+  debug_log("Install location of HKLM\\%s is %s", key, path);
+  string path_as_string(path, path + path_length - 1);
+  string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
+  if (!blaze_util::PathExists(bash_exe)) {
+    debug_log("%s does not exist", bash_exe.c_str());
+    return string();
+  }
+
+  debug_log("Detected msys bash at %s", bash_exe.c_str());
+  return bash_exe;
+}
+
+static string GetBashFromPath() {
+  char found[MAX_PATH];
+  string path_list = blaze::GetEnv("PATH");
+
+  // We do not fully replicate all the quirks of search in PATH.
+  // There is no system function to do so, and that way lies madness.
+  size_t start = 0;
+  do {
+    // This ignores possibly quoted semicolons in PATH etc.
+    size_t end = path_list.find_first_of(";", start);
+    string path = path_list.substr(
+        start, end != string::npos ? end - start : string::npos);
+    // Handle one typical way of quoting (where.exe does not handle this, but
+    // CreateProcess does).
+    if (path.size() > 1 && path[0] == '"' && path[path.size() - 1] == '"') {
+      path = path.substr(1, path.size() - 2);
+    }
+    if (SearchPathA(path.c_str(),   // _In_opt_  LPCTSTR lpPath,
+                    "bash.exe",     // _In_      LPCTSTR lpFileName,
+                    0,              // LPCTSTR lpExtension,
+                    sizeof(found),  // DWORD   nBufferLength,
+                    found,          // _Out_     LPTSTR  lpBuffer,
+                    0               // _Out_opt_ LPTSTR  *lpFilePart
+                    )) {
+      debug_log("bash.exe found on PATH: %s", found);
+      return string(found);
+    }
+    if (end == string::npos) {
+      break;
+    }
+    start = end + 1;
+  } while (true);
+
+  debug_log("bash.exe not found on PATH");
+  return string();
+}
+
+static string LocateBash() {
+  string msys_bash = GetMsysBash();
+  if (!msys_bash.empty()) {
+    return msys_bash;
+  }
+
+  string git_on_win_bash = GetBashFromGitOnWin();
+  if (!git_on_win_bash.empty()) {
+    return git_on_win_bash;
+  }
+
+  return GetBashFromPath();
+}
+
+void DetectBashOrDie() {
+  if (!blaze::GetEnv("BAZEL_SH").empty()) return;
+
+  uint64_t start = blaze::GetMillisecondsMonotonic();
+
+  string bash = LocateBash();
+  uint64_t end = blaze::GetMillisecondsMonotonic();
+  debug_log("BAZEL_SH detection took %lu msec", end - start);
+
+  if (!bash.empty()) {
+    blaze::SetEnv("BAZEL_SH", bash);
+  } else {
+    printf(
+        "Bazel on Windows requires bash.exe and other Unix tools, but we could "
+        "not find them.\n"
+        "If you do not have them installed, the easiest is to install MSYS2 "
+        "from\n"
+        "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
+        "or git-on-Windows from\n"
+        "       https://git-scm.com/download/win\n"
+        "\n"
+        "If you already have bash.exe installed but Bazel cannot find it,\n"
+        "set BAZEL_SH environment variable to it's location:\n"
+        "       set BAZEL_SH=c:\\path\\to\\bash.exe\n");
+    exit(1);
+  }
+}
+
 }  // namespace blaze

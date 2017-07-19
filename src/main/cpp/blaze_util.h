@@ -112,6 +112,14 @@ std::string ToString(const T &value) {
   return oss.str();
 }
 
+// Control the output of debug information by debug_log.
+// Revisit once client logging is fixed (b/32939567).
+void SetDebugLog(bool enabled);
+
+// Output debug information from client.
+// Revisit once client logging is fixed (b/32939567).
+void debug_log(const char *format, ...);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_

@@ -762,4 +762,8 @@ bool UnlimitResources() {
   return success;
 }
 
+void DetectBashOrDie() {
+  // do nothing.
+}
+
 }   // namespace blaze.

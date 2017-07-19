@@ -208,4 +208,22 @@ bool AwaitServerProcessTermination(int pid, const string& output_base,
   return true;
 }
 
+static bool is_debug_log_enabled = false;
+
+void SetDebugLog(bool enabled) { is_debug_log_enabled = enabled; }
+
+void debug_log(const char *format, ...) {
+  if (!is_debug_log_enabled) {
+    return;
+  }
+
+  fprintf(stderr, "CLIENT: ");
+  va_list arglist;
+  va_start(arglist, format);
+  vfprintf(stderr, format, arglist);
+  va_end(arglist);
+  fprintf(stderr, "%s", "\n");
+  fflush(stderr);
+}
+
 }  // namespace blaze
