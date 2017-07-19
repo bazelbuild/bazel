@@ -35,8 +35,9 @@ bind(
 
 # For src/test/docker/...
 load("//src/test/docker:docker_repository.bzl", "docker_repository")
-
 docker_repository()
+load("//src/test/docker:flavours.bzl", "pull_images_for_docker_tests")
+pull_images_for_docker_tests()
 
 # To run the Android integration tests in //src/test/shell/bazel/android:all or
 # build the Android sample app in //examples/android/java/bazel:hello_world
