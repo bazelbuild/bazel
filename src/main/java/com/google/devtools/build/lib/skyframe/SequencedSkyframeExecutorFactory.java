@@ -54,6 +54,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         extraSkyFunctions,
         extraPrecomputedValues,
         customDirtinessCheckers,
+        PathFragment.EMPTY_FRAGMENT,
         productName,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,

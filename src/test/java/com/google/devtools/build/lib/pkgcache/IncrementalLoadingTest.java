@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -461,7 +462,7 @@ public class IncrementalLoadingTest {
 
       LoadingMock loadingMock = LoadingMock.get();
       skyframeExecutor =
-          SequencedSkyframeExecutor.createForTesting(
+          SequencedSkyframeExecutor.create(
               loadingMock
                   .getPackageFactoryBuilderForTesting()
                   .build(loadingMock.createRuleClassProvider(), fs),
@@ -478,7 +479,11 @@ public class IncrementalLoadingTest {
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
-              loadingMock.getProductName());
+              PathFragment.EMPTY_FRAGMENT,
+              loadingMock.getProductName(),
+              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
       packageCacheOptions.showLoadingProgress = true;
