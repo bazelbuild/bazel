@@ -4,9 +4,19 @@ directories:
   .
 
 test_sources:
+  src/java_tools/buildjar/javatests/*
+  src/java_tools/junitrunner/javatests/*
+  src/java_tools/singlejar/javatests/*
   src/test/*
 
 targets:
   //src:bazel
-  //src/tools/remote_worker
+  //src/java_tools/buildjar:JavaBuilder
+  //src/java_tools/buildjar:VanillaJavaBuilder
+  //src/java_tools/buildjar/javatests/...
+  //src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner
+  //src/java_tools/junitrunner/javatests/...
+  //src/java_tools/singlejar:SingleJar
+  //src/java_tools/singlejar:tests
   //src/test/...
+  //src/tools/remote_worker
