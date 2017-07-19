@@ -34,6 +34,7 @@ import java.io.Reader;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -145,9 +146,10 @@ public class JacocoCoverageRunner {
   IBundleCoverage analyzeStructure() throws IOException {
     final CoverageBuilder coverageBuilder = new CoverageBuilder();
     final Analyzer analyzer = new Analyzer(execFileLoader.getExecutionDataStore(), coverageBuilder);
+    Set<String> alreadyInstrumentedClasses = new HashSet<>();
     for (File classesJar : classesJars) {
       if (isNewCoverageImplementation) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar);
+        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
       } else {
         analyzer.analyzeAll(classesJar);
       }
@@ -163,9 +165,10 @@ public class JacocoCoverageRunner {
         new BranchDetailAnalyzer(execFileLoader.getExecutionDataStore());
 
     Map<String, BranchCoverageDetail> result = new TreeMap<>();
+    Set<String> alreadyInstrumentedClasses = new HashSet<>();
     for (File classesJar : classesJars) {
       if (isNewCoverageImplementation) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar);
+        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
       } else {
         analyzer.analyzeAll(classesJar);
       }
@@ -179,15 +182,18 @@ public class JacocoCoverageRunner {
    *
    * <p>The uninstrumented classes are named using the .class.uninstrumented suffix.
    */
-  private void analyzeUninstrumentedClassesFromJar(Analyzer analyzer, File jar) throws IOException {
+  private void analyzeUninstrumentedClassesFromJar(
+      Analyzer analyzer, File jar, Set<String> alreadyInstrumentedClasses) throws IOException {
     JarFile jarFile = new JarFile(jar);
     JarInputStream jarInputStream = new JarInputStream(new FileInputStream(jar));
     for (JarEntry jarEntry = jarInputStream.getNextJarEntry();
         jarEntry != null;
         jarEntry = jarInputStream.getNextJarEntry()) {
       String jarEntryName = jarEntry.getName();
-      if (jarEntryName.endsWith(".class.uninstrumented")) {
+      if (jarEntryName.endsWith(".class.uninstrumented")
+          && !alreadyInstrumentedClasses.contains(jarEntryName)) {
         analyzer.analyzeAll(jarFile.getInputStream(jarEntry), jarEntryName);
+        alreadyInstrumentedClasses.add(jarEntryName);
       }
     }
   }

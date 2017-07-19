@@ -67,12 +67,15 @@ public class JacocoLCOVFormatter {
       private Map<String, ISourceFileCoverage> sourceToFileCoverage = new TreeMap<>();
 
       private String getExecPathForEntryName(String fileName) {
+        if (execPathsOfUninstrumentedFiles.isEmpty()) {
+          return fileName;
+        }
         for (String execPath : execPathsOfUninstrumentedFiles) {
           if (execPath.endsWith("/" + fileName)) {
             return execPath;
           }
         }
-        return fileName;
+        return null;
       }
 
       @Override
@@ -102,15 +105,20 @@ public class JacocoLCOVFormatter {
           for (IClassCoverage clsCoverage : pkgCoverage.getClasses()) {
             String fileName = getExecPathForEntryName(
                 clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName());
+            if (fileName == null) {
+              continue;
+            }
             if (!sourceToClassCoverage.containsKey(fileName)) {
               sourceToClassCoverage.put(fileName, new TreeMap<String, IClassCoverage>());
             }
             sourceToClassCoverage.get(fileName).put(clsCoverage.getName(), clsCoverage);
           }
           for (ISourceFileCoverage srcCoverage : pkgCoverage.getSourceFiles()) {
-            sourceToFileCoverage.put(
-                getExecPathForEntryName(srcCoverage.getPackageName() + "/" + srcCoverage.getName()),
-                srcCoverage);
+            String sourceName = getExecPathForEntryName(
+                srcCoverage.getPackageName() + "/" + srcCoverage.getName());
+            if (sourceName != null) {
+              sourceToFileCoverage.put(sourceName, srcCoverage);
+            }
           }
         }
       }
