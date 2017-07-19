@@ -74,8 +74,8 @@ public class JavaOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "JAVABASE used for the JDK invoked by Blaze. This is the "
-            + "JAVABASE which will be used to execute external Java "
-            + "commands."
+            + "java_runtime_suite which will be used to execute "
+            + "external Java commands."
   )
   public String javaBase;
 
@@ -108,8 +108,8 @@ public class JavaOptions extends FragmentOptions {
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "JAVABASE used for the host JDK. This is the JAVABASE which is used to execute "
-            + " tools during a build."
+        "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
+            + "tools during a build."
   )
   public String hostJavaBase;
 
