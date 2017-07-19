@@ -177,7 +177,7 @@ function test_packages_cleared() {
       'devtools\.build\.lib\..*\.Package$')"
   [[ "$package_count" -ge 9 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
-  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -ge 8 ]] \
       || fail "glob count $glob_count too low: did you move/rename the class?"
   local env_count="$(extract_histogram_count "$histo_file" \
@@ -190,7 +190,7 @@ function test_packages_cleared() {
   # A few packages aren't cleared.
   [[ "$package_count" -le 8 ]] \
       || fail "package count $package_count too high"
-  glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
   env_count="$(extract_histogram_count "$histo_file" \
