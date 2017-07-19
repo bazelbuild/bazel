@@ -89,11 +89,11 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
   vector<string> startup_options;
 
   vector<string> lines = blaze_util::Split(contents, '\n');
-  for (int line = 0; line < lines.size(); ++line) {
-    blaze_util::StripWhitespace(&lines[line]);
+  for (string& line : lines) {
+    blaze_util::StripWhitespace(&line);
 
     // Check for an empty line.
-    if (lines[line].empty()) {
+    if (line.empty()) {
       continue;
     }
 
@@ -104,7 +104,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     // as an escape character.
     // TODO(bazel-team): This function silently ignores
     // dangling backslash escapes and missing end-quotes.
-    blaze_util::Tokenize(lines[line], '#', &words);
+    blaze_util::Tokenize(line, '#', &words);
 
     if (words.empty()) {
       // Could happen if line starts with "#"
@@ -119,10 +119,11 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
                                workspace_layout->WorkspacePrefix) == 0
               && !workspace_layout->WorkspaceRelativizeRcFilePath(
                   workspace, &words[1]))) {
-        blaze_util::StringPrintf(error,
+        blaze_util::StringPrintf(
+            error,
             "Invalid import declaration in .blazerc file '%s': '%s'"
             " (are you in your source checkout/WORKSPACE?)",
-            filename.c_str(), lines[line].c_str());
+            filename.c_str(), line.c_str());
         return blaze_exit_code::BAD_ARGV;
       }
       if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=
@@ -148,10 +149,12 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
       }
       import_stack->pop_back();
     } else {
-      for (int word = 1; word < words.size(); ++word) {
-        (*rcoptions)[command].push_back(RcOption(index, words[word]));
+      vector<string>::const_iterator words_it = words.begin();
+      words_it++;  // Advance past command.
+      for (; words_it != words.end(); words_it++) {
+        (*rcoptions)[command].push_back(RcOption(index, *words_it));
         if (command == "startup") {
-          startup_options.push_back(words[word]);
+          startup_options.push_back(*words_it);
         }
       }
     }
