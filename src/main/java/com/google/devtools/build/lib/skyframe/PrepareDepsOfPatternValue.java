@@ -89,18 +89,17 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyOrException> builder = ImmutableList.builder();
     for (int i = 0; i < keysMaybe.size(); i++) {
       TargetPatternSkyKeyOrException keyMaybe = keysMaybe.get(i);
-      SkyKey skyKey;
+      TargetPatternKey targetPatternKey;
       try {
-        skyKey = keyMaybe.getSkyKey();
+        targetPatternKey = keyMaybe.getSkyKey();
       } catch (TargetParsingException e) {
         // keyMaybe.getSkyKey() may throw TargetParsingException if its corresponding pattern
         // failed to parse. If so, wrap the exception and return it, so that our caller can
         // deal with it.
-        skyKey = null;
+        targetPatternKey = null;
         builder.add(new PrepareDepsOfPatternSkyKeyException(e, keyMaybe.getOriginalPattern()));
       }
-      if (skyKey != null) {
-        TargetPatternKey targetPatternKey = (TargetPatternKey) skyKey.argument();
+      if (targetPatternKey != null) {
         if (targetPatternKey.isNegative()) {
           if (!targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)) {
             builder.add(
@@ -134,14 +133,13 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     ImmutableSet.Builder<PathFragment> excludedDirectoriesBuilder = ImmutableSet.builder();
     for (int j = position + 1; j < keysMaybe.size(); j++) {
       TargetPatternSkyKeyOrException laterPatternMaybe = keysMaybe.get(j);
-      SkyKey laterSkyKey;
+      TargetPatternKey laterTargetPatternKey;
       try {
-        laterSkyKey = laterPatternMaybe.getSkyKey();
+        laterTargetPatternKey = laterPatternMaybe.getSkyKey();
       } catch (TargetParsingException ignored) {
-        laterSkyKey = null;
+        laterTargetPatternKey = null;
       }
-      if (laterSkyKey != null) {
-        TargetPatternKey laterTargetPatternKey = (TargetPatternKey) laterSkyKey.argument();
+      if (laterTargetPatternKey != null) {
         TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
         if (laterTargetPatternKey.isNegative()
             && laterParsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY

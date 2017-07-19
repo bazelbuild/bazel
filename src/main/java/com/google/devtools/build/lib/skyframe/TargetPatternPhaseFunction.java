@@ -188,7 +188,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
       Environment env, TargetPatternList options) throws InterruptedException {
-    List<SkyKey> patternSkyKeys = new ArrayList<>();
+    List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
             options.getTargetPatterns(),
@@ -214,11 +214,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
-    for (SkyKey key : patternSkyKeys) {
-      TargetPatternKey pattern = (TargetPatternKey) key.argument();
+    for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
@@ -264,7 +263,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   private static ResolvedTargets<Target> determineTests(
       Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
       throws InterruptedException {
-    List<SkyKey> patternSkyKeys = new ArrayList<>();
+    List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_TESTS, offset)) {
       try {
@@ -280,7 +279,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     List<SkyKey> expandedSuiteKeys = new ArrayList<>();
-    for (SkyKey key : patternSkyKeys) {
+    for (TargetPatternKey key : patternSkyKeys) {
       TargetPatternValue value;
       try {
         value = (TargetPatternValue) resolvedPatterns.get(key).get();
@@ -296,11 +295,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     ResolvedTargets.Builder<Target> testTargetsBuilder = ResolvedTargets.builder();
-    for (SkyKey key : patternSkyKeys) {
-      TargetPatternKey pattern = (TargetPatternKey) key.argument();
+    for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
       } catch (TargetParsingException e) {
         // This was already reported in getTargetsToBuild (maybe merge the two code paths?).
         continue;
