@@ -567,7 +567,8 @@ public class CppLinkActionBuilder {
     // Executable links do not have library identifiers.
     boolean hasIdentifier = (libraryIdentifier != null);
     boolean isExecutable = linkType.isExecutable();
-    Preconditions.checkState(hasIdentifier != isExecutable);    
+    Preconditions.checkState(hasIdentifier != isExecutable);
+    Preconditions.checkNotNull(featureConfiguration);
 
     if (interfaceOutput != null && (fake || linkType != LinkTargetType.DYNAMIC_LIBRARY)) {
       throw new RuntimeException(
@@ -617,17 +618,6 @@ public class CppLinkActionBuilder {
     // ruleContext can only be null during testing. This is kind of ugly.
     final ImmutableSet<String> features =
         (ruleContext == null) ? ImmutableSet.<String>of() : ruleContext.getFeatures();
-
-    // For backwards compatibility, and for tests, we permit the link action to be
-    // instantiated without a feature configuration.
-    if (featureConfiguration == null) {
-      if (toolchain != null) {
-        featureConfiguration =
-            CcCommon.configureFeatures(ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
-      } else {
-        featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
-      }
-    }
 
     final LibraryToLink outputLibrary = linkType.isExecutable()
         ? null

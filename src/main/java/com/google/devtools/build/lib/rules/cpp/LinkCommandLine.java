@@ -672,10 +672,7 @@ public final class LinkCommandLine extends CommandLine {
 
       // The ruleContext can be null for some tests.
       if (ruleContext != null) {
-        if (featureConfiguration == null) {
-          featureConfiguration =
-              CcCommon.configureFeatures(ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
-        }
+        Preconditions.checkNotNull(featureConfiguration);
 
         if (fdoSupport == null) {
           fdoSupport =
