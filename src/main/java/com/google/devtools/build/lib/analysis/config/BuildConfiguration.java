@@ -1080,19 +1080,32 @@ public final class BuildConfiguration implements BuildEvent {
      * Values for --experimental_dynamic_configs.
      */
     public enum DynamicConfigsMode {
-      /** Don't use dynamic configurations. */
-      OFF,
       /** Use dynamic configurations, including only the fragments each rule needs. */
       ON,
       /** Use dynamic configurations, always including all fragments known to Blaze. */
       NOTRIM,
       /**
-       * Use untrimmed dynamic configurations unless an {@link Options} fragment needs static
-       * configurations. This is used to exempt features that don't yet work with dynamic configs.
+       * Same as NOTRIM.
+       *
+       * <p>This used to revert certain special cases to static configurations because dynamic
+       * configuration didn't support them. But now all builds use dynamic configurations. This
+       * value will be removed once we know no one is setting it.
+       *
+       * @deprecated use {@link #NOTRIM} instead
        */
-      // TODO(gregce): make this mode unnecesary by making everything compatible with dynamic
-      // configs. b/23280991 tracks the effort (LIPO is the main culprit).
-      NOTRIM_PARTIAL
+      @Deprecated
+      NOTRIM_PARTIAL,
+      /**
+       * Same as NOTRIM.
+       *
+       * <p>This used to disable dynamic configurations (while the feature was still being
+       * developed). But now all builds use dynamic configurations. This value will be removed
+       * once we know no one is setting it.
+       *
+       * @deprecated use {@link #NOTRIM} instead
+       */
+      @Deprecated
+      OFF
     }
 
     /**
@@ -1101,6 +1114,17 @@ public final class BuildConfiguration implements BuildEvent {
     public static class DynamicConfigsConverter extends EnumConverter<DynamicConfigsMode> {
       public DynamicConfigsConverter() {
         super(DynamicConfigsMode.class, "dynamic configurations mode");
+      }
+
+      @Override
+      public DynamicConfigsMode convert(String input) throws OptionsParsingException {
+        DynamicConfigsMode userSetValue = super.convert(input);
+        if (userSetValue == DynamicConfigsMode.OFF
+            || userSetValue == DynamicConfigsMode.NOTRIM_PARTIAL) {
+          return DynamicConfigsMode.NOTRIM;
+        } else {
+          return userSetValue;
+        }
       }
     }
 
@@ -1444,11 +1468,6 @@ public final class BuildConfiguration implements BuildEvent {
           "Heuristic sharding is intended as a one-off experimentation tool for determing the "
               + "benefit from sharding certain tests. Please don't keep this option in your "
               + ".blazerc or continuous build"));
-    }
-
-    if (trimConfigurations() && !options.useDistinctHostConfiguration) {
-      reporter.handle(Event.error(
-          "--nodistinct_host_configuration does not currently work with dynamic configurations"));
     }
   }
 
