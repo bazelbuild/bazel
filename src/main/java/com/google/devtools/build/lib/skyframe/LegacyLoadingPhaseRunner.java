@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -197,19 +198,18 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             expandedResult.hasError(),
             filteredTargets,
             testFilteredTargets,
-            /*originalTargets=*/targets.getTargets(),
             testSuiteTargets,
             getWorkspaceName(eventHandler));
 
     // This is the same code as SkyframeLoadingPhaseRunner.
     eventHandler.post(
         new TargetParsingCompleteEvent(
-            patternParsingValue.getOriginalTargets(),
+            targets.getTargets(),
             patternParsingValue.getFilteredTargets(),
             patternParsingValue.getTestFilteredTargets(),
-            targetPatternEvalTime,
             targetPatterns,
             patternParsingValue.getTargets()));
+    eventHandler.post(new TargetParsingPhaseTimeEvent(targetPatternEvalTime));
     if (callback != null) {
       callback.notifyTargets(patternParsingValue.getTargets());
     }

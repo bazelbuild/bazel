@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
@@ -48,23 +48,21 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final ImmutableSet<Target> filteredTargets;
   private final ImmutableSet<Target> testFilteredTargets;
 
-  // These two fields are only for the purposes of generating the TargetParsingCompleteEvent.
+  // This field is only for the purposes of generating the LoadingPhaseCompleteEvent.
   // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
-  private final ImmutableSet<Target> originalTargets;
   private final ImmutableSet<Target> testSuiteTargets;
   private final String workspaceName;
 
   TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
       boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
-      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> originalTargets,
-      ImmutableSet<Target> testSuiteTargets, String workspaceName) {
+      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> testSuiteTargets,
+      String workspaceName) {
     this.targets = Preconditions.checkNotNull(targets);
     this.testsToRun = testsToRun;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
     this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
-    this.originalTargets = Preconditions.checkNotNull(originalTargets);
     this.testSuiteTargets = Preconditions.checkNotNull(testSuiteTargets);
     this.workspaceName = workspaceName;
   }
@@ -92,10 +90,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public ImmutableSet<Target> getTestFilteredTargets() {
     return testFilteredTargets;
-  }
-
-  public ImmutableSet<Target> getOriginalTargets() {
-    return originalTargets;
   }
 
   public ImmutableSet<Target> getTestSuiteTargets() {
@@ -128,29 +122,29 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   /** Create a target pattern phase value key. */
   @ThreadSafe
-  public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
-      boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
+  public static SkyKey key(
+      ImmutableList<String> targetPatterns,
+      String offset,
+      boolean compileOneDependency,
+      boolean buildTestsOnly,
+      boolean determineTests,
       ImmutableList<String> buildTargetFilter,
-      boolean buildManualTests, @Nullable TestFilter testFilter) {
-    return LegacySkyKey.create(
-        SkyFunctions.TARGET_PATTERN_PHASE,
-        new TargetPatternList(
-            targetPatterns,
-            offset,
-            compileOneDependency,
-            buildTestsOnly,
-            determineTests,
-            buildTargetFilter,
-            buildManualTests,
-            testFilter));
+      boolean buildManualTests,
+      @Nullable TestFilter testFilter) {
+    return new TargetPatternPhaseKey(
+        targetPatterns,
+        offset,
+        compileOneDependency,
+        buildTestsOnly,
+        determineTests,
+        buildTargetFilter,
+        buildManualTests,
+        testFilter);
   }
 
-  /**
-   * A TargetPattern is a tuple of pattern (eg, "foo/..."), filtering policy, a relative pattern
-   * offset, and whether it is a positive or negative match.
-   */
+  /** The configuration needed to run the target pattern evaluation phase. */
   @ThreadSafe
-  static final class TargetPatternList implements Serializable {
+  static final class TargetPatternPhaseKey implements SkyKey, Serializable {
     private final ImmutableList<String> targetPatterns;
     private final String offset;
     private final boolean compileOneDependency;
@@ -160,9 +154,14 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean buildManualTests;
     @Nullable private final TestFilter testFilter;
 
-    public TargetPatternList(ImmutableList<String> targetPatterns, String offset,
-        boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
-        ImmutableList<String> buildTargetFilter, boolean buildManualTests,
+    public TargetPatternPhaseKey(
+        ImmutableList<String> targetPatterns,
+        String offset,
+        boolean compileOneDependency,
+        boolean buildTestsOnly,
+        boolean determineTests,
+        ImmutableList<String> buildTargetFilter,
+        boolean buildManualTests,
         @Nullable TestFilter testFilter) {
       this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
       this.offset = Preconditions.checkNotNull(offset);
@@ -175,6 +174,16 @@ public final class TargetPatternPhaseValue implements SkyValue {
       if (buildTestsOnly || determineTests) {
         Preconditions.checkNotNull(testFilter);
       }
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TARGET_PATTERN_PHASE;
+    }
+
+    @Override
+    public Object argument() {
+      return this;
     }
 
     public ImmutableList<String> getTargetPatterns() {
@@ -225,8 +234,9 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-          determineTests, buildManualTests, testFilter);
+      return Objects.hash(
+          targetPatterns, offset, compileOneDependency, buildTestsOnly, determineTests,
+          buildManualTests, testFilter);
     }
 
     @Override
@@ -234,10 +244,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TargetPatternList)) {
+      if (!(obj instanceof TargetPatternPhaseKey)) {
         return false;
       }
-      TargetPatternList other = (TargetPatternList) obj;
+      TargetPatternPhaseKey other = (TargetPatternPhaseKey) obj;
       return other.targetPatterns.equals(this.targetPatterns)
           && other.offset.equals(this.offset)
           && other.compileOneDependency == compileOneDependency
