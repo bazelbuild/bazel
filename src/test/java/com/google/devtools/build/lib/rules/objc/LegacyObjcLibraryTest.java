@@ -683,8 +683,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     BuildConfiguration config = getAppleCrosstoolConfiguration();
     assertContainsSublist(compileAction.getArguments(), ImmutableList.of(
         "-iquote", config.getGenfilesFragment().getSafePathString()));
-    assertThat(compileAction.getArguments()).doesNotContain(
-        config.getBinFragment().getSafePathString());
   }
 
   @Test

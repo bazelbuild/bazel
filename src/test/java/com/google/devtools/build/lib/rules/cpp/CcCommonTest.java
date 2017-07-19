@@ -821,7 +821,7 @@ public class CcCommonTest extends BuildViewTestCase {
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
     assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
-        String.format("-Wl,@%s/genfiles/a/a.lds", getTargetConfiguration().getOutputDirectory(
+        String.format("-Wl,@%s/a/a.lds", getTargetConfiguration().getGenfilesDirectory(
             RepositoryName.MAIN).getExecPath().getPathString()));
   }
 

@@ -57,8 +57,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         .isEqualTo(outputDirPrefix + "/bin");
     assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString())
         .isEqualTo(outputDirPrefix + "/include");
-    assertThat(config.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/genfiles");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString())
         .isEqualTo(outputDirPrefix + "/testlogs");
   }
