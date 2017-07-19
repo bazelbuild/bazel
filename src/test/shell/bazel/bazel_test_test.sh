@@ -300,6 +300,33 @@ EOF
   [ -s $xml_log ] || fail "$xml_log was not present after test"
 }
 
+# Tests that the test.xml is here in case of timeout
+function test_xml_is_present_when_timingout() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+sleep 10
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s --test_timeout=1 \
+     //dir:test &> $TEST_log && fail "should have failed" || true
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  [ -s "${xml_log}" ] || fail "${xml_log} was not present after test"
+  cat "${xml_log}" > $TEST_log
+  expect_log '"Timed out"'
+}
+
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
