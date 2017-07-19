@@ -63,15 +63,81 @@ changes (e.g. to decide if we keep or remove a comment when we delete a rule).
 cc_library(name = "cc")
 ```
 
-## Conventions
+## References to targets in the current package
+
+Files should be referred to by their paths relative to the package directory
+(without ever using up-references, such as `..`). Generated files should be
+prefixed with "`:`" to indicate that they are not sources. Source files
+should not be prefixed with `:`. Rules should be prefixed with `:`. For
+example, assuming `x.cc` is a source file:
+
+```python
+cc_library(
+    name = "lib",
+    srcs = ["x.cc"],
+    hdrs = [":gen-header"],
+)
+
+genrule(
+    name = "gen-header",
+    srcs = [],
+    outs = ["x.h"],
+    cmd = "echo 'int x();' > $@",
+)
+```
+
+## Target naming
+
+Target names should be descriptive. If a target contains one source file,
+the target should generally be named after that source (e.g., a `cc_library`
+for `chat.cc` should be named "`chat`").
+
+The eponymous target for a package (the target with the same name as the
+containing directory) should provide the functionality described by the
+directory name. If there is no such target, do not create an eponymous
+target.
+
+Prefer using the short name when referring to an eponymous target (`//x`
+instead of `//x:x`). If you are in the same package, prefer the local
+reference (`:x` instead of `//x`).
+
+## Visibility
+
+Do not set the default visibility of a package to `//visibility:public`.
+`//visibility:public` should be individually set for targets in the
+project's public API. These could be libraries which are designed to be
+depended on by external projects or binaries that could be used by an
+external project's build process.
+
+Otherwise, visibility should be scoped as tightly as possible, while still
+allowing access by tests and reverse dependencies. Prefer using `__pkg__` to
+`__subpackages__`.
+
+## Dependencies
+
+Dependencies should be restricted to direct dependencies (dependencies
+needed by the sources listed in the rule). Do not list transitive
+dependencies.
+
+Package-local dependencies should be listed first and referred to in a way
+compatible with the
+[References to targets in the current package](#references-to-targets-in-the-current-package)
+section above (not by their absolute package name).
+
+## Globs
+
+Do not use recursive globs (e.g., `glob(["**/*.java"])`). Recursive globs
+make BUILD files difficult to read, as they skip subdirectories containing
+BUILD files. Non-recursive globs are generally acceptable, see
+language-specific advice below for details.
+
+Indicate "no targets" with `[]`. Do not use a glob that matches nothing: it
+is more error-prone and less obvious than an empty list.
+
+## Other conventions
 
  * Use uppercase and underscores to declare constants (e.g. `GLOBAL_CONSTANT`),
    use lowercase and underscores to declare variables (e.g. `my_variable`).
-
- * Labels should be canonicalized. Use `//foo/bar` instead of `//foo/bar:bar`.
-   Use `:bar` if it is defined in the same package. *Rationale*: It makes clear
-   if a label is local to a package. Sorting a list of labels is messy if all
-   labels do not use the same conventions.
 
  * Labels should never be split, even if they are longer than 79 characters.
    Labels should be string literals whenever possible. Rationale: It makes
