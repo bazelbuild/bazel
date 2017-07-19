@@ -36,7 +36,7 @@ public final class JavaRuntimeRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(srcs) -->
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).mandatory())
+        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java_home) -->
         The path to the root of the runtime.
         Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
