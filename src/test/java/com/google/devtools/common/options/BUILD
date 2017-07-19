@@ -1,6 +1,6 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/common/options/testing:srcs"],
     visibility = ["//src:__pkg__"],
 )
 
