@@ -107,19 +107,22 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
     Path outputLink = execRoot.getRelative("very/output.link");
     Path outputDangling = execRoot.getRelative("very/output.dangling");
     Path outputDir = execRoot.getRelative("very/output.dir");
+    Path outputInUncreatedTargetDir = execRoot.getRelative("uncreated/output.txt");
 
-    SymlinkedSandboxedSpawn symlinkedExecRoot = new SymlinkedSandboxedSpawn(
-        sandboxDir,
-        execRoot,
-        ImmutableList.of("/bin/true"),
-        ImmutableMap.<String, String>of(),
-        ImmutableMap.<PathFragment, Path>of(),
-        ImmutableSet.of(
-            outputFile.relativeTo(execRoot),
-            outputLink.relativeTo(execRoot),
-            outputDangling.relativeTo(execRoot),
-            outputDir.relativeTo(execRoot)),
-        ImmutableSet.<Path>of());
+    SymlinkedSandboxedSpawn symlinkedExecRoot =
+        new SymlinkedSandboxedSpawn(
+            sandboxDir,
+            execRoot,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.<String, String>of(),
+            ImmutableMap.<PathFragment, Path>of(),
+            ImmutableSet.of(
+                outputFile.relativeTo(execRoot),
+                outputLink.relativeTo(execRoot),
+                outputDangling.relativeTo(execRoot),
+                outputDir.relativeTo(execRoot),
+                outputInUncreatedTargetDir.relativeTo(execRoot)),
+            ImmutableSet.<Path>of());
     symlinkedExecRoot.createFileSystem();
 
     FileSystemUtils.createEmptyFile(outputFile);
@@ -127,6 +130,7 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
     outputDangling.createSymbolicLink(PathFragment.create("doesnotexist"));
     outputDir.createDirectory();
     FileSystemUtils.createEmptyFile(outputDir.getRelative("test.txt"));
+    FileSystemUtils.createEmptyFile(outputInUncreatedTargetDir);
 
     outputsDir.getRelative("very").createDirectory();
     symlinkedExecRoot.copyOutputs(outputsDir);
@@ -145,5 +149,6 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
     assertThat(outputsDir.getRelative("very/output.dir").isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.dir/test.txt").isFile(Symlinks.NOFOLLOW))
         .isTrue();
+    assertThat(outputsDir.getRelative("uncreated/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 }
