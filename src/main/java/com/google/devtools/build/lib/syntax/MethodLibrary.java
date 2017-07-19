@@ -406,7 +406,7 @@ public class MethodLibrary {
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(name = "sep", type = String.class,
-          defaultValue = "' '", doc = "The string to split on, default is space (\" \").")},
+          defaultValue = "\" \"", doc = "The string to split on, default is space (\" \").")},
       useEnvironment = true,
       useLocation = true)
   private static final BuiltinFunction partition = new BuiltinFunction("partition") {
@@ -425,7 +425,7 @@ public class MethodLibrary {
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(name = "sep", type = String.class,
-          defaultValue = "' '", doc = "The string to split on, default is space (\" \").")},
+          defaultValue = "\" \"", doc = "The string to split on, default is space (\" \").")},
       useEnvironment = true,
       useLocation = true)
   private static final BuiltinFunction rpartition = new BuiltinFunction("rpartition") {
@@ -2090,7 +2090,7 @@ public class MethodLibrary {
       @Param(
         name = "sep",
         type = String.class,
-        defaultValue = "' '",
+        defaultValue = "\" \"",
         named = true,
         positional = false,
         doc = "The separator string between the objects, default is space (\" \")."
