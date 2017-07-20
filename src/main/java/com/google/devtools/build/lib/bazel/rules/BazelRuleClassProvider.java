@@ -641,6 +641,14 @@ public class BazelRuleClassProvider {
           builder.addNativeAspectClass(j2ObjcAspect);
           builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
           builder.addRuleDefinition(new J2ObjcLibraryRule(j2ObjcAspect));
+
+          try {
+            builder.addWorkspaceFilePrefix(
+                ResourceFileLoader.loadResource(
+                    BazelRuleClassProvider.class, "objc/j2objc.WORKSPACE"));
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
         }
 
         @Override
