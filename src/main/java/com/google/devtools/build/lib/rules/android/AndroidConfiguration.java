@@ -598,18 +598,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean useSingleJarApkBuilder;
 
     @Option(
-      name = "experimental_android_use_singlejar_for_multidex",
-      defaultValue = "true",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      deprecationWarning =
-          "This flag is deprecated and is a no-op. It will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "This flag is deprecated and is a no-op. It will be removed in a future release."
-    )
-    public boolean useSingleJarForMultidex;
-
-    @Option(
       name = "experimental_android_resource_filtering_method",
       converter = ResourceFilter.Converter.class,
       defaultValue = "filter_in_execution",
