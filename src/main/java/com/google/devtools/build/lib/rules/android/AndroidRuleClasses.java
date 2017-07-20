@@ -421,31 +421,6 @@ public final class AndroidRuleClasses {
   }
 
   /**
-   * Base class for rule definitions using AAPT.
-   */
-  public static final class AndroidAaptBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$android_resources_busybox", LABEL)
-                  .cfg(HOST)
-                  .exec()
-                  .value(env.getToolsLabel(DEFAULT_RESOURCES_BUSYBOX)))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return Metadata.builder()
-          .name("$android_aapt_base")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(AndroidRuleClasses.AndroidBaseRule.class)
-          .build();
-    }
-  }
-
-  /**
    * Base class for rule definitions that support resource declarations.
    */
   public static final class AndroidResourceSupportRule implements RuleDefinition {
@@ -557,9 +532,10 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":android_sdk", LABEL)
-              .allowedRuleClasses("android_sdk", "filegroup")
-              .value(new AndroidSdkLabel(env.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
+          .add(
+              attr(":android_sdk", LABEL)
+                  .allowedRuleClasses("android_sdk", "filegroup")
+                  .value(new AndroidSdkLabel(env.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           Every <code>java_plugin</code> specified in
@@ -568,13 +544,17 @@ public final class AndroidRuleClasses {
           the plugin will be included in the result jar of
           the target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("plugins", LABEL_LIST).cfg(HOST).allowedRuleClasses("java_plugin")
-              .legacyAllowAnyFileType())
-          .add(attr(":java_plugins", LABEL_LIST)
-              .cfg(HOST)
-              .allowedRuleClasses("java_plugin")
-              .silentRuleClassFilter()
-              .value(JavaSemantics.JAVA_PLUGINS))
+          .add(
+              attr("plugins", LABEL_LIST)
+                  .cfg(HOST)
+                  .allowedRuleClasses("java_plugin")
+                  .legacyAllowAnyFileType())
+          .add(
+              attr(":java_plugins", LABEL_LIST)
+                  .cfg(HOST)
+                  .allowedRuleClasses("java_plugin")
+                  .silentRuleClassFilter()
+                  .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(javacopts) -->
           Extra compiler options for this target.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
@@ -585,12 +565,25 @@ public final class AndroidRuleClasses {
           .add(attr("javacopts", STRING_LIST))
           // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
           // like all the rest of android tools.
-          .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
-          .add(attr("$idlclass", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:IdlClass")))
-          .add(attr("$desugar_java8_extra_bootclasspath", LABEL).cfg(HOST)
-              .value(env.getToolsLabel("//tools/android:desugar_java8_extra_bootclasspath")))
+          .add(
+              attr("$jarjar_bin", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
+          .add(
+              attr("$idlclass", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:IdlClass")))
+          .add(
+              attr("$desugar_java8_extra_bootclasspath", LABEL)
+                  .cfg(HOST)
+                  .value(env.getToolsLabel("//tools/android:desugar_java8_extra_bootclasspath")))
+          .add(
+              attr("$android_resources_busybox", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(DEFAULT_RESOURCES_BUSYBOX)))
           .build();
     }
 
@@ -923,10 +916,7 @@ public final class AndroidRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$android_binary_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(
-              AndroidRuleClasses.AndroidBaseRule.class,
-              AndroidAaptBaseRule.class,
-              AndroidResourceSupportRule.class)
+          .ancestors(AndroidRuleClasses.AndroidBaseRule.class, AndroidResourceSupportRule.class)
           .build();
       }
   }

@@ -509,7 +509,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidSdkRule());
           builder.addRuleDefinition(new BazelAndroidToolsDefaultsJarRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
-          builder.addRuleDefinition(new AndroidRuleClasses.AndroidAaptBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
               new AndroidRuleClasses.AndroidBinaryBaseRule(
