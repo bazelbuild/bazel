@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
           + "<pre class=\"language-python\">DataInfo = provider()\n"
           + "d = DataInfo(x = 2, y = 3)\n"
           + "print(d.x + d.y) # prints 5</pre>"
-          + "     <i>Some providers, defined internally, do not allow instance creation</i>"
+          + "     Note: Some providers, defined internally, do not allow instance creation"
           + "     </li>"
           + "     <li>It is a <i>key</i> to access a provider instance on a"
           + "        <a href=\"lib/Target.html\">Target</a>"
