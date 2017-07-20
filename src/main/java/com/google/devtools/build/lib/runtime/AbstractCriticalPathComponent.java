@@ -31,7 +31,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  volatile boolean isRunning = true;
+  protected volatile boolean isRunning = true;
 
   /** We keep here the critical path time for the most expensive child. */
   private long childAggregatedElapsedTime = 0;
