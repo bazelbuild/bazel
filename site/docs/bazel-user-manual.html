@@ -219,7 +219,8 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
   take precedence over ones specified before the import statement, options
   specified after the import statement take precedence over the ones in the
   imported file, and options in files imported later take precedence over files
-  imported earlier.
+  imported earlier. To specify a path that is relative to the workspace root,
+  write <code>import %workspace%/path/to/bazelrc</code>.
 </p>
 <p>
   Here's an example <code>~/.bazelrc</code> file:
