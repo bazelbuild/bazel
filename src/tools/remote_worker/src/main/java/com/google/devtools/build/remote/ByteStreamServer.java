@@ -132,6 +132,25 @@ final class ByteStreamServer extends ByteStreamImplBase {
           return;
         }
 
+        if (offset == 0) {
+          try {
+            if (cache.containsKey(digest)) {
+              responseObserver.onError(StatusUtils.alreadyExistsError(digest));
+              closed = true;
+              return;
+            }
+          } catch (InterruptedException e) {
+            responseObserver.onError(StatusUtils.interruptedError(digest));
+            Thread.currentThread().interrupt();
+            closed = true;
+            return;
+          } catch (IOException e) {
+            responseObserver.onError(StatusUtils.internalError(e));
+            closed = true;
+            return;
+          }
+        }
+
         if (request.getWriteOffset() != offset) {
           responseObserver.onError(
               StatusUtils.invalidArgumentError(

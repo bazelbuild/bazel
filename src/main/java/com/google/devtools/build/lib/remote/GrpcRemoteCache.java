@@ -145,15 +145,15 @@ public class GrpcRemoteCache implements RemoteActionCache {
     ImmutableSet<Digest> missingDigests = getMissingDigests(repository.getAllDigests(root));
 
     // Only upload data that was missing from the cache.
-    ArrayList<ActionInput> actionInputs = new ArrayList<>();
-    ArrayList<Directory> treeNodes = new ArrayList<>();
-    repository.getDataFromDigests(missingDigests, actionInputs, treeNodes);
+    ArrayList<ActionInput> missingActionInputs = new ArrayList<>();
+    ArrayList<Directory> missingTreeNodes = new ArrayList<>();
+    repository.getDataFromDigests(missingDigests, missingActionInputs, missingTreeNodes);
 
-    if (!treeNodes.isEmpty()) {
+    if (!missingTreeNodes.isEmpty()) {
       // TODO(olaola): split this into multiple requests if total size is > 10MB.
       BatchUpdateBlobsRequest.Builder treeBlobRequest =
           BatchUpdateBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
-      for (Directory d : treeNodes) {
+      for (Directory d : missingTreeNodes) {
         byte[] data = d.toByteArray();
         treeBlobRequest
             .addRequestsBuilder()
@@ -173,17 +173,12 @@ public class GrpcRemoteCache implements RemoteActionCache {
           });
     }
     uploadBlob(command.toByteArray());
-    if (!actionInputs.isEmpty()) {
+    if (!missingActionInputs.isEmpty()) {
       List<Chunker> inputsToUpload = new ArrayList<>();
       ActionInputFileCache inputFileCache = repository.getInputFileCache();
-      for (ActionInput actionInput : actionInputs) {
-        Digest digest = Digests.getDigestFromInputCache(actionInput, inputFileCache);
-        if (missingDigests.contains(digest)) {
-          Chunker chunker = new Chunker(actionInput, inputFileCache, execRoot);
-          inputsToUpload.add(chunker);
-        }
+      for (ActionInput actionInput : missingActionInputs) {
+        inputsToUpload.add(new Chunker(actionInput, inputFileCache, execRoot));
       }
-
       uploader.uploadBlobs(inputsToUpload);
     }
   }

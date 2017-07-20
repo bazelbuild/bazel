@@ -59,6 +59,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -282,6 +283,49 @@ public class GrpcRemoteCacheTest {
           }
         });
     assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
+  }
+
+  @Test
+  public void testUploadBlobRemoteAlreadyExists() throws Exception {
+    final GrpcRemoteCache client = newClient();
+    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(
+                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
+            responseObserver.onCompleted();
+          }
+        });
+    final AtomicBoolean sentError = new AtomicBoolean(false);
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(
+              final StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+                sentError.set(true);
+              }
+
+              @Override
+              public void onCompleted() {
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+    assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
+    assertThat(sentError.get()).isTrue();
   }
 
   static class TestChunkedRequestObserver implements StreamObserver<WriteRequest> {

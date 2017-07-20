@@ -51,6 +51,17 @@ final class StatusUtils {
         .build();
   }
 
+  static StatusException alreadyExistsError(Digest digest) {
+    return StatusProto.toStatusException(alreadyExistsStatus(digest));
+  }
+
+  static com.google.rpc.Status alreadyExistsStatus(Digest digest) {
+    return Status.newBuilder()
+        .setCode(Code.ALREADY_EXISTS.getNumber())
+        .setMessage("Digest already uploaded:" + digest)
+        .build();
+  }
+
   static StatusException interruptedError(Digest digest) {
     return StatusProto.toStatusException(interruptedStatus(digest));
   }
