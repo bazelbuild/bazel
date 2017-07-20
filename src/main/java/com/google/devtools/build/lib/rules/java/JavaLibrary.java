@@ -52,12 +52,12 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         ruleContext,
         common,
         /* includeGeneratedExtensionRegistry = */false,
-        /* includeJavaPluginInfoProvider = */ false);
+        /* isJavaPluginRule = */ false);
   }
 
   final ConfiguredTarget init(
       RuleContext ruleContext, final JavaCommon common, boolean includeGeneratedExtensionRegistry,
-      boolean includeJavaPluginInfoProvider)
+      boolean isJavaPluginRule)
       throws InterruptedException {
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
@@ -214,6 +214,20 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
     CcLinkParamsProvider ccLinkParamsProvider = new CcLinkParamsProvider(ccLinkParamsStore);
+    JavaPluginInfoProvider pluginInfoProvider = isJavaPluginRule
+        // For java_plugin we create the provider with content retrieved from the rule attributes.
+        ? common.getJavaPluginInfoProvider(ruleContext)
+        // For java_library we add the transitive plugins from plugins and exported_plugins attrs.
+        : JavaCommon.getTransitivePlugins(ruleContext);
+
+    // java_library doesn't need to return JavaRunfilesProvider
+    JavaProvider javaProvider = JavaProvider.Builder.create()
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(ProtoJavaApiInfoAspectProvider.class, protoAspectBuilder.build())
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+        .build();
 
     builder
         .addSkylarkTransitiveInfo(
@@ -231,26 +245,14 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         // TODO(bazel-team): this should only happen for java_plugin
-        .addProvider(JavaCommon.getTransitivePlugins(ruleContext))
+        .addProvider(pluginInfoProvider)
         .addProvider(new ProguardSpecProvider(proguardSpecs))
         .addProvider(sourceJarsProvider)
+        .addProvider(javaProvider)
+        .addNativeDeclaredProvider(javaProvider)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);
 
-    // java_library doesn't need to return JavaRunfilesProvider
-    JavaProvider.Builder javaProviderBuilder = JavaProvider.Builder.create()
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .addProvider(ProtoJavaApiInfoAspectProvider.class, protoAspectBuilder.build())
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider);
-    if (includeJavaPluginInfoProvider) {
-      JavaPluginInfoProvider javaPluginInfoProvider = common.getJavaPluginInfoProvider(ruleContext);
-      javaProviderBuilder.addProvider(JavaPluginInfoProvider.class, javaPluginInfoProvider);
-      builder.addProvider(javaPluginInfoProvider);
-    }
-    JavaProvider javaProvider = javaProviderBuilder.build();
-    builder.addProvider(javaProvider);
-    builder.addNativeDeclaredProvider(javaProvider);
 
     if (ruleContext.hasErrors()) {
       return null;
