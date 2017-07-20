@@ -200,34 +200,31 @@ public class SkylarkActionFactory implements SkylarkValue {
     ruleContext.registerAction(action);
   }
 
-
   @SkylarkCallable(
-      name = "write",
-      doc = "Creates a file write action.",
-      parameters = {
-          @Param(
-              name = "output",
-              type = Artifact.class,
-              doc = "the output file.",
-              named = true
-          ),
-          @Param(
-              name = "content",
-              type = String.class,
-              doc = "the contents of the file.",
-              named = true
-          ),
-          @Param(
-              name = "is_executable",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc = "whether the output file should be executable (default is False).",
-              named = true
-          )
-      }
+    name = "write",
+    doc =
+        "Creates a file write action. When the action is executed, it will write the given content "
+            + "to a file. This is used to generate files using information available in the "
+            + "analysis phase. If the file is large and with a lot of static content, consider "
+            + "using <a href=\"#expand_template\">expand_template</a>.",
+    parameters = {
+      @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
+      @Param(
+        name = "content",
+        type = String.class,
+        doc = "the contents of the file.",
+        named = true
+      ),
+      @Param(
+        name = "is_executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = "whether the output file should be executable.",
+        named = true
+      )
+    }
   )
-  public void write(Artifact output, String content, Boolean isExecutable)
-            throws EvalException {
+  public void write(Artifact output, String content, Boolean isExecutable) throws EvalException {
     context.checkMutable("actions.write");
     FileWriteAction action =
         FileWriteAction.create(ruleContext, output, content, isExecutable);
@@ -637,46 +634,52 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "expand_template",
-      doc = "Creates a template expansion action.",
-      parameters = {
-          @Param(
-              name = "template",
-              type = Artifact.class,
-              named = true,
-              positional = false,
-              doc = "the template file, which is a UTF-8 encoded text file."
-          ),
-          @Param(
-              name = "output",
-              type = Artifact.class,
-              named = true,
-              positional = false,
-              doc = "the output file, which is a UTF-8 encoded text file."
-          ),
-          @Param(
-              name = "substitutions",
-              type = SkylarkDict.class,
-              named = true,
-              positional = false,
-              doc = "substitutions to make when expanding the template."
-          ),
-          @Param(
-              name = "executable",
-              type = Boolean.class,
-              defaultValue = "False",
-              named = true,
-              positional = false,
-              doc = "whether the output file should be executable (default is False)."
-          )
-      }
+    name = "expand_template",
+    doc =
+        "Creates a template expansion action. When the action is executed, it will "
+            + "generate a file based on a template. Parts of the template will be replaced "
+            + "using the <code>substitutions</code> dictionary. Whenever a key of the "
+            + "dictionary appears in the template, it is replaced with the associated value. "
+            + "There is no special syntax for the keys. You may for example use curly braces "
+            + "to avoid conflicts (e.g. <code>{KEY}</code>).",
+    parameters = {
+      @Param(
+        name = "template",
+        type = Artifact.class,
+        named = true,
+        positional = false,
+        doc = "the template file, which is a UTF-8 encoded text file."
+      ),
+      @Param(
+        name = "output",
+        type = Artifact.class,
+        named = true,
+        positional = false,
+        doc = "the output file, which is a UTF-8 encoded text file."
+      ),
+      @Param(
+        name = "substitutions",
+        type = SkylarkDict.class,
+        named = true,
+        positional = false,
+        doc = "substitutions to make when expanding the template."
+      ),
+      @Param(
+        name = "executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = "whether the output file should be executable."
+      )
+    }
   )
   public void expandTemplate(
-            Artifact template,
-            Artifact output,
-            SkylarkDict<?, ?> substitutionsUnchecked,
-            Boolean executable)
-            throws EvalException {
+      Artifact template,
+      Artifact output,
+      SkylarkDict<?, ?> substitutionsUnchecked,
+      Boolean executable)
+      throws EvalException {
     context.checkMutable("actions.expand_template");
     ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
     for (Map.Entry<String, String> substitution :
