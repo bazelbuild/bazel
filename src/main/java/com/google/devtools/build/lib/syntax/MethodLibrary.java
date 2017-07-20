@@ -995,7 +995,10 @@ public class MethodLibrary {
     returnType = Object.class,
     doc =
         "Returns the smallest one of all given arguments. "
-            + "If only one argument is provided, it must be a non-empty iterable.",
+            + "If only one argument is provided, it must be a non-empty iterable. "
+            + "It is an error if elements are not comparable (for example int with string). "
+            + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
+            + "min([5, 6, 3]) == 3</pre>",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true,
@@ -1019,7 +1022,10 @@ public class MethodLibrary {
     returnType = Object.class,
     doc =
         "Returns the largest one of all given arguments. "
-            + "If only one argument is provided, it must be a non-empty iterable.",
+            + "If only one argument is provided, it must be a non-empty iterable."
+            + "It is an error if elements are not comparable (for example int with string). "
+            + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
+            + "max([5, 6, 3]) == 6</pre>",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true,
@@ -1055,7 +1061,11 @@ public class MethodLibrary {
   @SkylarkSignature(
     name = "all",
     returnType = Boolean.class,
-    doc = "Returns true if all elements evaluate to True or if the collection is empty.",
+    doc =
+        "Returns true if all elements evaluate to True or if the collection is empty. "
+            + "Elements are converted to boolean using the <a href=\"#bool\">bool<a> function."
+            + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
+            + "all([-1, 0, 1]) == False</pre>",
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
@@ -1074,7 +1084,11 @@ public class MethodLibrary {
   @SkylarkSignature(
     name = "any",
     returnType = Boolean.class,
-    doc = "Returns true if at least one element evaluates to True.",
+    doc =
+        "Returns true if at least one element evaluates to True."
+            + "Elements are converted to boolean using the <a href=\"#bool\">bool<a> function."
+            + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
+            + "any([False, 0, \"\"]) == False</pre>",
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
@@ -1107,7 +1121,9 @@ public class MethodLibrary {
     returnType = MutableList.class,
     doc =
         "Sort a collection. Elements should all belong to the same orderable type, they are sorted "
-            + "by their value (in ascending order).",
+            + "by their value (in ascending order). "
+            + "It is an error if elements are not comparable (for example int with string)."
+            + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
     parameters = {@Param(name = "self", type = Object.class, doc = "This collection.")},
     useLocation = true,
     useEnvironment = true
@@ -1129,7 +1145,9 @@ public class MethodLibrary {
   @SkylarkSignature(
     name = "reversed",
     returnType = MutableList.class,
-    doc = "Returns a list that contains the elements of the original sequence in reversed order.",
+    doc =
+        "Returns a list that contains the elements of the original sequence in reversed order."
+            + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
     parameters = {
       @Param(
         name = "sequence",
@@ -1634,7 +1652,7 @@ public class MethodLibrary {
     returnType = String.class,
     doc =
         "Converts any object to a string representation. This is useful for debugging.<br>"
-            + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
+            + "<pre class=\"language-python\">str(\"ab\") == \"\\\"ab\\\"\"</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
     useEnvironment = true
   )
@@ -1645,16 +1663,23 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "bool", returnType = Boolean.class,
-      doc = "Constructor for the bool type. "
-      + "It returns False if the object is None, False, an empty string, the number 0, or an "
-      + "empty collection. Otherwise, it returns True.",
-      parameters = {@Param(name = "x", doc = "The variable to convert.")})
-  private static final BuiltinFunction bool = new BuiltinFunction("bool") {
-    public Boolean invoke(Object x) throws EvalException {
-      return EvalUtils.toBoolean(x);
-    }
-  };
+  @SkylarkSignature(
+    name = "bool",
+    returnType = Boolean.class,
+    doc =
+        "Constructor for the bool type. "
+            + "It returns <code>False</code> if the object is <code>None</code>, <code>False"
+            + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
+            + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
+            + "Otherwise, it returns <code>True</code>.",
+    parameters = {@Param(name = "x", doc = "The variable to convert.")}
+  )
+  private static final BuiltinFunction bool =
+      new BuiltinFunction("bool") {
+        public Boolean invoke(Object x) throws EvalException {
+          return EvalUtils.toBoolean(x);
+        }
+      };
 
   @SkylarkSignature(
     name = "int",
