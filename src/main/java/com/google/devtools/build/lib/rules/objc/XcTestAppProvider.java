@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.util.Preconditions;
 @SkylarkModule(
   name = "XcTestAppProvider",
   category = SkylarkModuleCategory.PROVIDER,
-  doc = "A provider for XCTest apps for testing."
+  doc =
+      "Deprecated. A provider for XCTest apps for testing. This is a legacy provider and should "
+          + "not be used."
 )
 public final class XcTestAppProvider extends SkylarkClassObject
     implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
@@ -57,17 +59,13 @@ public final class XcTestAppProvider extends SkylarkClassObject
   private final ObjcProvider objcProvider;
 
   XcTestAppProvider(Artifact bundleLoader, Artifact ipa, ObjcProvider objcProvider) {
-    super(
-        XCTEST_APP_PROVIDER,
-        getSkylarkFields(bundleLoader, ipa, objcProvider));
+    super(XCTEST_APP_PROVIDER, getSkylarkFields(bundleLoader, ipa, objcProvider));
     this.bundleLoader = Preconditions.checkNotNull(bundleLoader);
     this.ipa = Preconditions.checkNotNull(ipa);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
   }
 
-  /**
-   * The bundle loader, which corresponds to the test app's binary.
-   */
+  /** The bundle loader, which corresponds to the test app's binary. */
   public Artifact getBundleLoader() {
     return bundleLoader;
   }
@@ -83,8 +81,8 @@ public final class XcTestAppProvider extends SkylarkClassObject
    * certain linker-releated keys omitted, such as {@link ObjcProvider#LIBRARY}, since XcTests have
    * access to symbols in their test rig without linking them into the main test binary.
    *
-   * <p>The current list of whitelisted values can be found in
-   * {@link ReleaseBundlingSupport#xcTestAppProvider}.
+   * <p>The current list of whitelisted values can be found in {@link
+   * ReleaseBundlingSupport#xcTestAppProvider}.
    */
   public ObjcProvider getObjcProvider() {
     return objcProvider;
