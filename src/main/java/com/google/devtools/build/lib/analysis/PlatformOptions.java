@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.convertOptionsLabel;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
@@ -63,10 +68,65 @@ public class PlatformOptions extends FragmentOptions {
   )
   public List<Label> extraToolchains;
 
+  @Option(
+    name = "toolchain_resolution_override",
+    converter = ToolchainResolutionOverrideConverter.class,
+    allowMultiple = true,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.HIDDEN},
+    help =
+        "Override toolchain resolution for a toolchain type with a specific toolchain. "
+            + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
+            + "@io_bazel_rules_go//:linux-arm64-toolchain"
+  )
+  public List<ToolchainResolutionOverride> toolchainResolutionOverrides;
+
   @Override
   public PlatformOptions getHost(boolean fallback) {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms = ImmutableList.of(this.hostPlatform);
     return host;
+  }
+
+  /** Data about which toolchain instance should be used for a given toolchain type. */
+  @AutoValue
+  public abstract static class ToolchainResolutionOverride {
+    public abstract Label toolchainType();
+
+    public abstract Label toolchainLabel();
+
+    private static ToolchainResolutionOverride create(Label toolchainType, Label toolchainLabel) {
+      return new AutoValue_PlatformOptions_ToolchainResolutionOverride(
+          toolchainType, toolchainLabel);
+    }
+  }
+
+  /**
+   * {@link Converter} implementation to create {@link ToolchainResolutionOverride} instances from
+   * the value set in the flag.
+   */
+  public static class ToolchainResolutionOverrideConverter
+      implements Converter<ToolchainResolutionOverride> {
+
+    @Override
+    public ToolchainResolutionOverride convert(String input) throws OptionsParsingException {
+      int index = input.indexOf('=');
+      if (index == -1) {
+        throw new OptionsParsingException(
+            "Toolchain resolution override not in the type=toolchain format");
+      }
+      Label toolchainType = convertOptionsLabel(input.substring(0, index));
+      Label toolchain = convertOptionsLabel(input.substring(index + 1));
+
+      return ToolchainResolutionOverride.create(toolchainType, toolchain);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a hard-coded override for toolchain resolution, "
+          + "in the format toolchainTypeLabel=toolchainLabel";
+    }
   }
 }

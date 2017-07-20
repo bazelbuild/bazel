@@ -239,7 +239,7 @@ public final class BuildConfiguration implements BuildEvent {
     }
   }
 
-  private static final Label convertLabel(String input) throws OptionsParsingException {
+  public static final Label convertOptionsLabel(String input) throws OptionsParsingException {
     try {
       // Check if the input starts with '/'. We don't check for "//" so that
       // we get a better error message if the user accidentally tries to use
@@ -259,7 +259,7 @@ public final class BuildConfiguration implements BuildEvent {
   public static class LabelConverter implements Converter<Label> {
     @Override
     public Label convert(String input) throws OptionsParsingException {
-      return convertLabel(input);
+      return convertOptionsLabel(input);
     }
 
     @Override
@@ -274,7 +274,7 @@ public final class BuildConfiguration implements BuildEvent {
     public List<Label> convert(String input) throws OptionsParsingException {
       ImmutableList.Builder result = ImmutableList.builder();
       for (String label : Splitter.on(",").omitEmptyStrings().split(input)) {
-        result.add(convertLabel(label));
+        result.add(convertOptionsLabel(label));
       }
       return result.build();
     }
@@ -292,7 +292,7 @@ public final class BuildConfiguration implements BuildEvent {
   public static class EmptyToNullLabelConverter implements Converter<Label> {
     @Override
     public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? null : convertLabel(input);
+      return input.isEmpty() ? null : convertOptionsLabel(input);
     }
 
     @Override
@@ -315,7 +315,7 @@ public final class BuildConfiguration implements BuildEvent {
 
     @Override
     public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? defaultValue : convertLabel(input);
+      return input.isEmpty() ? defaultValue : convertOptionsLabel(input);
     }
 
     @Override
@@ -340,7 +340,7 @@ public final class BuildConfiguration implements BuildEvent {
         } else {
           key = entry.substring(0, sepIndex);
           String value = entry.substring(sepIndex + 1);
-          label = value.isEmpty() ? null : convertLabel(value);
+          label = value.isEmpty() ? null : convertOptionsLabel(value);
         }
         if (result.containsKey(key)) {
           throw new OptionsParsingException("Key '" + key + "' appears twice");

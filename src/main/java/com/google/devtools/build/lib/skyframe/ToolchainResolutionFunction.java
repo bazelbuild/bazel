@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -39,6 +41,16 @@ public class ToolchainResolutionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     ToolchainResolutionKey key = (ToolchainResolutionKey) skyKey.argument();
+
+    BuildConfiguration configuration = key.configuration();
+    PlatformConfiguration platformConfiguration =
+        configuration.getFragment(PlatformConfiguration.class);
+
+    if (platformConfiguration.hasToolchainOverride(key.toolchainType())) {
+      // Short circuit everything and just return the override.
+      return ToolchainResolutionValue.create(
+          platformConfiguration.getToolchainOverride(key.toolchainType()));
+    }
 
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
