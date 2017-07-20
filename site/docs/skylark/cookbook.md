@@ -281,7 +281,7 @@ def _impl(ctx):
   output = ctx.outputs.out
   input = ctx.file.file
   # The command may only access files declared in inputs.
-  ctx.action(
+  ctx.actions.run_shell(
       inputs=[input],
       outputs=[output],
       progress_message="Getting size of %s" % input.short_path,
@@ -358,7 +358,7 @@ def _impl(ctx):
   # The list of arguments we pass to the script.
   args = [ctx.outputs.out.path] + [f.path for f in ctx.files.srcs]
   # Action to call the script.
-  ctx.action(
+  ctx.actions.run(
       inputs=ctx.files.srcs,
       outputs=[ctx.outputs.out],
       arguments=args,
@@ -438,14 +438,13 @@ only to executable rules or files.
 
 ```python
 def _impl(ctx):
-  # ctx.new_file is used for temporary files.
-  # If it should be visible for user, declare it in rule.outputs instead.
-  f = ctx.new_file(ctx.configuration.bin_dir, "hello")
+  # ctx.actions.declare_file is used for temporary files.
+  f = ctx.actions.declare_file(ctx.configuration.bin_dir, "hello")
   # As with outputs, each time you declare a file,
   # you need an action to generate it.
-  ctx.file_action(output=f, content=ctx.attr.input_content)
+  ctx.actions.write(output=f, content=ctx.attr.input_content)
 
-  ctx.action(
+  ctx.actions.run(
       inputs=[f],
       outputs=[ctx.outputs.out],
       executable=ctx.executable.binary,
@@ -586,9 +585,9 @@ def _impl(ctx):
     # Skip the processing
     processed = src
   else:
-    processed = ctx.new_file(ctx.label.name + "_processed")
+    processed = ctx.actions.declare_file(ctx.label.name + "_processed")
     # Run the selected binary
-    ctx.action(
+    ctx.actions.run(
         outputs = [processed],
         inputs = [ctx.file.src],
         progress_message="Apply filter '%s'" % ctx.attr.filter,
@@ -597,7 +596,7 @@ def _impl(ctx):
 
   # Compute the hash
   out = ctx.outputs.text
-  ctx.action(
+  ctx.actions.run(
       outputs = [out],
       inputs = [processed],
       command = "md5sum < %s > %s" % (processed.path, out.path))

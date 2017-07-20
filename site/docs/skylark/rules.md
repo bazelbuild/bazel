@@ -207,9 +207,9 @@ def _impl(ctx):
 ```
 
 This can be useful for exposing files generated with
-[ctx.new_file](lib/ctx.html#new_file). You can also have "implicit
-outputs", i.e., files that are declared in the rule, but not in the default
-outputs (like `_deploy.jar` in `java_binary`).
+[ctx.actions.declare_file](lib/actions.html#declare_file). You can also
+have "implicit outputs", i.e., files that are declared in the rule, but
+not in the default outputs (like `_deploy.jar` in `java_binary`).
 
 ## Actions
 
@@ -220,11 +220,12 @@ because an action can depend on the output of another action (e.g. in C,
 the linker must be called after compilation). In the execution phase, Bazel
 decides which actions must be run and in which order.
 
-There are three ways to create actions:
+All functions that create actions are defined in [`ctx.actions`](lib/actions.html):
 
-* [ctx.action](lib/ctx.html#action), to run a command.
-* [ctx.file_action](lib/ctx.html#file_action), to write a string to a file.
-* [ctx.template_action](lib/ctx.html#template_action), to generate a file from a template.
+* [ctx.actions.run](lib/actions.html#run), to run an executable.
+* [ctx.actions.run_shell](lib/actions.html#run_shell), to run a shell command.
+* [ctx.actions.write](lib/actions.html#write), to write a string to a file.
+* [ctx.actions.expand_template](lib/actions.html#expand_template), to generate a file from a template.
 
 Actions take a set (which can be empty) of input files and generate a (non-empty)
 set of output files.
@@ -502,8 +503,8 @@ that provider are output group names:
 ```python
 def _impl(ctx):
   name = ...
-  binary = ctx.new_file(name)
-  debug_file = ctx.new_file(name + ".pdb")
+  binary = ctx.actions.declare_file(name)
+  debug_file = ctx.actions.declare_file(name + ".pdb")
   # ... add actions to generate these files
   return [DefaultInfo(files = depset([binary])),
           OutputGroupInfo(debug_files = depset([debug_file]),

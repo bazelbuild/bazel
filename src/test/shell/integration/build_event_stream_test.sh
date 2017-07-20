@@ -113,7 +113,7 @@ cat > failingaspect.bzl <<EOF
 def _failing_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
-        ctx.action(
+        ctx.actions.run_shell(
             inputs = [],
             outputs = [aspect_out],
             command = "false",

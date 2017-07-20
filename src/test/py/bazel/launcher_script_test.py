@@ -182,7 +182,7 @@ class LauncherScriptTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/foo.bzl', [
         'def _impl(ctx):',
-        '  ctx.action(',
+        '  ctx.actions.run(',
         '      arguments=[ctx.outputs.out.path],',
         '      outputs=[ctx.outputs.out],',
         '      executable=ctx.executable._hello_world,',
