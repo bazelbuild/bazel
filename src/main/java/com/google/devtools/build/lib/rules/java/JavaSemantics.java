@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -167,9 +168,19 @@ public interface JavaSemantics {
       new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // don't read --java_launcher if this target overrides via a launcher attribute
-          if (attributes != null && attributes.isAttributeValueExplicitlySpecified("launcher")) {
-            return attributes.get("launcher", LABEL);
+          // This nullness check is purely for the sake of a test that doesn't bother to include an
+          // attribute map when calling this method.
+          if (attributes != null) {
+            // Don't depend on the launcher if we don't create an executable anyway
+            if (attributes.has("create_executable")
+                && !attributes.get("create_executable", Type.BOOLEAN)) {
+              return null;
+            }
+
+            // don't read --java_launcher if this target overrides via a launcher attribute
+            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
+              return attributes.get("launcher", LABEL);
+            }
           }
           return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
         }
