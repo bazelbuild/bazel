@@ -44,19 +44,21 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.ErrorInfoSubject;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -1270,6 +1272,41 @@ public class FileFunctionTest {
     Path child = parent.getChild("child");
     assertThat(valueForPath(parent).exists()).isFalse();
     assertThat(valueForPath(child).exists()).isFalse();
+  }
+
+  @Test
+  public void testInjectionOverIOException() throws Exception {
+    Path foo = file("foo");
+    SkyKey fooKey = skyKey("foo");
+    fs.stubStatError(foo, new IOException("bork"));
+    BuildDriver driver = makeDriver();
+    EvaluationResult<FileValue> result =
+        driver.evaluate(
+            ImmutableList.of(fooKey),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ 1,
+            NullEventHandler.INSTANCE);
+    ErrorInfoSubject errorInfoSubject = assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(fooKey);
+    errorInfoSubject.isTransient();
+    errorInfoSubject
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo("bork");
+    fs.stubbedStatErrors.remove(foo);
+    differencer.inject(
+        fileStateSkyKey("foo"),
+        FileStateValue.create(
+            RootedPath.toRootedPath(pkgRoot, foo),
+            new TimestampGranularityMonitor(BlazeClock.instance())));
+    result =
+        driver.evaluate(
+            ImmutableList.of(fooKey),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ 1,
+            NullEventHandler.INSTANCE);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(fooKey).exists()).isTrue();
   }
 
   private void checkRealPath(String pathString) throws Exception {

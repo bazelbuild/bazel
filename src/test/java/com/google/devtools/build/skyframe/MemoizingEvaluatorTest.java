@@ -3773,14 +3773,11 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
     assertThat(tester.evalAndGet("value")).isEqualTo(prevVal);
     tester.differencer.inject(ImmutableMap.of(key, val));
-    try {
-      tester.evalAndGet("value");
-      fail("injection over value with deps should have failed");
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessage(
-          "existing entry for " + NODE_TYPE.getName() + ":value has deps: "
-              + "[" + NODE_TYPE.getName() + ":other]");
-    }
+    StringValue depVal = new StringValue("newfoo");
+    tester.getOrCreate("other").setConstantValue(depVal);
+    tester.differencer.invalidate(ImmutableList.of(GraphTester.toSkyKey("other")));
+    // Injected value is ignored for value with deps.
+    assertThat(tester.evalAndGet("value")).isEqualTo(depVal);
   }
 
   @Test
@@ -3792,14 +3789,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
     assertThat(tester.evalAndGet("value")).isEqualTo(val);
     tester.differencer.inject(ImmutableMap.of(key, val));
-    try {
-      tester.evalAndGet("value");
-      fail("injection over value with deps should have failed");
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessage(
-          "existing entry for " + NODE_TYPE.getName() + ":value has deps: "
-              + "[" + NODE_TYPE.getName() + ":other]");
-    }
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
