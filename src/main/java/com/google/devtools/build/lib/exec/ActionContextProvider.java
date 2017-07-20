@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 
@@ -36,7 +37,7 @@ public abstract class ActionContextProvider {
   /**
    * Two-phase initialization. The input file cache and the input prefetcher usually come from a
    * different module than the {@link ActionContextProvider} instances that require them, so this
-   * method is called after {@link BlazeModule#executorInit}.
+   * method is called after {@link com.google.devtools.build.lib.runtime.BlazeModule#executorInit}.
    *
    * @param actionInputFileCache the input file cache
    * @param actionInputPrefetcher the input file prefetcher
