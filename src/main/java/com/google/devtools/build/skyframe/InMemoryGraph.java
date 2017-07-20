@@ -17,7 +17,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
-public interface InMemoryGraph extends ProcessableGraph {
+interface InMemoryGraph extends ProcessableGraph {
   @Override
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
