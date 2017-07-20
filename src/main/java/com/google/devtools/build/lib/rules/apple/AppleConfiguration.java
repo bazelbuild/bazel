@@ -163,7 +163,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * runtime OS supports them.
    */
   @SkylarkCallable(name = "ios_minimum_os", structField = true,
-      doc = "The minimum compatible iOS version for target simulators and devices.")
+      doc = "<b>Deprecated. Use <a href='#minimum_os_for_platform_type'>"
+          + "minimum_os_for_platform_type(apple_common.platform_type.ios)</a> instead.</b> "
+          + "The minimum compatible iOS version for target simulators and devices.")
   public DottedVersion getMinimumOs() {
     // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
     return iosMinimumOs;
@@ -205,7 +207,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Returns the SDK version for a platform (whether they be for simulator or device). This is
    * directly derived from command line args.
    */
-  @SkylarkCallable(name = "sdk_version_for_platform", doc = "The SDK version given a platform.")
+  @SkylarkCallable(
+      name = "sdk_version_for_platform",
+      doc = "The version of the platform SDK that will be used to build targets for the given "
+          + "platform.")
   public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
@@ -229,7 +234,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
    * {@code --xcode_version_config} flag. Returns null if no xcode is available.
    */
-  @SkylarkCallable(name = "xcode_version")
+  @SkylarkCallable(
+      name = "xcode_version",
+      doc = "Returns the Xcode version that is being used to build.<p>"
+          + "This will return <code>None</code> if no Xcode versions are available.",
+      allowReturnNones = true)
   @Nullable
   public DottedVersion getXcodeVersion() {
     return xcodeVersion;
@@ -240,7 +249,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * for actions pertaining to the given apple platform. Keys are variable names and values are
    * their corresponding values.
    */
-  @SkylarkCallable(name = "target_apple_env")
+  @SkylarkCallable(
+      name = "target_apple_env",
+      doc = "Returns a <code>dict</code> of environment variables that should be set for actions "
+          + "that build targets of the given Apple platform type. For example, this dictionary "
+          + "contains variables that denote the platform name and SDK version with which to "
+          + "build. The keys are variable names and the values are their corresponding values.")
   public ImmutableMap<String, String> getTargetAppleEnvironment(ApplePlatform platform) {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(platform));
@@ -254,11 +268,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   @SkylarkCallable(
       name = "apple_host_system_env",
-      doc =
-          "Returns a map of environment variables that should be propagated for actions that "
-          + "build on an apple host system. These environment variables are needed by the apple "
-          + "toolchain. Keys are variable names and values are their corresponding values."
-    )
+      doc = "Returns a <a href='dict.html'>dict</a> of environment variables that should be set "
+          + "for actions that need to run build tools on an Apple host system, such as the version "
+          + "of Xcode that should be used. The keys are variable names and the values are their "
+          + "corresponding values.")
   public ImmutableMap<String, String> getAppleHostSystemEnv() {
     DottedVersion xcodeVersion = getXcodeVersion();
     if (xcodeVersion != null) {
@@ -299,7 +312,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * platform or cpu for all actions spawned in this configuration; it is appropriate for
    * identifying the target cpu of iOS compile and link actions within this configuration.
    */
-  @SkylarkCallable(name = "ios_cpu", doc = "The value of ios_cpu for this configuration.")
+  @SkylarkCallable(
+      name = "ios_cpu",
+      doc = "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
+          + "The value of ios_cpu for this configuration.")
   public String getIosCpu() {
     return iosCpu;
   }
@@ -325,9 +341,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     name = "single_arch_cpu",
     structField = true,
     doc =
-        "The single \"effective\" architecture for this configuration (e.g. i386 or arm64) "
-            + "in the context of rule logic which is only concerned with a single architecture "
-            + "(such as in objc_library, which registers single-architecture compile actions). "
+        "The single \"effective\" architecture for this configuration (e.g., <code>i386</code> or "
+            + "<code>arm64</code>) in the context of rule logic that is only concerned with a "
+            + "single architecture (such as <code>objc_library</code>, which registers "
+            + "single-architecture compile actions)."
   )
   public String getSingleArchitecture() {
     if (!Strings.isNullOrEmpty(appleSplitCpu)) {
@@ -346,17 +363,17 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return tvosCpus.get(0);
       case MACOS:
         return macosCpus.get(0);
-      default: 
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
   }
- 
+
   /**
    * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example,
    * "i386" or "arm64". At least one architecture is always returned. Prefer this over
    * {@link #getSingleArchitecture} in rule logic which may support multiple architectures, such
    * as bundling rules.
-   * 
+   *
    * <p>Effective architecture(s) is determined using the following rules:
    * <ol>
    * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then
@@ -365,7 +382,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * all architectures from that flag.</li>
    * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
    * <li>Use the default.</li></ol>
-   * 
+   *
    * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior
    *     configuration transition) yet does not match {@code platformType}
    */
@@ -391,7 +408,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return tvosCpus;
       case MACOS:
         return macosCpus;
-      default: 
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
   }
@@ -404,10 +421,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   @SkylarkCallable(
     name = "single_arch_platform",
-    doc =
-        "The platform of the current configuration. This should only be invoked in a context where "
-            + "only a single architecture may be supported; consider mutli_arch_platform for other "
-            + "cases.",
+    doc = "The platform of the current configuration. This should only be invoked in a context "
+        + "where only a single architecture may be supported; consider "
+        + "<a href='#multi_arch_platform'>mutli_arch_platform</a> for other cases.",
     structField = true
   )
   public ApplePlatform getSingleArchPlatform() {
@@ -424,10 +440,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   // TODO(bazel-team): This should support returning multiple platforms.
   @SkylarkCallable(
     name = "multi_arch_platform",
-    doc =
-        "The platform of the current configuration "
-            + "for the given platform type. This should only be invoked in a context where multiple"
-            + " architectures may be supported; consider single_arch_platform for other cases."
+    doc = "The platform of the current configuration for the given platform type. This should only "
+        + "be invoked in a context where multiple architectures may be supported; consider "
+        + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases."
   )
   public ApplePlatform getMultiArchPlatform(PlatformType platformType) {
     List<String> architectures = getMultiArchitectures(platformType);
@@ -469,7 +484,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * #getMultiArchPlatform(PlatformType)}.
    */
   // TODO(b/28754442): Deprecate for more general skylark-exposed platform retrieval.
-  @SkylarkCallable(name = "ios_cpu_platform", doc = "The platform given by the ios_cpu flag.")
+  @SkylarkCallable(
+      name = "ios_cpu_platform",
+      doc = "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
+          + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
+          + "The platform given by the ios_cpu flag.")
   public ApplePlatform getIosCpuPlatform() {
     return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
   }
@@ -489,7 +508,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     }
     return getIosCpu();
   }
-  
+
   /**
    * List of all CPUs that this invocation is being built for. Different from {@link #getIosCpu()}
    * which is the specific CPU <b>this target</b> is being built for.
@@ -518,7 +537,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   @SkylarkCallable(
     name = "bitcode_mode",
-    doc = "Returns the bitcode mode to use for compilation steps.",
+    doc = "Returns the Bitcode mode to use for compilation steps.<p>"
+        + "This field is only valid for device builds; for simulator builds, it always returns "
+        + "<code>'none'</code>.",
     structField = true
   )
   public AppleBitcodeMode getBitcodeMode() {
@@ -586,7 +607,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /** Returns the identifier for an Xcode toolchain to use with tools. */
   @SkylarkCallable(
     name = "xcode_toolchain",
-    doc = "Identifier for the custom Xcode toolchain to use in build or None if not specified.",
+    doc = "Identifier for the custom Xcode toolchain to use in build, or <code>None</code> if it "
+        + "is not specified.",
     allowReturnNones = true,
     structField = true
   )

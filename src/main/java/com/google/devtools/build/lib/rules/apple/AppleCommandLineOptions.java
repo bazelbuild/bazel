@@ -396,9 +396,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @SkylarkModule(
     name = "apple_bitcode_mode",
     category = SkylarkModuleCategory.NONE,
-    doc =
-        "Apple Bitcode mode for compilation steps. Possible values are \"none\", "
-            + "\"embedded\", and \"embedded_markers\""
+    doc = "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
+        + "Possible values are:<br><ul>"
+        + "<li><code>'none'</code></li>"
+        + "<li><code>'embedded'</code></li>"
+        + "<li><code>'embedded_markers'</code></li>"
+        + "</ul>"
   )
   @Immutable
   public enum AppleBitcodeMode implements SkylarkValue {
@@ -472,7 +475,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.appleBitcodeMode = appleBitcodeMode;
     // The host apple platform type will always be MACOS, as no other apple platform type can
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
-    // be needed. 
+    // be needed.
     host.applePlatformType = PlatformType.MACOS;
 
     return host;

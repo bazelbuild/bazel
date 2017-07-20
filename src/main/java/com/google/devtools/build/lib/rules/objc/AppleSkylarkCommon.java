@@ -88,11 +88,20 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = "platform_type",
-    doc = "Returns a struct containing fields corresponding to Apple platform types: 'ios', "
-        + "'watchos', 'tvos', and 'macos'. These values can be passed to methods that expect a "
-        + "platform type, like the 'apple' configuration fragment's 'multi_arch_platform' "
-        + "method. For example, ctx.fragments.apple.multi_arch_platform(apple_common."
-        + "platform_type.ios).",
+    doc = "An enum-like struct that contains the following fields corresponding to Apple platform "
+        + "types:<br><ul>"
+        + "<li><code>ios</code></li>"
+        + "<li><code>macos</code></li>"
+        + "<li><code>tvos</code></li>"
+        + "<li><code>watchos</code></li>"
+        + "</ul><p>"
+        + "These values can be passed to methods that expect a platform type, like the 'apple' "
+        + "configuration fragment's "
+        + "<a href='apple.html#multi_arch_platform'>multi_arch_platform</a> method.<p>"
+        + "Example:<p>"
+        + "<pre class='language-python'>\n"
+        + "ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)\n"
+        + "</pre>",
     structField = true
   )
   public SkylarkClassObject getPlatformTypeStruct() {
@@ -104,10 +113,18 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
       name = "platform",
-      doc = "Returns a struct containing fields corresponding to Apple platforms. These values "
-          + "can be passed to methods that expect a platform, like the 'apple' configuration "
-          + "fragment's 'sdk_version_for_platform' method. Each platform_type except for macosx "
-          + "has two platform types -- one for device, and one for simulator.",
+      doc = "An enum-like struct that contains the following fields corresponding to Apple "
+          + "platforms:<br><ul>"
+          + "<li><code>ios_device</code></li>"
+          + "<li><code>ios_simulator</code></li>"
+          + "<li><code>macos</code></li>"
+          + "<li><code>tvos_device</code></li>"
+          + "<li><code>tvos_simulator</code></li>"
+          + "<li><code>watchos_device</code></li>"
+          + "<li><code>watchos_device</code></li>"
+          + "</ul><p>"
+          + "These values can be passed to methods that expect a platform, like "
+          + "<a href='apple.html#sdk_version_for_platform'>apple.sdk_version_for_platform</a>.",
       structField = true
   )
   public SkylarkClassObject getPlatformStruct() {
@@ -119,9 +136,13 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = XcodeVersionProperties.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for XcodeVersionProperties. If a target propagates "
-            + "the XcodeVersionProperties provider, use this as the key with which to retrieve it.",
+    doc = "The constructor/key for the <code>XcodeVersionProperties</code> provider.<p>"
+        + "If a target propagates the <code>XcodeVersionProperties</code> provider, use this as "
+        + "the key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.XcodeVersionProperties]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getXcodeVersionPropertiesConstructor() {
@@ -133,7 +154,7 @@ public class AppleSkylarkCommon {
     // a migration of existing skylark rules.
     name = "Objc",
     doc = "The constructor/key for the <code>Objc</code> provider.<p>"
-        + "If a target propagates the <code>Objc</code> provider, use this as the"
+        + "If a target propagates the <code>Objc</code> provider, use this as the "
         + "key with which to retrieve it. Example:<br>"
         + "<pre class='language-python'>\n"
         + "dep = ctx.attr.deps[0]\n"
@@ -147,10 +168,13 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = AppleDynamicFrameworkProvider.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for AppleDynamicFramework. If a target propagates "
-            + "the AppleDynamicFramework provider, use this as the key with which to retrieve "
-            + "it.",
+    doc = "The constructor/key for the <code>AppleDynamicFramework</code> provider.<p>"
+        + "If a target propagates the <code>AppleDynamicFramework</code> provider, use this as the "
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleDynamicFramework]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getAppleDynamicFrameworkConstructor() {
@@ -159,9 +183,13 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = AppleDylibBinaryProvider.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for AppleDylibBinary. If a target propagates "
-            + "the AppleDylibBinary provider, use this as the key with which to retrieve it.",
+    doc = "The constructor/key for the <code>AppleDylibBinary</code> provider.<p>"
+        + "If a target propagates the <code>AppleDylibBinary</code> provider, use this as the "
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleDylibBinary]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getAppleDylibBinaryConstructor() {
@@ -170,9 +198,13 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = AppleExecutableBinaryProvider.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for AppleExecutableBinary. If a target propagates "
-            + "the AppleExecutableBinary provider, use this as the key with which to retrieve it.",
+    doc = "The constructor/key for the <code>AppleExecutableBinary</code> provider.<p>"
+        + "If a target propagates the <code>AppleExecutableBinary</code> provider, use this as the "
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleExecutableBinary]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getAppleExecutableBinaryConstructor() {
@@ -180,22 +212,29 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
-      name = AppleStaticLibraryProvider.SKYLARK_NAME,
-      doc =
-          "Returns the provider constructor for AppleStaticLibrary. If a target propagates "
-              + "the AppleStaticLibrary provider, use this as the key with which to retrieve it.",
-      structField = true
-    )
-    public ClassObjectConstructor getAppleStaticLibraryProvider() {
-      return AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR;
-    }
+    name = AppleStaticLibraryProvider.SKYLARK_NAME,
+    doc = "The constructor/key for the <code>AppleStaticLibrary</code> provider.<p>"
+        + "If a target propagates the <code>AppleStaticLibrary</code> provider, use this as the "
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleStaticLibrary]\n"
+        + "</pre>",
+    structField = true
+  )
+  public ClassObjectConstructor getAppleStaticLibraryProvider() {
+    return AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR;
+  }
 
   @SkylarkCallable(
     name = AppleDebugOutputsProvider.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for AppleDebugOutputsProvider. If a target propagates "
-            + "the AppleDebugOutputsProvider provider, use this as the key with which to retrieve "
-            + "it.",
+    doc = "The constructor/key for the <code>AppleDebugOutputs</code> provider.<p>"
+        + "If a target propagates the <code>AppleDebugOutputs</code> provider, use this as the "
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleDebugOutputs]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getAppleDebugOutputsConstructor() {
@@ -204,10 +243,13 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = AppleLoadableBundleBinaryProvider.SKYLARK_NAME,
-    doc =
-        "Returns the provider constructor for AppleLoadableBundleBinaryProvider. If a target "
-            + "propagates the AppleLoadableBundleBinaryProvider provider, use this as the key "
-            + "with which to retrieve it.",
+    doc = "The constructor/key for the <code>AppleLoadableBundleBinary</code> provider.<p>"
+        + "If a target propagates the <code>AppleLoadableBundleBinary</code> provider, use this as "
+        + "the key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.AppleLoadableBundleBinary]\n"
+        + "</pre>",
     structField = true
   )
   public ClassObjectConstructor getAppleLoadableBundleBinaryConstructor() {
@@ -216,10 +258,9 @@ public class AppleSkylarkCommon {
 
   @SkylarkCallable(
     name = IosDeviceProvider.SKYLARK_NAME,
-    doc =
-        "[NOTE: This is deprecated and will be removed in the future. Use the new Skylark testing "
-            + "rules instead.] Returns the provider constructor for IosDeviceProvider. Use this as "
-            + "a key to access the attributes exposed by ios_device.",
+    doc = "<b>Deprecated. Use the new Skylark testing rules instead.</b> Returns the provider "
+        + "constructor for IosDeviceProvider. Use this as a key to access the attributes exposed "
+        + "by ios_device.",
     structField = true
   )
   public ClassObjectConstructor getIosDeviceProviderConstructor() {
