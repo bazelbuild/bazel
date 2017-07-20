@@ -28,8 +28,11 @@ using std::wstring;
 
 template <typename char_type>
 bool HasUncPrefix(const char_type* path) {
-  return path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
-         (path[2] == '.' || path[2] == '?') && path[3] == '\\';
+  // Return true iff `path` starts with "\\?\", "\\.\", or "\??\".
+  return path[0] == '\\' &&
+         ((path[1] == '\\' && (path[2] == '?' || path[2] == '.')) ||
+          (path[1] == '?' && path[2] == '?')) &&
+         path[3] == '\\';
 }
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations

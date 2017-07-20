@@ -35,7 +35,6 @@ cc_test(
             "file_posix_test.cc",
         ],
     }),
-    tags = ["manual"],
     deps = [
         ":test_util",
         "//src/main/cpp/util:file",

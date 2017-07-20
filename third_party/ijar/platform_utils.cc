@@ -39,8 +39,7 @@ bool stat_file(const char* path, Stat* result) {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   std::wstring wpath;
   if (!blaze_util::AsWindowsPathWithUncPrefix(path, &wpath)) {
-    blaze_util::die(255, "stat_file: AsWindowsPathWithUncPrefix(%s) failed",
-                    path);
+    blaze_util::pdie(255, "stat_file: AsWindowsPathWithUncPrefix(%s)", path);
   }
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;

@@ -29,20 +29,6 @@ using std::wstring;
 
 static char errmsg[MAX_ERROR] = "";
 
-void PrintLastError(const char* op) {
-  char *message;
-  DWORD err = GetLastError();
-  FormatMessage(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER
-          | FORMAT_MESSAGE_FROM_SYSTEM
-          | FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      reinterpret_cast<char *>(&message),
-      0, NULL);
-  snprintf(errmsg, MAX_ERROR, "%s: %s", op, message);
-  LocalFree(message);
-}
-
 struct MappedInputFileImpl {
   HANDLE file_;
   HANDLE mapping_;
@@ -60,37 +46,30 @@ MappedInputFile::MappedInputFile(const char* name) {
 
   wstring wname;
   if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    blaze_util::die(
-        255, "MappedInputFile(%s): AsWindowsPathWithUncPrefix failed", name);
+    blaze_util::pdie(255, "MappedInputFile(%s): AsWindowsPathWithUncPrefix",
+                     name);
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
                             OPEN_EXISTING, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFile()");
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): CreateFileW(%S)", name,
+                     wname.c_str());
   }
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(file, &size)) {
-    PrintLastError("GetFileSizeEx()");
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): GetFileSizeEx", name);
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READONLY,
       size.HighPart, size.LowPart, NULL);
   if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFileMapping()");
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): CreateFileMapping", name);
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_READ, 0, 0, 0, NULL);
   if (view == NULL) {
-    PrintLastError("MapViewOfFileEx()");
-    CloseHandle(mapping);
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): MapViewOfFileEx", name);
   }
 
   impl_ = new MappedInputFileImpl(file, mapping);
@@ -111,18 +90,15 @@ void MappedInputFile::Discard(size_t bytes) {
 
 int MappedInputFile::Close() {
   if (!UnmapViewOfFile(buffer_)) {
-    PrintLastError("UnmapViewOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: UnmapViewOfFile");
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    PrintLastError("CloseHandle(mapping)");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: CloseHandle for mapping");
   }
 
   if (!CloseHandle(impl_->file_)) {
-    PrintLastError("CloseHandle(file)");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: CloseHandle for file");
   }
 
   return 0;
@@ -145,27 +121,25 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
 
   wstring wname;
   if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    blaze_util::die(
-        255, "MappedOutputFile(%s): AsWindowsPathWithUncPrefix failed", name);
+    blaze_util::pdie(255, "MappedOutputFile(%s): AsWindowsPathWithUncPrefix",
+                     name);
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
                             NULL, CREATE_ALWAYS, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFile()");
-    return;
+    blaze_util::pdie(255, "MappedOutputFile(%s): CreateFileW(%S)", name,
+                     wname.c_str());
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READWRITE,
       estimated_size >> 32, estimated_size & 0xffffffffUL, NULL);
   if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFileMapping()");
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedOutputFile(%s): CreateFileMapping", name);
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 0, NULL);
   if (view == NULL) {
-    PrintLastError("MapViewOfFileEx()");
+    blaze_util::pdie(255, "MappedOutputFile(%s): MapViewOfFileEx", name);
     CloseHandle(mapping);
     CloseHandle(file);
     return;
@@ -182,28 +156,23 @@ MappedOutputFile::~MappedOutputFile() {
 
 int MappedOutputFile::Close(int size) {
   if (!UnmapViewOfFile(buffer_)) {
-    PrintLastError("UnmapViewOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: UnmapViewOfFile");
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    PrintLastError("CloseHandle(mapping)");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: CloseHandle for mapping");
   }
 
   if (!SetFilePointer(impl_->file_, size, NULL, FILE_BEGIN)) {
-    PrintLastError("SetFilePointer()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: SetFilePointer");
   }
 
   if (!SetEndOfFile(impl_->file_)) {
-    PrintLastError("SetEndOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: SetEndOfFile");
   }
 
   if (!CloseHandle(impl_->file_)) {
-    PrintLastError("CloseHandle(file)");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: CloseHandle for file");
   }
 
   return 0;
