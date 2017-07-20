@@ -116,12 +116,14 @@ public class AndroidResourceValidatorActionBuilder {
   }
 
   public ResourceContainer build(ActionConstructionContext context) {
-    ResourceContainer container = createValidateAction(context);
-    if (compiledSymbols == null) {
-      return container;
-    } else {
-      return createLinkStaticLibraryAction(container, context);
+    ResourceContainer container = primary;
+    if (rTxtOut != null) {
+      container = createValidateAction(container, context);
     }
+    if (compiledSymbols != null) {
+      container = createLinkStaticLibraryAction(container, context);
+    }
+    return container;
   }
 
   public AndroidResourceValidatorActionBuilder setCompiledSymbols(Artifact compiledSymbols) {
@@ -152,13 +154,12 @@ public class AndroidResourceValidatorActionBuilder {
     builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
 
     FluentIterable<Artifact> libraries =
-        FluentIterable.from(resourceDeps.getResources())
-            .transform(ResourceContainer::getStaticLibrary)
-            .append(ImmutableList.of(sdk.getAndroidJar())); // the android jar is a static library.
+        FluentIterable.from(resourceDeps.getResources()).transform(
+            ResourceContainer::getStaticLibrary);
 
     builder
         .add("--libraries")
-        .add(libraries.join(Joiner.on(':')));
+        .add(libraries.join(Joiner.on(context.getConfiguration().getHostPathSeparator())));
     inputs.addAll(libraries);
 
     builder.addExecPath("--compiled", compiledSymbols);
@@ -204,7 +205,8 @@ public class AndroidResourceValidatorActionBuilder {
         .build();
   }
 
-  private ResourceContainer createValidateAction(ActionConstructionContext context) {
+  private ResourceContainer createValidateAction(
+      ResourceContainer primary, ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
     // Set the busybox tool.

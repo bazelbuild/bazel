@@ -37,18 +37,20 @@ public class AndroidResourcesProcessorBuilder {
 
   private static final ResourceContainerConverter.ToArtifacts AAPT2_RESOURCE_DEP_TO_ARTIFACTS =
       ResourceContainerConverter.builder()
-          .includeStaticLibrary()
+          .includeResourceRoots()
           .includeManifest()
           .includeAapt2RTxt()
           .includeSymbolsBin()
+          .includeStaticLibrary()
           .toArtifactConverter();
 
   private static final ResourceContainerConverter.ToArg AAPT2_RESOURCE_DEP_TO_ARG =
       ResourceContainerConverter.builder()
-          .includeStaticLibrary()
+          .includeResourceRoots()
           .includeManifest()
           .includeAapt2RTxt()
           .includeSymbolsBin()
+          .includeStaticLibrary()
           .withSeparator(SeparatorType.COLON_COMMA)
           .toArgConverter();
 
@@ -326,9 +328,7 @@ public class AndroidResourcesProcessorBuilder {
 
     ResourceContainerConverter.convertDependencies(
         dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
-
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
-
     configureCommonFlags(outs, inputs, builder);
 
     // Create the spawn action.

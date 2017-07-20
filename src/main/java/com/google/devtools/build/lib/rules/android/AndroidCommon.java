@@ -40,8 +40,10 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -403,7 +405,7 @@ public class AndroidCommon {
       JavaTargetAttributes.Builder attributes,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean useRClassGenerator)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     compileResourceJar(javaSemantics, resourceApk, resourcesJar, useRClassGenerator);
     // Add the compiled resource jar to the classpath of the main compilation.
     attributes.addDirectJars(NestedSetBuilder.create(Order.STABLE_ORDER, resourceClassJar));
@@ -421,7 +423,7 @@ public class AndroidCommon {
   private void compileResourceJar(
       JavaSemantics javaSemantics, ResourceApk resourceApk, Artifact resourcesJar,
       boolean useRClassGenerator)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     resourceSourceJar = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.ANDROID_RESOURCES_SOURCE_JAR);
     resourceClassJar = ruleContext.getImplicitOutputArtifact(
@@ -435,12 +437,12 @@ public class AndroidCommon {
     // Only build the class jar if it's not already generated internally by resource processing.
     if (resourceApk.getResourceJavaClassJar() == null) {
       if (useRClassGenerator) {
-        RClassGeneratorActionBuilder actionBuilder =
-            new RClassGeneratorActionBuilder(ruleContext)
-                .withPrimary(resourceApk.getPrimaryResource())
-                .withDependencies(resourceApk.getResourceDependencies())
-                .setClassJarOut(resourceClassJar);
-        actionBuilder.build();
+        new RClassGeneratorActionBuilder(ruleContext)
+            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .withPrimary(resourceApk.getPrimaryResource())
+            .withDependencies(resourceApk.getResourceDependencies())
+            .setClassJarOut(resourceClassJar)
+            .build();
       } else {
         Artifact outputDepsProto =
             javacHelper.createOutputDepsProtoArtifact(resourceClassJar, javaArtifactsBuilder);
@@ -526,7 +528,7 @@ public class AndroidCommon {
       boolean collectJavaCompilationArgs,
       boolean isBinary,
       boolean includeLibraryResourceJars)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);

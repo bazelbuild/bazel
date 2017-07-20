@@ -129,8 +129,8 @@ public class RClassGeneratorActionBuilder {
             .build(ruleContext));
   }
 
-  private static Artifact chooseRTxt(ResourceContainer primary, AndroidAaptVersion version) {
-    return version == AndroidAaptVersion.AAPT2 ? primary.getAapt2RTxt() : primary.getRTxt();
+  private static Artifact chooseRTxt(ResourceContainer container, AndroidAaptVersion version) {
+    return version == AndroidAaptVersion.AAPT2 ? container.getAapt2RTxt() : container.getRTxt();
   }
 
   private static Function<ResourceContainer, NestedSet<Artifact>> chooseDepsToArtifacts(

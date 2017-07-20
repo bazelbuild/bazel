@@ -1489,4 +1489,87 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(javacAction.buildCommandLine()).doesNotContain("--testonly");
   }
+
+  @Test
+  public void aapt2ArtifactGenerationWhenSdkIsDefined() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    annotations_jar = 'annotations_jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign',",
+        "    resource_extractor = 'resource_extractor')");
+    scratch.file(
+        "java/a/BUILD",
+        "android_library(",
+        "  name = 'a', ",
+        "  srcs = ['A.java'],",
+        "  deps = [':b'],",
+        "  manifest = 'a/AndroidManifest.xml',",
+        "  resource_files = [ 'res/values/a.xml' ]",
+        ")",
+        "android_library(",
+        "  name = 'b', ",
+        "  srcs = ['B.java'],",
+        "  manifest = 'b/AndroidManifest.xml',",
+        "  resource_files = [ 'res/values/b.xml' ]",
+        ")");
+
+    useConfiguration("--android_sdk=//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTarget b = getConfiguredTarget("//java/a:b");
+    SpawnAction compileAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+    assertThat(compileAction).isNotNull();
+
+    SpawnAction linkAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+    assertThat(linkAction).isNotNull();
+    assertThat(linkAction.getInputs())
+        .containsAllOf(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
+            getImplicitOutputArtifact(
+                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+    assertThat(linkAction.getOutputs())
+        .containsAllOf(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
+  }
+
+  @Test
+  public void aapt2ArtifactGenerationSkippedWhenSdkIsNotDefined() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_library(",
+        "  name = 'a', ",
+        "  srcs = ['A.java'],",
+        "  manifest = 'a/AndroidManifest.xml',",
+        "  resource_files = [ 'res/values/a.xml' ]",
+        ")");
+
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    SpawnAction compileAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+    assertThat(compileAction).isNull();
+
+    SpawnAction linkAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+    assertThat(linkAction).isNull();
+  }
 }
