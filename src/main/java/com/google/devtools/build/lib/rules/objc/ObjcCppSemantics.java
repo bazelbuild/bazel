@@ -112,10 +112,8 @@ public class ObjcCppSemantics implements CppSemantics {
 
     // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
     // it here.
-    PathFragment genfilesSegment =
-        ruleContext.getConfiguration().getGenfilesDirectory().getExecPath().getLastSegment();
     for (Artifact header : objcProvider.get(HEADER)) {
-      if (genfilesSegment.equals(header.getRoot().getExecPath().getLastSegment())) {
+      if (!header.isSourceArtifact()) {
         generatedHeaders.add(header);
       }
     }
