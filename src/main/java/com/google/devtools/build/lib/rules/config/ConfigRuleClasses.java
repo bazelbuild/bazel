@@ -102,10 +102,10 @@ public class ConfigRuleClasses {
      */
     public static final String RULE_NAME = "config_setting";
 
-    /**
-     * The name of the attribute that declares flag bindings.
-     */
+    /** The name of the attribute that declares flag bindings. */
     public static final String SETTINGS_ATTRIBUTE = "values";
+    /** The name of the attribute that declares "--define foo=bar" flag bindings.*/
+    public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
 
@@ -143,11 +143,57 @@ public class ConfigRuleClasses {
              <i>any</i> of those settings match.
           <p>
 
-          <p>This attribute cannot be empty.
+          <p>This and <a href="${link config_setting.define_values}"><code>values</code></a> cannot
+             both be empty.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(SETTINGS_ATTRIBUTE, STRING_DICT)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(define_values) -->
+          The same as <a href="${link config_setting.values}"><code>values</code></a> but
+          specifically for the <code>--define</code> flag.
+
+          <p><code>--define</code> is special for two reasons:
+
+          <ol>
+            <li>It's the primary interface Blaze has today for declaring user-definable settings.
+            </li>
+            <li>Its syntax (<code>--define KEY=VAL</code>) means <code>KEY=VAL</code> is
+            a <i>value</i> from a Blaze flag perspective.</li>
+          </ol>
+
+          <p>That means:
+
+          <pre class="code">
+            config_setting(
+                name = "a_and_b",
+                values = {
+                    "define": "a=1",
+                    "define": "b=2",
+                })
+          </pre>
+
+          <p>doesn't work because the same key (<code>define</code>) appears twice in the
+          dictionary. This attribute solves that problem:
+
+          <pre class="code">
+            config_setting(
+                name = "a_and_b",
+                define_values = {
+                    "a": "1",
+                    "b": "2",
+                })
+          </pre>
+
+          <p>corrrectly matches <code>blaze build //foo --define a=1 --define b=2</code>.
+
+          <p><code>--define</code> can still appear in
+          <a href="${link config_setting.values}"><code>values</code></a> with normal flag syntax,
+          and can be mixed freely with this attribute as long as dictionary keys remain distinct.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr(DEFINE_SETTINGS_ATTRIBUTE, STRING_DICT)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
