@@ -88,9 +88,8 @@ Take a look at the `java-tutorial/BUILD` file:
 
 ```
 java_binary(
-    name = "my-runner",
+    name = "ProjectRunner",
     srcs = glob(["src/main/java/com/example/*.java"]),
-    main_class = "com.example.ProjectRunner",
 )
 ```
 
@@ -112,7 +111,7 @@ Let's build your sample project. Change into the `java-tutorial` directory
 and run the following command:
 
 ```
-bazel build //:my-runner
+bazel build //:ProjectRunner
 ```
 Notice the target label - the `//` part is the location of our `BUILD` file
 relative to the root of the workspace (in this case, the root itself), and
@@ -122,11 +121,11 @@ learn about target labels in more detail at the end of this tutorial.)
 Bazel produces output similar to the following:
 
 ```bash
-INFO: Found 1 target...
-Target //:my-runner up-to-date:
-  bazel-bin/my-runner.jar
-  bazel-bin/my-runner
-INFO: Elapsed time: 10.179s, Critical Path: 0.84s
+   INFO: Found 1 target...
+   Target //:ProjectRunner up-to-date:
+      bazel-bin/ProjectRunner.jar
+      bazel-bin/ProjectRunner
+   INFO: Elapsed time: 1.021s, Critical Path: 0.83s
 ```
 
 Congratulations, you just built your first Bazel target! Bazel places build
