@@ -819,6 +819,18 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
+  public void filegroupDataAttributesSkipped() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    scratch.file("hello/BUILD",
+        "filegroup(",
+        "    name = 'hi',",
+        "    data = ['//helpers:default'],",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    assertThat(getConfiguredTarget("//hello:hi")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
   public void outputFilesAreChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
