@@ -124,6 +124,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 (TargetAndConfiguration) skyKey.argument(),
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
+                /*toolchainContext=*/ null,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),

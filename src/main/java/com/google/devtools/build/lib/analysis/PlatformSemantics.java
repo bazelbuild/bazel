@@ -18,9 +18,8 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -33,22 +32,7 @@ public class PlatformSemantics {
 
   public static final String TARGET_PLATFORMS_ATTR = ":target_platforms";
   public static final String EXECUTION_PLATFORM_ATTR = ":execution_platform";
-
-  public Iterable<PlatformInfo> getTargetPlatforms(RuleContext ruleContext) {
-    Iterable<PlatformInfo> platform =
-        PlatformProviderUtils.platforms(
-            ruleContext.getPrerequisites(
-                TARGET_PLATFORMS_ATTR, RuleConfiguredTarget.Mode.DONT_CHECK));
-    return platform;
-  }
-
-  public PlatformInfo getExecutionPlatform(RuleContext ruleContext) {
-    PlatformInfo platform =
-        PlatformProviderUtils.platform(
-            ruleContext.getPrerequisite(
-                EXECUTION_PLATFORM_ATTR, RuleConfiguredTarget.Mode.DONT_CHECK));
-    return platform;
-  }
+  public static final String TOOLCHAINS_ATTR = "$toolchains";
 
   /** Implementation for the :target_platform attribute. */
   public static final Attribute.LateBoundLabelList<BuildConfiguration> TARGET_PLATFORM =
@@ -62,6 +46,7 @@ public class PlatformSemantics {
           return configuration.getFragment(PlatformConfiguration.class).getTargetPlatforms();
         }
       };
+
   /** Implementation for the :execution_platform attribute. */
   public static final Attribute.LateBoundLabel<BuildConfiguration> EXECUTION_PLATFORM =
       new Attribute.LateBoundLabel<BuildConfiguration>(PlatformConfiguration.class) {
@@ -83,6 +68,10 @@ public class PlatformSemantics {
         .add(
             attr(EXECUTION_PLATFORM_ATTR, LABEL)
                 .value(EXECUTION_PLATFORM)
-                .nonconfigurable("Used in toolchain resolution"));
+                .nonconfigurable("Used in toolchain resolution"))
+        .add(
+            attr(TOOLCHAINS_ATTR, LABEL_LIST)
+                .nonconfigurable("Used in toolchain resolution")
+                .value(ImmutableList.of()));
   }
 }

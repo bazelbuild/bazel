@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -477,18 +478,28 @@ public final class SkyframeBuildView {
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
+  ConfiguredTarget createConfiguredTarget(
+      Target target,
+      BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
+      throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
-    return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
-        configuration, getHostConfiguration(configuration), prerequisiteMap,
-        configConditions);
+    return factory.createConfiguredTarget(
+        analysisEnvironment,
+        artifactFactory,
+        target,
+        configuration,
+        getHostConfiguration(configuration),
+        prerequisiteMap,
+        configConditions,
+        toolchainContext);
   }
 
   /**

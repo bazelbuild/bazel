@@ -205,20 +205,34 @@ public final class ConfiguredTargetFactory {
 
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
+   *
    * <p>For use in {@code ConfiguredTargetFunction}.
    *
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  public final ConfiguredTarget createConfiguredTarget(AnalysisEnvironment analysisEnvironment,
-      ArtifactFactory artifactFactory, Target target, BuildConfiguration config,
+  public final ConfiguredTarget createConfiguredTarget(
+      AnalysisEnvironment analysisEnvironment,
+      ArtifactFactory artifactFactory,
+      Target target,
+      BuildConfiguration config,
       BuildConfiguration hostConfig,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
     if (target instanceof Rule) {
-      return createRule(analysisEnvironment, (Rule) target, config, hostConfig,
-          prerequisiteMap, configConditions);
+      Preconditions.checkArgument(
+          toolchainContext != null,
+          "ToolchainContext should never be null when creating a ConfiguredTarget for a Rule");
+      return createRule(
+          analysisEnvironment,
+          (Rule) target,
+          config,
+          hostConfig,
+          prerequisiteMap,
+          configConditions,
+          toolchainContext);
     }
 
     // Visibility, like all package groups, doesn't have a configuration
@@ -271,10 +285,18 @@ public final class ConfiguredTargetFactory {
    */
   @Nullable
   private ConfiguredTarget createRule(
-      AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+      AnalysisEnvironment env,
+      Rule rule,
+      BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext)
+      throws InterruptedException {
+
+    // Load the requested toolchains into the ToolchainContext.
+    toolchainContext.resolveToolchains(prerequisiteMap);
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
@@ -289,9 +311,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            // TODO(katre): Populate the actual selected toolchains.
-            .setToolchainContext(
-                new ToolchainContext(rule.getRuleClassObject().getRequiredToolchains(), null))
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -365,9 +385,10 @@ public final class ConfiguredTargetFactory {
           return aspect.getDescriptor();
         }
       };
+
   /**
-   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case,
-   * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
+   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
+   * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
@@ -377,9 +398,14 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
+
+    // Load the requested toolchains into the ToolchainContext.
+    toolchainContext.resolveToolchains(prerequisiteMap);
+
     RuleContext.Builder builder = new RuleContext.Builder(
         env,
         associatedTarget.getTarget().getAssociatedRule(),
@@ -397,9 +423,7 @@ public final class ConfiguredTargetFactory {
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            // TODO(katre): Populate the actual selected toolchains.
-            .setToolchainContext(
-                new ToolchainContext(aspect.getDefinition().getRequiredToolchains(), null))
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;
