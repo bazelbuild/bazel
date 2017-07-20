@@ -1624,7 +1624,7 @@ static string GetBashFromGitOnWin() {
     return string();
   }
 
-  debug_log("Detected msys bash at %s", bash_exe.c_str());
+  debug_log("Detected git-on-Windows bash at %s", bash_exe.c_str());
   return bash_exe;
 }
 
@@ -1701,7 +1701,7 @@ void DetectBashOrDie() {
         "       https://git-scm.com/download/win\n"
         "\n"
         "If you already have bash.exe installed but Bazel cannot find it,\n"
-        "set BAZEL_SH environment variable to it's location:\n"
+        "set BAZEL_SH environment variable to its location:\n"
         "       set BAZEL_SH=c:\\path\\to\\bash.exe\n");
     exit(1);
   }
