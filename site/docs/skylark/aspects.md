@@ -116,13 +116,14 @@ functions. They return [providers](rules.md#providers), can generate
 Example:
 
 ```python
+MetalProtoInfo = provider()
 def _metal_proto_aspect_impl(target, ctx):
     # For every `src` in proto_library, generate an output file
     proto_sources = [f for src in ctx.rule.attr.srcs
                        for f in src.files]
-    outputs = [ctx.new_file(f.short_path + ".metal")
+    outputs = [ctx.actions.declare_file(f.short_path + ".metal")
                for f in proto_sources]
-    ctx.action(
+    ctx.actions.run(
         executable = ctx.executable._protoc,
         argument = ...
         inputs = proto_sources
@@ -130,9 +131,8 @@ def _metal_proto_aspect_impl(target, ctx):
     transitive_outputs = depset(outputs)
     for dep in ctx.rule.attr.deps:
         transitive_outputs = transitive_outputs | dep.metal_proto.transitive_outputs
-    return struct(
-        metal_proto = struct(direct_outputs = outputs,
-                             transitive_outputs = transitive_outputs))
+    return [MetalProtoInfo(direct_outputs = outputs,
+                           transitive_outputs = transitive_outputs)]
 ```
 
 The implementation function can access the attributes of the target rule via
