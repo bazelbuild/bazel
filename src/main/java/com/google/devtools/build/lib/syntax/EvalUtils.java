@@ -251,7 +251,7 @@ public final class EvalUtils {
       return "select";
     } else if (NestedSet.class.isAssignableFrom(c)) {
       // TODO(bazel-team): no one should be seeing naked NestedSet at all.
-      return "set";
+      return "depset";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
