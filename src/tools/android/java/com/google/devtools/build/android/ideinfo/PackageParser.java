@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterC
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedReader;
@@ -81,17 +82,36 @@ public class PackageParser {
     public Path outputManifest;
 
     @Option(
+      name = "sources_execution_path",
+      allowMultiple = true,
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The execution paths of the java source files. You may use this flag multiple times, "
+              + "each instance should specify one path."
+    )
+    public List<Path> sourcesExecutionPaths;
+
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
+    @Option(
       name = "sources_execution_paths",
       defaultValue = "null",
+      deprecationWarning = "Deprecated in favour of \"--sources_execution_path\"",
       converter = PathListConverter.class,
       category = "input",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The execution paths of the java source files. The expected format is a "
-              + "colon-separated list."
+              + "colon-separated list.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
     )
-    public List<Path> sourcesExecutionPaths;
+    public List<Path> deprecatedSourcesExecutionPaths;
   }
 
   private static final Logger logger = Logger.getLogger(PackageParser.class.getName());
@@ -102,6 +122,8 @@ public class PackageParser {
   public static void main(String[] args) throws Exception {
     PackageParserOptions options = parseArgs(args);
     Preconditions.checkNotNull(options.outputManifest);
+    options.sourcesExecutionPaths = PathListConverter.concatLists(
+        options.sourcesExecutionPaths, options.deprecatedSourcesExecutionPaths);
 
     try {
       PackageParser parser = new PackageParser(PackageParserIoProvider.INSTANCE);

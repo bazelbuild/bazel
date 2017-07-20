@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -29,11 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 
 /** Builder for the action that generates the R class for libraries. */
 public class LibraryRGeneratorActionBuilder {
-  static final Function<ResourceContainer, Artifact> TO_SYMBOL_ARTIFACT =
-      ResourceContainer::getSymbols;
-  static final Function<ResourceContainer, String> TO_SYMBOL_PATH =
-      (ResourceContainer container) -> container.getSymbols().getExecPathString();
-
   private String javaPackage;
   private Iterable<ResourceContainer> deps = ImmutableList.<ResourceContainer>of();
   private ResourceContainer resourceContainer;
@@ -77,13 +71,12 @@ public class LibraryRGeneratorActionBuilder {
     FluentIterable<ResourceContainer> symbolProviders =
         FluentIterable.from(deps).append(resourceContainer);
 
-    builder.addJoinStrings(
-        "--symbols",
-        ruleContext.getConfiguration().getHostPathSeparator(),
-        symbolProviders.transform(TO_SYMBOL_PATH));
-    inputs.addTransitive(
-        NestedSetBuilder.wrap(
-            Order.NAIVE_LINK_ORDER, symbolProviders.transform(TO_SYMBOL_ARTIFACT)));
+    if (!symbolProviders.isEmpty()) {
+      builder.addExecPaths("--symbols", symbolProviders.transform(c -> c.getSymbols()));
+      inputs.addTransitive(
+          NestedSetBuilder.wrap(
+              Order.NAIVE_LINK_ORDER, symbolProviders.transform(ResourceContainer::getSymbols)));
+    }
 
     builder.addExecPath("--classJarOutput", rJavaClassJar);
 

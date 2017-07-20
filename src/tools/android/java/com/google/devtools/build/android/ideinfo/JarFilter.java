@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterC
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedReader;
@@ -65,48 +66,124 @@ public final class JarFilter {
   /** The options for a {@JarFilter} action. */
   public static final class JarFilterOptions extends OptionsBase {
     @Option(
-      name = "filter_jars",
+      name = "filter_jar",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
-      converter = PathListConverter.class,
+      converter = PathConverter.class,
       category = "input",
-      help = "A list of the paths to target output jars to filter for generated sources."
+      help =
+          "Paths to target output jars to filter for generated sources. You may use this flag "
+              + "multiple times, specify each path with a separate instance of the flag."
     )
     public List<Path> filterJars;
 
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
     @Option(
-      name = "filter_source_jars",
+      name = "filter_jars",
+      deprecationWarning = "Deprecated in favour of \"--filter_jar\"",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
-      help = "A list of the paths to target output source jars to filter for generated sources."
+      help = "A list of the paths to target output jars to filter for generated sources.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
+    )
+    public List<Path> deprecatedFilterJars;
+
+    @Option(
+      name = "filter_source_jar",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      help =
+          "Paths to target output source jars to filter for generated sources. You may use this "
+              + "flag multiple times, specify each path with a separate instance of the flag."
     )
     public List<Path> filterSourceJars;
 
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
     @Option(
-      name = "keep_java_files",
+      name = "filter_source_jars",
+      deprecationWarning = "Deprecated in favour of \"--filter_source_jar\"",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
-      help = "A list of target input java files to keep."
+      help = "A list of the paths to target output source jars to filter for generated sources.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
+    )
+    public List<Path> deprecatedFilterSourceJars;
+
+    @Option(
+      name = "keep_java_file",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      help =
+          "Path of target input java files to keep. You may use this flag multiple times, "
+              + "specify each path with a separate instance of the flag."
     )
     public List<Path> keepJavaFiles;
 
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
     @Option(
-      name = "keep_source_jars",
+      name = "keep_java_files",
+      deprecationWarning = "Deprecated in favour of \"--keep_java_file\"",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
-      help = "A list of target input .srcjar files to keep."
+      help = "A list of target input java files to keep.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
+    )
+    public List<Path> deprecatedKeepJavaFiles;
+
+    @Option(
+      name = "keep_source_jar",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      help =
+          "Path of target input .srcjar files to keep. You may use this flag multiple times, "
+              + "specify each path with a separate instance of the flag."
     )
     public List<Path> keepSourceJars;
+
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
+    @Option(
+      name = "keep_source_jars",
+      deprecationWarning = "Deprecated in favour of \"--keep_source_jar\"",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      converter = PathListConverter.class,
+      category = "input",
+      help = "A list of target input .srcjar files to keep.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
+    )
+    public List<Path> deprecatedKeepSourceJars;
 
     @Option(
       name = "filtered_jar",
@@ -135,6 +212,21 @@ public final class JarFilter {
 
     @Deprecated
     @Option(
+      name = "jar",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      help = "A list of the paths to jars to filter for generated sources."
+    )
+    public List<Path> jars;
+
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
+    @Option(
       name = "jars",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -143,7 +235,7 @@ public final class JarFilter {
       category = "input",
       help = "A list of the paths to jars to filter for generated sources."
     )
-    public List<Path> jars;
+    public List<Path> deprecatedJars;
 
     @Deprecated
     @Option(
@@ -235,10 +327,20 @@ public final class JarFilter {
     args = parseParamFileIfUsed(args);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(JarFilterOptions.class);
     optionsParser.parseAndExitUponError(args);
-
-    // Migrate options from v1 jar filter
     JarFilterOptions options = optionsParser.getOptions(JarFilterOptions.class);
-    if (options.filterJars == null && options.jars != null) {
+
+    options.filterJars = PathListConverter.concatLists(
+        options.filterJars, options.deprecatedFilterJars);
+    options.filterSourceJars = PathListConverter.concatLists(
+        options.filterSourceJars, options.deprecatedFilterSourceJars);
+    options.keepJavaFiles = PathListConverter.concatLists(
+        options.keepJavaFiles, options.deprecatedKeepJavaFiles);
+    options.keepSourceJars = PathListConverter.concatLists(
+        options.keepSourceJars, options.deprecatedKeepSourceJars);
+    options.jars = PathListConverter.concatLists(
+        options.jars, options.deprecatedJars);
+    // Migrate options from v1 jar filter
+    if (options.filterJars.isEmpty() && !options.jars.isEmpty()) {
       options.filterJars = options.jars;
     }
     if (options.filteredJar == null && options.output != null) {
