@@ -68,6 +68,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, protoSupport.getObjcProvider().get())
+        .addNativeDeclaredProvider(protoSupport.getObjcProvider().get())
         .build();
   }
 

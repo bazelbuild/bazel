@@ -75,6 +75,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, nestedBundleProvider)
+        .addNativeDeclaredProvider(nestedBundleProvider)
         .build();
   }
 

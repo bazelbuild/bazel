@@ -86,7 +86,9 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
     ObjcProvider exposedObjcProvider = exposedObjcProvider(ruleContext, releaseBundlingSupport);
     if (exposedObjcProvider != null) {
-      targetBuilder.addProvider(ObjcProvider.class, exposedObjcProvider);
+      targetBuilder
+          .addProvider(ObjcProvider.class, exposedObjcProvider)
+          .addNativeDeclaredProvider(exposedObjcProvider);
     }
 
     configureTarget(targetBuilder, ruleContext, releaseBundlingSupport);

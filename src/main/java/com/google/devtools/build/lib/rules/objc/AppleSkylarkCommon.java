@@ -129,6 +129,23 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
+    // TODO(b/63899207): This currently does not match ObjcProvider.SKYLARK_NAME as it requires
+    // a migration of existing skylark rules.
+    name = "Objc",
+    doc = "The constructor/key for the <code>Objc</code> provider.<p>"
+        + "If a target propagates the <code>Objc</code> provider, use this as the"
+        + "key with which to retrieve it. Example:<br>"
+        + "<pre class='language-python'>\n"
+        + "dep = ctx.attr.deps[0]\n"
+        + "p = dep[apple_common.Objc]\n"
+        + "</pre>",
+    structField = true
+  )
+  public ClassObjectConstructor getObjcProviderConstructor() {
+    return ObjcProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
     name = AppleDynamicFrameworkProvider.SKYLARK_NAME,
     doc =
         "Returns the provider constructor for AppleDynamicFramework. If a target propagates "

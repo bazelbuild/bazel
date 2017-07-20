@@ -58,14 +58,12 @@ import java.util.Map;
 public final class ObjcProvider extends SkylarkClassObject
     implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
 
-  /**
-   * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
-   */
-  public static final String OBJC_SKYLARK_PROVIDER_NAME = "objc";
+  /** Skylark name for the ObjcProvider. */
+  public static final String SKYLARK_NAME = "objc";
 
   @Override
   public String getSkylarkName() {
-    return OBJC_SKYLARK_PROVIDER_NAME;
+    return SKYLARK_NAME;
   }
 
   /**
@@ -506,8 +504,9 @@ public final class ObjcProvider extends SkylarkClassObject
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
-  private static final NativeClassObjectConstructor<ObjcProvider> OBJC_PROVIDER =
-      new NativeClassObjectConstructor<ObjcProvider>(ObjcProvider.class, "objc_provider") {
+  /** Skylark constructor and identifier for ObjcProvider. */
+  public static final NativeClassObjectConstructor<ObjcProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<ObjcProvider>(ObjcProvider.class, SKYLARK_NAME) {
         @Override
         public String getErrorMessageFormatForInstances() {
           return "ObjcProvider field %s could not be instantiated";
@@ -519,7 +518,7 @@ public final class ObjcProvider extends SkylarkClassObject
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems,
       ImmutableMap<String, Object> skylarkFields) {
-    super(OBJC_PROVIDER, skylarkFields);
+    super(SKYLARK_CONSTRUCTOR, skylarkFields);
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);

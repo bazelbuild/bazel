@@ -183,6 +183,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
             .addProvider(ObjcProvider.class, objcProvider)
+            .addNativeDeclaredProvider(objcProvider)
             .addProvider(
                 InstrumentedFilesProvider.class,
                 compilationSupport.getInstrumentedFilesProvider(common))

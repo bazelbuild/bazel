@@ -140,7 +140,7 @@ public class AppleStubBinaryTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    ObjcProvider objc = (ObjcProvider) target.get(ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME);
+    ObjcProvider objc = (ObjcProvider) target.get(ObjcProvider.SKYLARK_NAME);
 
     // The propagated objc provider should only contain one file, and that file is the one selected
     // for the given platform type.

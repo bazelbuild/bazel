@@ -1208,6 +1208,44 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     }
   }
 
+  /**
+   * This test verifies that its possible to use the skylark constructor of ObjcProvider as a
+   * provider key to obtain the provider. This test only needs to exist as long as there are
+   * two methods of retrieving ObjcProvider (which is true for legacy reasons). This is the
+   * 'new' method of retrieving ObjcProvider.
+   */
+  @Test
+  public void testObjcProviderSkylarkConstructor() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   objc_provider = dep[apple_common.Objc]",
+        "   return struct(objc=objc_provider)",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "   'deps': attr.label_list(allow_files = False, mandatory = False),",
+        "})");
+    scratch.file("examples/apple_skylark/a.cc");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('/examples/rule/apple_rules', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        "    deps = [':lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        "    hdrs = ['a.h']",
+        ")");
+
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    assertThat(skylarkTarget.getProvider(ObjcProvider.class)).isNotNull();
+  }
+
   private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
