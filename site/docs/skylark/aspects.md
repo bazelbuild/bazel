@@ -74,7 +74,8 @@ of the original graph.
 
 ## Defining aspects
 
-Aspect definitions are similiar to rule definitions. Let's take a look at
+Aspect definitions are similar to rule definitions, and defined using
+the [`aspect`](lib/globals.html#aspect) function. Let's take a look at
 the example:
 
 ```python
