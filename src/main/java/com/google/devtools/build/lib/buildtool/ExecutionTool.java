@@ -681,6 +681,7 @@ public class ExecutionTool {
             : ModifiedFileSet.NOTHING_MODIFIED,
         options.finalizeActions,
         fileCache,
+        prefetcher,
         request.getBuildOptions().progressReportInterval);
   }
 

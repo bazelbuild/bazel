@@ -53,6 +53,7 @@ public class ExecutableSymlinkActionTest {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
         null, outErr, ImmutableMap.<String, String>of(), null);
   }
 

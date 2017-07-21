@@ -128,8 +128,8 @@ public class StandaloneSpawnStrategyTest {
             ImmutableMap.<String, SpawnActionContext>of(
                 "",
                 new StandaloneSpawnStrategy(
-                    execRoot, ActionInputPrefetcher.NONE, localExecutionOptions,
-                    /*verboseFailures=*/false, "mock-product-name", resourceManager)),
+                    execRoot, localExecutionOptions, /*verboseFailures=*/false, "mock-product-name",
+                    resourceManager)),
             ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();
@@ -167,6 +167,7 @@ public class StandaloneSpawnStrategyTest {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
         null,
         outErr,
         ImmutableMap.<String, String>of(),

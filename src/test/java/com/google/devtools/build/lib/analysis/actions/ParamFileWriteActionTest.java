@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -160,7 +161,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     };
 
     Executor executor = new TestExecutorBuilder(directories, binTools).build();
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(),
-        ImmutableMap.<String, String>of(), artifactExpander);
+    return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        new FileOutErr(), ImmutableMap.<String, String>of(), artifactExpander);
   }
 }

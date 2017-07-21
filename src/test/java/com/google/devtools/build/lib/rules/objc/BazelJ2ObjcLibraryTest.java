@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -673,7 +674,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null, null, null, null, ImmutableMap.<String, String>of(), DUMMY_ARTIFACT_EXPANDER);
+            null, null, ActionInputPrefetcher.NONE, null, null, ImmutableMap.<String, String>of(),
+            DUMMY_ARTIFACT_EXPANDER);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -715,7 +717,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null, null, null, null, ImmutableMap.<String, String>of(), DUMMY_ARTIFACT_EXPANDER);
+            null, null, ActionInputPrefetcher.NONE, null, null, ImmutableMap.<String, String>of(),
+            DUMMY_ARTIFACT_EXPANDER);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();

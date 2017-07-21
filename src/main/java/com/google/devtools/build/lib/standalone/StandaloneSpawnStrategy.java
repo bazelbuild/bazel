@@ -17,7 +17,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -53,15 +52,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ExecutionStrategy(name = { "standalone", "local" }, contextType = SpawnActionContext.class)
 public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
-  private final ActionInputPrefetcher actionInputPrefetcher;
   private final LocalSpawnRunner localSpawnRunner;
   private final AtomicInteger execCount = new AtomicInteger();
 
   public StandaloneSpawnStrategy(
-      Path execRoot, ActionInputPrefetcher actionInputPrefetcher,
-      LocalExecutionOptions localExecutionOptions, boolean verboseFailures, String productName,
-      ResourceManager resourceManager) {
-    this.actionInputPrefetcher = actionInputPrefetcher;
+      Path execRoot, LocalExecutionOptions localExecutionOptions, boolean verboseFailures,
+      String productName, ResourceManager resourceManager) {
     this.verboseFailures = verboseFailures;
     LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
         ? new XCodeLocalEnvProvider()
@@ -93,7 +89,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       @Override
       public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
         if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-          actionInputPrefetcher.prefetchFiles(inputs);
+          actionExecutionContext.getActionInputPrefetcher().prefetchFiles(inputs);
         }
       }
 

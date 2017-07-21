@@ -39,7 +39,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final RemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
 
-
   private RemoteSpawnRunner spawnRunner;
   private RemoteSpawnStrategy spawnStrategy;
 

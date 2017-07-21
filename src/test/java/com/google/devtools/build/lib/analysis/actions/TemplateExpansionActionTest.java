@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Root;
@@ -170,8 +171,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private ActionExecutionContext createContext(Executor executor) {
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(),
-        ImmutableMap.<String, String>of(), null);
+    return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        new FileOutErr(), ImmutableMap.<String, String>of(), null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {
