@@ -211,7 +211,7 @@ EOF
   bazel build --verbose_failures --objccopt=-DCOPTS_FOO=1 -s \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
-  expect_log "-module-cache-path bazel-out/darwin_x86_64-fastbuild/genfiles/_objc_module_cache"
+  expect_log "-module-cache-path bazel-out/darwin_x86_64-fastbuild/.*/_objc_module_cache"
 }
 
 function test_swift_import_objc_framework() {
@@ -759,8 +759,8 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION -s \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/ios_x86_64-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/ios_x86_64-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/ios_x86_64-fastbuild/.*/ios/dep/_objs/ios_dep.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/ios_x86_64-fastbuild/.*/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
 }
 
 function test_swiftc_script_mode() {

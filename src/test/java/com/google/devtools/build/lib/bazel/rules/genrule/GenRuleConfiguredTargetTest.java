@@ -457,8 +457,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        outs=['file1.out', 'file2.out'],",
         "        cmd='touch $(OUTS)')");
     String regex =
-        "touch b.{4}-out/.*/genfiles/multiple/outs/file1.out "
-            + "b.{4}-out/.*/genfiles/multiple/outs/file2.out";
+        "touch b.{4}-out/.*/multiple/outs/file1.out "
+            + "b.{4}-out/.*/multiple/outs/file2.out";
     assertThat(getCommand("//multiple/outs:test")).containsMatch(regex);
   }
 
@@ -516,13 +516,13 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testLabelsContainingAtDAreExpanded() throws Exception {
     scratch.file(
-        "p/BUILD",
+        "puck/BUILD",
         "genrule(name='gen', ",
-        "        tools=['p'],",
+        "        tools=['puck'],",
         "        outs=['out'],",
         "        cmd='echo $(@D)')");
-    String regex = "echo b.{4}-out/.*/genfiles/p";
-    assertThat(getCommand("//p:gen")).containsMatch(regex);
+    String regex = "echo b.{4}-out/.*/puck";
+    assertThat(getCommand("//puck:gen")).containsMatch(regex);
   }
 
   @Test

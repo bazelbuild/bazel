@@ -495,9 +495,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     PathFragment genfilesPath =
         getTargetConfiguration()
-            .getOutputDirectory(RepositoryName.MAIN)
+            .getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath()
-            .getRelative("genfiles/java/android/idl_aidl/java/android");
+            .getRelative("java/android/idl_aidl/java/android");
     assertThat(classJarAction.getArguments()).containsAllOf(
         genfilesPath.getRelative("a.java").getPathString(),
         genfilesPath.getRelative("b.java").getPathString(),
@@ -1108,9 +1108,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     PathFragment genfilesJavaPath =
         getTargetConfiguration()
-            .getOutputDirectory(RepositoryName.MAIN)
+            .getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath()
-            .getRelative("genfiles/java");
+            .getRelative("java");
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(target)), "MyInterface.java");
     assertThat(action.getArguments())

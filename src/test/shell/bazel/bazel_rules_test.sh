@@ -303,8 +303,8 @@ genrule(
 EOF
 
   bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log bazel-genfiles/external/r/package/a/b
-  expect_log bazel-genfiles/external/r/package/c/d
+  expect_log "bazel-\(bin\|genfiles\)/external/r/package/a/b"
+  expect_log "bazel-\(bin\|genfiles\)/external/r/package/c/d"
 }
 
 function test_genrule_toolchain_dependency {
@@ -317,7 +317,7 @@ genrule(
 )
 EOF
   bazel build //t:toolchain_check >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-genfiles/t/version"
+  expect_log "bazel-\(bin\|genfiles\)/t/version"
   expect_not_log "ls: cannot access"
 }
 

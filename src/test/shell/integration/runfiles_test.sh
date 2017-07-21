@@ -52,7 +52,7 @@ EOF
   bazel build pkg:py >&$TEST_log 2>&1 || fail "build failed"
 
   # we get a warning that hidden.py is inaccessible
-  expect_log_once "/genfiles/pkg/e/f/g/hidden.py obscured by pkg/e/f "
+  expect_log_once "pkg/e/f/g/hidden.py obscured by pkg/e/f "
 }
 
 function test_foo_runfiles() {
