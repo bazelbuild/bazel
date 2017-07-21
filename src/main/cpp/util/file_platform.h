@@ -209,9 +209,9 @@ void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-// Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
-bool AsWindowsPathWithUncPrefix(const std::string &path, std::wstring *wpath,
-                                size_t max_path = 260 /* MAX_PATH */);
+const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
+
+bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
 // Result will never have a UNC prefix, nor a trailing "/" or "\".

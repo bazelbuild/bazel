@@ -38,8 +38,8 @@ using std::string;
 bool stat_file(const char* path, Stat* result) {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   std::wstring wpath;
-  if (!blaze_util::AsWindowsPathWithUncPrefix(path, &wpath)) {
-    blaze_util::pdie(255, "stat_file: AsWindowsPathWithUncPrefix(%s)", path);
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
+    blaze_util::pdie(255, "stat_file: AsAbsoluteWindowsPath(%s)", path);
   }
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;

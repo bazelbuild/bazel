@@ -45,9 +45,8 @@ MappedInputFile::MappedInputFile(const char* name) {
   errmsg_ = errmsg;
 
   wstring wname;
-  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    blaze_util::pdie(255, "MappedInputFile(%s): AsWindowsPathWithUncPrefix",
-                     name);
+  if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
+    blaze_util::pdie(255, "MappedInputFile(%s): AsAbsoluteWindowsPath", name);
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
                             OPEN_EXISTING, 0, NULL);
@@ -120,9 +119,8 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
   errmsg_ = errmsg;
 
   wstring wname;
-  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    blaze_util::pdie(255, "MappedOutputFile(%s): AsWindowsPathWithUncPrefix",
-                     name);
+  if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
+    blaze_util::pdie(255, "MappedOutputFile(%s): AsAbsoluteWindowsPath", name);
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
                             NULL, CREATE_ALWAYS, 0, NULL);

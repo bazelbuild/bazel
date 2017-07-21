@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
@@ -242,6 +243,29 @@ TEST_F(FileWindowsTest, TestAsWindowsPath) {
   wlongpath.pop_back();  // remove trailing "\"
   ASSERT_TRUE(AsWindowsPath(longpath, &actual));
   ASSERT_EQ(wlongpath, actual);
+}
+
+TEST_F(FileWindowsTest, TestAsAbsoluteWindowsPath) {
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\some\\long/path\\bin\\bash.exe");
+  ResetMsysRootForTesting();
+  wstring actual;
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath("c:/", &actual));
+  ASSERT_EQ(L"\\\\?\\c:\\", actual);
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath("c:/..\\non-existent//", &actual));
+  ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
+
+  WCHAR cwd[MAX_PATH];
+  ASSERT_TRUE(::GetCurrentDirectoryW(MAX_PATH, cwd));
+  ASSERT_FALSE(bazel::windows::HasUncPrefix(cwd));
+  wstring cwdw(cwd);
+  ASSERT_EQ(cwdw.find_first_of(L'/'), wstring::npos);
+  wstring expected =
+      wstring(L"\\\\?\\") + cwdw +
+      ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");
+  ASSERT_TRUE(AsAbsoluteWindowsPath("non-existent", &actual));
+  ASSERT_EQ(expected, actual);
 }
 
 TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
@@ -516,7 +540,7 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   // Create a dummy file: $TEST_TMPDIR/directory/subdirectory/foo.txt
   string foo(JoinPath(dir2, "foo.txt"));
   wstring wfoo;
-  EXPECT_TRUE(AsWindowsPathWithUncPrefix(foo, &wfoo));
+  EXPECT_TRUE(AsAbsoluteWindowsPath(foo, &wfoo));
   EXPECT_TRUE(CreateDummyFile(wfoo));
   EXPECT_TRUE(CanReadFile(foo));
   // Create junctions next to directory and subdirectory, pointing to them.
