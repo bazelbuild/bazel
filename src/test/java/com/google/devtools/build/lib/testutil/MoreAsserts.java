@@ -24,7 +24,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
@@ -51,21 +50,6 @@ public class MoreAsserts {
 
   public static <T> void assertEquals(T expected, T actual, Comparator<T> comp) {
     assertThat(comp.compare(expected, actual)).isEqualTo(0);
-  }
-
-  public static <T> void assertContentsAnyOrder(
-      Iterable<? extends T> expected, Iterable<? extends T> actual,
-      Comparator<? super T> comp) {
-    assertThat(actual).hasSize(Iterables.size(expected));
-    int i = 0;
-    for (T e : expected) {
-      for (T a : actual) {
-        if (comp.compare(e, a) == 0) {
-          i++;
-        }
-      }
-    }
-    assertThat(actual).hasSize(i);
   }
 
   /**

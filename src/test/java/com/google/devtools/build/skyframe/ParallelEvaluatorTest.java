@@ -16,7 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.fail;
@@ -412,8 +412,7 @@ public class ParallelEvaluatorTest {
     set("a", "a").setWarning("warning on 'a'");
     StringValue value = (StringValue) eval(false, GraphTester.toSkyKey("a"));
     assertThat(value.getValue()).isEqualTo("a");
-    assertContainsEvent(storedEventHandler.getEvents(), "warning on 'a'");
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThatEvents(storedEventHandler.getEvents()).containsExactly("warning on 'a'");
   }
 
   /** Regression test: events from already-done value not replayed. */
@@ -498,15 +497,13 @@ public class ParallelEvaluatorTest {
     evaluator.eval(ImmutableList.of(a));
     assertThat(evaluated.get()).isTrue();
     assertThat(storedEventHandler.getEvents()).hasSize(2);
-    assertContainsEvent(storedEventHandler.getEvents(), "boop");
-    assertContainsEvent(storedEventHandler.getEvents(), "beep");
+    assertThatEvents(storedEventHandler.getEvents()).containsExactly("boop", "beep");
     storedEventHandler.clear();
     evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false);
     evaluated.set(false);
     evaluator.eval(ImmutableList.of(a));
     assertThat(evaluated.get()).isFalse();
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertContainsEvent(storedEventHandler.getEvents(), "boop");
+    assertThatEvents(storedEventHandler.getEvents()).containsExactly("boop");
   }
 
   @Test
