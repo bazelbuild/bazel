@@ -1,43 +1,6 @@
 load("//tools/build_defs/docker:docker.bzl", "docker_build")
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-
-# This is totally non hermetic, we should really replace that by a
-# docker_pull rule.
-FLAVOURS = [f[f.find(".") + 1:] for f in glob(["Dockerfile.*"])]
-
-[
-    # This is totally non hermetic.
-    genrule(
-        name = "docker-" + flavour,
-        srcs = ["Dockerfile." + flavour],
-        outs = ["docker-%s.tar" % flavour],
-        cmd = "\n".join([
-            "DIR=\"$$(dirname $<)\"",
-            "IMG=\"$$(basename $<)\"",
-            "DOCKER=\"$${PWD}/$(location @docker//:docker)\"",
-            "(",
-            "   cd $$DIR",
-            "   $$DOCKER build -f $$IMG -t bazel_tools_cpp_test:%s ." % flavour,
-            ")",
-            "$$DOCKER save bazel_tools_cpp_test:%s > $@" % flavour,
-        ]),
-        tags = ["local"],
-        # Docker needs to knows how to contact the daemon from the environment.
-        # @docker//:docker point to a docker wrapper that copy the environment
-        # of the user.
-        tools = ["@docker//:docker"],
-    )
-    for flavour in FLAVOURS
-]
-
-# Just to avoid re-reading docker images all the time
-[
-    docker_build(
-        name = "base-" + flavour,
-        base = "docker-" + flavour,
-    )
-    for flavour in FLAVOURS
-]
+load("//src/test/docker:flavours.bzl", "FLAVOURS")
 
 pkg_tar(
     name = "bazel_cc_configure",
@@ -49,7 +12,7 @@ pkg_tar(
 [
     [docker_build(
         name = "bazel_cc_configure-%s-%s" % (flavour, mode),
-        base = ":base-" + flavour,
+        base = "@docker-%s//:image" % flavour,
         entrypoint = "/opt/workspace/compile.sh && ./output/bazel test ${EXTRA_BAZEL_ARGS} //examples/cpp:hello-success_test",
         env = {
             "EXTRA_BAZEL_ARGS": "--spawn_strategy=standalone --genrule_strategy=standalone -c %s" % mode,

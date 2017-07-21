@@ -167,6 +167,10 @@ function use_bazel_workspace_file() {
 def docker_repository():
   pass
 EOF
+  cat >src/test/docker/flavours.bzl <<EOF
+def pull_images_for_docker_tests():
+  pass
+EOF
   touch src/test/docker/BUILD
   rm -f WORKSPACE
   ln -sf ${workspace_file} WORKSPACE
