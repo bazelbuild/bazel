@@ -1205,13 +1205,9 @@ static char GetCurrentDrive() {
 }
 
 bool ChangeDirectory(const string& path) {
-  wstring wpath;
-  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ChangeDirectory(%s): AsWindowsPathWithUncPrefix", path.c_str());
-    return false;
-  }
-  return ::SetCurrentDirectoryW(wpath.c_str()) == TRUE;
+  string spath;
+  return AsShortWindowsPath(path, &spath) &&
+         ::SetCurrentDirectoryA(spath.c_str()) == TRUE;
 }
 
 void ForEachDirectoryEntry(const string &path,
