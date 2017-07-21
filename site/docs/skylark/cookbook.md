@@ -200,6 +200,8 @@ should avoid calling it repeatedly within BUILD file.
 Minimalist example of a rule that does nothing. If you build it, the target will
 succeed (with no generated file).
 
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/empty)
+
 `empty.bzl`:
 
 ```python
@@ -221,6 +223,8 @@ empty(name = "nothing")
 ## <a name="attr"></a>Rule with attributes
 
 Example of a rule that shows how to declare attributes and access them.
+
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/attributes)
 
 `printer.bzl`:
 
@@ -272,7 +276,9 @@ the user. The output has the same name as the rule, with a `.size` suffix.
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
 portability problems. It is often better to declare a binary target in a
-BUILD file and execute it. See the example [executing a binary](#execute-bin).
+BUILD file and execute it.
+
+See the example [executing a binary](#execute-bin).
 
 `size.bzl`:
 
@@ -557,12 +563,10 @@ value of an attribute (the attribute must be private and have type `label` or
 `list of labels`). The parameters of this function must correspond to the
 attributes that are accessed in the function body.
 
-Note: For legacy reasons, the function takes the configuration as an additional
-parameter. Please do not rely on the configuration since it will be removed in
-the future.
-
 The example below computes the md5 sum of a file. The file can be preprocessed
 using a filter. The exact dependencies depend on the filter chosen by the user.
+
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/computed_dependencies)
 
 `hash.bzl`:
 
@@ -573,7 +577,7 @@ _filters = {
   "none": None,
 }
 
-def _get_filter(filter, cfg=None): # requires attribute "filter"
+def _get_filter(filter): # requires attribute "filter"
   # Return the value for the attribute "_filter_bin"
   # It can be a label or None.
   return _filters[filter]
@@ -760,6 +764,8 @@ sum(
 
 This example shows how to create a default executable output.
 
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/executable)
+
 `extension.bzl`:
 
 ```python
@@ -789,6 +795,8 @@ executable_rule(name = "my_rule")
 ## <a name="outputs-default"></a>Default outputs
 
 This example shows how to create default outputs for a rule.
+
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/default_outputs)
 
 `extension.bzl`:
 
@@ -823,6 +831,8 @@ rule_with_outputs(name = "my_rule")
 This example shows how to create custom (user defined) outputs for a rule.
 This rule takes a list of output file name templates from the user and
 creates each of them containing a "Hello World!" message.
+
+[See example on github](https://github.com/bazelbuild/examples/tree/master/rules/custom_outputs)
 
 `extension.bzl`:
 

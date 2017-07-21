@@ -206,7 +206,9 @@ public class SkylarkActionFactory implements SkylarkValue {
         "Creates a file write action. When the action is executed, it will write the given content "
             + "to a file. This is used to generate files using information available in the "
             + "analysis phase. If the file is large and with a lot of static content, consider "
-            + "using <a href=\"#expand_template\">expand_template</a>.",
+            + "using <a href=\"#expand_template\">expand_template</a>. "
+            + "<a href=\"https://github.com/laurentlb/examples/blob/master/rules/executable/executable.bzl\">"
+            + "See example of use</a>",
     parameters = {
       @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
       @Param(
@@ -641,7 +643,9 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "using the <code>substitutions</code> dictionary. Whenever a key of the "
             + "dictionary appears in the template, it is replaced with the associated value. "
             + "There is no special syntax for the keys. You may for example use curly braces "
-            + "to avoid conflicts (e.g. <code>{KEY}</code>).",
+            + "to avoid conflicts (e.g. <code>{KEY}</code>). "
+            + "<a href=\"https://github.com/laurentlb/examples/blob/master/rules/expand_template/hello.bzl\">"
+            + "See example of use</a>",
     parameters = {
       @Param(
         name = "template",
