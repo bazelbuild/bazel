@@ -37,14 +37,6 @@ if [ -n "${release_label}" ]; then
   export EMBED_LABEL="${release_label}"
 fi
 
-# On windows-msvc-x86_64, we build a MSVC Bazel
-OPTS="--cpu=x64_windows_msys --host_cpu=x64_windows_msys"
-MSVC_LABEL=""
-if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
-  OPTS=""
-  MSVC_LABEL="-msvc"
-fi
-
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
@@ -56,14 +48,13 @@ ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc version
 
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
-    ${OPTS} \
     //src:bazel //src:bazel_with_jdk
 
 # Copy the resulting artifacts.
 mkdir -p output/ci
-cp bazel-bin/src/bazel output/ci/bazel${MSVC_LABEL}-$(get_full_release_name)-without-jdk.exe
-cp bazel-bin/src/bazel_with_jdk output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).exe
+cp bazel-bin/src/bazel output/ci/bazel-$(get_full_release_name)-without-jdk.exe
+cp bazel-bin/src/bazel_with_jdk output/ci/bazel-$(get_full_release_name).exe
 cp bazel-bin/src/bazel output/bazel.exe
-zip -j output/ci/bazel${MSVC_LABEL}-$(get_full_release_name)-without-jdk.zip output/bazel.exe
+zip -j output/ci/bazel-$(get_full_release_name)-without-jdk.zip output/bazel.exe
 cp -f bazel-bin/src/bazel_with_jdk output/bazel.exe
-zip -j output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).zip output/bazel.exe
+zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
