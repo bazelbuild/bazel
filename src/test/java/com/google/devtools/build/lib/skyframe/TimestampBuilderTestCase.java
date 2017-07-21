@@ -236,7 +236,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<Artifact> artifacts,
           Set<ConfiguredTarget> parallelTests,
           Set<ConfiguredTarget> exclusiveTests,
-          Collection<ConfiguredTarget> targetsToBuild,
+          Set<ConfiguredTarget> targetsToBuild,
+          Set<ConfiguredTarget> targetsToSkip,
           Collection<AspectValue> aspects,
           Executor executor,
           Set<ConfiguredTarget> builtTargets,
@@ -380,6 +381,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       builder.buildArtifacts(
           reporter,
           artifactsToBuild,
+          null,
           null,
           null,
           null,

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -335,8 +336,9 @@ public class BuildView {
    * Return value for {@link BuildView#update} and {@code BuildTool.prepareToBuild}.
    */
   public static final class AnalysisResult {
-    private final ImmutableList<ConfiguredTarget> targetsToBuild;
+    private final ImmutableSet<ConfiguredTarget> targetsToBuild;
     @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
+    private final ImmutableSet<ConfiguredTarget> targetsToSkip;
     @Nullable private final String error;
     private final ActionGraph actionGraph;
     private final ImmutableSet<Artifact> artifactsToBuild;
@@ -351,6 +353,7 @@ public class BuildView {
         Collection<ConfiguredTarget> targetsToBuild,
         Collection<AspectValue> aspects,
         Collection<ConfiguredTarget> targetsToTest,
+        Collection<ConfiguredTarget> targetsToSkip,
         @Nullable String error,
         ActionGraph actionGraph,
         Collection<Artifact> artifactsToBuild,
@@ -359,9 +362,10 @@ public class BuildView {
         TopLevelArtifactContext topLevelContext,
         ImmutableMap<PackageIdentifier, Path> packageRoots,
         String workspaceName) {
-      this.targetsToBuild = ImmutableList.copyOf(targetsToBuild);
+      this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
       this.aspects = ImmutableList.copyOf(aspects);
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
+      this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
       this.error = error;
       this.actionGraph = actionGraph;
       this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
@@ -375,7 +379,7 @@ public class BuildView {
     /**
      * Returns configured targets to build.
      */
-    public Collection<ConfiguredTarget> getTargetsToBuild() {
+    public ImmutableSet<ConfiguredTarget> getTargetsToBuild() {
       return targetsToBuild;
     }
 
@@ -404,6 +408,16 @@ public class BuildView {
     @Nullable
     public Collection<ConfiguredTarget> getTargetsToTest() {
       return targetsToTest;
+    }
+
+    /**
+     * Returns the configured targets that should not be executed because they're not
+     * platform-compatible with the current build.
+     *
+     * <p>For example: tests that aren't intended for the designated CPU.
+     */
+    public ImmutableSet<ConfiguredTarget> getTargetsToSkip() {
+      return targetsToSkip;
     }
 
     public ImmutableSet<Artifact> getAdditionalArtifactsToBuild() {
@@ -591,13 +605,20 @@ public class BuildView {
       LOG.info(msg);
     }
 
+    Set<ConfiguredTarget> targetsToSkip =
+        TopLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+            skyframeAnalysisResult.getConfiguredTargets(),
+            skyframeExecutor.getPackageManager(),
+            eventHandler);
+
     AnalysisResult result =
         createResult(
             eventHandler,
             loadingResult,
             topLevelOptions,
             viewOptions,
-            skyframeAnalysisResult);
+            skyframeAnalysisResult,
+            targetsToSkip);
     LOG.info("Finished analysis");
     return result;
   }
@@ -607,17 +628,19 @@ public class BuildView {
       LoadingResult loadingResult,
       TopLevelArtifactContext topLevelOptions,
       BuildView.Options viewOptions,
-      SkyframeAnalysisResult skyframeAnalysisResult)
+      SkyframeAnalysisResult skyframeAnalysisResult,
+      Set<ConfiguredTarget> targetsToSkip)
       throws InterruptedException {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
-    Collection<ConfiguredTarget> configuredTargets = skyframeAnalysisResult.getConfiguredTargets();
+    Set<ConfiguredTarget> configuredTargets =
+        Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
     Collection<AspectValue> aspects = skyframeAnalysisResult.getAspects();
 
-    Collection<ConfiguredTarget> allTargetsToTest = null;
+    Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
-      allTargetsToTest =
-          Lists.newArrayList(filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
+      allTargetsToTest = Sets.newLinkedHashSet(
+          filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
     Set<Artifact> artifactsToBuild = new HashSet<>();
@@ -682,6 +705,7 @@ public class BuildView {
         configuredTargets,
         aspects,
         allTargetsToTest,
+        targetsToSkip,
         error,
         actionGraph,
         artifactsToBuild,

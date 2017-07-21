@@ -430,6 +430,7 @@ public class ExecutionTool {
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
+          analysisResult.getTargetsToSkip(),
           analysisResult.getAspects(),
           executor,
           builtTargets,
@@ -467,9 +468,10 @@ public class ExecutionTool {
       try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets, timer));
+        buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showBuildResult(
-            request, buildResult, configuredTargets, analysisResult.getAspects());
+        buildResultPrinter.showBuildResult(request, buildResult, configuredTargets,
+            analysisResult.getTargetsToSkip(), analysisResult.getAspects());
       }
 
       try (AutoProfiler p = AutoProfiler.profiled("Show artifacts", ProfilerTask.INFO)) {

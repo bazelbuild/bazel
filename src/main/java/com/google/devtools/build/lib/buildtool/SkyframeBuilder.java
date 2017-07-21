@@ -18,6 +18,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -97,7 +98,8 @@ public class SkyframeBuilder implements Builder {
       Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
-      Collection<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToSkip,
       Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
@@ -138,6 +140,10 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
     watchdog.start();
+
+    targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
+    parallelTests = Sets.difference(parallelTests, targetsToSkip);
+    exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
 
     try {
       result =

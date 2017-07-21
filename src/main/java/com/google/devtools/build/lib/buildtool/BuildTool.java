@@ -14,11 +14,8 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -29,39 +26,28 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
-import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics.EnvironmentLookupException;
-import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
-import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -76,12 +62,10 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -223,9 +207,6 @@ public final class BuildTool {
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
-        LoadedPackageProvider bridge =
-            new LoadedPackageProvider(env.getPackageManager(), env.getReporter());
-        checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
         reportTargets(analysisResult);
 
         // Execution phase.
@@ -289,104 +270,6 @@ public final class BuildTool {
                         .createDummyWorkspaceStatus()));
       }
     }
-  }
-
-  /**
-   * Checks that if this is an environment-restricted build, all top-level targets support the
-   * expected environments.
-   *
-   * @param topLevelTargets the build's top-level targets
-   * @throws ViewCreationFailedException if constraint enforcement is on, the build declares
-   *     environment-restricted top level configurations, and any top-level target doesn't support
-   *     the expected environments
-   */
-  private static void checkTargetEnvironmentRestrictions(
-      Iterable<ConfiguredTarget> topLevelTargets, LoadedPackageProvider packageManager)
-      throws ViewCreationFailedException, InterruptedException {
-    for (ConfiguredTarget topLevelTarget : topLevelTargets) {
-      BuildConfiguration config = topLevelTarget.getConfiguration();
-      if (config == null) {
-        // TODO(bazel-team): support file targets (they should apply package-default constraints).
-        continue;
-      } else if (!config.enforceConstraints()) {
-        continue;
-      }
-
-      List<Label> targetEnvironments = config.getTargetEnvironments();
-      if (targetEnvironments.isEmpty()) {
-        try {
-          targetEnvironments =
-              autoConfigureTargetEnvironments(
-                  packageManager, config, config.getAutoCpuEnvironmentGroup());
-        } catch (NoSuchPackageException
-            | NoSuchTargetException
-            | ConstraintSemantics.EnvironmentLookupException e) {
-          throw new ViewCreationFailedException("invalid target environment", e);
-        }
-      }
-
-      if (targetEnvironments.isEmpty()) {
-        continue;
-      }
-
-      // Parse and collect this configuration's environments.
-      EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
-      for (Label envLabel : targetEnvironments) {
-        try {
-          Target env = packageManager.getLoadedTarget(envLabel);
-          builder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
-        } catch (NoSuchPackageException | NoSuchTargetException
-            | ConstraintSemantics.EnvironmentLookupException e) {
-          throw new ViewCreationFailedException("invalid target environment", e);
-        }
-      }
-      EnvironmentCollection expectedEnvironments = builder.build();
-
-      // Now check the target against those environments.
-      TransitiveInfoCollection asProvider;
-      if (topLevelTarget instanceof OutputFileConfiguredTarget) {
-        asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
-      } else {
-        asProvider = topLevelTarget;
-      }
-      SupportedEnvironmentsProvider provider =
-          Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-      Collection<Label> missingEnvironments =
-          ConstraintSemantics.getUnsupportedEnvironments(
-              provider.getRefinedEnvironments(), expectedEnvironments);
-      if (!missingEnvironments.isEmpty()) {
-        throw new ViewCreationFailedException(
-            String.format(
-                "This is a restricted-environment build. %s does not support"
-                    + " required environment%s %s",
-                topLevelTarget.getLabel(),
-                missingEnvironments.size() == 1 ? "" : "s",
-                Joiner.on(", ").join(missingEnvironments)));
-      }
-    }
-  }
-
-  private static List<Label> autoConfigureTargetEnvironments(
-      LoadedPackageProvider packageManager,
-      BuildConfiguration config,
-      @Nullable Label environmentGroupLabel)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException,
-          EnvironmentLookupException {
-    if (environmentGroupLabel == null) {
-      return ImmutableList.of();
-    }
-
-    EnvironmentGroup environmentGroup =
-        (EnvironmentGroup) packageManager.getLoadedTarget(environmentGroupLabel);
-
-    ImmutableList.Builder<Label> targetEnvironments = new ImmutableList.Builder<>();
-    for (Label environmentLabel : environmentGroup.getEnvironments()) {
-      if (environmentLabel.getName().equals(config.getCpu())) {
-        targetEnvironments.add(environmentLabel);
-      }
-    }
-
-    return targetEnvironments.build();
   }
 
   private void reportExceptionError(Exception e) {
