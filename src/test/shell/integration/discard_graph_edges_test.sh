@@ -160,10 +160,13 @@ EOF
   histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo.txt"
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $build_args //histodump:histodump >& "$TEST_log" &
+  bazel $STARTUP_FLAGS build --show_timestamps $build_args \
+      //histodump:histodump >> "$TEST_log" 2>&1 &
   server_pid=$!
   echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_fifo"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
   # Wait for previous command to finish.
   wait "$server_pid" || fail "Bazel command failed"
   cat "$histo_file" >> "$TEST_log"
