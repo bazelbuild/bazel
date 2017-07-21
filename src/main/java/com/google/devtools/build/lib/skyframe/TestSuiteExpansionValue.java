@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
@@ -70,20 +70,28 @@ public final class TestSuiteExpansionValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(Collection<Label> targets) {
-    return LegacySkyKey.create(
-        SkyFunctions.TEST_SUITE_EXPANSION,
-        new TestSuiteExpansion(ImmutableSortedSet.copyOf(targets)));
+    return new TestSuiteExpansionKey(ImmutableSortedSet.copyOf(targets));
   }
 
   /**
    * A list of targets of which all test suites should be expanded.
    */
   @ThreadSafe
-  static final class TestSuiteExpansion implements Serializable {
+  static final class TestSuiteExpansionKey implements SkyKey, Serializable {
     private final ImmutableSortedSet<Label> targets;
 
-    public TestSuiteExpansion(ImmutableSortedSet<Label> targets) {
+    public TestSuiteExpansionKey(ImmutableSortedSet<Label> targets) {
       this.targets = targets;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TEST_SUITE_EXPANSION;
+    }
+
+    @Override
+    public Object argument() {
+      return this;
     }
 
     public ImmutableSet<Label> getTargets() {
@@ -105,10 +113,10 @@ public final class TestSuiteExpansionValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestSuiteExpansion)) {
+      if (!(obj instanceof TestSuiteExpansionKey)) {
         return false;
       }
-      TestSuiteExpansion other = (TestSuiteExpansion) obj;
+      TestSuiteExpansionKey other = (TestSuiteExpansionKey) obj;
       return other.targets.equals(targets);
     }
   }

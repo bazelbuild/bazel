@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue.TestSuiteExpansion;
+import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue.TestSuiteExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 final class TestSuiteExpansionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
-    TestSuiteExpansion expansion = (TestSuiteExpansion) key.argument();
+    TestSuiteExpansionKey expansion = (TestSuiteExpansionKey) key.argument();
     ResolvedTargets<Target> targets = labelsToTargets(env, expansion.getTargets(), false);
     List<SkyKey> testsInSuitesKeys = new ArrayList<>();
     for (Target target : targets.getTargets()) {
