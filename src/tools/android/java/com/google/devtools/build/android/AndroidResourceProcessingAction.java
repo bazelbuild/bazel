@@ -23,6 +23,7 @@ import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
+import com.google.devtools.build.android.AndroidManifestProcessor.MergeErrorException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
@@ -451,6 +452,8 @@ public class AndroidResourceProcessingAction {
         | UnrecognizedSplitsException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during processing resources", e);
       throw e;
+    } catch (MergeErrorException e) {
+      System.exit(1);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);
       throw e;

@@ -22,6 +22,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
+import com.google.devtools.build.android.AndroidManifestProcessor.MergeErrorException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -284,6 +285,8 @@ public class AndroidResourceMergingAction {
     } catch (MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       throw e;
+    } catch (MergeErrorException e) {
+      System.exit(1);
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Unexpected", e);
       throw e;

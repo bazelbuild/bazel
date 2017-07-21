@@ -71,6 +71,20 @@ public class AndroidManifestProcessor {
             }
           });
 
+  /** Exception encapsulating the error report of a manifest merge operation. */
+  public static final class MergeErrorException extends Exception {
+    private final MergingReport report;
+
+    private MergeErrorException(MergingReport report) {
+      super(report.getReportString());
+      this.report = report;
+    }
+
+    public MergingReport getMergingReport() {
+      return report;
+    }
+  }
+
   /** Creates a new processor with the appropriate logger. */
   public static AndroidManifestProcessor with(StdLogger stdLogger) {
     return new AndroidManifestProcessor(stdLogger);
@@ -95,7 +109,7 @@ public class AndroidManifestProcessor {
    * @param logFile The path to write the merger log to.
    * @return The path of the resultant manifest, either {@code output}, or {@code manifest} if no
    *     merging was required.
-   * @throws IOException if there was a problem writing the merged manifest.
+   * @throws MergeErrorException if a merge error was encountered during merging.
    */
   // TODO(corysmith): Extract manifest processing.
   public Path mergeManifest(
@@ -104,8 +118,7 @@ public class AndroidManifestProcessor {
       MergeType mergeType,
       Map<String, String> values,
       Path output,
-      Path logFile)
-      throws IOException {
+      Path logFile) throws MergeErrorException {
     if (mergeeManifests.isEmpty() && values.isEmpty()) {
       return manifest;
     }
@@ -168,17 +181,31 @@ public class AndroidManifestProcessor {
           break;
         case ERROR:
           mergingReport.log(stdLogger);
-          throw new RuntimeException(mergingReport.getReportString());
+          throw new MergeErrorException(mergingReport);
         default:
           throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
       }
-    } catch (MergeFailureException e) {
+    } catch (IOException | MergeFailureException e) {
       throw new RuntimeException(e);
     }
 
     return output;
   }
 
+  /**
+   * Stamp specific properties into the manifest tag of the given manifest.
+   *
+   * @param variantType The type of rule the manifest belongs to, determining the stamping behavior.
+   * @param customPackageForR The package attribute to stamp if not a binary manifest.
+   * @param applicationId The package attribute for a binary manifest.
+   * @param versionCode The android:versionCode attribute to stamp.
+   * @param versionName The android:versionName attribute to stamp.
+   * @param primaryData The {@link MergedAndroidData} that contains the manifest to modify.
+   * @param processedManifest The path to write the modified manifest.
+   * @return A {@link MergedAndroidData} containing the modified manifest, or {@code primaryData} if
+   *     no modification was required.
+   * @throws MergeErrorException if a merge error was encountered during merging.
+   */
   public MergedAndroidData processManifest(
       VariantType variantType,
       String customPackageForR,
@@ -187,7 +214,7 @@ public class AndroidManifestProcessor {
       String versionName,
       MergedAndroidData primaryData,
       Path processedManifest)
-      throws IOException {
+      throws MergeErrorException {
 
     ManifestMerger2.MergeType mergeType =
         variantType == VariantType.DEFAULT
@@ -198,30 +225,31 @@ public class AndroidManifestProcessor {
         variantType == VariantType.DEFAULT ? applicationId : customPackageForR;
 
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
-      Files.createDirectories(processedManifest.getParent());
-
-      // The generics on Invoker don't make sense, so ignore them.
-      @SuppressWarnings("unchecked")
-      Invoker<?> manifestMergerInvoker =
-          ManifestMerger2.newMerger(primaryData.getManifest().toFile(), stdLogger, mergeType);
-      // Stamp new package
-      if (newManifestPackage != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
-      }
-      // Stamp version and applicationId (if provided) into the manifest
-      if (versionCode > 0) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_CODE, String.valueOf(versionCode));
-      }
-      if (versionName != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
-      }
-
-      MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
-      if (mergeType == ManifestMerger2.MergeType.APPLICATION) {
-        manifestMergerInvoker.withFeatures(Invoker.Feature.REMOVE_TOOLS_DECLARATIONS);
-      }
-
       try {
+        Files.createDirectories(processedManifest.getParent());
+
+        // The generics on Invoker don't make sense, so ignore them.
+        @SuppressWarnings("unchecked")
+        Invoker<?> manifestMergerInvoker =
+            ManifestMerger2.newMerger(primaryData.getManifest().toFile(), stdLogger, mergeType);
+        // Stamp new package
+        if (newManifestPackage != null) {
+          manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
+        }
+        // Stamp version and applicationId (if provided) into the manifest
+        if (versionCode > 0) {
+          manifestMergerInvoker.setOverride(
+              SystemProperty.VERSION_CODE, String.valueOf(versionCode));
+        }
+        if (versionName != null) {
+          manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
+        }
+
+        MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
+        if (mergeType == ManifestMerger2.MergeType.APPLICATION) {
+          manifestMergerInvoker.withFeatures(Invoker.Feature.REMOVE_TOOLS_DECLARATIONS);
+        }
+
         MergingReport mergingReport = manifestMergerInvoker.merge();
         switch (mergingReport.getResult()) {
           case WARNING:
@@ -233,7 +261,7 @@ public class AndroidManifestProcessor {
             break;
           case ERROR:
             mergingReport.log(stdLogger);
-            throw new RuntimeException(mergingReport.getReportString());
+            throw new MergeErrorException(mergingReport);
           default:
             throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
         }
@@ -301,7 +329,7 @@ public class AndroidManifestProcessor {
     return output;
   }
 
-  public void writeMergedManifest(
+  private void writeMergedManifest(
       MergedManifestKind mergedManifestKind, MergingReport mergingReport, Path manifestOut)
       throws IOException {
     String manifestContents = mergingReport.getMergedDocument(mergedManifestKind);
