@@ -43,6 +43,8 @@ using bazel::windows::OpenDirectory;
 // The result may have a UNC prefix.
 static unique_ptr<WCHAR[]> GetCwdW();
 
+static char GetCurrentDrive();
+
 static bool IsDevNull(const string& path);
 
 // Returns true if `path` refers to a directory or (non-dangling) junction.
@@ -444,15 +446,18 @@ void MsysRoot::InitIfNecessary() {
 //
 // The `path` may be absolute or relative, and may be a Windows or MSYS path.
 // In every case, the output is normalized (see NormalizeWindowsPath).
-// The output won't have a UNC prefix, even if `path` did.
 //
-// Recognizes the drive letter in MSYS paths, so e.g. "/c/windows" becomes
-// "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH envvar) to
-// absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
+// If `path` had a "\\?\" prefix then the function assumes it's already Windows
+// style and converts it to wstring without any alterations.
+// Otherwise `path` is normalized and converted to a Windows path and the result
+// won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
+// prefix is the caller's responsibility).
 //
-// The result may be longer than MAX_PATH. It's the caller's responsibility to
-// prepend the UNC prefix in case they need to pass it to a WinAPI function
-// (some require the prefix, some don't), or to quote the path if necessary.
+// The function recognizes the drive letter in MSYS paths, so e.g. "/c/windows"
+// becomes "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH
+// envvar) to absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
+// Recognizes current-drive-relative Windows paths ("\foo") turning them into
+// absolute paths ("c:\foo").
 bool AsWindowsPath(const string& path, wstring* result) {
   if (path.empty()) {
     result->clear();
@@ -461,6 +466,21 @@ bool AsWindowsPath(const string& path, wstring* result) {
   if (IsDevNull(path)) {
     result->assign(L"NUL");
     return true;
+  }
+  if (HasUncPrefix(path.c_str())) {
+    // Path has "\\?\" prefix --> assume it's already Windows-style.
+    *result = CstringToWstring(path.c_str()).get();
+    return true;
+  }
+  if (IsPathSeparator(path[0]) && path.size() > 1 && IsPathSeparator(path[1])) {
+    // Unsupported path: "\\" or "\\server\path", or some degenerate form of
+    // these, such as "//foo".
+    return false;
+  }
+  if (HasDriveSpecifierPrefix(path.c_str()) &&
+      (path.size() < 3 || !IsPathSeparator(path[2]))) {
+    // Unsupported path: "c:" or "c:foo"
+    return false;
   }
 
   string mutable_path = path;
@@ -485,6 +505,9 @@ bool AsWindowsPath(const string& path, wstring* result) {
       }
       mutable_path = JoinPath(MsysRoot::GetPath(), path);
     }
+  } else if (path[0] == '\\') {
+    // This is an absolute Windows path on the current drive, e.g. "\foo\bar".
+    mutable_path = string(1, GetCurrentDrive()) + ":" + path;
   }  // otherwise this is a relative path, or absolute Windows path.
 
   result->assign(
@@ -1172,6 +1195,13 @@ static unique_ptr<WCHAR[]> GetCwdW() {
 
 string GetCwd() {
   return string(WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().get())).get());
+}
+
+static char GetCurrentDrive() {
+  unique_ptr<wchar_t[]> cwd = GetCwdW();
+  wchar_t wdrive = RemoveUncPrefixMaybe(cwd.get())[0];
+  wchar_t offset = wdrive >= L'A' && wdrive <= L'Z' ? L'A' : L'a';
+  return 'A' + wdrive - offset;
 }
 
 bool ChangeDirectory(const string& path) {

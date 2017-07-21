@@ -178,59 +178,68 @@ TEST_F(FileWindowsTest, TestAsWindowsPath) {
   ResetMsysRootForTesting();
   wstring actual;
 
+  // Null and empty input produces empty result.
   ASSERT_TRUE(AsWindowsPath("", &actual));
   ASSERT_EQ(wstring(L""), actual);
 
-  ASSERT_TRUE(AsWindowsPath("", &actual));
-  ASSERT_EQ(wstring(L""), actual);
+  // If the path has a "\\?\" prefix, AsWindowsPath assumes it's a correct
+  // Windows path. If it's not, the Windows API function that we pass the path
+  // to will fail anyway.
+  ASSERT_TRUE(AsWindowsPath("\\\\?\\anything/..", &actual));
+  ASSERT_EQ(wstring(L"\\\\?\\anything/.."), actual);
 
+  // Trailing slash or backslash is removed.
+  ASSERT_TRUE(AsWindowsPath("foo/", &actual));
+  ASSERT_EQ(wstring(L"foo"), actual);
+  ASSERT_TRUE(AsWindowsPath("foo\\", &actual));
+  ASSERT_EQ(wstring(L"foo"), actual);
+
+  // Slashes are converted to backslash.
   ASSERT_TRUE(AsWindowsPath("foo/bar", &actual));
   ASSERT_EQ(wstring(L"foo\\bar"), actual);
-
-  ASSERT_TRUE(AsWindowsPath("c:", &actual));
-  ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("c:/", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("c:\\", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
 
-  ASSERT_TRUE(AsWindowsPath("\\\\?\\c:\\", &actual));
-  ASSERT_EQ(wstring(L"c:\\"), actual);
+  // Invalid paths
+  ASSERT_FALSE(AsWindowsPath("c:", &actual));
+  ASSERT_FALSE(AsWindowsPath("c:foo", &actual));
+  ASSERT_FALSE(AsWindowsPath("\\\\foo", &actual));
 
-  ASSERT_TRUE(AsWindowsPath("\\\\?\\c://../foo", &actual));
-  ASSERT_EQ(wstring(L"c:\\foo"), actual);
-
+  // /dev/null and NUL produce NUL.
   ASSERT_TRUE(AsWindowsPath("/dev/null", &actual));
   ASSERT_EQ(wstring(L"NUL"), actual);
-
   ASSERT_TRUE(AsWindowsPath("Nul", &actual));
   ASSERT_EQ(wstring(L"NUL"), actual);
 
+  // MSYS path with drive letter.
   ASSERT_TRUE(AsWindowsPath("/c", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/c/", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/c/blah", &actual));
   ASSERT_EQ(wstring(L"c:\\blah"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/d/progra~1/micros~1", &actual));
   ASSERT_EQ(wstring(L"d:\\progra~1\\micros~1"), actual);
 
+  // Absolute MSYS path without drive letter is relative to MSYS root.
   ASSERT_TRUE(AsWindowsPath("/foo", &actual));
   ASSERT_EQ(wstring(L"c:\\some\\long\\path\\foo"), actual);
 
-  wstring wlongpath(L"\\dummy_long_path");
+  // Absolute-on-current-drive path gets a drive letter.
+  ASSERT_TRUE(AsWindowsPath("\\foo", &actual));
+  ASSERT_EQ(wstring(1, GetCwd()[0]) + L":\\foo", actual);
+
+  // Even for long paths, AsWindowsPath doesn't add a "\\?\" prefix (it's the
+  // caller's duty to do so).
+  wstring wlongpath(L"dummy_long_path\\");
   string longpath("dummy_long_path/");
   while (longpath.size() <= MAX_PATH) {
     wlongpath += wlongpath;
     longpath += longpath;
   }
-  wlongpath = wstring(L"c:") + wlongpath;
-  longpath = string("/c/") + longpath;
+  wlongpath.pop_back();  // remove trailing "\"
   ASSERT_TRUE(AsWindowsPath(longpath, &actual));
   ASSERT_EQ(wlongpath, actual);
 }
@@ -446,7 +455,10 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   ASSERT_TRUE(MakeDirectories(".", 0777));
   ASSERT_TRUE(MakeDirectories(tmpdir, 0777));
   ASSERT_TRUE(MakeDirectories(JoinPath(tmpdir, "dir1/dir2/dir3"), 0777));
-  ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + tmpdir + "/dir4/dir5", 0777));
+
+  string winpath = tmpdir + "\\dir4\\dir5";
+  std::replace(winpath.begin(), winpath.end(), '/', '\\');
+  ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + winpath, 0777));
 }
 
 TEST_F(FileWindowsTest, TestCanAccess) {
