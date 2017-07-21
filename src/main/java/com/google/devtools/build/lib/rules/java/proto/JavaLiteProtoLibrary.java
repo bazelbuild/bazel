@@ -55,13 +55,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
-        JavaCompilationArgsProvider.merge(
-            WrappingProvider.Helper.unwrapProviders(
-                javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
-
-    if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
-      dependencyArgsProviders = StrictDepsUtils.makeNonStrict(dependencyArgsProviders);
-    }
+        StrictDepsUtils.constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
 
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())

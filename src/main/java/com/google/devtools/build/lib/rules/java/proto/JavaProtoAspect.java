@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
+import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
@@ -243,7 +245,29 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
               JavaSkylarkApiProvider.fromProviderMap(javaProviders))
           .addProvider(
-              new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
+              new JavaProtoLibraryAspectProvider(
+                  javaProviders,
+                  transitiveOutputJars.build(),
+                  createNonStrictCompilationArgsProvider(generatedCompilationArgsProvider)));
+    }
+
+    /**
+     * Creates a JavaCompilationArgsProvider that's used when java_proto_library sets strict_deps=0.
+     * It contains the jars we produced, as well as all transitive proto jars, and the proto runtime
+     * jars, all described as direct dependencies.
+     *
+     * <p>This method is used when JavaProtoAspect is creating actions itself, as opposed to reusing
+     * ones created by the underlying proto_library.
+     */
+    private JavaCompilationArgsProvider createNonStrictCompilationArgsProvider(
+        JavaCompilationArgsProvider generatedCompilationArgsProvider) {
+      ArrayList<JavaCompilationArgsProvider> providers = new ArrayList<>(5);
+      providers.add(
+          JavaCompilationArgsProvider.merge(
+              transform(javaProtoLibraryAspectProviders, p -> p.getNonStrictCompArgsProvider())));
+      providers.add(generatedCompilationArgsProvider);
+      providers.addAll(getProtoRuntimeDeps());
+      return JavaCompilationArgsProvider.merge(providers);
     }
 
     /**
@@ -290,13 +314,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               .setOutput(outputJar)
               .addSourceJars(sourceJar)
               .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
-      helper.addDep(dependencyCompilationArgs).setCompilationStrictDepsMode(StrictDepsMode.OFF);
-      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
-      if (runtime != null) {
-        helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
-      }
+      helper
+          .addDep(dependencyCompilationArgs)
+          .addAllDeps(getProtoRuntimeDeps())
+          .setCompilationStrictDepsMode(StrictDepsMode.OFF);
 
-      rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(
           helper.build(
               javaSemantics,
@@ -304,6 +326,16 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaHelper.getHostJavabaseInputs(ruleContext),
               JavaCompilationHelper.getInstrumentationJars(ruleContext)),
           true /* isReportedAsStrict */);
+    }
+
+    private ImmutableList<JavaCompilationArgsProvider> getProtoRuntimeDeps() {
+      ImmutableList.Builder<JavaCompilationArgsProvider> result = ImmutableList.builder();
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        result.add(runtime.getProvider(JavaCompilationArgsProvider.class));
+      }
+      result.addAll(rpcSupport.getRuntimes(ruleContext));
+      return result.build();
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {

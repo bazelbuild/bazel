@@ -970,6 +970,7 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
     ],
 )
 

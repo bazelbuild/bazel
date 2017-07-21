@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -42,9 +43,12 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
       Artifact sourceJar1,
       Artifact sourceJarMutable,
       Artifact sourceJarImmutable,
-      ImmutableList<JavaCompilationArgsProvider> protoRuntime1,
-      ImmutableList<JavaCompilationArgsProvider> protoRuntimeMutable,
-      ImmutableList<JavaCompilationArgsProvider> protoRuntimeImmutable,
+      @Nullable ImmutableList<JavaCompilationArgsProvider> protoRuntime1,
+      @Nullable ImmutableList<JavaCompilationArgsProvider> protoRuntimeMutable,
+      @Nullable ImmutableList<JavaCompilationArgsProvider> protoRuntimeImmutable,
+      NestedSet<JavaCompilationArgsProvider> transitiveProtoRuntime1,
+      NestedSet<JavaCompilationArgsProvider> transitiveProtoRuntimeMutable,
+      NestedSet<JavaCompilationArgsProvider> transitiveProtoRuntimeImmutable,
       Map<Artifact, Artifact> compileTimeJarToRuntimeJar,
       boolean mixedApiVersions,
       int apiVersion,
@@ -67,6 +71,9 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
         protoRuntime1,
         protoRuntimeMutable,
         protoRuntimeImmutable,
+        transitiveProtoRuntime1,
+        transitiveProtoRuntimeMutable,
+        transitiveProtoRuntimeImmutable,
         mixedApiVersions,
         apiVersion,
         supportsProto1,
@@ -151,6 +158,14 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
 
   @Nullable
   public abstract ImmutableList<JavaCompilationArgsProvider> getProtoRuntimeImmutable();
+
+  // The following 3 fields are the jars that proto_library got from the proto runtime, and their
+  // transitive dependencies..
+  public abstract NestedSet<JavaCompilationArgsProvider> getTransitiveProtoRuntime1();
+
+  public abstract NestedSet<JavaCompilationArgsProvider> getTransitiveProtoRuntimeMutable();
+
+  public abstract NestedSet<JavaCompilationArgsProvider> getTransitiveProtoRuntimeImmutable();
 
   /**
    * Returns true if the transitive closure contains libraries with API versions other than the one
