@@ -867,7 +867,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertContainsEvent("MyAspect from //test:aspect.bzl is not an aspect");
   }
 
-
   @Test
   public void duplicateOutputGroups() throws Exception {
     scratch.file(
@@ -1153,7 +1152,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("MyAspect from //test:aspect.bzl is not an aspect");
+    assertContainsEvent("MyAspect is not exported from //test:aspect.bzl");
   }
 
   @Test

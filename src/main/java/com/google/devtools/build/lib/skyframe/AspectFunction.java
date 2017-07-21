@@ -120,9 +120,15 @@ public final class AspectFunction implements SkyFunction {
 
       Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().getBindings()
           .get(skylarkValueName);
+      if (skylarkValue == null) {
+        throw new ConversionException(
+            String.format(
+                "%s is not exported from %s", skylarkValueName, extensionLabel.toString()));
+      }
       if (!(skylarkValue instanceof SkylarkAspect)) {
         throw new ConversionException(
-            skylarkValueName + " from " + extensionLabel.toString() + " is not an aspect");
+            String.format(
+                "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
       }
       return (SkylarkAspect) skylarkValue;
     } catch (SkylarkImportFailedException | ConversionException e) {
