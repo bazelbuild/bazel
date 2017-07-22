@@ -398,15 +398,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.toolPaths = Maps.newHashMap();
     for (CrosstoolConfig.ToolPath tool : toolchain.getToolPathList()) {
-      PathFragment path = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment);
+      PathFragment path = resolvePath(tool.getPath());
       if (!path.isNormalized()) {
         throw new IllegalArgumentException("The include path '" + path.toString()
             + "' is not normalized.");
       }
-      if (path.toString().contains("%{")) {
-        toolPaths.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
-      } else {
+      if (path.toString().startsWith(crosstoolTopPathFragment.getPathString())) {
         toolPaths.put(tool.getName(), path);
+      } else {
+        toolPaths.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
       }
     }
 
@@ -648,8 +648,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         String arToolPath = "DUMMY_AR_TOOL";
         for (ToolPath tool : toolchain.getToolPathList()) {
           if (tool.getName().equals(Tool.GCC.getNamePart())) {
-            gccToolPath = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment)
-                .getPathString();
+            gccToolPath = resolvePath(tool.getPath()).getPathString();
             linkerToolPath =
                 crosstoolTopPathFragment
                     .getRelative(gccToolPath)
@@ -718,8 +717,24 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    *
    * <p>If it is absolute, it remains unchanged.
    */
-  static PathFragment resolveIncludeDir(String s, PathFragment sysroot,
-      PathFragment crosstoolTopPathFragment) throws InvalidConfigurationException {
+  public PathFragment resolveIncludeDir(String s, PathFragment sysroot)
+        throws InvalidConfigurationException {
+    if (s.startsWith(SYSROOT_START)) {
+      if (sysroot == null) {
+        throw new InvalidConfigurationException("A %sysroot% prefix is only allowed if the "
+            + "default_sysroot option is set");
+      }
+      String pathString = s.substring(SYSROOT_START.length(), s.length());
+      return resolvePathInternal(sysroot, pathString);
+    }
+
+    return resolvePath(s);
+  }
+
+  /**
+   * See resolveIncludeDir, but without sysroot support.
+   */
+  public PathFragment resolvePath(String s) throws InvalidConfigurationException {
     PathFragment pathPrefix;
     String pathString;
     int packageEndIndex = s.indexOf(PACKAGE_END);
@@ -741,30 +756,31 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         pathString = "";
       }
     } else if (s.startsWith(SYSROOT_START)) {
-      if (sysroot == null) {
-        throw new InvalidConfigurationException("A %sysroot% prefix is only allowed if the "
-            + "default_sysroot option is set");
-      }
-      pathPrefix = sysroot;
-      pathString = s.substring(SYSROOT_START.length(), s.length());
+      throw new InvalidConfigurationException("%sysroot% not supported in '" + s + "'.");
     } else if (s.startsWith(WORKSPACE_START)) {
       pathPrefix = PathFragment.EMPTY_FRAGMENT;
       pathString = s.substring(WORKSPACE_START.length(), s.length());
     } else {
-      pathPrefix = crosstoolTopPathFragment;
       if (s.startsWith(CROSSTOOL_START)) {
+        pathPrefix = crosstoolTopPathFragment;
         pathString = s.substring(CROSSTOOL_START.length(), s.length());
       } else if (s.startsWith("%")) {
         throw new InvalidConfigurationException(
             "The include path '" + s + "' has an " + "unrecognized %prefix%");
       } else {
+        pathPrefix = PathFragment.EMPTY_FRAGMENT;
         pathString = s;
       }
     }
+    return resolvePathInternal(pathPrefix, pathString);
+  }
 
+  private PathFragment resolvePathInternal(PathFragment pathPrefix, String pathString)
+        throws InvalidConfigurationException {
     PathFragment path = PathFragment.create(pathString);
     if (!path.isNormalized()) {
-      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
+      throw new InvalidConfigurationException(
+          "The include path '" + pathString + "' is not normalized.");
     }
     return pathPrefix.getRelative(path);
   }
@@ -1011,7 +1027,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       throws InvalidConfigurationException {
     ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
     for (String s : rawBuiltInIncludeDirectories) {
-      builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, crosstoolTopPathFragment));
+      builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot));
     }
     return builtInIncludeDirectoriesBuilder.build();
   }
