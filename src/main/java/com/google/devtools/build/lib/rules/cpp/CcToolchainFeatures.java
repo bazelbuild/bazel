@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
@@ -659,7 +660,11 @@ public class CcToolchainFeatures implements Serializable {
      * Returns the path to this action's tool relative to the provided crosstool path.
      */
     PathFragment getToolPath(PathFragment crosstoolTopPathFragment) {
-      return crosstoolTopPathFragment.getRelative(toolPathString);
+      if (toolPathString.toString().startsWith(Label.EXTERNAL_PATH_PREFIX.getPathString())) {
+        return PathFragment.create(toolPathString);
+      } else {
+        return crosstoolTopPathFragment.getRelative(toolPathString);
+      }
     }
 
     /**

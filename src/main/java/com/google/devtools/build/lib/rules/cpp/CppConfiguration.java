@@ -405,6 +405,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
       if (path.toString().startsWith(crosstoolTopPathFragment.getPathString())) {
         toolPaths.put(tool.getName(), path);
+      } else if (path.toString().startsWith(Label.EXTERNAL_PATH_PREFIX.getPathString())) {
+        toolPaths.put(tool.getName(), path);
       } else {
         toolPaths.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
       }
@@ -655,7 +657,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                     .getPathString();
           }
           if (tool.getName().equals(Tool.AR.getNamePart())) {
-            arToolPath = tool.getPath();
+            arToolPath = resolvePath(tool.getPath()).getPathString();
           }
         }
         TextFormat.merge(
