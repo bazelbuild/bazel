@@ -114,5 +114,5 @@ bazel version
 Once installed, you can upgrade to a newer version of Bazel with:
 
 ```bash
-sudo apt-get upgrade bazel
+brew upgrade bazel
 ```
