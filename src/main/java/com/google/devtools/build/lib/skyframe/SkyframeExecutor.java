@@ -128,6 +128,7 @@ import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1887,6 +1888,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public MemoizingEvaluator getEvaluatorForTesting() {
     return memoizingEvaluator;
+  }
+
+  @VisibleForTesting
+  public FileSystem getFileSystemForTesting() {
+    return directories.getFileSystem();
+  }
+
+  @VisibleForTesting
+  public RuleClassProvider getRuleClassProviderForTesting() {
+    return ruleClassProvider;
+  }
+
+  @VisibleForTesting
+  public Package.Builder.Helper getPackageBuilderHelperForTesting() {
+    return pkgFactory.getPackageBuilderHelperForTesting();
   }
 
   public void sync(

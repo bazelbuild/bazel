@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -484,6 +485,7 @@ public class IncrementalLoadingTest {
               BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
               BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
       packageCacheOptions.showLoadingProgress = true;

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.PackageFactory.BuilderFactoryForTesting;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 
 /**
  * Various constants required by the tests.
@@ -64,6 +65,8 @@ public class TestConstants {
         "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
+
+  public static void processSkyframeExecutorForTesting(SkyframeExecutor skyframeExecutor) {}
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 

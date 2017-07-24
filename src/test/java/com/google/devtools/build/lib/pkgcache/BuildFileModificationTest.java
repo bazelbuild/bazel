@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -92,6 +93,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
             BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     OptionsParser parser = OptionsParser.newOptionsParser(
         PackageCacheOptions.class, SkylarkSemanticsOptions.class);
     analysisMock.getInvocationPolicyEnforcer().enforce(parser);

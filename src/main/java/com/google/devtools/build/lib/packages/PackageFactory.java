@@ -383,6 +383,11 @@ public final class PackageFactory {
     public abstract BuilderForTesting builder();
   }
 
+  @VisibleForTesting
+  public Package.Builder.Helper getPackageBuilderHelperForTesting() {
+    return packageBuilderHelper;
+  }
+
   /**
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.

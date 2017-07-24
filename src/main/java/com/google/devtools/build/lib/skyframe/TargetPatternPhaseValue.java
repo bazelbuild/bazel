@@ -107,12 +107,12 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   @SuppressWarnings("unused")
   private void writeObject(ObjectOutputStream out) {
-    throw new UnsupportedOperationException();
+    throw new NotSerializableRuntimeException();
   }
 
   @SuppressWarnings("unused")
   private void readObject(ObjectInputStream in) {
-    throw new UnsupportedOperationException();
+    throw new NotSerializableRuntimeException();
   }
 
   @SuppressWarnings("unused")
