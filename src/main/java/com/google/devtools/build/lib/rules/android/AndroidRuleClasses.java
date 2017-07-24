@@ -563,13 +563,11 @@ public final class AndroidRuleClasses {
           These compiler options are passed to javac after the global compiler options.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("javacopts", STRING_LIST))
-          // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
-          // like all the rest of android tools.
           .add(
               attr("$jarjar_bin", LABEL)
                   .cfg(HOST)
                   .exec()
-                  .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
+                  .value(env.getToolsLabel("//tools/android:jarjar_bin")))
           .add(
               attr("$idlclass", LABEL)
                   .cfg(HOST)

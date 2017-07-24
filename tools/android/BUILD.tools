@@ -210,6 +210,11 @@ alias(
     actual = "@android_databinding//:annotation_processor",
 )
 
+alias(
+    name = "jarjar_bin",
+    actual = "//third_party/java/jarjar:jarjar_bin",
+)
+
 # This is the default binding of //external:android/sdk. If someone attempts to
 # build a rule that depends on //external:android/sdk without setting up
 # android_sdk_repository in their WORKSPACE, the genrule will fail with a

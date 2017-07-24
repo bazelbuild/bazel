@@ -130,15 +130,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
-    config.create(
-        "/bazel_tools_workspace/third_party/java/jarjar/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "licenses(['notice'])",
-        "java_binary(name = 'jarjar_bin',",
-        "            runtime_deps = [ ':jarjar_import' ],",
-        "            main_class = 'com.tonicsystems.jarjar.Main')",
-        "java_import(name = 'jarjar_import',",
-        "            jars = [ 'jarjar.jar' ])");
 
     config.create("/bazel_tools_workspace/tools/test/BUILD",
         "filegroup(name = 'runtime', srcs = ['test-setup.sh'],)",
@@ -235,7 +226,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'android_runtest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_entry_point', srcs = ['empty.sh'])")
         .add("java_plugin(name = 'databinding_annotation_processor',")
-        .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')");
+        .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
+        .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])");
 
     return androidBuildContents.build();
   }
