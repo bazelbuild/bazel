@@ -48,17 +48,16 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--cpu=piii");
     String outputDirPrefix = outputBase
-        + "/" + config.getMainRepositoryName()
-        + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
+        + "/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix);
+        .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/bin");
+        .matches(outputDirPrefix + "/bin");
     assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/include");
+        .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/testlogs");
+        .matches(outputDirPrefix + "/testlogs");
   }
 
   @Test
@@ -69,11 +68,11 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--platform_suffix=-test");
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(
+        .matches(
             outputBase
                 + "/"
                 + config.getMainRepositoryName()
-                + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test");
+                + "/blaze-out/.*k8-fastbuild-test");
   }
 
   @Test
