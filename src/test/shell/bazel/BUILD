@@ -305,16 +305,6 @@ sh_test(
 )
 
 sh_test(
-    name = "generate_workspace_test",
-    size = "large",
-    srcs = ["generate_workspace_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/tools/generate_workspace",
-    ],
-)
-
-sh_test(
     name = "workspace_test",
     size = "large",
     srcs = ["workspace_test.sh"],

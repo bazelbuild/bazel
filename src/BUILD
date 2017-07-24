@@ -15,7 +15,6 @@ filegroup(
     }),
     visibility = [
         "//src/test/java:__pkg__",
-        "//src/tools/generate_workspace:__pkg__",
         "//src/tools/remote_worker:__subpackages__",
     ],
 )
@@ -385,7 +384,6 @@ filegroup(
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/benchmark:srcs",
-        "//src/tools/generate_workspace:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
         "//src/tools/xcode/environment:srcs",
