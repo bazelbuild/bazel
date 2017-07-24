@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.exec.SpawnRunner;
 
 /** Strategy that uses sandboxing to execute a process. */
 //TODO(ulfjack): This class only exists for this annotation. Find a better way to handle this!
@@ -26,17 +25,13 @@ import com.google.devtools.build.lib.vfs.Path;
   name = {"sandboxed", "processwrapper-sandbox"},
   contextType = SpawnActionContext.class
 )
-final class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
-  ProcessWrapperSandboxedStrategy(
-      CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
-      Path sandboxBase,
-      boolean verboseFailures,
-      String productName,
-      int timeoutGraceSeconds) {
-    super(
-        verboseFailures,
-        new ProcessWrapperSandboxedSpawnRunner(
-            cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
+final class ProcessWrapperSandboxedStrategy extends AbstractSpawnStrategy {
+  ProcessWrapperSandboxedStrategy(boolean verboseFailures, SpawnRunner spawnRunner) {
+    super(verboseFailures, spawnRunner);
+  }
+
+  @Override
+  public String toString() {
+    return "sandboxed";
   }
 }

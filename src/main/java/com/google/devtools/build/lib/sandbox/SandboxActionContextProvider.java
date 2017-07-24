@@ -16,11 +16,20 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -46,40 +55,74 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      contexts.add(
-          new ProcessWrapperSandboxedStrategy(
-              cmdEnv,
-              buildRequest,
-              sandboxBase,
-              verboseFailures,
-              productName,
-              timeoutGraceSeconds));
+      SpawnRunner spawnRunner = withFallback(
+          cmdEnv,
+          new ProcessWrapperSandboxedSpawnRunner(
+              cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
+      contexts.add(new ProcessWrapperSandboxedStrategy(verboseFailures, spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on Linux.
     if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      contexts.add(
-          LinuxSandboxedStrategy.create(
-              cmdEnv, buildRequest, sandboxBase, verboseFailures, timeoutGraceSeconds));
+      SpawnRunner spawnRunner = withFallback(
+          cmdEnv,
+          LinuxSandboxedStrategy.create(cmdEnv, buildRequest, sandboxBase, timeoutGraceSeconds));
+      contexts.add(new LinuxSandboxedStrategy(verboseFailures, spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on macOS.
     if (DarwinSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      contexts.add(
-          new DarwinSandboxedStrategy(
-              cmdEnv,
-              buildRequest,
-              sandboxBase,
-              verboseFailures,
-              productName,
-              timeoutGraceSeconds));
+      SpawnRunner spawnRunner = withFallback(
+          cmdEnv,
+          new DarwinSandboxedSpawnRunner(
+              cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
+      contexts.add(new DarwinSandboxedStrategy(verboseFailures, spawnRunner));
     }
 
     return new SandboxActionContextProvider(contexts.build());
   }
 
+  private static SpawnRunner withFallback(CommandEnvironment env, SpawnRunner sandboxSpawnRunner) {
+    return new SandboxFallbackSpawnRunner(sandboxSpawnRunner,  createFallbackRunner(env));
+  }
+
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
+        ? new XCodeLocalEnvProvider()
+        : LocalEnvProvider.UNMODIFIED;
+    return
+        new LocalSpawnRunner(
+            env.getExecRoot(),
+            localExecutionOptions,
+            ResourceManager.instance(),
+            env.getRuntime().getProductName(),
+            localEnvProvider);
+  }
+
   @Override
   public Iterable<? extends ActionContext> getActionContexts() {
     return contexts;
+  }
+
+  private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
+    private final SpawnRunner sandboxSpawnRunner;
+    private final SpawnRunner fallbackSpawnRunner;
+
+    SandboxFallbackSpawnRunner(SpawnRunner sandboxSpawnRunner, SpawnRunner fallbackSpawnRunner) {
+      this.sandboxSpawnRunner = sandboxSpawnRunner;
+      this.fallbackSpawnRunner = fallbackSpawnRunner;
+    }
+
+    @Override
+    public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
+        throws InterruptedException, IOException, ExecException {
+      if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
+        return fallbackSpawnRunner.exec(spawn, policy);
+      } else {
+        return sandboxSpawnRunner.exec(spawn, policy);
+      }
+    }
   }
 }

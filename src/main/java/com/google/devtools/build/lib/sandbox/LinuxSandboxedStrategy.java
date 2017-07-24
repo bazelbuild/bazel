@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,33 +30,22 @@ import java.io.IOException;
   name = {"sandboxed", "linux-sandbox"},
   contextType = SpawnActionContext.class
 )
-public final class LinuxSandboxedStrategy extends SandboxStrategy {
-  private LinuxSandboxedStrategy(
-      CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
-      Path sandboxBase,
-      boolean verboseFailures,
-      Path inaccessibleHelperFile,
-      Path inaccessibleHelperDir,
-      int timeoutGraceSeconds) {
-    super(
-        verboseFailures,
-        new LinuxSandboxedSpawnRunner(
-            cmdEnv,
-            buildRequest,
-            sandboxBase,
-            inaccessibleHelperFile,
-            inaccessibleHelperDir,
-            timeoutGraceSeconds));
+public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
+  LinuxSandboxedStrategy(boolean verboseFailures, SpawnRunner spawnRunner) {
+    super(verboseFailures, spawnRunner);
   }
 
-  static LinuxSandboxedStrategy create(
+  @Override
+  public String toString() {
+    return "sandboxed";
+  }
+
+  static LinuxSandboxedSpawnRunner create(
       CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
       Path sandboxBase,
-      boolean verboseFailures,
       int timeoutGraceSeconds)
-      throws IOException {
+          throws IOException {
     Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
     FileSystemUtils.touchFile(inaccessibleHelperFile);
     inaccessibleHelperFile.setReadable(false);
@@ -67,11 +58,10 @@ public final class LinuxSandboxedStrategy extends SandboxStrategy {
     inaccessibleHelperDir.setWritable(false);
     inaccessibleHelperDir.setExecutable(false);
 
-    return new LinuxSandboxedStrategy(
+    return new LinuxSandboxedSpawnRunner(
         cmdEnv,
         buildRequest,
         sandboxBase,
-        verboseFailures,
         inaccessibleHelperFile,
         inaccessibleHelperDir,
         timeoutGraceSeconds);

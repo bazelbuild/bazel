@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.sandbox;
+package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Throwables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.exec.SpawnExecException;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
@@ -42,21 +41,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Abstract common ancestor for sandbox strategies implementing the common parts. */
-abstract class SandboxStrategy implements SandboxedSpawnActionContext {
+/** Abstract common ancestor for spawn strategies implementing the common parts. */
+public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionContext {
   private final boolean verboseFailures;
   private final SpawnInputExpander spawnInputExpander;
-  private final AbstractSandboxSpawnRunner spawnRunner;
-  private final ActionInputPrefetcher inputPrefetcher;
+  private final SpawnRunner spawnRunner;
   private final AtomicInteger execCount = new AtomicInteger();
 
-  public SandboxStrategy(
+  public AbstractSpawnStrategy(
       boolean verboseFailures,
-      AbstractSandboxSpawnRunner spawnRunner) {
+      SpawnRunner spawnRunner) {
     this.verboseFailures = verboseFailures;
     this.spawnInputExpander = new SpawnInputExpander(false);
     this.spawnRunner = spawnRunner;
-    this.inputPrefetcher = ActionInputPrefetcher.NONE;
   }
 
   @Override
@@ -71,12 +68,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
-    if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
-      SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext);
-      return;
-    }
-
     if (actionExecutionContext.reportsSubcommands()) {
       actionExecutionContext.reportSubcommand(spawn);
     }
@@ -91,7 +82,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
       @Override
       public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
-        inputPrefetcher.prefetchFiles(inputs);
+        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(inputs);
       }
 
       @Override
@@ -106,7 +97,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
       @Override
       public void lockOutputFiles() throws InterruptedException {
-        Class<? extends SpawnActionContext> token = SandboxStrategy.this.getClass();
+        Class<? extends SpawnActionContext> token = AbstractSpawnStrategy.this.getClass();
         if (writeOutputFiles != null
             && writeOutputFiles.get() != token
             && !writeOutputFiles.compareAndSet(null, token)) {
@@ -149,18 +140,29 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
         }
       }
     };
-    SpawnResult result = spawnRunner.exec(spawn, policy);
-    if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
+    SpawnResult result;
+    try {
+      result = spawnRunner.exec(spawn, policy);
+    } catch (IOException e) {
+      if (verboseFailures) {
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.warn(
+                    spawn.getMnemonic()
+                        + " remote work failed:\n"
+                        + Throwables.getStackTraceAsString(e)));
+      }
+      throw new EnvironmentalExecException("Unexpected IO error.", e);
+    }
+
+    if ((result.status() != Status.SUCCESS) || (result.exitCode() != 0)) {
+      String cwd = actionExecutionContext.getExecRoot().getPathString();
       String message =
           CommandFailureUtils.describeCommandFailure(
-              verboseFailures, spawn.getArguments(), spawn.getEnvironment(), null);
+              verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
       throw new SpawnExecException(
           message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
     }
-  }
-
-  @Override
-  public String toString() {
-    return "sandboxed";
   }
 }

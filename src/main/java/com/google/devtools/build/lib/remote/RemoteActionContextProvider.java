@@ -59,7 +59,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     spawnRunner = new RemoteSpawnRunner(
         env.getExecRoot(),
         remoteOptions,
-        createFallbackRunner(),
+        createFallbackRunner(env),
         cache,
         executor);
     spawnStrategy =
@@ -68,7 +68,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             executionOptions.verboseFailures);
   }
 
-  private SpawnRunner createFallbackRunner() {
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
