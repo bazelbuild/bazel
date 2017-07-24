@@ -248,6 +248,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         out.println("(deny network*)");
         out.println("(allow network* (local ip \"localhost:*\"))");
         out.println("(allow network* (remote ip \"localhost:*\"))");
+        out.println("(allow network* (remote unix-socket))");
       }
 
       // By default, everything is read-only.
