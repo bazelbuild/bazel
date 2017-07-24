@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.shell.TerminationStatus;
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /**
@@ -125,6 +127,8 @@ public interface SpawnResult {
    */
   boolean setupSuccess();
 
+  boolean isCatastrophe();
+
   /** The status of the attempted Spawn execution. */
   Status status();
 
@@ -145,6 +149,9 @@ public interface SpawnResult {
 
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
+
+  String getDetailMessage(
+      String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely);
 
   /**
    * Basic implementation of {@link SpawnResult}.
@@ -171,6 +178,11 @@ public interface SpawnResult {
     }
 
     @Override
+    public boolean isCatastrophe() {
+      return false;
+    }
+
+    @Override
     public int exitCode() {
       return exitCode;
     }
@@ -193,6 +205,34 @@ public interface SpawnResult {
     @Override
     public boolean isCacheHit() {
       return cacheHit;
+    }
+
+    @Override
+    public String getDetailMessage(
+        String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      TerminationStatus status = new TerminationStatus(
+          exitCode(), status() == Status.TIMEOUT);
+      String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
+      String explanation = status.exited() ? "" : ": " + message;
+
+      if (!status().isConsideredUserError()) {
+        String errorDetail = status().name().toLowerCase(Locale.US)
+            .replace('_', ' ');
+        explanation += ". Note: Remote connection/protocol failed with: " + errorDetail;
+      }
+      if (status() == Status.TIMEOUT) {
+        explanation +=
+            String.format(
+                " (failed due to timeout after %.2f seconds.)",
+                getWallTimeMillis() / 1000.0f);
+      } else if (status() == Status.OUT_OF_MEMORY) {
+        explanation += " (Remote action was terminated due to Out of Memory.)";
+      }
+      if (status() != Status.TIMEOUT && forciblyRunRemotely) {
+        explanation += " Action tagged as local was forcibly run remotely and failed - it's "
+            + "possible that the action simply doesn't work remotely";
+      }
+      return messagePrefix + " failed" + reason + explanation;
     }
   }
 
