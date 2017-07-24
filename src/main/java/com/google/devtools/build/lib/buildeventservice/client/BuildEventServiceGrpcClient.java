@@ -27,10 +27,10 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.v1.OrderedBuildEvent;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventBlockingStub;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventStub;
+import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
@@ -71,7 +71,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
   private final ManagedChannel channel;
-  private final AtomicReference<StreamObserver<OrderedBuildEvent>> streamReference;
+  private final AtomicReference<StreamObserver<PublishBuildToolEventStreamRequest>> streamReference;
 
   public BuildEventServiceGrpcClient(String serverSpec, boolean tlsEnabled,
       @Nullable String tlsCertificateFile, @Nullable String tlsAuthorityOverride,
@@ -116,7 +116,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     return streamFinished;
   }
 
-  private StreamObserver<OrderedBuildEvent> createStream(
+  private StreamObserver<PublishBuildToolEventStreamRequest> createStream(
       final Function<PublishBuildToolEventStreamResponse, Void> ack,
       final SettableFuture<Status> streamFinished) {
     return besAsync.publishBuildToolEventStream(
@@ -141,14 +141,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   }
 
   @Override
-  public void sendOverStream(OrderedBuildEvent buildEvent) throws Exception {
+  public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws Exception {
     checkNotNull(streamReference.get(), "Attempting to send over a closed or unopened stream")
         .onNext(buildEvent);
   }
 
   @Override
   public void closeStream() {
-    StreamObserver<OrderedBuildEvent> stream;
+    StreamObserver<PublishBuildToolEventStreamRequest> stream;
     if ((stream = streamReference.getAndSet(null)) != null) {
       stream.onCompleted();
     }
@@ -156,7 +156,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   @Override
   public void abortStream(Status status) {
-    StreamObserver<OrderedBuildEvent> stream;
+    StreamObserver<PublishBuildToolEventStreamRequest> stream;
     if ((stream = streamReference.getAndSet(null)) != null) {
       stream.onError(status.asException());
     }

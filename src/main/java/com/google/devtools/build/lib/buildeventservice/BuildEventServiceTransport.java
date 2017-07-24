@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.v1.BuildStatus.Result;
-import com.google.devtools.build.v1.OrderedBuildEvent;
+import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
@@ -93,9 +93,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   private final PathConverter pathConverter;
   /** Contains all pendingAck events that might be retried in case of failures. */
-  private ConcurrentLinkedDeque<OrderedBuildEvent> pendingAck;
+  private ConcurrentLinkedDeque<PublishBuildToolEventStreamRequest> pendingAck;
   /** Contains all events should be sent ordered by sequence number. */
-  private final BlockingDeque<OrderedBuildEvent> pendingSend;
+  private final BlockingDeque<PublishBuildToolEventStreamRequest> pendingSend;
   /** Holds the result status of the BuildEventStreamProtos BuildFinished event. */
   private Result invocationResult;
   /** Used to block until all events have been uploaded. */
@@ -304,7 +304,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
   }
 
-  private synchronized void sendOrderedBuildEvent(OrderedBuildEvent serialisedEvent) {
+  private synchronized void sendOrderedBuildEvent(
+      PublishBuildToolEventStreamRequest serialisedEvent) {
     if (uploadComplete != null && uploadComplete.isDone()) {
       maybeReportUploadError();
       return;
@@ -399,7 +400,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    */
   private Status publishEventStream() throws Exception {
     // Reschedule unacked messages if required, keeping its original order.
-    OrderedBuildEvent unacked;
+    PublishBuildToolEventStreamRequest unacked;
     while ((unacked = pendingAck.pollLast()) != null) {
       pendingSend.addFirst(unacked);
     }
@@ -411,11 +412,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   /** Method responsible for a single Streaming RPC. */
   private static ListenableFuture<Status> publishEventStream(
-      final ConcurrentLinkedDeque<OrderedBuildEvent> pendingAck,
-      final BlockingDeque<OrderedBuildEvent> pendingSend,
+      final ConcurrentLinkedDeque<PublishBuildToolEventStreamRequest> pendingAck,
+      final BlockingDeque<PublishBuildToolEventStreamRequest> pendingSend,
       final BuildEventServiceClient besClient)
       throws Exception {
-    OrderedBuildEvent event;
+    PublishBuildToolEventStreamRequest event;
     ListenableFuture<Status> streamDone = besClient.openStream(ackCallback(pendingAck, besClient));
     try {
       do {
@@ -432,12 +433,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     return streamDone;
   }
 
-  private static boolean isLastEvent(OrderedBuildEvent event) {
+  private static boolean isLastEvent(PublishBuildToolEventStreamRequest event) {
     return event != null && event.getEvent().getEventCase() == COMPONENT_STREAM_FINISHED;
   }
 
   private static Function<PublishBuildToolEventStreamResponse, Void> ackCallback(
-      final Deque<OrderedBuildEvent> pendingAck, final BuildEventServiceClient besClient) {
+      final Deque<PublishBuildToolEventStreamRequest> pendingAck,
+      final BuildEventServiceClient besClient) {
     return ack -> {
       long pendingSeq = pendingAck.isEmpty() ? -1 : pendingAck.peekFirst().getSequenceNumber();
       long ackSeq = ack.getSequenceNumber();

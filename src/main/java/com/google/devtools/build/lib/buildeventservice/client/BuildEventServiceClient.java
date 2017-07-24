@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventservice.client;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.v1.OrderedBuildEvent;
+import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.Status;
@@ -38,7 +38,7 @@ public interface BuildEventServiceClient {
    * guarantee that all callback calls have been received.
    *
    * @param ackCallback Consumer called every time a ack message is received.
-   * @return Listenable future that blocks until the the onDone callback is called.
+   * @return Listenable future that blocks until the onDone callback is called.
    * @throws Exception
    */
   ListenableFuture<Status> openStream(
@@ -50,7 +50,7 @@ public interface BuildEventServiceClient {
    * @param buildEvent Event that should be sent.
    * @throws Exception
    */
-  void sendOverStream(OrderedBuildEvent buildEvent) throws Exception;
+  void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws Exception;
 
   /**
    * Closes the currently opened opened stream. This method does not block. Callers should block on

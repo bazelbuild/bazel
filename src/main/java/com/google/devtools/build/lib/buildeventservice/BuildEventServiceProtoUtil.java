@@ -28,6 +28,7 @@ import com.google.devtools.build.v1.BuildEvent.InvocationAttemptStarted;
 import com.google.devtools.build.v1.BuildStatus;
 import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.OrderedBuildEvent;
+import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
@@ -91,26 +92,31 @@ public final class BuildEventServiceProtoUtil {
         .build();
   }
 
-  /** Utility method used to create a OrderedBuildEvent that delimits the end of the stream. */
-  public OrderedBuildEvent streamFinished() {
+  /**
+   * Utility method used to create a PublishBuildToolEventStreamRequest that delimits the end of the
+   * stream.
+   */
+  public PublishBuildToolEventStreamRequest streamFinished() {
     return streamFinished(streamSequenceNumber.getAndIncrement());
   }
 
-  /** Utility method used to create a OrderedBuildEvent from an packed bazel event */
-  public OrderedBuildEvent bazelEvent(Any packedEvent) {
+  /**
+   * Utility method used to create a PublishBuildToolEventStreamRequest from an packed bazel event
+   */
+  public PublishBuildToolEventStreamRequest bazelEvent(Any packedEvent) {
     return bazelEvent(streamSequenceNumber.getAndIncrement(), packedEvent);
   }
 
   @VisibleForTesting
-  public OrderedBuildEvent bazelEvent(int sequenceNumber, Any packedEvent) {
-    return orderedBuildEvent(
+  public PublishBuildToolEventStreamRequest bazelEvent(int sequenceNumber, Any packedEvent) {
+    return publishBuildToolEventStreamRequest(
         sequenceNumber,
         com.google.devtools.build.v1.BuildEvent.newBuilder().setBazelEvent(packedEvent));
   }
 
   @VisibleForTesting
-  public OrderedBuildEvent streamFinished(int sequenceNumber) {
-    return orderedBuildEvent(
+  public PublishBuildToolEventStreamRequest streamFinished(int sequenceNumber) {
+    return publishBuildToolEventStreamRequest(
         sequenceNumber,
         BuildEvent.newBuilder()
             .setComponentStreamFinished(
@@ -118,8 +124,9 @@ public final class BuildEventServiceProtoUtil {
   }
 
   @VisibleForTesting
-  public OrderedBuildEvent orderedBuildEvent(int sequenceNumber, BuildEvent.Builder besEvent) {
-    return OrderedBuildEvent.newBuilder()
+  public PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
+      int sequenceNumber, BuildEvent.Builder besEvent) {
+    return PublishBuildToolEventStreamRequest.newBuilder()
         .setSequenceNumber(sequenceNumber)
         .setEvent(besEvent.setEventTime(Timestamps.fromMillis(clock.currentTimeMillis())))
         .setStreamId(streamId(besEvent.getEventCase()))
