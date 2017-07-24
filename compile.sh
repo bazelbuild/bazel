@@ -114,10 +114,6 @@ if [[ $PLATFORM == "darwin" ]] && \
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
 
-if [[ $PLATFORM == "windows" ]]; then
-  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msys --host_cpu=x64_windows_msys"
-fi
-
 source scripts/bootstrap/bootstrap.sh
 
 if [ $DO_COMPILE ]; then
