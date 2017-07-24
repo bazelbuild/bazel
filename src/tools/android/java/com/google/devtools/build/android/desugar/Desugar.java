@@ -505,6 +505,7 @@ class Desugar {
             visitor,
             lambdaClass,
             bridgeMethodReader,
+            loader,
             interfaceLambdaMethods,
             allowDefaultMethods,
             outputJava7);
