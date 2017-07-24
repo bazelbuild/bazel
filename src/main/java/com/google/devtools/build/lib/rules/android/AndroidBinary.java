@@ -1732,7 +1732,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     ruleContext.registerAction(new SpawnAction.Builder()
         .setExecutable(sdk.getAapt())
-        .setMnemonic("AndroidAapt")
+        .setMnemonic("AaptSplitResourceApk")
         .setProgressMessage("Generating resource apk for split " + splitName)
         .addArgument("package")
         .addArgument("-F")

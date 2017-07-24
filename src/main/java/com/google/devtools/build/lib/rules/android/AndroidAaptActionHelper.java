@@ -111,7 +111,7 @@ public final class AndroidAaptActionHelper {
             .setCommandLine(CommandLine.of(args))
             .useParameterFile(ParameterFileType.UNQUOTED)
             .setProgressMessage("Generating Java resources")
-            .setMnemonic("AndroidAapt");
+            .setMnemonic("AaptJavaGenerator");
     if (rTxt != null) {
       builder.addOutput(rTxt);
     }
@@ -152,7 +152,7 @@ public final class AndroidAaptActionHelper {
             .setCommandLine(CommandLine.of(args))
             .useParameterFile(ParameterFileType.UNQUOTED)
             .setProgressMessage("Generating apk resources")
-            .setMnemonic("AndroidAapt")
+            .setMnemonic("AaptResourceApk")
             .build(ruleContext));
   }
 
@@ -218,7 +218,7 @@ public final class AndroidAaptActionHelper {
     if (args.size() > 3) {
       return ImmutableList.copyOf(args);
     } else {
-      return ImmutableList.<String>of();
+      return ImmutableList.of();
     }
   }
 
@@ -280,7 +280,7 @@ public final class AndroidAaptActionHelper {
             .setCommandLine(CommandLine.of(aaptCommand))
             .useParameterFile(ParameterFileType.UNQUOTED)
             .setProgressMessage("Generating Proguard configuration for resources")
-            .setMnemonic("AndroidAapt")
+            .setMnemonic("AaptProguardConfiguration")
             .build(ruleContext));
   }
 }
