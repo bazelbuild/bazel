@@ -179,6 +179,9 @@ filegroup(
         ":windows_msvc": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
+        ":arm": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        ],
         "//conditions:default": [
             "//src/tools/singlejar:singlejar",
         ],
@@ -331,6 +334,12 @@ config_setting(
 config_setting(
     name = "windows_msys",
     values = {"cpu": "x64_windows_msys"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "arm",
+    values = {"cpu": "arm"},
     visibility = ["//visibility:public"],
 )
 
