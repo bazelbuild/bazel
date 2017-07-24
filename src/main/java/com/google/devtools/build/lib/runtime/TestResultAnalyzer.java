@@ -117,7 +117,7 @@ public class TestResultAnalyzer {
   }
 
   private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
-    return status.ordinal() > other.ordinal() ? status : other;
+    return status.getNumber() > other.getNumber() ? status : other;
   }
 
   /**

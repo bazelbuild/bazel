@@ -416,7 +416,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   private static int getSortKey(BlazeTestStatus status) {
-    return status == BlazeTestStatus.PASSED ? -1 : status.ordinal();
+    return status == BlazeTestStatus.PASSED ? -1 : status.getNumber();
   }
 
   @Override
