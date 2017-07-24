@@ -481,33 +481,33 @@ function test_loading_failure() {
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
   expect_log_once '^progress '
-  expect_log_once '^loading_failed'
-  expect_log 'details.*BUILD file not found on package path'
+  expect_log_once 'aborted'
+  expect_log_once 'reason: LOADING_FAILURE'
+  expect_log 'description.*BUILD file not found on package path'
   expect_not_log 'expanded'
-  expect_not_log 'aborted'
 }
 
 function test_visibility_failure() {
   bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log '^analysis_failed'
-  expect_not_log '^aborted'
+  expect_log_once 'reason: ANALYSIS_FAILURE'
+  expect_log_once '^aborted'
 
   # The same should hold true, if the server has already analyzed the target
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log '^analysis_failed'
-  expect_not_log '^aborted'
+  expect_log_once 'reason: ANALYSIS_FAILURE'
+  expect_log_once '^aborted'
 }
 
 function test_loading_failure_keep_going() {
   (bazel build --build_event_text_file=$TEST_log \
          -k //does/not/exist && fail "build failure expected") || true
-  expect_log_once '^loading_failed'
+  expect_log_once 'aborted'
+  expect_log_once 'reason: LOADING_FAILURE'
   expect_log_once '^expanded'
-  expect_log 'details.*BUILD file not found on package path'
-  expect_not_log 'aborted'
+  expect_log 'description.*BUILD file not found on package path'
 }
 
 # TODO(aehlig): readd, once we stop reporting the important artifacts

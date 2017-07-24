@@ -50,8 +50,11 @@ public class VisibilityErrorEvent implements BuildEventWithConfiguration {
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return GenericBuildEvent.protoChaining(this)
-        .setAnalysisFailed(
-            BuildEventStreamProtos.AnalysisFailure.newBuilder().setDetails(errorMessage).build())
+        .setAborted(
+            BuildEventStreamProtos.Aborted.newBuilder()
+                .setReason(BuildEventStreamProtos.Aborted.AbortReason.ANALYSIS_FAILURE)
+                .setDescription(errorMessage)
+                .build())
         .build();
   }
 
