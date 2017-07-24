@@ -166,7 +166,9 @@ def Main():
       exit(retCode)
     else:
       os.execv(args[0], args)
-  except EnvironmentError as e:
+  except EnvironmentError:
+    # This works from Python 2.4 all the way to 3.x.
+    e = sys.exc_info()[1]
     # This exception occurs when os.execv() fails for some reason.
     if not getattr(e, 'filename', None):
       e.filename = program  # Add info to error message
