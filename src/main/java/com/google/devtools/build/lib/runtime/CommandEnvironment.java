@@ -502,9 +502,6 @@ public final class CommandEnvironment {
   public void setupPackageCache(OptionsClassProvider options,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    if (!skyframeExecutor.hasIncrementalState()) {
-      skyframeExecutor.resetEvaluator();
-    }
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       skyframeExecutor.injectExtraPrecomputedValues(module.getPrecomputedValues());
