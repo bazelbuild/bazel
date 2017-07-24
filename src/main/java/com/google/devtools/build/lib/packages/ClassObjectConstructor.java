@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
           + "     Note: Some providers, defined internally, do not allow instance creation"
           + "     </li>"
           + "     <li>It is a <i>key</i> to access a provider instance on a"
-          + "        <a href=\"lib/Target.html\">Target</a>"
+          + "        <a href=\"Target.html\">Target</a>"
           + "<pre class=\"language-python\">DataInfo = provider()\n"
           + "def _rule_impl(ctx)\n"
           + "  ... ctx.attr.dep[DataInfo]</pre>"
