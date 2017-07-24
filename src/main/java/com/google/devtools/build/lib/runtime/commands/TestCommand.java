@@ -141,7 +141,8 @@ public class TestCommand implements BlazeCommand {
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(testTargets, testListener, options);
+    boolean testSuccess = analyzeTestResults(
+        testTargets, buildResult.getSkippedTargets(), testListener, options);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
@@ -163,10 +164,11 @@ public class TestCommand implements BlazeCommand {
    * Returns true if and only if all tests were successful.
    */
   private boolean analyzeTestResults(Collection<ConfiguredTarget> testTargets,
+                                     Collection<ConfiguredTarget> skippedTargets,
                                      AggregatingTestListener listener,
                                      OptionsProvider options) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(printer, options);
     return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, listener, notifier);
+        testTargets, skippedTargets, listener, notifier);
   }
 }
