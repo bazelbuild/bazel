@@ -54,12 +54,19 @@ package:
 Bazel also comes with a zsh completion script. To install it:
 
 1. Add this script to a directory on your $fpath:
+    1. Linux
 
-    ```
-    fpath[1,0]=~/.zsh/completion/
-    mkdir -p ~/.zsh/completion/
-    cp scripts/zsh_completion/_bazel ~/.zsh/completion
-    ```
+        ```
+        fpath[1,0]=~/.zsh/completion/
+        mkdir -p ~/.zsh/completion/
+        cp scripts/zsh_completion/_bazel ~/.zsh/completion
+        ```
+    2. macOS
+
+        ```
+        cp /usr/local/Cellar/bazel/0.5.1/share/zsh/site-functions/_bazel  ./completion/.
+        
+        ```
 
     You may have to call `rm -f ~/.zcompdump; compinit`
     the first time to make it work.
