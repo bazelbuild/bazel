@@ -51,7 +51,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
 
 <h4 id="sh_binary_examples">Example</h4>
 
-<p>For a simple shell script with no dependencies or data:
+<p>For a simple shell script with no dependencies and some data files:
 </p>
 
 <pre class="code">
