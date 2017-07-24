@@ -377,7 +377,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "@com_google_protobuf//:protobuf_java",

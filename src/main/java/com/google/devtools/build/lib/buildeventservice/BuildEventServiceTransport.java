@@ -25,7 +25,6 @@ import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.joda.time.Duration.standardSeconds;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -55,6 +54,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
 import io.grpc.Status;
+import java.time.Duration;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
@@ -69,7 +69,6 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
-import org.joda.time.Duration;
 
 /** A {@link BuildEventTransport} that streams {@link BuildEvent}s to BuildEventService. */
 public class BuildEventServiceTransport implements BuildEventTransport {
@@ -81,7 +80,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   private static final Logger logger = Logger.getLogger(BuildEventServiceTransport.class.getName());
 
   /** Max wait time until for the Streaming RPC to finish after all events were enqueued. */
-  private static final Duration PUBLISH_EVENT_STREAM_FINISHED_TIMEOUT = standardSeconds(120);
+  private static final Duration PUBLISH_EVENT_STREAM_FINISHED_TIMEOUT = Duration.ofSeconds(120);
 
   private final ListeningExecutorService uploaderExecutorService;
   private final Duration uploadTimeout;
@@ -206,7 +205,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 if (Duration.ZERO.equals(uploadTimeout)) {
                   uploadComplete.get();
                 } else {
-                  uploadComplete.get(uploadTimeout.getMillis(), MILLISECONDS);
+                  uploadComplete.get(uploadTimeout.toMillis(), MILLISECONDS);
                 }
                 report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
               } catch (Exception e) {
@@ -407,7 +406,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     pendingAck = new ConcurrentLinkedDeque<>();
 
     return publishEventStream(pendingAck, pendingSend, besClient)
-        .get(PUBLISH_EVENT_STREAM_FINISHED_TIMEOUT.getMillis(), TimeUnit.MILLISECONDS);
+        .get(PUBLISH_EVENT_STREAM_FINISHED_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
   }
 
   /** Method responsible for a single Streaming RPC. */

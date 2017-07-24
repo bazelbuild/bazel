@@ -16,10 +16,12 @@ package com.google.devtools.common.options;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -178,6 +180,47 @@ public final class Converters {
   }
 
   /**
+   * Standard converter for the {@link java.time.Duration} type.
+   */
+  public static class DurationConverter implements Converter<Duration> {
+    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      // To be compatible with the previous parser, '0' doesn't need a unit.
+      if ("0".equals(input)) {
+        return Duration.ZERO;
+      }
+      Matcher m = durationRegex.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.");
+      }
+      long duration = Long.parseLong(m.group(1));
+      String unit = m.group(2);
+      switch(unit) {
+        case "d":
+          return Duration.ofDays(duration);
+        case "h":
+          return Duration.ofHours(duration);
+        case "m":
+          return Duration.ofMinutes(duration);
+        case "s":
+          return Duration.ofSeconds(duration);
+        case "ms":
+          return Duration.ofMillis(duration);
+        default:
+          throw new IllegalStateException("This must not happen. Did you update the regex without "
+              + "the switch case?");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time.";
+    }
+  }
+
+  /**
    * The converters that are available to the options parser by default. These are used if the
    * {@code @Option} annotation does not specify its own {@code converter}, and its type is one of
    * the following.
@@ -185,12 +228,14 @@ public final class Converters {
   static final Map<Class<?>, Converter<?>> DEFAULT_CONVERTERS = Maps.newHashMap();
 
   static {
+    // 1:1 correspondence with UsesOnlyCoreTypes.CORE_TYPES.
     DEFAULT_CONVERTERS.put(String.class, new Converters.StringConverter());
     DEFAULT_CONVERTERS.put(int.class, new Converters.IntegerConverter());
     DEFAULT_CONVERTERS.put(long.class, new Converters.LongConverter());
     DEFAULT_CONVERTERS.put(double.class, new Converters.DoubleConverter());
     DEFAULT_CONVERTERS.put(boolean.class, new Converters.BooleanConverter());
     DEFAULT_CONVERTERS.put(TriState.class, new Converters.TriStateConverter());
+    DEFAULT_CONVERTERS.put(Duration.class, new Converters.DurationConverter());
     DEFAULT_CONVERTERS.put(Void.class, new Converters.VoidConverter());
   }
 

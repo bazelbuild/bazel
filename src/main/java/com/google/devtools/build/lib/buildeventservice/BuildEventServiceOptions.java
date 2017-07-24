@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.joda.time.Duration;
+import java.time.Duration;
 
 /** Options used by {@link BuildEventServiceModule}. */
 public class BuildEventServiceOptions extends OptionsBase {
@@ -41,7 +37,6 @@ public class BuildEventServiceOptions extends OptionsBase {
   @Option(
     name = "bes_timeout",
     defaultValue = "0s",
-    converter = DurationConverter.class,
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
@@ -81,47 +76,4 @@ public class BuildEventServiceOptions extends OptionsBase {
     help = "Specifies the BES project identifier. Defaults to null."
   )
   public String projectId;
-
-  /**
-   * Simple String to Duration Converter.
-   */
-  public static class DurationConverter implements Converter<Duration> {
-
-    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
-
-    @Override
-    public Duration convert(String input) throws OptionsParsingException {
-      // To be compatible with the previous parser, '0' doesn't need a unit.
-      if ("0".equals(input)) {
-        return Duration.ZERO;
-      }
-      Matcher m = durationRegex.matcher(input);
-      if (!m.matches()) {
-        throw new OptionsParsingException("Illegal duration '" + input + "'.");
-      }
-      long duration = Long.parseLong(m.group(1));
-      String unit = m.group(2);
-      switch(unit) {
-        case "d":
-          return Duration.standardDays(duration);
-        case "h":
-          return Duration.standardHours(duration);
-        case "m":
-          return Duration.standardMinutes(duration);
-        case "s":
-          return Duration.standardSeconds(duration);
-        case "ms":
-          return Duration.millis(duration);
-        default:
-          throw new IllegalStateException("This must not happen. Did you update the regex without "
-              + "the switch case?");
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An immutable length of time.";
-    }
-  }
-
 }
