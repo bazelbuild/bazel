@@ -359,7 +359,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       throw new AssertionError(e);
     }
 
-    if (cppOptions.getLipoMode() == LipoMode.BINARY) {
+    // Needs to be set before the first call to isLLVMCompiler().
+    this.toolchainIdentifier = toolchain.getToolchainIdentifier();
+
+    // With LLVM, ThinLTO is automatically used in place of LIPO. ThinLTO works fine with dynamic
+    // linking (and in fact creates a lot more work when dynamic linking is off).
+    if (cppOptions.getLipoMode() == LipoMode.BINARY && !isLLVMCompiler()) {
       // TODO(bazel-team): implement dynamic linking with LIPO
       this.dynamicMode = DynamicMode.OFF;
     } else {
@@ -379,8 +384,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     Preconditions.checkState(crosstoolConfig.getLibc().equals(targetLibc));
 
     this.solibDirectory = "_solib_" + targetCpu;
-
-    this.toolchainIdentifier = toolchain.getToolchainIdentifier();
 
     this.supportsEmbeddedRuntimes = toolchain.getSupportsEmbeddedRuntimes();
     toolchain = addLegacyFeatures(toolchain);
@@ -1325,7 +1328,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.isFdo();
   }
 
-  public boolean isLLVMCompiler() {
+  public final boolean isLLVMCompiler() {
     // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
     // is temporary until the crosstool configuration is modified to add fields that
     // indicate which flavor of fdo is being used.
