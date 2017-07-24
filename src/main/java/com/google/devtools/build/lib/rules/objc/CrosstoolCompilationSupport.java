@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -524,12 +525,17 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
-    return configuration
-        .getFragment(CppConfiguration.class)
-        .getFeatures()
-        .getFeatureConfiguration(
-            FeatureSpecification.create(
-                activatedCrosstoolSelectables.build(), ImmutableSet.<String>of()));
+    try {
+      return configuration
+          .getFragment(CppConfiguration.class)
+          .getFeatures()
+          .getFeatureConfiguration(
+              FeatureSpecification.create(
+                  activatedCrosstoolSelectables.build(), ImmutableSet.<String>of()));
+    } catch (CollidingProvidesException e) {
+      ruleContext.ruleError(e.getMessage());
+      return FeatureConfiguration.EMPTY;
+    }
   }
 
   private static ImmutableList<Artifact> getObjFiles(

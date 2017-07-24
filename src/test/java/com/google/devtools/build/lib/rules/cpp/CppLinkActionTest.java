@@ -384,7 +384,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             output,
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
             CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-            new FeatureConfiguration());
+            FeatureConfiguration.EMPTY);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 

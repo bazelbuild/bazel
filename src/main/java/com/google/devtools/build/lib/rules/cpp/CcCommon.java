@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -612,22 +613,27 @@ public final class CcCommon {
 
     FeatureSpecification currentFeatureSpecification =
         FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
-    FeatureConfiguration configuration =
-        features.getFeatureConfiguration(currentFeatureSpecification);
-    for (String feature : unsupportedFeatures) {
-      if (configuration.isEnabled(feature)) {
-        ruleContext.ruleError(
-            "The C++ toolchain '"
-                + ruleContext
-                    .getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET)
-                    .getLabel()
-                + "' unconditionally implies feature '"
-                + feature
-                + "', which is unsupported by this rule. "
-                + "This is most likely a misconfiguration in the C++ toolchain.");
+    try {
+      FeatureConfiguration configuration =
+          features.getFeatureConfiguration(currentFeatureSpecification);
+      for (String feature : unsupportedFeatures) {
+        if (configuration.isEnabled(feature)) {
+          ruleContext.ruleError(
+              "The C++ toolchain '"
+                  + ruleContext
+                  .getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET)
+                  .getLabel()
+                  + "' unconditionally implies feature '"
+                  + feature
+                  + "', which is unsupported by this rule. "
+                  + "This is most likely a misconfiguration in the C++ toolchain.");
+        }
       }
+      return configuration;
+    } catch (CollidingProvidesException e) {
+      ruleContext.ruleError(e.getMessage());
+      return FeatureConfiguration.EMPTY;
     }
-    return configuration;
   }
 
 

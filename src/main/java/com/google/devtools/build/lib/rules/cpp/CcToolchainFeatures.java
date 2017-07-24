@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -50,6 +51,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Provides access to features supported by a specific toolchain.
@@ -82,10 +84,8 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
-  /**
-   * Thrown when multiple features provide the same string symbol.
-   */
-  public static class CollidingProvidesException extends RuntimeException {
+  /** Thrown when multiple features provide the same string symbol. */
+  public static class CollidingProvidesException extends Exception {
     CollidingProvidesException(String message) {
       super(message);
     }
@@ -1645,12 +1645,19 @@ public class CcToolchainFeatures implements Serializable {
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
 
-    public FeatureConfiguration() {
+    /**
+     * {@link FeatureConfiguration} instance that doesn't produce any command lines. This is to be
+     * used when creation of the real {@link FeatureConfiguration} failed, the rule error was
+     * reported, but the analysis continues to collect more rule errors.
+     */
+    public static final FeatureConfiguration EMPTY = new FeatureConfiguration();
+
+    protected FeatureConfiguration() {
       this(
           FeatureSpecification.EMPTY,
-          ImmutableList.<Feature>of(),
-          ImmutableList.<ActionConfig>of(),
-          ImmutableMap.<String, ActionConfig>of());
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableMap.of());
     }
 
     private FeatureConfiguration(
@@ -1949,7 +1956,8 @@ public class CcToolchainFeatures implements Serializable {
         .build(
             new CacheLoader<FeatureSpecification, FeatureConfiguration>() {
               @Override
-              public FeatureConfiguration load(FeatureSpecification featureSpecification) {
+              public FeatureConfiguration load(FeatureSpecification featureSpecification)
+                  throws CollidingProvidesException {
                 return computeFeatureConfiguration(featureSpecification);
               }
             });
@@ -1965,8 +1973,15 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification) {
-    return configurationCache.getUnchecked(featureSpecification);
+  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification)
+      throws CollidingProvidesException {
+    try {
+      return configurationCache.get(featureSpecification);
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException("Unexpected checked exception encountered", e);
+    }
   }
 
   /**
@@ -1979,8 +1994,8 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration computeFeatureConfiguration(
-      FeatureSpecification featureSpecification) {
+  public FeatureConfiguration computeFeatureConfiguration(FeatureSpecification featureSpecification)
+      throws CollidingProvidesException {
     // Command line flags will be output in the order in which they are specified in the toolchain
     // configuration.
     return new FeatureSelection(featureSpecification).run();
@@ -2084,10 +2099,10 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
-     * @return a {@code FeatureConfiguration} that reflects the set of activated features and
-     * action configs.
+     * @return a {@code FeatureConfiguration} that reflects the set of activated features and action
+     *     configs.
      */
-    private FeatureConfiguration run() {
+    private FeatureConfiguration run() throws CollidingProvidesException {
       for (CrosstoolSelectable selectable : requestedSelectables) {
         enableAllImpliedBy(selectable);
       }

@@ -905,6 +905,26 @@ public class CcCommonTest extends BuildViewTestCase {
         .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
   }
 
+  @Test
+  public void
+  testConfigureFeaturesDoesntCrashOnCollidingFeaturesExceptionButReportsRuleErrorCleanly()
+      throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature { name: 'a1' provides: 'a' }",
+            "feature { name: 'a2' provides: 'a' }");
+    useConfiguration("--features=a1", "--features=a2");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:foo");
+    assertContainsEvent("Symbol a is provided by all of the following features: a1 a2");
+  }
+
   /**
    * A {@code toolchain_type} rule for testing that only supports C++.
    */
