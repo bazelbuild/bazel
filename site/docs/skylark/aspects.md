@@ -182,7 +182,8 @@ on the target objects representing its `proto_deps` attribute values.
 
 ### Applying aspects from command line.
 
-Aspects can also be applied on the command line, using the `--aspects` flag:
+Aspects can also be applied on the command line, using the
+[`--aspects`](../command-line-reference.html#flag--aspects) flag:
 
 
 ```
@@ -191,6 +192,6 @@ bazel build //java/com/company/example:main \
 ```
 
 `--aspects` flag takes one argument, which is a specification of the aspect in
-the format `<extension file path>%<aspect top-level name>`.
+the format `<extension file label>%<aspect top-level name>`.
 
 
