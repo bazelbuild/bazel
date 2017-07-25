@@ -1542,10 +1542,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * targets and their transitive dependencies.
    */
   private static boolean useUntrimmedDynamicConfigs(BuildOptions options) {
-    BuildConfiguration.Options.DynamicConfigsMode mode =
-        options.get(BuildConfiguration.Options.class).useDynamicConfigurations;
-    return mode == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM
-        || mode == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL;
+    return options.get(BuildConfiguration.Options.class).useDynamicConfigurations
+        == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM;
   }
 
   /**

@@ -132,25 +132,6 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Returns a cloned instance that disables dynamic configurations if both
-   * {@link BuildConfiguration.Options.DynamicConfigsMode} is {@code NOTRIM_PARTIAL} and
-   * {@link #useStaticConfigurationsOverride()} is true. Otherwise it returns the input
-   * instance unchanged.
-   */
-  public static BuildOptions applyStaticConfigOverride(BuildOptions buildOptions) {
-    if (buildOptions.useStaticConfigurationsOverride()
-        && buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
-            == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL) {
-      // It's not, generally speaking, safe to mutate BuildOptions instances when the original
-      // reference might persist.
-      buildOptions = buildOptions.clone();
-      buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations =
-          BuildConfiguration.Options.DynamicConfigsMode.OFF;
-    }
-    return buildOptions;
-  }
-
-  /**
    * Returns the actual instance of a FragmentOptions class.
    */
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
@@ -195,19 +176,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     return result.build();
-  }
-
-  /**
-   * Returns {@code true} if static configurations should be used with
-   * {@link BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL}.
-   */
-  public boolean useStaticConfigurationsOverride() {
-    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      if (fragment.useStaticConfigurationsOverride()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**

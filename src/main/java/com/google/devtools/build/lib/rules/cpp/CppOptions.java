@@ -950,15 +950,6 @@ public class CppOptions extends FragmentOptions {
     return lipoConfigurationState == LipoConfigurationState.LIPO_CONTEXT_COLLECTOR;
   }
 
-  /**
-   * FDO/LIPO is not yet compatible with dynamic configurations.
-   **/
-  @Override
-  public boolean useStaticConfigurationsOverride() {
-    // --lipo=binary is technically possible without FDO, even though it doesn't do anything.
-    return isFdo() || lipoModeForBuild == LipoMode.BINARY;
-  }
-
   @Override
   public boolean enableActions() {
     return !isLipoContextCollector();

@@ -1087,17 +1087,6 @@ public final class BuildConfiguration implements BuildEvent {
       /**
        * Same as NOTRIM.
        *
-       * <p>This used to revert certain special cases to static configurations because dynamic
-       * configuration didn't support them. But now all builds use dynamic configurations. This
-       * value will be removed once we know no one is setting it.
-       *
-       * @deprecated use {@link #NOTRIM} instead
-       */
-      @Deprecated
-      NOTRIM_PARTIAL,
-      /**
-       * Same as NOTRIM.
-       *
        * <p>This used to disable dynamic configurations (while the feature was still being
        * developed). But now all builds use dynamic configurations. This value will be removed
        * once we know no one is setting it.
@@ -1119,12 +1108,7 @@ public final class BuildConfiguration implements BuildEvent {
       @Override
       public DynamicConfigsMode convert(String input) throws OptionsParsingException {
         DynamicConfigsMode userSetValue = super.convert(input);
-        if (userSetValue == DynamicConfigsMode.OFF
-            || userSetValue == DynamicConfigsMode.NOTRIM_PARTIAL) {
-          return DynamicConfigsMode.NOTRIM;
-        } else {
-          return userSetValue;
-        }
+        return userSetValue == DynamicConfigsMode.OFF ? DynamicConfigsMode.NOTRIM : userSetValue;
       }
     }
 

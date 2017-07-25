@@ -101,12 +101,4 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   public FragmentOptions getHost(boolean fallback) {
     return getDefault();
   }
-
-  /**
-   * Returns {@code true} if static configurations should be used with
-   * {@link BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL}.
-   */
-  public boolean useStaticConfigurationsOverride() {
-    return false;
-  }
 }

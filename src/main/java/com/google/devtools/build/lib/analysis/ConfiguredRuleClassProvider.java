@@ -699,13 +699,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsClassProvider optionsProvider) {
-    // Possibly disable dynamic configurations if they won't work with this build. It's
-    // best to do this as early in the build as possible, because as the build goes on the number
-    // of BuildOptions references grows and the more dangerous it becomes to modify them. We do
-    // this here instead of in BlazeRuntime because tests and production logic don't use
-    // BlazeRuntime the same way.
-    return BuildOptions.applyStaticConfigOverride(
-        BuildOptions.of(configurationOptions, optionsProvider));
+    return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
   private Environment.Frame createGlobals(
