@@ -13,20 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.FileStore;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.util.EnumSet;
 
 /**
  * Creates a temporary directory that will be deleted once a scope closes. NOTE: If an error occurs
- * during deletion, it will just stop rather than try an continue.
+ * during deletion, it will just stop rather than try and continue.
  */
 final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements Closeable {
+
+  private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
 
   private final Path path;
 
@@ -38,14 +47,32 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
     return this.path;
   }
 
+  private void makeWritable(Path file) throws IOException {
+    FileStore fileStore = Files.getFileStore(file);
+    if (IS_WINDOWS && fileStore.supportsFileAttributeView(DosFileAttributeView.class)) {
+      DosFileAttributeView dosAttribs =
+          Files.getFileAttributeView(file, DosFileAttributeView.class);
+      if (dosAttribs != null) {
+        dosAttribs.setReadOnly(false);
+      }
+    } else if (fileStore.supportsFileAttributeView(PosixFileAttributeView.class)) {
+      PosixFileAttributeView posixAttribs =
+          Files.getFileAttributeView(file, PosixFileAttributeView.class);
+      if (posixAttribs != null) {
+        posixAttribs.setPermissions(EnumSet.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
+      }
+    }
+  }
+
+  @Override
+  public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+    makeWritable(dir);
+    return FileVisitResult.CONTINUE;
+  }
+
   @Override
   public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-    // Make the file deletable on Windows.
-    // Setting this attribute on other platforms than Windows has no effect.
-    DosFileAttributeView dosAttribs = Files.getFileAttributeView(path, DosFileAttributeView.class);
-    if (dosAttribs != null) {
-      dosAttribs.setReadOnly(false);
-    }
+    makeWritable(file);
     Files.delete(file);
     return FileVisitResult.CONTINUE;
   }
