@@ -25,17 +25,24 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
-  worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  "${bazel_data}/src/tools/remote_worker/remote_worker" \
-      --work_path="${work_path}" \
-      --listen_port=${worker_port} \
-      --hazelcast_standalone_listen_port=${hazelcast_port} \
-      --pid_file="${pid_file}" >& $TEST_log &
-  local wait_seconds=0
-  until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 30 ]; do
-    sleep 1
-    ((wait_seconds++)) || true
+  attempts=1
+  while [ $attempts -le 5 ]; do
+    (( attempts++ ))
+    worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+    hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
+    "${bazel_data}/src/tools/remote_worker/remote_worker" \
+        --work_path="${work_path}" \
+        --listen_port=${worker_port} \
+        --hazelcast_standalone_listen_port=${hazelcast_port} \
+        --pid_file="${pid_file}" >& $TEST_log &
+    local wait_seconds=0
+    until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
+      sleep 1
+      ((wait_seconds++)) || true
+    done
+    if [ -s "${pid_file}" ]; then
+      break
+    fi
   done
   if [ ! -s "${pid_file}" ]; then
     fail "Timed out waiting for remote worker to start."
