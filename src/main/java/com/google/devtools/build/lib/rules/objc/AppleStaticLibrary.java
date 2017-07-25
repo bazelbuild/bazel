@@ -180,8 +180,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ObjcProvider objcProvider = objcProviderBuilder.build();
 
     targetBuilder
-        // TODO(cparsons): Remove ObjcProvider as a direct provider.
-        .addProvider(ObjcProvider.class, objcProvider)
         .addNativeDeclaredProvider(
             new AppleStaticLibraryProvider(
                 ruleIntermediateArtifacts.combinedArchitectureArchive(),
