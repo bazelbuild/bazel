@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
@@ -26,6 +27,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -33,8 +35,9 @@ import java.util.zip.ZipFile;
  * A FileSystem that provides a read-only filesystem view on a zip file.
  * Inherits the constraints imposed by ReadonlyFileSystem.
  */
-@ThreadSafe
+@ThreadCompatible  // Can only be accessed from one thread at a time (including its Path objects)
 public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
+  private static final Logger log = Logger.getLogger(ZipFileSystem.class.getName());
 
   private final File tempFile;  // In case this needs to be written to the file system
   private final ZipFile zipFile;
@@ -305,7 +308,13 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
   @Override
   public void close() {
     if (open) {
-      close();
+      try {
+        zipFile.close();
+      } catch (IOException e) {
+        // Not a lot can be done about this. Log an error and move on.
+        log.warning(String.format(
+            "Error while closing zip file '%s': %s", zipFile.getName(), e.getMessage()));
+      }
       if (tempFile != null) {
         tempFile.delete();
       }

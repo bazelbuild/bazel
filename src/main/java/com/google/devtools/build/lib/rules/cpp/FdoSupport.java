@@ -354,20 +354,24 @@ public class FdoSupport {
         FileSystemUtils.ensureSymbolicLink(
             execRoot.getRelative(getAutoProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
-        Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
-        String outputSymlinkName = productName + "-out";
-        if (!zipFilePath.getRelative(outputSymlinkName).isDirectory()) {
-          throw new ZipException(
-              "FDO zip files must be zipped directly above '"
-                  + outputSymlinkName
-                  + "' for the compiler to find the profile");
+        // Path objects referring to inside the zip file are only valid within this try block.
+        // FdoZipContents doesn't reference any of them, so we are fine.
+        try (ZipFileSystem zipFileSystem = new ZipFileSystem(fdoProfile)) {
+          Path zipFilePath = zipFileSystem.getRootDirectory();
+          String outputSymlinkName = productName + "-out";
+          if (!zipFilePath.getRelative(outputSymlinkName).isDirectory()) {
+            throw new ZipException(
+                "FDO zip files must be zipped directly above '"
+                    + outputSymlinkName
+                    + "' for the compiler to find the profile");
+          }
+          ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
+          ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
+              ImmutableMultimap.builder();
+          extractFdoZipDirectory(zipFilePath, fdoDirPath, gcdaFilesBuilder, importsBuilder);
+          gcdaFiles = gcdaFilesBuilder.build();
+          imports = importsBuilder.build();
         }
-        ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
-        ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
-            ImmutableMultimap.builder();
-        extractFdoZipDirectory(zipFilePath, fdoDirPath, gcdaFilesBuilder, importsBuilder);
-        gcdaFiles = gcdaFilesBuilder.build();
-        imports = importsBuilder.build();
       }
     }
 
