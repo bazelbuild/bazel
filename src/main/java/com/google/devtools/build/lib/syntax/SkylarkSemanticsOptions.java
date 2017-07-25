@@ -37,14 +37,29 @@ import java.io.Serializable;
  */
 @UsesOnlyCoreTypes
 public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
-  // Used in an integration test to confirm that flags are visible to the interpreter.
+
+  /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
     name = "internal_skylark_flag_test_canary",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN}
   )
-  public boolean skylarkFlagTestCanary;
+  public boolean internalSkylarkFlagTestCanary;
+
+  /**
+   * Used in testing to produce a truly minimalistic Extension object for certain evaluation
+   * contexts. This flag is Bazel-specific.
+   */
+  // TODO(bazel-team): A pending incompatible change will make it so that load()ed and built-in
+  // symbols do not get re-exported, making this flag obsolete.
+  @Option(
+    name = "internal_do_not_export_builtins",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN}
+  )
+  public boolean internalDoNotExportBuiltins;
 
   @Option(
     name = "incompatible_disallow_set_constructor",

@@ -383,8 +383,10 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           ruleClassProvider
               .createSkylarkRuleClassEnvironment(
                   extensionLabel, mutability, skylarkSemantics,
-                  eventHandler, ast.getContentHashCode(), importMap)
-              .setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+                  eventHandler, ast.getContentHashCode(), importMap);
+      if (!skylarkSemantics.internalDoNotExportBuiltins) {
+        extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+      }
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
