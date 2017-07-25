@@ -265,22 +265,21 @@ public abstract class CompilationSupport {
 
   /** Returns a list of framework search path flags for clang actions. */
   static Iterable<String> commonFrameworkFlags(
-      ObjcProvider provider, RuleContext ruleContext) {
-    return Interspersing.beforeEach("-F", commonFrameworkNames(provider, ruleContext));
+      ObjcProvider provider, RuleContext ruleContext, ApplePlatform applePlaform) {
+    return Interspersing.beforeEach("-F",
+        commonFrameworkNames(provider, ruleContext, applePlaform));
   }
 
   /** Returns a list of frameworks for clang actions. */
   static Iterable<String> commonFrameworkNames(
-      ObjcProvider provider, RuleContext ruleContext) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+      ObjcProvider provider, RuleContext ruleContext, ApplePlatform platform) {
 
     ImmutableList.Builder<String> frameworkNames =
         new ImmutableList.Builder<String>()
             .add(AppleToolchain.sdkFrameworkDir(platform, ruleContext));
-    if (platform.getType() == PlatformType.IOS) {
-      // As of sdk8.1, XCTest is in a base Framework dir
-      frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration));
+    // As of sdk8.1, XCTest is in a base Framework dir.
+    if (platform.getType() != PlatformType.WATCHOS) { // WatchOS does not have this directory.
+      frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(platform));
     }
     return frameworkNames
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,

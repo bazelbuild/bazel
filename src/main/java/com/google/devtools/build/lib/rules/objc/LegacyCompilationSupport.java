@@ -864,7 +864,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add("-arch", appleConfiguration.getSingleArchitecture())
         .add("-isysroot", AppleToolchain.sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
-        .addAll(commonFrameworkFlags(provider, ruleContext))
+        .addAll(commonFrameworkFlags(provider, ruleContext, platform))
         .build();
   }
 

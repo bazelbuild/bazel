@@ -28,6 +28,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -1443,5 +1446,28 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testMinimumOsDifferentTargets() throws Exception {
     checkMinimumOsDifferentTargets(RULE_TYPE, "_lipobin", "_bin");
+  }
+
+  @Test
+  public void testMacosFrameworkDirectories() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "    name = 'test',",
+        "    srcs = ['test.m'],",
+        "    platform_type = 'macos',",
+        ")");
+
+    CommandAction linkAction = linkAction("//test:test");
+    ImmutableList<String> expectedCommandLineFragments =
+        ImmutableList.<String>builder()
+            .add(AppleToolchain.sdkDir() + AppleToolchain.SYSTEM_FRAMEWORK_PATH)
+            .add(frameworkDir(ApplePlatform.forTarget(PlatformType.MACOS, "x86_64")))
+            .build();
+
+    String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
+    for (String expectedCommandLineFragment : expectedCommandLineFragments) {
+      assertThat(linkArgs).contains(expectedCommandLineFragment);
+    }
   }
 }
