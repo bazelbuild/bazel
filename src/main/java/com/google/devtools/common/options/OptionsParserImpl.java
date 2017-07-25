@@ -14,8 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -40,6 +38,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -475,13 +474,14 @@ class OptionsParserImpl {
 
       if (option.wrapperOption()) {
         if (value.startsWith("-")) {
-
-          List<String> unparsed = parse(
-              priority,
-              Functions.constant("Unwrapped from wrapper option --" + originalName),
-              null, // implicitDependent
-              null, // expandedFrom
-              ImmutableList.of(value));
+          String sourceMessage =  "Unwrapped from wrapper option --" + originalName;
+          List<String> unparsed =
+              parse(
+                  priority,
+                  o -> sourceMessage,
+                  null, // implicitDependent
+                  null, // expandedFrom
+                  ImmutableList.of(value));
 
           if (!unparsed.isEmpty()) {
             throw new OptionsParsingException(
@@ -526,12 +526,11 @@ class OptionsParserImpl {
       if (OptionsData.isExpansionOption(field.getAnnotation(Option.class))) {
         ImmutableList<String> expansion = optionsData.getEvaluatedExpansion(field, value);
 
-        Function<Object, String> expansionSourceFunction =
-            Functions.constant(
-                "expanded from option --"
-                    + originalName
-                    + " from "
-                    + sourceFunction.apply(originalName));
+        String sourceMessage = "expanded from option --"
+            + originalName
+            + " from "
+            + sourceFunction.apply(originalName);
+        Function<Object, String> expansionSourceFunction = o -> sourceMessage;
         maybeAddDeprecationWarning(field);
         List<String> unparsed =
             parse(priority, expansionSourceFunction, null, originalName, expansion);
@@ -582,12 +581,13 @@ class OptionsParserImpl {
     // TODO(bazel-team): this should happen when the option is encountered.
     if (!implicitRequirements.isEmpty()) {
       for (Map.Entry<String, List<String>> entry : implicitRequirements.entrySet()) {
+        String sourceMessage =
+            "implicit requirement of option --"
+                + entry.getKey()
+                + " from "
+                + sourceFunction.apply(entry.getKey());
         Function<Object, String> requirementSourceFunction =
-            Functions.constant(
-                "implicit requirement of option --"
-                    + entry.getKey()
-                    + " from "
-                    + sourceFunction.apply(entry.getKey()));
+            o -> sourceMessage;
 
         List<String> unparsed = parse(priority, requirementSourceFunction, entry.getKey(), null,
             entry.getValue());

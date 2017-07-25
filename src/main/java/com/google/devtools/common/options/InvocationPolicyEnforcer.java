@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -38,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -53,8 +52,7 @@ public final class InvocationPolicyEnforcer {
 
   private static final Logger log = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
 
-  private static final Function<Object, String> INVOCATION_POLICY_SOURCE =
-      Functions.constant("Invocation policy");
+  private static final Function<Object, String> INVOCATION_POLICY_SOURCE = o -> "Invocation policy";
 
   @Nullable private final InvocationPolicy invocationPolicy;
 

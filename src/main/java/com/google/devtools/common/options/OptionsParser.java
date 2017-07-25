@@ -14,8 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -710,7 +709,7 @@ public class OptionsParser implements OptionsProvider {
    */
   public void parse(OptionPriority priority, String source,
       List<String> args) throws OptionsParsingException {
-    parseWithSourceFunction(priority, Functions.constant(source), args);
+    parseWithSourceFunction(priority, o -> source, args);
   }
 
   /**
