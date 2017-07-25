@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
@@ -64,7 +63,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
-import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** An Aspect which JavaLiteProtoLibrary injects to build Java Lite protos. */
@@ -229,26 +227,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
               JavaSkylarkApiProvider.fromProviderMap(javaProviders))
           .addProvider(
-              new JavaProtoLibraryAspectProvider(
-                  javaProviders,
-                  transitiveOutputJars.build(),
-                  createNonStrictCompilationArgsProvider(generatedCompilationArgsProvider)));
-    }
-
-    /**
-     * Creates a JavaCompilationArgsProvider that's used when java_lite_proto_library sets
-     * strict_deps=0. It contains the jars we produced, as well as all transitive proto jars, and
-     * the proto runtime jars, all described as direct dependencies.
-     */
-    private JavaCompilationArgsProvider createNonStrictCompilationArgsProvider(
-        JavaCompilationArgsProvider generatedCompilationArgsProvider) {
-      ArrayList<JavaCompilationArgsProvider> providers = new ArrayList<>(3);
-      providers.add(
-          JavaCompilationArgsProvider.merge(
-              transform(javaProtoLibraryAspectProviders, p -> p.getNonStrictCompArgsProvider())));
-      providers.add(generatedCompilationArgsProvider);
-      providers.addAll(getProtoRuntimeDeps());
-      return JavaCompilationArgsProvider.merge(providers);
+              new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
@@ -273,10 +252,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               .setOutput(outputJar)
               .addSourceJars(sourceJar)
               .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
-      helper
-          .addDep(dependencyCompilationArgs)
-          .addAllDeps(getProtoRuntimeDeps())
-          .setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      helper.addDep(dependencyCompilationArgs);
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
+      }
+      helper.setCompilationStrictDepsMode(StrictDepsMode.OFF);
       JavaCompilationArtifacts artifacts =
           helper.build(
               javaSemantics,
@@ -284,13 +265,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               JavaHelper.getHostJavabaseInputs(ruleContext),
               JavaCompilationHelper.getInstrumentationJars(ruleContext));
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
-    }
-
-    private ImmutableList<JavaCompilationArgsProvider> getProtoRuntimeDeps() {
-      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
-      return runtime != null
-          ? ImmutableList.of(runtime.getProvider(JavaCompilationArgsProvider.class))
-          : ImmutableList.of();
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {

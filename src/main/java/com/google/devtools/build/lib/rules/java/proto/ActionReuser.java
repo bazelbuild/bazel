@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class ActionReuser {
 
@@ -58,38 +57,24 @@ public class ActionReuser {
       return false;
     }
 
+    JavaCompilationArgs transitiveJars =
+        JavaCompilationArgs.builder()
+            .addTransitiveArgs(javaApi.getTransitiveJavaCompilationArgsImmutable(), BOTH)
+            .addTransitiveDependencies(javaApi.getProtoRuntimeImmutable(), true /* recursive */)
+            .merge(directJars)
+            .build();
+
     Artifact outputJar = getOnlyElement(directJars.getRuntimeJars());
     Artifact compileTimeJar = getOnlyElement(directJars.getCompileTimeJars());
     Artifact sourceJar = checkNotNull(javaApi.sourceJarImmutable());
 
-    boolean jplNonStrictDepsLikePl =
-        ruleContext
-            .getConfiguration()
-            .getFragment(ProtoConfiguration.class)
-            .jplNonStrictDepsLikePl();
-
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
             JavaCompilationArgs.builder().merge(directJars).build(),
-            collectTransitiveJarsFromUnderlyingProtoLibrary(
-                javaApi, true /* includeDepsOfProtoRuntimes */, jplNonStrictDepsLikePl),
+            transitiveJars,
             NestedSetBuilder.create(
                 Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
-
-    // Used when java_proto_library specifies strict_deps=0. It's almost the same as pouring the
-    // transitiveJars into the direct jars (i.e., the second parameter into the first) except that
-    // the transitive dependencies of the proto runtime themselves are _not_ included.
-    //
-    // Unlike JavaProtoAspect.Impl.createNonStrictCompilationArgsProvider(), this JCAP is used when
-    // reusing actions created by the underlying proto_library.
-    JavaCompilationArgsProvider nonStrictCompArgsProvider =
-        JavaCompilationArgsProvider.create(
-            collectTransitiveJarsFromUnderlyingProtoLibrary(
-                javaApi, false /* includeDepsOfProtoRuntimes */, jplNonStrictDepsLikePl),
-            compilationArgsProvider.getRecursiveJavaCompilationArgs(),
-            compilationArgsProvider.getCompileTimeJavaDependencyArtifacts(),
-            compilationArgsProvider.getRunTimeJavaDependencyArtifacts());
 
     TransitiveInfoProviderMapBuilder javaProvidersBuilder =
         new TransitiveInfoProviderMapBuilder()
@@ -110,35 +95,8 @@ public class ActionReuser {
             JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
             JavaSkylarkApiProvider.fromProviderMap(javaProviders))
         .addProviders(
-            new JavaProtoLibraryAspectProvider(
-                javaProviders, transitiveOutputJars.build(), nonStrictCompArgsProvider));
+            new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
     return true;
-  }
-
-  /**
-   * Collects all jars produced+provided by the underlying proto_library, and its dependencies.
-   *
-   * <p>This contains almost all jars required to compile and run against the underlying
-   * proto_library.
-   *
-   * @param includeDepsOfProtoRuntimes if true, includes the jars of the dependencies of the proto
-   *     runtime, which are needed for runtime. If false, doesn't return these dependencies, which
-   *     is useful to mimic non-strict behavior in java_xxx_proto_library.
-   */
-  private static JavaCompilationArgs collectTransitiveJarsFromUnderlyingProtoLibrary(
-      ProtoJavaApiInfoProvider javaApi,
-      boolean includeDepsOfProtoRuntimes,
-      boolean jplNonStrictDepsLikePl) {
-    JavaCompilationArtifacts directJars = javaApi.getJavaCompilationArtifactsImmutable();
-    return JavaCompilationArgs.builder()
-        .addTransitiveArgs(javaApi.getTransitiveJavaCompilationArgsImmutable(), BOTH)
-        .addTransitiveDependencies(
-            jplNonStrictDepsLikePl
-                ? javaApi.getTransitiveProtoRuntimeImmutable()
-                : javaApi.getProtoRuntimeImmutable(),
-            includeDepsOfProtoRuntimes)
-        .merge(directJars)
-        .build();
   }
 
   private static JavaRuleOutputJarsProvider createOutputJarProvider(

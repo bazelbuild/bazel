@@ -154,19 +154,6 @@ public class ProtoConfiguration extends Fragment {
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
-    @Option(
-      name = "jplNonStrictDepsLikePl",
-      defaultValue = "false",
-      category = "rollout",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Roll-out flag for changing behavior of non-strict java_xxx_proto_library. "
-              + "See commit description for details. DO NOT USE."
-    )
-    public boolean jplNonStrictDepsLikePl;
-
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
@@ -180,7 +167,6 @@ public class ProtoConfiguration extends Fragment {
       host.strictProtoDeps = strictProtoDeps;
       host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      host.jplNonStrictDepsLikePl = jplNonStrictDepsLikePl;
       return host;
     }
   }
@@ -257,9 +243,5 @@ public class ProtoConfiguration extends Fragment {
 
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
-  }
-
-  public boolean jplNonStrictDepsLikePl() {
-    return options.jplNonStrictDepsLikePl;
   }
 }

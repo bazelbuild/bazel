@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.Iterables.size;
-
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -23,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 
 /**
  * An interface for objects that provide information on how to include them in
@@ -88,9 +87,9 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
    */
   public abstract NestedSet<Artifact> getRunTimeJavaDependencyArtifacts();
 
-  public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {
-    if (size(providers) == 1) {
-      return providers.iterator().next();
+  public static JavaCompilationArgsProvider merge(List<JavaCompilationArgsProvider> providers) {
+    if (providers.size() == 1) {
+      return providers.get(0);
     }
 
     JavaCompilationArgs.Builder javaCompilationArgs = JavaCompilationArgs.builder();

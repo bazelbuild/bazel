@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.RpcSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -69,8 +69,8 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     }
 
     @Override
-    public ImmutableList<JavaCompilationArgsProvider> getRuntimes(RuleContext ruleContext) {
-      return ImmutableList.of();
+    public void mutateJavaCompileAction(RuleContext ruleContext, JavaLibraryHelper helper) {
+      // Intentionally left empty.
     }
 
     @Override

@@ -18,21 +18,16 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 
 /** A provider used to communicate information between java_proto_library and its aspect. */
 public class JavaProtoLibraryAspectProvider implements WrappingProvider {
   private final TransitiveInfoProviderMap transitiveInfoProviderMap;
   private final NestedSet<Artifact> jars;
-  private final JavaCompilationArgsProvider nonStrictCompArgsProvider;
 
   public JavaProtoLibraryAspectProvider(
-      TransitiveInfoProviderMap transitiveInfoProviderMap,
-      NestedSet<Artifact> jars,
-      JavaCompilationArgsProvider nonStrictCompArgsProvider) {
+      TransitiveInfoProviderMap transitiveInfoProviderMap, NestedSet<Artifact> jars) {
     this.transitiveInfoProviderMap = transitiveInfoProviderMap;
     this.jars = jars;
-    this.nonStrictCompArgsProvider = nonStrictCompArgsProvider;
   }
 
   @Override
@@ -42,9 +37,5 @@ public class JavaProtoLibraryAspectProvider implements WrappingProvider {
 
   public NestedSet<Artifact> getJars() {
     return jars;
-  }
-
-  public JavaCompilationArgsProvider getNonStrictCompArgsProvider() {
-    return nonStrictCompArgsProvider;
   }
 }

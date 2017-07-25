@@ -14,44 +14,14 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class StrictDepsUtils {
-
-  /**
-   * Used in JavaXXXProtoLibrary.java files to construct a JCAP from 'deps', where those were
-   * populated by the Aspect it injected.
-   *
-   * <p>Takes care of strict deps.
-   */
-  public static JavaCompilationArgsProvider constructJcapFromAspectDeps(
-      RuleContext ruleContext,
-      Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders) {
-    if (StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
-      return JavaCompilationArgsProvider.merge(
-          WrappingProvider.Helper.unwrapProviders(
-              javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
-    } else if (ruleContext
-        .getConfiguration()
-        .getFragment(ProtoConfiguration.class)
-        .jplNonStrictDepsLikePl()) {
-      return JavaCompilationArgsProvider.merge(
-          transform(javaProtoLibraryAspectProviders, p -> p.getNonStrictCompArgsProvider()));
-    } else {
-      return StrictDepsUtils.makeNonStrict(
-          JavaCompilationArgsProvider.merge(
-              WrappingProvider.Helper.unwrapProviders(
-                  javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class)));
-    }
-  }
 
   /**
    * Returns true iff 'ruleContext' should enforce strict-deps.
