@@ -949,9 +949,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private boolean checkOutputs(Action action, MetadataHandler metadataHandler) {
     boolean success = true;
     for (Artifact output : action.getOutputs()) {
-      // artifactExists has the side effect of potentially adding the artifact to the cache,
-      // therefore we only call it if we know the artifact is indeed not omitted to avoid any
-      // unintended side effects.
+      // getMetadata has the side effect of adding the artifact to the cache if it's not there
+      // already (e.g., due to a previous call to MetadataHandler.injectDigest), therefore we only
+      // call it if we know the artifact is not omitted.
       if (!metadataHandler.artifactOmitted(output)) {
         try {
           metadataHandler.getMetadata(output);
