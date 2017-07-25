@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
@@ -93,14 +94,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final Label xcodeConfigLabel;
   private final DottedVersion xcodeVersionCommandLineFlag;
   private final boolean enableAppleCrosstool;
+  private final AppleCommandLineOptions options;
   @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
 
   AppleConfiguration(
-      AppleCommandLineOptions appleOptions,
+      AppleCommandLineOptions options,
       String cpu,
-      @Nullable DottedVersion xcodeVersion,
+      XcodeVersionProperties xcodeVersionProperties,
       DottedVersion iosSdkVersion,
       DottedVersion iosMinimumOs,
       DottedVersion watchosSdkVersion,
@@ -109,6 +111,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion tvosMinimumOs,
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOs) {
+    this.options = options;
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(iosMinimumOs, "iosMinimumOs");
     this.watchosSdkVersion =
@@ -123,31 +126,31 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(macosSdkVersion, "macOsSdkVersion");
     this.macosMinimumOs = Preconditions.checkNotNull(macosMinimumOs, "macOsMinimumOs");
 
-    this.xcodeVersion = xcodeVersion;
+    this.xcodeVersion = xcodeVersionProperties.getXcodeVersion().orNull();
     this.iosCpu = iosCpuFromCpu(cpu);
-    this.appleSplitCpu = Preconditions.checkNotNull(appleOptions.appleSplitCpu, "appleSplitCpu");
+    this.appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
     this.applePlatformType =
-        Preconditions.checkNotNull(appleOptions.applePlatformType, "applePlatformType");
-    this.configurationDistinguisher = appleOptions.configurationDistinguisher;
+        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
+    this.configurationDistinguisher = options.configurationDistinguisher;
     this.iosMultiCpus = ImmutableList.copyOf(
-        Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus"));
-    this.watchosCpus = (appleOptions.watchosCpus == null || appleOptions.watchosCpus.isEmpty())
+        Preconditions.checkNotNull(options.iosMultiCpus, "iosMultiCpus"));
+    this.watchosCpus = (options.watchosCpus == null || options.watchosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
-        : ImmutableList.copyOf(appleOptions.watchosCpus);
-    this.tvosCpus = (appleOptions.tvosCpus == null || appleOptions.tvosCpus.isEmpty())
+        : ImmutableList.copyOf(options.watchosCpus);
+    this.tvosCpus = (options.tvosCpus == null || options.tvosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
-        : ImmutableList.copyOf(appleOptions.tvosCpus);
-    this.macosCpus = (appleOptions.macosCpus == null || appleOptions.macosCpus.isEmpty())
+        : ImmutableList.copyOf(options.tvosCpus);
+    this.macosCpus = (options.macosCpus == null || options.macosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
-        : ImmutableList.copyOf(appleOptions.macosCpus);
-    this.bitcodeMode = appleOptions.appleBitcodeMode;
+        : ImmutableList.copyOf(options.macosCpus);
+    this.bitcodeMode = options.appleBitcodeMode;
     this.xcodeConfigLabel =
-        Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
-    this.xcodeVersionCommandLineFlag = appleOptions.xcodeVersion;
-    this.enableAppleCrosstool = appleOptions.enableAppleCrosstoolTransition;
-    this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
-    this.xcodeToolchain = appleOptions.xcodeToolchain;
-    this.mandatoryMinimumVersion = appleOptions.mandatoryMinimumVersion;
+        Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
+    this.xcodeVersionCommandLineFlag = options.xcodeVersion;
+    this.enableAppleCrosstool = options.enableAppleCrosstoolTransition;
+    this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
+    this.xcodeToolchain = options.xcodeToolchain;
+    this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
   }
 
   /** Determines cpu value from apple-specific toolchain identifier. */
@@ -159,24 +162,37 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  public AppleCommandLineOptions getOptions() {
+    return options;
+  }
+
   /**
    * Returns the minimum iOS version supported by binaries and libraries. Any dependencies on newer
    * iOS version features or libraries will become weak dependencies which are only loaded if the
    * runtime OS supports them.
+   *
+   * @deprecated use {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, PlatformType)}.
    */
   @SkylarkCallable(name = "ios_minimum_os", structField = true,
       doc = "<b>Deprecated. Use <a href='#minimum_os_for_platform_type'>"
           + "minimum_os_for_platform_type(apple_common.platform_type.ios)</a> instead.</b> "
           + "The minimum compatible iOS version for target simulators and devices.")
+  @Deprecated
+  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   public DottedVersion getMinimumOs() {
     // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
     return iosMinimumOs;
   }
 
+  /***
+   * @deprecated use {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, PlatformType)}.
+   */
   @SkylarkCallable(
       name = "minimum_os_for_platform_type",
       doc = "The minimum compatible OS version for target simulator and devices for a particular "
           + "platform type.")
+  @Deprecated
+  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
     // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
     // apple_platform_type.
@@ -199,8 +215,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Returns the SDK version for ios SDKs (whether they be for simulator or device). This is
    * directly derived from --ios_sdk_version.
    *
-   * @deprecated - use {@link #getSdkVersionForPlatform()}
+   * @deprecated use {@link XcodeConfig#getSdkVersionForPlatform(RuleContext, ApplePlatform)}
    */
+  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   @Deprecated public DottedVersion getIosSdkVersion() {
     return getSdkVersionForPlatform(ApplePlatform.IOS_DEVICE);
   }
@@ -208,11 +225,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the SDK version for a platform (whether they be for simulator or device). This is
    * directly derived from command line args.
+   *
+   * @deprecated use {@link XcodeConfig#getSdkVersionForPlatform(RuleContext, ApplePlatform)}
    */
   @SkylarkCallable(
       name = "sdk_version_for_platform",
       doc = "The version of the platform SDK that will be used to build targets for the given "
           + "platform.")
+  @Deprecated
+  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
@@ -235,6 +256,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Returns the value of the xcode version, if available. This is determined based on a combination
    * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
    * {@code --xcode_version_config} flag. Returns null if no xcode is available.
+   *
+   * @deprecated use {@link XcodeConfig#getXcodeVersion(RuleContext)}.
    */
   @SkylarkCallable(
       name = "xcode_version",
@@ -242,6 +265,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           + "This will return <code>None</code> if no Xcode versions are available.",
       allowReturnNones = true)
   @Nullable
+  @Deprecated
+  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   public DottedVersion getXcodeVersion() {
     return xcodeVersion;
   }
@@ -677,7 +702,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           new AppleConfiguration(
               appleOptions,
               cpu,
-              xcodeVersionProperties.getXcodeVersion().orNull(),
+              xcodeVersionProperties,
               iosSdkVersion,
               iosMinimumOsVersion,
               watchosSdkVersion,

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.Bundling.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -383,7 +384,7 @@ public final class ReleaseBundlingSupport {
         String.format(
             "%s%s",
             platform.getLowerCaseNameInPlist(),
-            configuration.getSdkVersionForPlatform(platform));
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, platform));
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("EnvironmentPlist")
@@ -410,8 +411,6 @@ public final class ReleaseBundlingSupport {
   private NSDictionary automaticEntries() {
     List<Integer> uiDeviceFamily =
         TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES.get(bundleSupport.targetDeviceFamilies());
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
     NSDictionary result = new NSDictionary();
 
     if (uiDeviceFamily != null) {
@@ -420,7 +419,8 @@ public final class ReleaseBundlingSupport {
     result.put("DTPlatformName", platform.getLowerCaseNameInPlist());
     result.put(
         "DTSDKName",
-        platform.getLowerCaseNameInPlist() + appleConfiguration.getSdkVersionForPlatform(platform));
+        platform.getLowerCaseNameInPlist()
+            + XcodeConfig.getSdkVersionForPlatform(ruleContext, platform));
     result.put("CFBundleSupportedPlatforms", new NSArray(NSObject.wrap(platform.getNameInPlist())));
     result.put("MinimumOSVersion", bundling.getMinimumOsVersion().toString());
 
@@ -511,7 +511,7 @@ public final class ReleaseBundlingSupport {
   }
 
   private ImmutableList<String> getDirsToSign() {
-    // The order here is important. The innermost code must singed first.
+    // The order here is important. The innermost code must signed first.
     ImmutableList.Builder<String> dirsToSign = new ImmutableList.Builder<>();
     String bundleDir = ShellUtils.shellEscape(bundling.getBundleDir());
 
@@ -838,7 +838,9 @@ public final class ReleaseBundlingSupport {
         new BundleMergeControlBytes(
             bundling,
             intermediateArtifacts.unprocessedIpa(),
-            ruleContext.getFragment(AppleConfiguration.class));
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.IOS_DEVICE),
+            ruleContext.getFragment(AppleConfiguration.class)
+                .getMultiArchPlatform(PlatformType.IOS));
 
     ruleContext.registerAction(
         new BinaryFileWriteAction(

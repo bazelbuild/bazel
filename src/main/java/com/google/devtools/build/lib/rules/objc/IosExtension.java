@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 import java.io.Serializable;
 import javax.annotation.Nullable;
@@ -67,8 +67,7 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
   @Override
   protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
     return determineMinimumOsVersion(
-        ruleContext.getFragment(AppleConfiguration.class)
-            .getMinimumOsForPlatformType(PlatformType.IOS),
+        XcodeConfig.getMinimumOsForPlatformType(ruleContext, PlatformType.IOS),
         EXTENSION_MINIMUM_OS_VERSION);
   }
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  */
 public class XcodeConfigRule implements RuleDefinition {
 
+  public static final String XCODE_CONFIG_ATTR_NAME = ":xcode_config";
   static final String DEFAULT_ATTR_NAME = "default";
   static final String VERSIONS_ATTR_NAME = "versions";
   static final String REQUIRE_DEFINED_VERSIONS_ATTR_NAME = "require_defined_version";

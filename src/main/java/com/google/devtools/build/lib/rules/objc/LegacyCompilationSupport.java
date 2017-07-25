@@ -57,11 +57,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -790,6 +792,34 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
   }
 
+  /**
+   * This method is necessary because
+   * {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, ApplePlatform.PlatformType)} uses
+   * the configuration of whichever rule it was called from; however, we are interested in the
+   * minimum versions for the dependencies here, which are possibly behind a configuration
+   * transition.
+   *
+   * <p>It's kosher to reach into {@link }AppleConfiguration} this way because we don't touch
+   * anything that may be tainted by data from BUILD files, only the options, which are directly
+   * passed into the configuration loader.
+   */
+  private DottedVersion getExplicitMinimumOsVersion(
+      AppleConfiguration configuration, ApplePlatform.PlatformType platformType) {
+    AppleCommandLineOptions options = configuration.getOptions();
+    switch (platformType) {
+      case IOS:
+        return options.iosMinimumOs;
+      case WATCHOS:
+        return options.watchosMinimumOs;
+      case TVOS:
+        return options.tvosMinimumOs;
+      case MACOS:
+        return options.macosMinimumOs;
+      default:
+        throw new IllegalStateException("Unhandled platform type: " + platformType);
+    }
+  }
+
   /** Returns a list of clang flags used for all link and compile actions executed through clang. */
   private List<String> commonLinkAndCompileFlagsForClang(
       ObjcProvider provider, ObjcConfiguration objcConfiguration,
@@ -819,7 +849,11 @@ public class LegacyCompilationSupport extends CompilationSupport {
       default:
         throw new IllegalArgumentException("Unhandled platform " + platform);
     }
-    DottedVersion minOSVersion = appleConfiguration.getMinimumOsForPlatformType(platform.getType());
+    DottedVersion minOSVersion =
+        getExplicitMinimumOsVersion(appleConfiguration, platform.getType());
+    if (minOSVersion == null) {
+      minOSVersion = XcodeConfig.getMinimumOsForPlatformType(ruleContext, platform.getType());
+    }
     builder.add(minOSVersionArg + "=" + minOSVersion);
 
     if (objcConfiguration.generateDsym()) {
@@ -830,7 +864,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add("-arch", appleConfiguration.getSingleArchitecture())
         .add("-isysroot", AppleToolchain.sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
-        .addAll(commonFrameworkFlags(provider, appleConfiguration))
+        .addAll(commonFrameworkFlags(provider, ruleContext))
         .build();
   }
 
