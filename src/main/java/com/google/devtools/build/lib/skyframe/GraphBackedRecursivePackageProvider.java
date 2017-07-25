@@ -166,9 +166,15 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
+    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
     PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
+
+    if (excludedSubdirectories.contains(directory)) {
+      return ImmutableList.of();
+    }
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
@@ -206,7 +212,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     for (Path root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
-      TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
+      TraversalInfo info =
+          new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
       collectPackagesUnder(eventHandler, repository, ImmutableSet.of(info), builder);
     }
     return builder.build();
@@ -225,7 +232,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
               @Override
               public SkyKey apply(TraversalInfo traversalInfo) {
                 return CollectPackagesUnderDirectoryValue.key(
-                    repository, traversalInfo.rootedDir, traversalInfo.excludedSubdirectories);
+                    repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories);
               }
             });
     Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
@@ -251,11 +258,19 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+            ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
+                PathFragment.filterPathsStartingWith(
+                    info.blacklistedSubdirectories, subdirectoryRelativePath);
             ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
                 PathFragment.filterPathsStartingWith(
                     info.excludedSubdirectories, subdirectoryRelativePath);
-            subdirTraversalBuilder.add(
-                new TraversalInfo(subdirectory, excludedSubdirectoriesBeneathThisSubdirectory));
+            if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
+              subdirTraversalBuilder.add(
+                  new TraversalInfo(
+                      subdirectory,
+                      blacklistedSubdirectoriesBeneathThisSubdirectory,
+                      excludedSubdirectoriesBeneathThisSubdirectory));
+            }
           }
         }
       }
@@ -275,16 +290,28 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   private static final class TraversalInfo {
     private final RootedPath rootedDir;
+    // Set of blacklisted directories. The graph is assumed to be prepopulated with
+    // CollectPackagesUnderDirectoryValue nodes whose keys have blacklisted packages embedded in
+    // them. Therefore, we need to be careful to request and use the same sort of keys here in our
+    // traversal.
+    private final ImmutableSet<PathFragment> blacklistedSubdirectories;
+    // Set of directories, targets under which should be excluded from the traversal results.
+    // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
+    // need to perform the filtering ourselves.
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
-    private TraversalInfo(RootedPath rootedDir, ImmutableSet<PathFragment> excludedSubdirectories) {
+    private TraversalInfo(
+        RootedPath rootedDir,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories) {
       this.rootedDir = rootedDir;
+      this.blacklistedSubdirectories = blacklistedSubdirectories;
       this.excludedSubdirectories = excludedSubdirectories;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(rootedDir, excludedSubdirectories);
+      return Objects.hashCode(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
     }
 
     @Override
@@ -295,6 +322,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       if (obj instanceof TraversalInfo) {
         TraversalInfo otherTraversal = (TraversalInfo) obj;
         return Objects.equal(rootedDir, otherTraversal.rootedDir)
+            && Objects.equal(blacklistedSubdirectories, otherTraversal.blacklistedSubdirectories)
             && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);
       }
       return false;

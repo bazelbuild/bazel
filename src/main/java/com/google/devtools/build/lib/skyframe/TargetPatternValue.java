@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets.Builder;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.ContainsTBDForTBDResult;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -39,8 +40,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A value referring to a computed set of resolved targets. This is used for the results of target
@@ -152,6 +155,88 @@ public final class TargetPatternValue implements SkyValue {
     return builder.build();
   }
 
+  @ThreadSafe
+  public static ImmutableList<TargetPatternKey> combineNegativeTargetsBelowDirectoryPatterns(
+      List<TargetPatternKey> keys) {
+    ImmutableList.Builder<TargetPatternKey> builder = ImmutableList.builder();
+    HashSet<Integer> indicesOfNegativePatternsThatNeedToBeIncluded = new HashSet<>();
+    for (int i = 0; i < keys.size(); i++) {
+      TargetPatternKey targetPatternKey = keys.get(i);
+      if (targetPatternKey.isNegative()) {
+        if (!targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)
+            || indicesOfNegativePatternsThatNeedToBeIncluded.contains(i)) {
+          builder.add(targetPatternKey);
+        }
+        // Otherwise it's a negative TBD pattern which was combined with previous patterns as an
+        // excluded directory.
+      } else {
+        TargetPatternKeyWithExclusionsResult result =
+            computeTargetPatternKeyWithExclusions(targetPatternKey, i, keys);
+        result.targetPatternKeyMaybe.ifPresent(builder::add);
+        indicesOfNegativePatternsThatNeedToBeIncluded.addAll(
+            result.indicesOfNegativePatternsThatNeedToBeIncluded);
+      }
+    }
+    return builder.build();
+  }
+
+  private static TargetPatternKey setExcludedDirectories(
+      TargetPatternKey original, ImmutableSet<PathFragment> excludedSubdirectories) {
+    return new TargetPatternKey(original.getParsedPattern(), original.getPolicy(),
+        original.isNegative(), original.getOffset(), excludedSubdirectories);
+  }
+
+  private static class TargetPatternKeyWithExclusionsResult {
+    private final Optional<TargetPatternKey> targetPatternKeyMaybe;
+    private final ImmutableList<Integer> indicesOfNegativePatternsThatNeedToBeIncluded;
+
+    private TargetPatternKeyWithExclusionsResult(
+        Optional<TargetPatternKey> targetPatternKeyMaybe,
+        ImmutableList<Integer> indicesOfNegativePatternsThatNeedToBeIncluded) {
+      this.targetPatternKeyMaybe = targetPatternKeyMaybe;
+      this.indicesOfNegativePatternsThatNeedToBeIncluded =
+          indicesOfNegativePatternsThatNeedToBeIncluded;
+    }
+  }
+
+  private static TargetPatternKeyWithExclusionsResult computeTargetPatternKeyWithExclusions(
+      TargetPatternKey targetPatternKey,
+      int position,
+      List<TargetPatternKey> keys) {
+    TargetPattern targetPattern = targetPatternKey.getParsedPattern();
+    ImmutableSet.Builder<PathFragment> excludedDirectoriesBuilder = ImmutableSet.builder();
+    ImmutableList.Builder<Integer> indicesOfNegativePatternsThatNeedToBeIncludedBuilder =
+        ImmutableList.builder();
+    for (int j = position + 1; j < keys.size(); j++) {
+      TargetPatternKey laterTargetPatternKey = keys.get(j);
+      TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
+      if (laterTargetPatternKey.isNegative()
+          && laterParsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
+        if (laterParsedPattern.containsTBDForTBD(targetPattern)
+            == ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT) {
+          return new TargetPatternKeyWithExclusionsResult(Optional.empty(), ImmutableList.of());
+        } else {
+          switch (targetPattern.containsTBDForTBD(laterParsedPattern)) {
+            case DIRECTORY_EXCLUSION_WOULD_BE_EXACT:
+              excludedDirectoriesBuilder.add(
+                  laterParsedPattern.getDirectoryForTargetsUnderDirectory().getPackageFragment());
+              break;
+            case DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD:
+              indicesOfNegativePatternsThatNeedToBeIncludedBuilder.add(j);
+              break;
+            case OTHER:
+            default:
+              // Nothing to do with this pattern.
+          }
+
+        }
+      }
+    }
+    return new TargetPatternKeyWithExclusionsResult(
+        Optional.of(setExcludedDirectories(targetPatternKey, excludedDirectoriesBuilder.build())),
+        indicesOfNegativePatternsThatNeedToBeIncludedBuilder.build());
+  }
+
   public ResolvedTargets<Label> getTargets() {
     return targets;
   }
@@ -214,15 +299,17 @@ public final class TargetPatternValue implements SkyValue {
 
     ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
         Iterable<PathFragment> blacklistedPackagePrefixes) throws InterruptedException {
-      return getAllSubdirectoriesToExclude(
-          new InterruptibleSupplier.Instance<>(blacklistedPackagePrefixes));
-    }
-
-    public ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
-        throws InterruptedException {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
+      excludedPathsBuilder.addAll(getAllBlacklistedSubdirectoriesToExclude(
+          new InterruptibleSupplier.Instance<>(blacklistedPackagePrefixes)));
+      return excludedPathsBuilder.build();
+    }
+
+    public ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
+        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+        throws InterruptedException {
+      ImmutableSet.Builder<PathFragment> blacklistedPathsBuilder = ImmutableSet.builder();
       if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
         for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
           PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
@@ -230,11 +317,11 @@ public final class TargetPatternValue implements SkyValue {
               blacklistedPackagePrefix);
           if (parsedPattern.containsAllTransitiveSubdirectoriesForTBD(
               pkgIdForBlacklistedDirectorPrefix)) {
-            excludedPathsBuilder.add(blacklistedPackagePrefix);
+            blacklistedPathsBuilder.add(blacklistedPackagePrefix);
           }
         }
       }
-      return excludedPathsBuilder.build();
+      return blacklistedPathsBuilder.build();
     }
 
     @Override

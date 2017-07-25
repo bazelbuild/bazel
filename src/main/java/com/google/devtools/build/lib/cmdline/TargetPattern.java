@@ -143,18 +143,31 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Evaluates the current target pattern, excluding targets under directories in
-   * {@code excludedSubdirectories}, and returns the result.
+   * Evaluates the current target pattern, excluding targets under directories in both
+   * {@code blacklistedSubdirectories} and {@code excludedSubdirectories}, and returns the result.
    *
-   * @throws IllegalArgumentException if {@code excludedSubdirectories} is nonempty and this
-   *      pattern does not have type {@code Type.TARGETS_BELOW_DIRECTORY}.
+   * @throws IllegalArgumentException if either {@code blacklistedSubdirectories} or
+   *      {@code excludedSubdirectories} is nonempty and this pattern does not have type
+   *      {@code Type.TARGETS_BELOW_DIRECTORY}.
    */
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException;
+
+  protected void assertBlacklistedAndExcludedSubdirectoriesEmpty(
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories) {
+    Preconditions.checkArgument(blacklistedSubdirectories.isEmpty(),
+        "Target pattern %s of type %s cannot be evaluated with blacklisted subdirectories: %s.",
+        getOriginalPattern(), getType(), blacklistedSubdirectories);
+    Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
+        "Target pattern %s of type %s cannot be evaluated with excluded subdirectories: %s.",
+        getOriginalPattern(), getType(), excludedSubdirectories);
+  }
 
   /**
    * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
@@ -166,11 +179,12 @@ public abstract class TargetPattern implements Serializable {
    */
   public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
       TargetPatternResolver<T> resolver,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass) {
     try {
-      eval(resolver, excludedSubdirectories, callback, exceptionClass);
+      eval(resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
       return Futures.immediateFuture(null);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
@@ -194,11 +208,13 @@ public abstract class TargetPattern implements Serializable {
    */
   public <T, E extends Exception> ListenableFuture<Void> evalAsync(
       TargetPatternResolver<T> resolver,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
-    return evalAdaptedForAsync(resolver, excludedSubdirectories, callback, exceptionClass);
+    return evalAdaptedForAsync(
+        resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
   }
 
   /**
@@ -210,19 +226,45 @@ public abstract class TargetPattern implements Serializable {
    */
   public abstract boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory);
 
+  /** A tristate return value for {@link #containsTBDForTBD}. */
+  public enum ContainsTBDForTBDResult {
+    /**
+     * Evaluating this TBD pattern with a directory exclusion of the other TBD pattern's directory
+     * would result in exactly the same set of targets as evaluating the subtraction of the other
+     * TBD pattern from this one.
+     */
+    DIRECTORY_EXCLUSION_WOULD_BE_EXACT,
+    /**
+     * A directory exclusion of the other TBD pattern's directory would be too broad because this
+     * TBD pattern is not "rules only" and the other one is, meaning that this TBD pattern
+     * potentially matches more targets underneath the directory in question than the other one
+     * does. Thus, a directory exclusion would incorrectly exclude non-rule targets.
+     */
+    DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD,
+    /**
+     * None of the above. Perhaps the other pattern isn't a TBD pattern or perhaps it's not
+     * contained by this pattern.
+     */
+    OTHER,
+  }
+
   /**
-   * Returns {@code true} iff both this pattern and {@code containedPattern} have type
-   * {@code Type.TARGETS_BELOW_DIRECTORY} and the directory in question for {@code containedPattern}
-   * is underneath the directory in question for this pattern.
-   *
-   * <p>That is, when this method returns {@code true} it means every target matched by
-   * {@code containedPattern} is also matched by this pattern.
+   * Determines how, if it all, the evaluation of this TBD pattern with a directory exclusion of the
+   * given TBD {@containedPattern}'s directory relates to the evaluation of the subtraction of the
+   * given {@link containedPattern} from this one.
    */
-  public boolean containsDirectoryOfTBDForTBD(TargetPattern containedPattern) {
-    return containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY
-      ? false
-      : containsAllTransitiveSubdirectoriesForTBD(
-          containedPattern.getDirectoryForTargetsUnderDirectory());
+  public ContainsTBDForTBDResult containsTBDForTBD(TargetPattern containedPattern) {
+    if (containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY) {
+      return ContainsTBDForTBDResult.OTHER;
+    } else if (containsAllTransitiveSubdirectoriesForTBD(
+        containedPattern.getDirectoryForTargetsUnderDirectory())) {
+      return !getRulesOnly() && containedPattern.getRulesOnly()
+          ? ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD
+          : ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT;
+    } else {
+      return ContainsTBDForTBDResult.OTHER;
+    }
+
   }
 
   /**
@@ -282,12 +324,12 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
-      Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
-          "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
-          getOriginalPattern(), getType(), excludedSubdirectories);
+      assertBlacklistedAndExcludedSubdirectoriesEmpty(
+          blacklistedSubdirectories, excludedSubdirectories);
       callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
     }
 
@@ -336,12 +378,12 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
-      Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
-          "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
-          getOriginalPattern(), getType(), excludedSubdirectories);
+      assertBlacklistedAndExcludedSubdirectoriesEmpty(
+          blacklistedSubdirectories, excludedSubdirectories);
       if (resolver.isPackage(PackageIdentifier.createInMainRepo(path))) {
         // User has specified a package name. lookout for default target.
         callback.process(resolver.getExplicitTarget(label("//" + path)).getTargets());
@@ -423,12 +465,12 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
-      Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
-          "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
-          getOriginalPattern(), getType(), excludedSubdirectories);
+      assertBlacklistedAndExcludedSubdirectoriesEmpty(
+          blacklistedSubdirectories, excludedSubdirectories);
       if (checkWildcardConflict) {
         ResolvedTargets<T> targets = getWildcardConflict(resolver);
         if (targets != null) {
@@ -534,6 +576,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
@@ -543,6 +586,7 @@ public abstract class TargetPattern implements Serializable {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
+          blacklistedSubdirectories,
           excludedSubdirectories,
           callback,
           exceptionClass);
@@ -551,6 +595,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> ListenableFuture<Void> evalAsync(
         TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         ThreadSafeBatchCallback<T, E> callback,
         Class<E> exceptionClass,
@@ -560,6 +605,7 @@ public abstract class TargetPattern implements Serializable {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
+          blacklistedSubdirectories,
           excludedSubdirectories,
           callback,
           exceptionClass,
@@ -665,6 +711,10 @@ public abstract class TargetPattern implements Serializable {
      */
     public Parser(String relativeDirectory) {
       this.relativeDirectory = relativeDirectory;
+    }
+
+    public String getRelativeDirectory() {
+      return relativeDirectory;
     }
 
     /**

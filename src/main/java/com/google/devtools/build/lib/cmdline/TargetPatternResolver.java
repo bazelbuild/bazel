@@ -81,8 +81,10 @@ public abstract class TargetPatternResolver<T> {
    * @param originalPattern the original target pattern for error reporting purposes
    * @param directory the directory in which to look for packages
    * @param rulesOnly whether to return rules only
-   * @param excludedSubdirectories a set of transitive subdirectories beneath {@code directory}
+   * @param blacklistedSubdirectories a set of transitive subdirectories beneath {@code directory}
    *    to ignore
+   * @param excludedSubdirectories another set of transitive subdirectories beneath
+   *    {@code directory} to ignore
    * @param callback the callback to receive the result, possibly in multiple batches.
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
@@ -92,6 +94,7 @@ public abstract class TargetPatternResolver<T> {
       String originalPattern,
       String directory,
       boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
@@ -106,6 +109,7 @@ public abstract class TargetPatternResolver<T> {
       String originalPattern,
       String directory,
       boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass,
@@ -116,6 +120,7 @@ public abstract class TargetPatternResolver<T> {
             originalPattern,
             directory,
             rulesOnly,
+            blacklistedSubdirectories,
             excludedSubdirectories,
             callback,
             exceptionClass);

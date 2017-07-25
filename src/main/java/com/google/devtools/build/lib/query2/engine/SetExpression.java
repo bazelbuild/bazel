@@ -38,11 +38,11 @@ import java.util.List;
  *
  * <pre>expr ::= SET '(' WORD * ')'</pre>
  */
-class SetExpression extends QueryExpression {
+public class SetExpression extends QueryExpression {
 
   private final List<TargetLiteral> words;
 
-  SetExpression(List<TargetLiteral> words) {
+  public SetExpression(List<TargetLiteral> words) {
     this.words = words;
   }
 

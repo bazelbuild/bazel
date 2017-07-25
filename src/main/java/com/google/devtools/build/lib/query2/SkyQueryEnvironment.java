@@ -685,24 +685,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new UniquifierImpl<>(ReverseDepSkyKeyKeyExtractor.INSTANCE, DEFAULT_THREAD_COUNT);
   }
 
-  private Pair<TargetPattern, ImmutableSet<PathFragment>> getPatternAndExcludes(String pattern)
-      throws TargetParsingException, InterruptedException {
-    TargetPatternKey targetPatternKey =
-        TargetPatternValue.key(
-            pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
-    ImmutableSet<PathFragment> subdirectoriesToExclude =
-        targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier);
-    return Pair.of(targetPatternKey.getParsedPattern(), subdirectoriesToExclude);
+  private ImmutableSet<PathFragment> getBlacklistedExcludes(TargetPatternKey targetPatternKey)
+  throws InterruptedException {
+    return targetPatternKey.getAllBlacklistedSubdirectoriesToExclude(blacklistPatternsSupplier);
   }
 
   @ThreadSafe
   @Override
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
-      final QueryExpression owner, String pattern, Callback<Target> callback) {
-    // Directly evaluate the target pattern, making use of packages in the graph.
-    Pair<TargetPattern, ImmutableSet<PathFragment>> patternToEvalAndSubdirectoriesToExclude;
+      QueryExpression owner, String pattern, Callback<Target> callback) {
+    TargetPatternKey targetPatternKey;
     try {
-      patternToEvalAndSubdirectoriesToExclude = getPatternAndExcludes(pattern);
+      targetPatternKey = TargetPatternValue.key(
+          pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
     } catch (TargetParsingException tpe) {
       try {
         reportBuildFileError(owner, tpe.getMessage());
@@ -710,12 +705,22 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         return immediateFailedFuture(qe);
       }
       return immediateSuccessfulFuture(null);
+    }
+    return evalTargetPatternKey(owner, targetPatternKey, callback);
+  }
+
+  @ThreadSafe
+  public QueryTaskFuture<Void> evalTargetPatternKey(
+      QueryExpression owner, TargetPatternKey targetPatternKey, Callback<Target> callback) {
+    ImmutableSet<PathFragment> blacklistedSubdirectoriesToExclude;
+    try {
+      blacklistedSubdirectoriesToExclude = getBlacklistedExcludes(targetPatternKey);
     } catch (InterruptedException ie) {
       return immediateCancelledFuture();
     }
-    TargetPattern patternToEval = patternToEvalAndSubdirectoriesToExclude.getFirst();
-    ImmutableSet<PathFragment> subdirectoriesToExclude =
-        patternToEvalAndSubdirectoriesToExclude.getSecond();
+    TargetPattern patternToEval = targetPatternKey.getParsedPattern();
+    ImmutableSet<PathFragment> additionalSubdirectoriesToExclude =
+        targetPatternKey.getExcludedSubdirectories();
     AsyncFunction<TargetParsingException, Void> reportBuildFileErrorAsyncFunction =
         exn -> {
           reportBuildFileError(owner, exn.getMessage());
@@ -723,7 +728,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         };
     ListenableFuture<Void> evalFuture = patternToEval.evalAsync(
         resolver,
-        subdirectoriesToExclude,
+        blacklistedSubdirectoriesToExclude,
+        additionalSubdirectoriesToExclude,
         callback,
         QueryException.class,
         executor);

@@ -69,7 +69,12 @@ public class TargetPatternFunction implements SkyFunction {
               Iterables.addAll(results, partialResult);
             }
           };
-      parsedPattern.eval(resolver, excludedSubdirectories, callback, RuntimeException.class);
+      parsedPattern.eval(
+          resolver,
+          /*blacklistedSubdirectories=*/ ImmutableSet.of(),
+          excludedSubdirectories,
+          callback,
+          RuntimeException.class);
       resolvedTargets = ResolvedTargets.<Target>builder().addAll(results).build();
     } catch (TargetParsingException e) {
       env.getListener().post(new ParsingFailedEvent(patternKey.getPattern(),  e.getMessage()));

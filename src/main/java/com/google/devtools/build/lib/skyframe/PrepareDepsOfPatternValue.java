@@ -14,15 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -58,123 +55,97 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     return 42;
   }
 
+
   /**
-   * Returns an iterable of {@link PrepareDepsOfPatternSkyKeyOrException}, with {@link
-   * TargetPatternKey} arguments. Negative target patterns of type other than {@link
-   * Type#TARGETS_BELOW_DIRECTORY} are not permitted. If a provided pattern fails to parse or is
-   * negative but not a {@link Type#TARGETS_BELOW_DIRECTORY}, an element in the returned iterable
-   * will throw when its {@link PrepareDepsOfPatternSkyKeyOrException#getSkyKey} method is called
-   * and will return the failing pattern when its {@link
-   * PrepareDepsOfPatternSkyKeyOrException#getOriginalPattern} method is called.
+   * Returns a {@link PrepareDepsOfPatternSkyKeysAndExceptions}, containing
+   * {@link PrepareDepsOfPatternSkyKeyValue} and {@link PrepareDepsOfPatternSkyKeyException}
+   * instances that have {@link TargetPatternKey} arguments. Negative target patterns of type other
+   * than {@link Type#TARGETS_BELOW_DIRECTORY} are not permitted. If a provided pattern fails to
+   * parse or is negative but not a {@link Type#TARGETS_BELOW_DIRECTORY}, there will be a
+   * corresponding {@link PrepareDepsOfPatternSkyKeyException} in the iterable returned by
+   * {@link PrepareDepsOfPatternSkyKeysAndExceptions#getExceptions} whose
+   * {@link PrepareDepsOfPatternSkyKeyException#getException} and
+   * {@link PrepareDepsOfPatternSkyKeyException#getOriginalPattern} methods return the
+   * {@link TargetParsingException} and original pattern, respectively.
    *
-   * <p>There may be fewer returned elements than patterns provided as input. This function will
-   * combine negative {@link Type#TARGETS_BELOW_DIRECTORY} patterns with preceding patterns to
-   * return an iterable of SkyKeys that avoids loading excluded directories during evaluation.
+   * <p>There may be fewer returned elements in
+   * {@link PrepareDepsOfPatternSkyKeysAndExceptions#getValues} than patterns provided as input.
+   * This function will combine negative {@link Type#TARGETS_BELOW_DIRECTORY} patterns with
+   * preceding patterns to return an iterable of SkyKeys that avoids loading excluded directories
+   * during evaluation.
    *
    * @param patterns The list of patterns, e.g. [//foo/..., -//foo/biz/...]. If a pattern's first
    *     character is "-", it is treated as a negative pattern.
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static Iterable<PrepareDepsOfPatternSkyKeyOrException> keys(List<String> patterns,
-      String offset) {
-    List<TargetPatternSkyKeyOrException> keysMaybe =
-        ImmutableList.copyOf(TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER,
-            offset));
-
+  public static PrepareDepsOfPatternSkyKeysAndExceptions keys(
+      List<String> patterns, String offset) {
+    ImmutableList.Builder<PrepareDepsOfPatternSkyKeyValue> resultValuesBuilder =
+        ImmutableList.builder();
+    ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =
+        ImmutableList.builder();
+    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
+        TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER, offset);
+    ImmutableList.Builder<TargetPatternKey> targetPatternKeysBuilder = ImmutableList.builder();
+    for (TargetPatternSkyKeyOrException keyMaybe : keysMaybe) {
+      try {
+        SkyKey key = keyMaybe.getSkyKey();
+        targetPatternKeysBuilder.add((TargetPatternKey) key.argument());
+      } catch (TargetParsingException e) {
+        resultExceptionsBuilder.add(
+            new PrepareDepsOfPatternSkyKeyException(e, keyMaybe.getOriginalPattern()));
+      }
+    }
     // This code path is evaluated only for query universe preloading, and the quadratic cost of
     // the code below (i.e. for each pattern, consider each later pattern as a candidate for
     // subdirectory exclusion) is only acceptable because all the use cases for query universe
     // preloading involve short (<10 items) pattern sequences.
-    ImmutableList.Builder<PrepareDepsOfPatternSkyKeyOrException> builder = ImmutableList.builder();
-    for (int i = 0; i < keysMaybe.size(); i++) {
-      TargetPatternSkyKeyOrException keyMaybe = keysMaybe.get(i);
-      TargetPatternKey targetPatternKey;
-      try {
-        targetPatternKey = keyMaybe.getSkyKey();
-      } catch (TargetParsingException e) {
-        // keyMaybe.getSkyKey() may throw TargetParsingException if its corresponding pattern
-        // failed to parse. If so, wrap the exception and return it, so that our caller can
-        // deal with it.
-        targetPatternKey = null;
-        builder.add(new PrepareDepsOfPatternSkyKeyException(e, keyMaybe.getOriginalPattern()));
-      }
-      if (targetPatternKey != null) {
-        if (targetPatternKey.isNegative()) {
-          if (!targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)) {
-            builder.add(
-                new PrepareDepsOfPatternSkyKeyException(
-                    new TargetParsingException(
-                        "Negative target patterns of types other than \"targets below directory\""
-                            + " are not permitted."), targetPatternKey.toString()));
-          }
-          // Otherwise it's a negative TBD pattern which was combined with previous patterns as an
-          // excluded directory. These can be skipped because there's no PrepareDepsOfPattern work
-          // to be done for them.
-        } else {
-          builder.add(new PrepareDepsOfPatternSkyKeyValue(setExcludedDirectories(targetPatternKey,
-              excludedDirectoriesBeneath(targetPatternKey, i, keysMaybe))));
-        }
+    Iterable<TargetPatternKey> combinedTargetPatternKeys =
+        TargetPatternValue.combineNegativeTargetsBelowDirectoryPatterns(
+            targetPatternKeysBuilder.build());
+    for (TargetPatternKey targetPatternKey : combinedTargetPatternKeys) {
+      if (targetPatternKey.isNegative()
+          && !targetPatternKey.getParsedPattern().getType().equals(Type.TARGETS_BELOW_DIRECTORY)) {
+        resultExceptionsBuilder.add(
+            new PrepareDepsOfPatternSkyKeyException(
+                new TargetParsingException(
+                    "Negative target patterns of types other than \"targets below directory\""
+                        + " are not permitted."), targetPatternKey.toString()));
+      } else {
+        resultValuesBuilder.add(new PrepareDepsOfPatternSkyKeyValue(targetPatternKey));
       }
     }
-    return builder.build();
-  }
-
-  private static TargetPatternKey setExcludedDirectories(
-      TargetPatternKey original, ImmutableSet<PathFragment> excludedSubdirectories) {
-    return new TargetPatternKey(original.getParsedPattern(), original.getPolicy(),
-        original.isNegative(), original.getOffset(), excludedSubdirectories);
-  }
-
-  private static ImmutableSet<PathFragment> excludedDirectoriesBeneath(
-      TargetPatternKey targetPatternKey,
-      int position,
-      List<TargetPatternSkyKeyOrException> keysMaybe) {
-    ImmutableSet.Builder<PathFragment> excludedDirectoriesBuilder = ImmutableSet.builder();
-    for (int j = position + 1; j < keysMaybe.size(); j++) {
-      TargetPatternSkyKeyOrException laterPatternMaybe = keysMaybe.get(j);
-      TargetPatternKey laterTargetPatternKey;
-      try {
-        laterTargetPatternKey = laterPatternMaybe.getSkyKey();
-      } catch (TargetParsingException ignored) {
-        laterTargetPatternKey = null;
-      }
-      if (laterTargetPatternKey != null) {
-        TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
-        if (laterTargetPatternKey.isNegative()
-            && laterParsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY
-            && targetPatternKey.getParsedPattern().containsDirectoryOfTBDForTBD(
-                laterParsedPattern)) {
-          excludedDirectoriesBuilder.add(
-              laterParsedPattern.getDirectoryForTargetsUnderDirectory().getPackageFragment());
-        }
-      }
-    }
-    return excludedDirectoriesBuilder.build();
+    return new PrepareDepsOfPatternSkyKeysAndExceptions(
+        resultValuesBuilder.build(), resultExceptionsBuilder.build());
   }
 
   /**
-   * Wrapper for a prepare deps of pattern {@link SkyKey} or the {@link TargetParsingException}
-   * thrown when trying to create it.
+   * A pair of {@link Iterable<PrepareDepsOfPatternSkyKeyValue>} and
+   * {@link Iterable<PrepareDepsOfPatternSkyKeyException>}.
    */
-  public interface PrepareDepsOfPatternSkyKeyOrException {
+  public static class PrepareDepsOfPatternSkyKeysAndExceptions {
+    private final Iterable<PrepareDepsOfPatternSkyKeyValue> values;
+    private final Iterable<PrepareDepsOfPatternSkyKeyException> exceptions;
 
-    /**
-     * Returns the stored {@link SkyKey} or throws {@link TargetParsingException} if one was thrown
-     * when creating the key.
-     */
-    SkyKey getSkyKey() throws TargetParsingException;
+    public PrepareDepsOfPatternSkyKeysAndExceptions(
+        Iterable<PrepareDepsOfPatternSkyKeyValue> values,
+        Iterable<PrepareDepsOfPatternSkyKeyException> exceptions) {
+      this.values = values;
+      this.exceptions = exceptions;
+    }
 
-    /**
-     * Returns the pattern that resulted in the stored {@link SkyKey} or {@link
-     * TargetParsingException}.
-     */
-    String getOriginalPattern();
+    public Iterable<PrepareDepsOfPatternSkyKeyValue> getValues() {
+      return values;
+    }
+
+    public Iterable<PrepareDepsOfPatternSkyKeyException> getExceptions() {
+      return exceptions;
+    }
   }
 
-
-  private static class PrepareDepsOfPatternSkyKeyException implements
-      PrepareDepsOfPatternSkyKeyOrException {
+  /** Represents a {@link TargetParsingException} when parsing a target pattern string. */
+  public static class PrepareDepsOfPatternSkyKeyException {
 
     private final TargetParsingException exception;
     private final String originalPattern;
@@ -185,19 +156,19 @@ public class PrepareDepsOfPatternValue implements SkyValue {
       this.originalPattern = originalPattern;
     }
 
-    @Override
-    public SkyKey getSkyKey() throws TargetParsingException {
-      throw exception;
+    public TargetParsingException getException() {
+      return exception;
     }
 
-    @Override
     public String getOriginalPattern() {
       return originalPattern;
     }
   }
 
-  private static class PrepareDepsOfPatternSkyKeyValue implements
-      PrepareDepsOfPatternSkyKeyOrException {
+  /**
+   * Represents the successful parsing of a target pattern string into a {@link TargetPatternKey}.
+   */
+  public static class PrepareDepsOfPatternSkyKeyValue {
 
     private final TargetPatternKey targetPatternKey;
 
@@ -205,12 +176,10 @@ public class PrepareDepsOfPatternValue implements SkyValue {
       this.targetPatternKey = targetPatternKey;
     }
 
-    @Override
-    public SkyKey getSkyKey() throws TargetParsingException {
+    public SkyKey getSkyKey() {
       return LegacySkyKey.create(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
     }
 
-    @Override
     public String getOriginalPattern() {
       return targetPatternKey.getPattern();
     }

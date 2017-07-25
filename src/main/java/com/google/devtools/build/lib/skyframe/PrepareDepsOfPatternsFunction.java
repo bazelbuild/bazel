@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
-import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyOrException;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyException;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyValue;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeysAndExceptions;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -39,22 +41,24 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
 
   public static ImmutableList<SkyKey> getSkyKeys(SkyKey skyKey, ExtendedEventHandler eventHandler) {
     TargetPatternSequence targetPatternSequence = (TargetPatternSequence) skyKey.argument();
-    Iterable<PrepareDepsOfPatternSkyKeyOrException> keysMaybe =
+    PrepareDepsOfPatternSkyKeysAndExceptions prepareDepsOfPatternSkyKeysAndExceptions =
         PrepareDepsOfPatternValue.keys(targetPatternSequence.getPatterns(),
             targetPatternSequence.getOffset());
 
     ImmutableList.Builder<SkyKey> skyKeyBuilder = ImmutableList.builder();
-    for (PrepareDepsOfPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
-      try {
-        skyKeyBuilder.add(skyKeyOrException.getSkyKey());
-      } catch (TargetParsingException e) {
-        // We post an event here rather than in handleTargetParsingException because the
-        // TargetPatternFunction already posts an event unless the pattern cannot be parsed, in
-        // which case the caller (i.e., us) needs to post an event.
-        eventHandler.post(
-            new ParsingFailedEvent(skyKeyOrException.getOriginalPattern(), e.getMessage()));
-        handleTargetParsingException(eventHandler, skyKeyOrException.getOriginalPattern(), e);
-      }
+    for (PrepareDepsOfPatternSkyKeyValue skyKeyValue
+        : prepareDepsOfPatternSkyKeysAndExceptions.getValues()) {
+      skyKeyBuilder.add(skyKeyValue.getSkyKey());
+    }
+    for (PrepareDepsOfPatternSkyKeyException skyKeyException
+        : prepareDepsOfPatternSkyKeysAndExceptions.getExceptions()) {
+      TargetParsingException e = skyKeyException.getException();
+      // We post an event here rather than in handleTargetParsingException because the
+      // TargetPatternFunction already posts an event unless the pattern cannot be parsed, in
+      // which case the caller (i.e., us) needs to post an event.
+      eventHandler.post(
+          new ParsingFailedEvent(skyKeyException.getOriginalPattern(), e.getMessage()));
+      handleTargetParsingException(eventHandler, skyKeyException.getOriginalPattern(), e);
     }
 
     return skyKeyBuilder.build();
