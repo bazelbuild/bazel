@@ -46,6 +46,24 @@ public class AppleStubBinaryTest extends ObjcRuleTestCase {
       };
 
   @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch);
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "xcenv_based_path", "'$(SDKROOT)/Foo'",
+        "minimum_os_version", "'8.0'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
+
+  @Test
   public void testCopyActionEnv() throws Exception {
     RULE_TYPE.scratchTarget(
         scratch,

@@ -75,6 +75,27 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
       ImmutableSet.of(COCOA_FRAMEWORK_FLAG);
 
   @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "minimum_os_version", "'8.0'",
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
+
+  @Test
   public void testLipoActionEnv() throws Exception {
     RULE_TYPE.scratchTarget(scratch,
         "srcs", "['a.m']",

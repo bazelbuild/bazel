@@ -42,6 +42,17 @@ import java.util.List;
 public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
+    name = "experimental_apple_mandatory_minimum_version",
+    defaultValue = "false",
+    category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags =  { OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS },
+    help = "Whether Apple rules must have a mandatory minimum_os_version attribute."
+  )
+  // TODO(b/37096178): This flag should be default-on and then be removed.
+  public boolean mandatoryMinimumVersion;
+
+  @Option(
     name = "xcode_version",
     defaultValue = "null",
     category = "build",
