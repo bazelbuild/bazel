@@ -155,7 +155,7 @@ public class AndroidResourceValidatorActionBuilder {
 
     FluentIterable<Artifact> libraries =
         FluentIterable.from(resourceDeps.getResources()).transform(
-            ResourceContainer::getStaticLibrary);
+            ResourceContainer::getStaticLibrary).append(sdk.getAndroidJar());
 
     builder
         .add("--libraries")

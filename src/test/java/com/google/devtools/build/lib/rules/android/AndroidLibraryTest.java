@@ -1481,7 +1481,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
-    ConfiguredTarget b = getConfiguredTarget("//java/a:b");
+    ConfiguredTarget b =  getDirectPrerequisite(a, "//java/a:b");
+    ConfiguredTarget sdk = getDirectPrerequisite(a, "//sdk:sdk");
     SpawnAction compileAction =
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
@@ -1491,8 +1492,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
+
     assertThat(linkAction.getInputs())
         .containsAllOf(
+            sdk.getProvider(AndroidSdkProvider.class).getAndroidJar(),
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
             getImplicitOutputArtifact(
                 b, a.getConfiguration(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
