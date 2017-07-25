@@ -127,7 +127,7 @@ final class ProtocolBuffers2Support {
         .addIncludes(getIncludes())
         .addDepObjcProviders(
             ruleContext.getPrerequisites(
-                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
+                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
         .build();
   }
 

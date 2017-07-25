@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -99,17 +100,13 @@ public final class AnalysisUtils {
    */
   public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider> Iterable<S>
       filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
-    return Iterables.filter(prerequisites, target -> target.getProvider(provider) != null);
+    return Iterables.filter(prerequisites, new Predicate<S>() {
+      @Override
+      public boolean apply(S target) {
+        return target.getProvider(provider) != null;
+      }
+    });
   }
-
-  /**
-   * Returns the iterable of collections that have the specified provider.
-   */
-  public static <S extends TransitiveInfoCollection, C extends SkylarkClassObject> Iterable<S>
-  filterByProvider(Iterable<S> prerequisites, final NativeClassObjectConstructor<C> provider) {
-    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
-  }
-
 
   /**
    * Returns the path of the associated manifest file for the path of a Fileset. Works for both

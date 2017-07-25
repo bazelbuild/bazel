@@ -51,7 +51,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjCInformationExportedFromJ2ObjcLibrary() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.getProvider(ObjcProvider.class);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY))).containsExactly(
         "third_party/java/j2objc/libjre_core_lib.a",
         "java/com/google/dummy/test/libtest_j2objc.a");
@@ -85,7 +85,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    deps = ['test'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.getProvider(ObjcProvider.class);
     String genfilesFragment = target.getConfiguration().getGenfilesFragment().toString();
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY))).containsExactly(
         "third_party/java/j2objc/libjre_core_lib.a",
@@ -124,7 +124,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.getProvider(ObjcProvider.class);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY))).containsExactly(
         "third_party/java/j2objc/libjre_core_lib.a",
         "third_party/java/j2objc/libproto_runtime.a",
@@ -220,7 +220,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact classMappingFile = getGenfilesArtifact("test.clsmap.properties", test);
     assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
 
-    ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = target.getProvider(ObjcProvider.class);
     Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test);
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test);
     assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
@@ -285,7 +285,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testExplicitJreDeps() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.getProvider(ObjcProvider.class);
     // jre_io_lib and jre_emul_lib should be excluded.
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY))).containsExactly(
         "third_party/java/j2objc/libjre_core_lib.a",
@@ -306,7 +306,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.getProvider(ObjcProvider.class);
     Artifact srcJarSources = getFirstArtifactEndingWith(
         provider.get(ObjcProvider.SOURCE), "source_files");
     Artifact srcJarHeaders = getFirstArtifactEndingWith(
@@ -325,7 +325,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.getProvider(ObjcProvider.class);
     Artifact headers =
         getFirstArtifactEndingWith(provider.get(ObjcProvider.HEADER), "header_files");
     Artifact sources =
@@ -500,7 +500,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   protected Artifact j2objcArchive(String j2objcLibraryTarget, String javaTargetName)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(j2objcLibraryTarget);
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.getProvider(ObjcProvider.class);
     String archiveName = String.format("lib%s_j2objc.a", javaTargetName);
     return getFirstArtifactEndingWith(provider.get(ObjcProvider.LIBRARY), archiveName);
   }
@@ -518,7 +518,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = objcTarget.getProvider(ObjcProvider.class);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             "third_party/java/j2objc/libjre_core_lib.a",
@@ -559,7 +559,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = objcTarget.getProvider(ObjcProvider.class);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             "third_party/java/j2objc/libjre_core_lib.a",
@@ -659,7 +659,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
 
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.getProvider(ObjcProvider.class);
     Artifact moduleMap =
         getFirstArtifactEndingWith(
             provider.get(ObjcProvider.MODULE_MAP), "dummy.modulemaps/module.modulemap");
@@ -696,7 +696,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.getProvider(ObjcProvider.class);
     Artifact moduleMap =
         getFirstArtifactEndingWith(
             provider.get(ObjcProvider.MODULE_MAP), "test.modulemaps/module.modulemap");

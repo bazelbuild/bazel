@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
@@ -332,9 +331,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "d.h", "e.m")
             .setList("deps", "//objc:lib")
             .write();
-    assertThat(getArifactPaths(target, HEADER))
+    assertThat(Artifact.toRootRelativePaths(target.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc/a.h", "objc/b.h", "objc/f.m");
-    assertThat(getArifactPaths(depender, HEADER))
+    assertThat(Artifact.toRootRelativePaths(depender.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc2/d.h", "objc2/e.m");
   }
 
@@ -357,9 +356,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setList("non_propagated_deps", "//objc2:lib")
             .write();
 
-    assertThat(getArifactPaths(target, HEADER))
+    assertThat(Artifact.toRootRelativePaths(target.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(transitiveDepender, HEADER))
+    assertThat(
+            Artifact.toRootRelativePaths(
+                transitiveDepender.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc2/c.h", "objc2/d.h", "objc3/e.h", "objc3/f.h");
   }
 
@@ -1025,18 +1026,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "c.h", "d.h")
             .setList("deps", "//objc:lib")
             .write();
-    assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
-    assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
-        "objc/liblib.a", "objc2/liblib.a");
-    assertThat(getArifactPaths(target, HEADER))
+    assertThat(Artifact.toRootRelativePaths(target.getProvider(ObjcProvider.class).get(LIBRARY)))
+        .containsExactly("objc/liblib.a");
+    assertThat(Artifact.toRootRelativePaths(depender.getProvider(ObjcProvider.class).get(LIBRARY)))
+        .containsExactly("objc/liblib.a", "objc2/liblib.a");
+    assertThat(Artifact.toRootRelativePaths(target.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(depender, HEADER))
+    assertThat(Artifact.toRootRelativePaths(depender.getProvider(ObjcProvider.class).get(HEADER)))
         .containsExactly("objc/a.h", "objc/b.h", "objc2/c.h", "objc2/d.h");
-  }
-
-  private Iterable<String> getArifactPaths(ConfiguredTarget target, Key<Artifact> artifactKey) {
-    return Artifact.toRootRelativePaths(
-        target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(artifactKey));
   }
 
   @Test

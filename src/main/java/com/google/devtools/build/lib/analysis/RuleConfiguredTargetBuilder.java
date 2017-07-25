@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -213,6 +212,7 @@ public final class RuleConfiguredTargetBuilder {
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       TransitiveInfoProvider provider) {
     providersBuilder.add(provider);
+    maybeAddSkylarkProvider(provider);
     return this;
   }
 
@@ -220,6 +220,9 @@ public final class RuleConfiguredTargetBuilder {
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
       Iterable<TransitiveInfoProvider> providers) {
     providersBuilder.addAll(providers);
+    for (TransitiveInfoProvider provider : providers) {
+      maybeAddSkylarkProvider(provider);
+    }
     return this;
   }
 
@@ -247,15 +250,14 @@ public final class RuleConfiguredTargetBuilder {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
     providersBuilder.put(key, value);
+    maybeAddSkylarkProvider(value);
     return this;
   }
 
-  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(
-      SkylarkClassObject value) {
-    if (value.getConstructor() instanceof NativeClassObjectConstructor.WithLegacySkylarkName) {
+  protected <T extends TransitiveInfoProvider> void maybeAddSkylarkProvider(T value) {
+    if (value instanceof TransitiveInfoProvider.WithLegacySkylarkName) {
       addSkylarkTransitiveInfo(
-          ((NativeClassObjectConstructor.WithLegacySkylarkName) value.getConstructor())
-              .getSkylarkName(),
+          ((TransitiveInfoProvider.WithLegacySkylarkName) value).getSkylarkName(),
           value);
     }
   }
@@ -326,7 +328,6 @@ public final class RuleConfiguredTargetBuilder {
     ClassObjectConstructor constructor = provider.getConstructor();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);
-    maybeAddSkylarkLegacyProvider(provider);
     return this;
   }
 

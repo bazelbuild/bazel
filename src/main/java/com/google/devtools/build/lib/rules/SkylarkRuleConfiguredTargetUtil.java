@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
@@ -349,21 +350,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
         SkylarkClassObject insStruct =
             cast("instrumented_files", oldStyleProviders, SkylarkClassObject.class, loc);
         addInstrumentedFiles(insStruct, ruleContext, builder);
-      } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(key))) {
-        builder.addNativeDeclaredProvider((SkylarkClassObject) oldStyleProviders.getValue(key));
+      } else if (oldStyleProviders.getValue(key)
+          instanceof TransitiveInfoProvider.WithLegacySkylarkName) {
+        builder.addProvider((TransitiveInfoProvider) oldStyleProviders.getValue(key));
       } else if (!key.equals("providers")) {
         // We handled providers already.
         builder.addSkylarkTransitiveInfo(key, oldStyleProviders.getValue(key), loc);
       }
     }
-  }
-
-  private static boolean isNativeDeclaredProviderWithLegacySkylarkName(Object value) {
-    if (!(value instanceof SkylarkClassObject)) {
-      return false;
-    }
-    return ((SkylarkClassObject) value).getConstructor()
-        instanceof NativeClassObjectConstructor.WithLegacySkylarkName;
   }
 
   /**

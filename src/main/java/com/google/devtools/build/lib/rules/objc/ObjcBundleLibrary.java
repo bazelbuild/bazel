@@ -75,6 +75,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+        .addProvider(ObjcProvider.class, nestedBundleProvider)
         .addNativeDeclaredProvider(nestedBundleProvider)
         .build();
   }
@@ -112,7 +113,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     return new ObjcCommon.Builder(ruleContext)
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
   }

@@ -72,13 +72,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     Iterable<ObjcProvider> jreDeps =
-        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.class);
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder()
             .addTransitiveAndPropagate(jreDeps)
             .addTransitiveAndPropagate(
-                ruleContext.getPrerequisites(
-                    "deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
+                ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
     for (ObjcProvider prereq : jreDeps) {
       objcProviderBuilder.addTransitiveAndPropagate(JRE_LIBRARY, prereq.get(LIBRARY));
     }
@@ -110,6 +109,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
+        .addProvider(ObjcProvider.class, objcProvider)
         .addNativeDeclaredProvider(objcProvider)
         .build();
   }

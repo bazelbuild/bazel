@@ -269,15 +269,14 @@ final class CompilationAttributes {
         // missing, its private headers will be treated as public!
         if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
           Iterable<ObjcProvider> providers =
-              ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+              ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
           }
         }
         if (ruleContext.attributes().has("non_propagated_deps", BuildType.LABEL_LIST)) {
           Iterable<ObjcProvider> providers =
-              ruleContext.getPrerequisites(
-                  "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+              ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
           }

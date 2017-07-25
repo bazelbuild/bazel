@@ -116,8 +116,7 @@ public class IosApplicationTest extends ObjcRuleTestCase {
         ")");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x:x"));
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> prereqByConfig =
-        ruleContext.getPrerequisitesByConfiguration(
-            "binary", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisitesByConfiguration("binary", Mode.SPLIT, ObjcProvider.class);
     List<String> childCpus = Lists.transform(prereqByConfig.keySet().asList(),
         new Function<BuildConfiguration, String>() {
           @Override

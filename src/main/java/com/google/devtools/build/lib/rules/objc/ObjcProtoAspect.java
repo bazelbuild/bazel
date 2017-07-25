@@ -98,7 +98,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
       // (i.e. objc_binary) don't have to depend on it.
       ObjcProvider protobufObjcProvider =
           ruleContext.getPrerequisite(
-              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class);
       aspectObjcProtoProvider.addProtobufHeaders(protobufObjcProvider.get(ObjcProvider.HEADER));
       aspectObjcProtoProvider.addProtobufHeaderSearchPaths(
           protobufObjcProvider.get(ObjcProvider.INCLUDE));

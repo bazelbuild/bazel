@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.WithLegacySkylarkName;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -33,21 +33,33 @@ import com.google.devtools.build.lib.util.Preconditions;
       "Deprecated. A provider for XCTest apps for testing. This is a legacy provider and should "
           + "not be used."
 )
-public final class XcTestAppProvider extends SkylarkClassObject {
+public final class XcTestAppProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String XCTEST_APP_SKYLARK_PROVIDER_NAME = "xctest_app";
 
-  public static final NativeClassObjectConstructor<XcTestAppProvider> SKYLARK_CONSTRUCTOR =
-      new Constructor();
+  @Override
+  public String getSkylarkName() {
+    return XCTEST_APP_SKYLARK_PROVIDER_NAME;
+  }
+
+  private static final NativeClassObjectConstructor<XcTestAppProvider> XCTEST_APP_PROVIDER =
+      new NativeClassObjectConstructor<XcTestAppProvider>(
+          XcTestAppProvider.class, "xctest_app_provider") {
+        @Override
+        public String getErrorMessageFormatForInstances() {
+          return "XcTestAppProvider field %s could not be instantiated";
+        }
+      };
 
   private final Artifact bundleLoader;
   private final Artifact ipa;
   private final ObjcProvider objcProvider;
 
   XcTestAppProvider(Artifact bundleLoader, Artifact ipa, ObjcProvider objcProvider) {
-    super(SKYLARK_CONSTRUCTOR, getSkylarkFields(bundleLoader, ipa, objcProvider));
+    super(XCTEST_APP_PROVIDER, getSkylarkFields(bundleLoader, ipa, objcProvider));
     this.bundleLoader = Preconditions.checkNotNull(bundleLoader);
     this.ipa = Preconditions.checkNotNull(ipa);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
@@ -83,24 +95,5 @@ public final class XcTestAppProvider extends SkylarkClassObject {
         .put("ipa", ipa)
         .put("objc", objcProvider)
         .build();
-  }
-
-  private static class Constructor
-      extends NativeClassObjectConstructor<XcTestAppProvider>
-      implements WithLegacySkylarkName {
-
-    private Constructor() {
-      super(XcTestAppProvider.class, "xctest_app_provider");
-    }
-
-    @Override
-    public String getSkylarkName() {
-      return XCTEST_APP_SKYLARK_PROVIDER_NAME;
-    }
-
-    @Override
-    public String getErrorMessageFormatForInstances() {
-      return "XcTestAppProvider field %s could not be instantiated";
-    }
   }
 }

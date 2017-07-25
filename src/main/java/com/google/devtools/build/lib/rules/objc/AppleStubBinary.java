@@ -111,8 +111,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
 
     ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToDepsMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            "deps", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProvider.class);
 
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
@@ -132,7 +131,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
     // TODO(cparsons): Stop propagating ObjcProvider directly from this rule.
-    targetBuilder.addNativeDeclaredProvider(objcProvider);
+    targetBuilder.addProvider(ObjcProvider.class, objcProvider);
 
     targetBuilder.addNativeDeclaredProvider(
         new AppleExecutableBinaryProvider(outputArtifact, objcProvider));

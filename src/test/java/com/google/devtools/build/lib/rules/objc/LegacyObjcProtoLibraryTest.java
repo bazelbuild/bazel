@@ -79,7 +79,7 @@ public class LegacyObjcProtoLibraryTest extends ObjcProtoLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     LegacyObjcLibraryTest.iquoteArgs(
-                        target.get(ObjcProvider.SKYLARK_CONSTRUCTOR), getTargetConfiguration()))
+                        target.getProvider(ObjcProvider.class), getTargetConfiguration()))
                 .add("-I")
                 .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
                 .add("-fno-objc-arc")

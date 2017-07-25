@@ -25,12 +25,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.WithLegacySkylarkName;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -55,10 +55,16 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for compilation and linking of objc."
 )
-public final class ObjcProvider extends SkylarkClassObject {
+public final class ObjcProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
+
+  @Override
+  public String getSkylarkName() {
+    return SKYLARK_NAME;
+  }
 
   /**
    * Represents one of the things this provider can provide transitively. Things are provided as
@@ -500,7 +506,12 @@ public final class ObjcProvider extends SkylarkClassObject {
 
   /** Skylark constructor and identifier for ObjcProvider. */
   public static final NativeClassObjectConstructor<ObjcProvider> SKYLARK_CONSTRUCTOR =
-      new Constructor();
+      new NativeClassObjectConstructor<ObjcProvider>(ObjcProvider.class, SKYLARK_NAME) {
+        @Override
+        public String getErrorMessageFormatForInstances() {
+          return "ObjcProvider field %s could not be instantiated";
+        }
+      };
 
   private ObjcProvider(
       ImmutableMap<Key<?>, NestedSet<?>> items,
@@ -985,24 +996,6 @@ public final class ObjcProvider extends SkylarkClassObject {
       }
 
       return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
-    }
-  }
-
-  private static class Constructor
-      extends NativeClassObjectConstructor<ObjcProvider>
-      implements WithLegacySkylarkName {
-    public Constructor() {
-      super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);
-    }
-
-    @Override
-    public String getSkylarkName() {
-      return SKYLARK_NAME;
-    }
-
-    @Override
-    public String getErrorMessageFormatForInstances() {
-      return "ObjcProvider field %s could not be instantiated";
     }
   }
 }

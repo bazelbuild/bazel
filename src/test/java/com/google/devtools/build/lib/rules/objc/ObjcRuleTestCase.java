@@ -1072,7 +1072,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
-    return getConfiguredTarget(label).get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    return getConfiguredTarget(label).getProvider(ObjcProvider.class);
   }
 
   protected CommandAction archiveAction(String label) throws Exception {
@@ -1171,7 +1171,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "includes", "['incdir']");
     ObjcProvider provider =
         getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
-            .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+            .getProvider(ObjcProvider.class);
     assertThat(provider.get(HEADER)).containsExactly(getSourceArtifact("x/a.h"));
     assertThat(provider.get(INCLUDE))
         .containsExactly(

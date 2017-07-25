@@ -392,7 +392,7 @@ final class ProtobufSupport {
     } else {
       commonBuilder.addDepObjcProviders(
           ruleContext.getPrerequisites(
-              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
+              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class));
     }
     return commonBuilder.build();
   }

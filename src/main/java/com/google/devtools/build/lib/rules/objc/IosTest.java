@@ -268,7 +268,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             .addDepObjcProviders(protosObjcProvider.asSet())
             .addNonPropagatedDepObjcProviders(
                 ruleContext.getPrerequisites(
-                    "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
+                    "non_propagated_deps", Mode.TARGET, ObjcProvider.class))
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
             .setHasModuleMap();
 
@@ -283,8 +283,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     ObjcConfiguration config = ruleContext.getFragment(ObjcConfiguration.class);
     if (config.runMemleaks()) {
       builder.addDepObjcProviders(
-          ruleContext.getPrerequisites(
-              MEMLEAKS_DEP_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
+          ruleContext.getPrerequisites(MEMLEAKS_DEP_ATTR, Mode.TARGET, ObjcProvider.class));
     }
 
     return builder.build();
@@ -296,7 +295,6 @@ public final class IosTest implements RuleConfiguredTargetFactory {
 
   /** Returns the {@link XcTestAppProvider} of the {@code xctest_app} attribute. */
   protected static XcTestAppProvider xcTestAppProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        XCTEST_APP_ATTR, Mode.TARGET, XcTestAppProvider.SKYLARK_CONSTRUCTOR);
+    return ruleContext.getPrerequisite(XCTEST_APP_ATTR, Mode.TARGET, XcTestAppProvider.class);
   }
 }

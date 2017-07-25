@@ -121,7 +121,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
         ruleContext.getPrerequisitesByConfiguration(
-            "non_propagated_deps", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+            "non_propagated_deps", Mode.SPLIT, ObjcProvider.class);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
 
@@ -165,7 +165,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
     // TODO(cparsons): Stop propagating ObjcProvider directly from this rule.
-    targetBuilder.addNativeDeclaredProvider(objcProvider);
+    targetBuilder.addProvider(ObjcProvider.class, objcProvider);
 
     switch (getBinaryType(ruleContext)) {
       case EXECUTABLE:
@@ -266,8 +266,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     }
 
     ObjcProvider bundleLoaderObjcProvider =
-        ruleContext.getPrerequisite(
-            BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
 
     if (bundleLoaderObjcProvider != null) {
       dylibProviders.add(bundleLoaderObjcProvider);
