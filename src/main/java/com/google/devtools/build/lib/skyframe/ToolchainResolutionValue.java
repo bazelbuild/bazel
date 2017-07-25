@@ -44,11 +44,6 @@ public abstract class ToolchainResolutionValue implements SkyValue {
       return SkyFunctions.TOOLCHAIN_RESOLUTION;
     }
 
-    @Override
-    public ToolchainResolutionKey argument() {
-      return this;
-    }
-
     public abstract BuildConfiguration configuration();
 
     public abstract Label toolchainType();

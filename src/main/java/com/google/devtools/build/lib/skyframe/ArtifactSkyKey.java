@@ -139,11 +139,6 @@ public final class ArtifactSkyKey {
     }
 
     @Override
-    public OwnedArtifact argument() {
-      return this;
-    }
-
-    @Override
     public int hashCode() {
       // We use the hash code caching strategy employed by java.lang.String. There are three subtle
       // things going on here:

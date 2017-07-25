@@ -181,11 +181,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return SkyFunctions.TARGET_PATTERN_PHASE;
     }
 
-    @Override
-    public Object argument() {
-      return this;
-    }
-
     public ImmutableList<String> getTargetPatterns() {
       return targetPatterns;
     }

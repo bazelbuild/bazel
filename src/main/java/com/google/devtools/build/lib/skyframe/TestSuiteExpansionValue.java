@@ -89,11 +89,6 @@ public final class TestSuiteExpansionValue implements SkyValue {
       return SkyFunctions.TEST_SUITE_EXPANSION;
     }
 
-    @Override
-    public Object argument() {
-      return this;
-    }
-
     public ImmutableSet<Label> getTargets() {
       return targets;
     }

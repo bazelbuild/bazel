@@ -188,11 +188,6 @@ public final class TargetPatternValue implements SkyValue {
       return SkyFunctions.TARGET_PATTERN;
     }
 
-    @Override
-    public Object argument() {
-      return this;
-    }
-
     public String getPattern() {
       return parsedPattern.getOriginalPattern();
     }
