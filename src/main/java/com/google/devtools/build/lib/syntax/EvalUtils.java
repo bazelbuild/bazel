@@ -274,7 +274,7 @@ public final class EvalUtils {
   }
 
   /**
-   * @return the truth value of an object, according to Python rules.
+   * Returns the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
   public static boolean toBoolean(Object o) {

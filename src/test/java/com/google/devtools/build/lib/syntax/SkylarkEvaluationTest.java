@@ -937,6 +937,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testAugmentedAssignmentHasNoSideEffects() throws Exception {
+    // Check object position.
     new SkylarkTest().setUp(
         "counter = [0]",
         "value = [1, 2]",
@@ -947,14 +948,32 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "",
         "f()[1] += 1")  // `f()` should be called only once here
         .testLookup("counter", MutableList.of(env, 1));
+
+    // Check key position.
+    new SkylarkTest().setUp(
+        "counter = [0]",
+        "value = [1, 2]",
+        "",
+        "def f():",
+        "  counter[0] = counter[0] + 1",
+        "  return 1",
+        "",
+        "value[f()] += 1")  // `f()` should be called only once here
+        .testLookup("counter", MutableList.of(env, 1));
   }
 
   @Test
-  public void testAugmentedAssignmentNotAllowedForListLiterals() throws Exception {
-    new SkylarkTest().testIfErrorContains("Cannot perform augment assignment on a list literal",
+  public void testInvalidAugmentedAssignment_ListLiteral() throws Exception {
+    new SkylarkTest().testIfErrorContains("cannot perform augmented assignment on a list literal",
         "def f(a, b):",
         "  [a, b] += []",
         "f(1, 2)");
+  }
+
+  @Test
+  public void testInvalidAugmentedAssignment_NotAnLValue() throws Exception {
+    newTest().testIfErrorContains(
+        "cannot assign to 'x + 1'", "x + 1 += 2");
   }
 
   @Test
@@ -1355,7 +1374,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "lvalue has length 3, but rvalue has has length 2",
+            "assignment length mismatch: left-hand side has length 3, but right-hand side "
+                + "evaluates to value of length 2",
             "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
             "foo()");
 
@@ -1367,7 +1387,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         .testIfErrorContains(
-            "lvalue has length 3, but rvalue has has length 2",
+            "assignment length mismatch: left-hand side has length 3, but right-hand side "
+                + "evaluates to value of length 2",
             "[x + y for x, y, z in [(1, 2), (3, 4)]]");
 
     // can't reuse the same local variable twice(!)
@@ -1380,7 +1401,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         // returns [2] in Python, it's an error in Skylark
-        .testIfErrorContains("invalid lvalue", "[2 for [] in [()]]");
+        .testIfErrorContains("must have at least one item", "[2 for [] in [()]]");
   }
 
   @Override

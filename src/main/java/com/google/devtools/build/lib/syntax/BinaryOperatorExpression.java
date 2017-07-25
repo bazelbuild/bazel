@@ -74,7 +74,7 @@ public final class BinaryOperatorExpression extends Expression {
     return lhs + " " + operator + " " + rhs;
   }
 
-  /** Implements comparison operators.  */
+  /** Implements comparison operators. */
   private static int compare(Object lval, Object rval, Location location) throws EvalException {
     try {
       return EvalUtils.SKYLARK_COMPARATOR.compare(lval, rval);
@@ -117,77 +117,126 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
+  /**
+   * Evaluates a short-circuiting binary operator, i.e. boolean {@code and} or {@code or}.
+   *
+   * <p>In contrast to {@link #evaluate}, this method takes unevaluated expressions. The left-hand
+   * side expression is evaluated exactly once, and the right-hand side expression is evaluated
+   * either once or not at all.
+   *
+   * @throws IllegalArgumentException if {@code operator} is not {@link Operator#AND} or
+   *     {@link Operator#OR}.
+   */
+  public static Object evaluateWithShortCircuiting(
+      Operator operator,
+      Expression lhs,
+      Expression rhs,
+      Environment env,
+      Location loc)
+      throws EvalException, InterruptedException {
+    Object lval = lhs.eval(env);
+    if (operator == Operator.AND) {
+      return EvalUtils.toBoolean(lval) ? rhs.eval(env) : lval;
+    } else if (operator == Operator.OR) {
+      return EvalUtils.toBoolean(lval) ? lval : rhs.eval(env);
+    } else {
+      throw new IllegalArgumentException("Not a short-circuiting operator: " + operator);
+    }
+  }
+
+  /**
+   * Evaluates {@code lhs @ rhs}, where {@code @} is the operator, and returns the result.
+   *
+   * <p>This method does not implement any short-circuiting logic for boolean operations, as the
+   * parameters are already evaluated.
+   */
   public static Object evaluate(
       Operator operator,
-      Object lval,
-      Expression rhs,
+      Object lhs,
+      Object rhs,
+      Environment env,
+      Location loc)
+      throws EvalException, InterruptedException {
+    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/false);
+  }
+
+  /**
+   * Evaluates {@code lhs @= rhs} and returns the result, possibly mutating {@code lhs}.
+   *
+   * <p>Whether or not {@code lhs} is mutated depends on its type. If it is mutated, then it is also
+   * the return value.
+   */
+  public static Object evaluateAugmented(
+      Operator operator,
+      Object lhs,
+      Object rhs,
+      Environment env,
+      Location loc)
+      throws EvalException, InterruptedException {
+    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/true);
+  }
+
+  private static Object evaluate(
+      Operator operator,
+      Object lhs,
+      Object rhs,
       Environment env,
       Location location,
       boolean isAugmented)
       throws EvalException, InterruptedException {
-    // Short-circuit operators
-    if (operator == Operator.AND) {
-      if (EvalUtils.toBoolean(lval)) {
-        return rhs.eval(env);
-      } else {
-        return lval;
-      }
-    }
-
-    if (operator == Operator.OR) {
-      if (EvalUtils.toBoolean(lval)) {
-        return lval;
-      } else {
-        return rhs.eval(env);
-      }
-    }
-
-    Object rval = rhs.eval(env);
-
     try {
       switch (operator) {
+        // AND and OR are included for completeness, but should normally be handled using
+        // evaluateWithShortCircuiting() instead of this method.
+
+        case AND:
+          return EvalUtils.toBoolean(lhs) ? rhs : lhs;
+
+        case OR:
+          return EvalUtils.toBoolean(lhs) ? lhs : rhs;
+
         case PLUS:
-          return plus(lval, rval, env, location, isAugmented);
+          return plus(lhs, rhs, env, location, isAugmented);
 
         case PIPE:
-          return pipe(lval, rval, location);
+          return pipe(lhs, rhs, location);
 
         case MINUS:
-          return minus(lval, rval, env, location);
+          return minus(lhs, rhs, env, location);
 
         case MULT:
-          return mult(lval, rval, env, location);
+          return mult(lhs, rhs, env, location);
 
         case DIVIDE:
         case FLOOR_DIVIDE:
-          return divide(lval, rval, location);
+          return divide(lhs, rhs, location);
 
         case PERCENT:
-          return percent(lval, rval, env, location);
+          return percent(lhs, rhs, env, location);
 
         case EQUALS_EQUALS:
-          return lval.equals(rval);
+          return lhs.equals(rhs);
 
         case NOT_EQUALS:
-          return !lval.equals(rval);
+          return !lhs.equals(rhs);
 
         case LESS:
-          return compare(lval, rval, location) < 0;
+          return compare(lhs, rhs, location) < 0;
 
         case LESS_EQUALS:
-          return compare(lval, rval, location) <= 0;
+          return compare(lhs, rhs, location) <= 0;
 
         case GREATER:
-          return compare(lval, rval, location) > 0;
+          return compare(lhs, rhs, location) > 0;
 
         case GREATER_EQUALS:
-          return compare(lval, rval, location) >= 0;
+          return compare(lhs, rhs, location) >= 0;
 
         case IN:
-          return in(lval, rval, env, location);
+          return in(lhs, rhs, env, location);
 
         case NOT_IN:
-          return !in(lval, rval, env, location);
+          return !in(lhs, rhs, env, location);
 
         default:
           throw new AssertionError("Unsupported binary operator: " + operator);
@@ -199,7 +248,11 @@ public final class BinaryOperatorExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(operator, lhs.eval(env), rhs, env, getLocation(), false);
+    if (operator == Operator.AND || operator == Operator.OR) {
+      return evaluateWithShortCircuiting(operator, lhs, rhs, env, getLocation());
+    } else {
+      return evaluate(operator, lhs.eval(env), rhs.eval(env), env, getLocation());
+    }
   }
 
   @Override
@@ -247,8 +300,9 @@ public final class BinaryOperatorExpression extends Expression {
         MutableList<Object> list = (MutableList) lval;
         list.addAll((MutableList<?>) rval, location, env);
         return list;
+      } else {
+        return MutableList.concat((MutableList<?>) lval, (MutableList<?>) rval, env);
       }
-      return MutableList.concat((MutableList) lval, (MutableList) rval, env);
     }
 
     if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {

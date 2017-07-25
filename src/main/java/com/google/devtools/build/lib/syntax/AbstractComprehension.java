@@ -121,7 +121,7 @@ public abstract class AbstractComprehension extends Expression {
       EvalUtils.lock(iterableObject, loc);
       try {
         for (Object listElement : listValue) {
-          lvalue.assign(env, loc, listElement);
+          lvalue.assign(listElement, env, loc);
           evalStep(env, collector, step);
         }
       } finally {

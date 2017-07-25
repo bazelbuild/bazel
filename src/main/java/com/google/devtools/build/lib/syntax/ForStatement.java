@@ -75,7 +75,7 @@ public final class ForStatement extends Statement {
     EvalUtils.lock(o, getLocation());
     try {
       for (Object it : col) {
-        variable.assign(env, getLocation(), it);
+        variable.assign(it, env, getLocation());
 
         try {
           for (Statement stmt : block) {

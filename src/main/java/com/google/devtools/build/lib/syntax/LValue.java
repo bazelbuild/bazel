@@ -32,13 +32,14 @@ import java.util.Collection;
  * <p>An {@code LValue}'s expression must have one of the following forms:
  * <ul>
  *   <li>(Variable assignment) an {@link Identifier};
- *   <li>(Sequence assignment) a {@link ListLiteral} (either list or tuple) of expressions that can
- *       themselves appear in an {@code LValue}; or
- *   <li>(List or dictionary item assignment) an {@link IndexExpression}.
+ *   <li>(List or dictionary item assignment) an {@link IndexExpression}; or
+ *   <li>(Sequence assignment) a non-empty {@link ListLiteral} (either list or tuple) of expressions
+ *       that can themselves appear in an {@code LValue}.
  * </ul>
  * In particular and unlike Python, slice expressions, dot expressions, and starred expressions
- * cannot appear in LValues.
+ * cannot appear in {@code LValue}s.
  */
+// TODO(bazel-team): Add support for assigning to slices (e.g. a[2:6] = [3]).
 public final class LValue extends ASTNode {
 
   private final Expression expr;
@@ -53,39 +54,142 @@ public final class LValue extends ASTNode {
   }
 
   /**
-   * Assign a value to an LValue and update the environment.
+   * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
+   * to this {@code LValue}.
    */
-  public void assign(Environment env, Location loc, Object result)
+  public void assign(Object value, Environment env, Location loc)
       throws EvalException, InterruptedException {
-    doAssign(env, loc, expr, result);
+    assign(expr, value, env, loc);
   }
 
   /**
-   * Evaluate a rhs using a lhs and the operator, then assign to the lhs.
+   * Updates the environment bindings, and possibly mutates objects, so as to assign the given
+   * value to the given expression. The expression must be valid for an {@code LValue}.
    */
-  public void assign(Environment env, Location loc, Expression rhs, Operator operator)
+  private static void assign(Expression expr, Object value, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    if (expr instanceof Identifier) {
+      assignIdentifier((Identifier) expr, value, env, loc);
+    } else if (expr instanceof IndexExpression) {
+      Object object = ((IndexExpression) expr).getObject().eval(env);
+      Object key = ((IndexExpression) expr).getKey().eval(env);
+      assignItem(object, key, value, env, loc);
+    } else if (expr instanceof ListLiteral) {
+      ListLiteral list = (ListLiteral) expr;
+      assignList(list, value, env, loc);
+    } else {
+      // Not possible for validated ASTs.
+      throw new EvalException(loc, "cannot assign to '" + expr + "'");
+    }
+  }
+
+  /**
+   * Binds a variable to the given value in the environment.
+   *
+   * @throws EvalException if we're currently in a function's scope, and the identifier has
+   * previously resolved to a global variable in the same function
+   */
+  private static void assignIdentifier(
+      Identifier ident, Object value, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    Preconditions.checkNotNull(value, "trying to assign null to %s", ident);
+
+    if (env.isKnownGlobalVariable(ident.getName())) {
+      throw new EvalException(
+          loc,
+          String.format(
+              "Variable '%s' is referenced before assignment. "
+                  + "The variable is defined in the global scope.",
+              ident.getName()));
+    }
+    env.update(ident.getName(), value);
+  }
+
+  /**
+   * Adds or changes an object-key-value relationship for a list or dict.
+   *
+   * <p>For a list, the key is an in-range index. For a dict, it is a hashable value.
+   *
+   * @throws EvalException if the object is not a list or dict
+   */
+  @SuppressWarnings("unchecked")
+  private static void assignItem(
+      Object object, Object key, Object value, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    if (object instanceof SkylarkDict) {
+      SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
+      dict.put(key, value, loc, env);
+    } else if (object instanceof SkylarkList) {
+      SkylarkList<Object> list = (SkylarkList<Object>) object;
+      list.set(key, value, loc, env);
+    } else {
+      throw new EvalException(
+          loc,
+          "can only assign an element in a dictionary or a list, not in a '"
+              + EvalUtils.getDataTypeName(object)
+              + "'");
+    }
+  }
+
+  /**
+   * Recursively assigns an iterable value to a list literal.
+   *
+   * @throws EvalException if the list literal has length 0, or if the value is not an iterable of
+   *     matching length
+   */
+  private static void assignList(ListLiteral list, Object value, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    Collection<?> collection = EvalUtils.toCollection(value, loc, env);
+    int len = list.getElements().size();
+    if (len == 0) {
+      throw new EvalException(
+          loc,
+          "lists or tuples on the left-hand side of assignments must have at least one item");
+    }
+    if (len != collection.size()) {
+      throw new EvalException(loc, String.format(
+          "assignment length mismatch: left-hand side has length %d, but right-hand side evaluates "
+              + "to value of length %d", len, collection.size()));
+    }
+    int i = 0;
+    for (Object item : collection) {
+      assign(list.getElements().get(i), item, env, loc);
+      i++;
+    }
+  }
+
+  /**
+   * Evaluates an augmented assignment that mutates this {@code LValue} with the given right-hand
+   * side's value.
+   *
+   * <p>The left-hand side expression is evaluated only once, even when it is an {@link
+   * IndexExpression}. The left-hand side is evaluated before the right-hand side to match Python's
+   * behavior (hence why the right-hand side is passed as an expression rather than as an evaluated
+   * value).
+   */
+  public void assignAugmented(Operator operator, Expression rhs, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
       Object result =
-          BinaryOperatorExpression.evaluate(operator, expr.eval(env), rhs, env, loc, true);
-      assign(env, loc, (Identifier) expr, result);
-      return;
-    }
-
-    if (expr instanceof IndexExpression) {
+          BinaryOperatorExpression.evaluateAugmented(
+              operator, expr.eval(env), rhs.eval(env), env, loc);
+      assignIdentifier((Identifier) expr, result, env, loc);
+    } else if (expr instanceof IndexExpression) {
       IndexExpression indexExpression = (IndexExpression) expr;
-      // This object should be evaluated only once
-      Object evaluatedLhsObject = indexExpression.getObject().eval(env);
-      Object evaluatedLhs = indexExpression.eval(env, evaluatedLhsObject);
+      // The object and key should be evaluated only once, so we don't use expr.eval().
+      Object object = indexExpression.getObject().eval(env);
       Object key = indexExpression.getKey().eval(env);
+      Object oldValue = IndexExpression.evaluate(object, key, env, loc);
+      // Evaluate rhs after lhs.
+      Object rhsValue = rhs.eval(env);
       Object result =
-          BinaryOperatorExpression.evaluate(operator, evaluatedLhs, rhs, env, loc, true);
-      assignItem(env, loc, evaluatedLhsObject, key, result);
-      return;
-    }
-
-    if (expr instanceof ListLiteral) {
-      throw new EvalException(loc, "Cannot perform augment assignment on a list literal");
+          BinaryOperatorExpression.evaluateAugmented(operator, oldValue, rhsValue, env, loc);
+      assignItem(object, key, result, env, loc);
+    } else if (expr instanceof ListLiteral) {
+      throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
+    } else {
+      // Not possible for validated ASTs.
+      throw new EvalException(loc, "cannot perform augmented assignment on '" + expr + "'");
     }
   }
 
@@ -118,84 +222,6 @@ public final class LValue extends ASTNode {
     }
   }
 
-  private static void doAssign(
-      Environment env, Location loc, Expression lhs, Object result)
-      throws EvalException, InterruptedException {
-    if (lhs instanceof Identifier) {
-      assign(env, loc, (Identifier) lhs, result);
-      return;
-    }
-
-    if (lhs instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lhs;
-      Collection<?> rvalue = EvalUtils.toCollection(result, loc, env);
-      int len = variables.getElements().size();
-      if (len != rvalue.size()) {
-        throw new EvalException(loc, String.format(
-            "lvalue has length %d, but rvalue has has length %d", len, rvalue.size()));
-      }
-      if (len == 0) {
-        throw new EvalException(loc, "invalid lvalue, expected at least one item");
-      }
-      int i = 0;
-      for (Object o : rvalue) {
-        doAssign(env, loc, variables.getElements().get(i), o);
-        i++;
-      }
-      return;
-    }
-
-    // Support syntax for setting an element in an array, e.g. a[5] = 2
-    // TODO: We currently do not allow slices (e.g. a[2:6] = [3]).
-    if (lhs instanceof IndexExpression) {
-      IndexExpression expression = (IndexExpression) lhs;
-      Object key = expression.getKey().eval(env);
-      Object evaluatedObject = expression.getObject().eval(env);
-      assignItem(env, loc, evaluatedObject, key, result);
-      return;
-    }
-    throw new EvalException(loc, "cannot assign to '" + lhs + "'");
-  }
-
-  @SuppressWarnings("unchecked")
-  private static void assignItem(
-      Environment env, Location loc, Object o, Object key, Object value)
-      throws EvalException, InterruptedException {
-    if (o instanceof SkylarkDict) {
-      SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) o;
-      dict.put(key, value, loc, env);
-    } else if (o instanceof SkylarkList) {
-      SkylarkList<Object> list = (SkylarkList<Object>) o;
-      list.set(key, value, loc, env);
-    } else {
-      throw new EvalException(
-          loc,
-          "can only assign an element in a dictionary or a list, not in a '"
-              + EvalUtils.getDataTypeName(o)
-              + "'");
-    }
-  }
-
-  /**
-   * Assign value to a single variable.
-   */
-  private static void assign(Environment env, Location loc, Identifier ident, Object result)
-      throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(result, "trying to assign null to %s", ident);
-
-    // The variable may have been referenced successfully if a global variable
-    // with the same name exists. In this case an Exception needs to be thrown.
-    if (env.isKnownGlobalVariable(ident.getName())) {
-      throw new EvalException(
-          loc,
-          String.format(
-              "Variable '%s' is referenced before assignment. "
-                  + "The variable is defined in the global scope.",
-              ident.getName()));
-    }
-    env.update(ident.getName(), result);
-  }
-
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
@@ -208,22 +234,16 @@ public final class LValue extends ASTNode {
   private static void validate(ValidationEnvironment env, Location loc, Expression expr)
       throws EvalException {
     if (expr instanceof Identifier) {
-      Identifier ident = (Identifier) expr;
-      env.declare(ident.getName(), loc);
-      return;
-    }
-    if (expr instanceof ListLiteral) {
+      env.declare(((Identifier) expr).getName(), loc);
+    } else if (expr instanceof IndexExpression) {
+      expr.validate(env);
+    } else if (expr instanceof ListLiteral) {
       for (Expression e : ((ListLiteral) expr).getElements()) {
         validate(env, loc, e);
       }
-      return;
+    } else {
+      throw new EvalException(loc, "cannot assign to '" + expr + "'");
     }
-    if (expr instanceof IndexExpression) {
-      expr.validate(env);
-      return;
-    }
-    throw new EvalException(loc,
-        "cannot assign to '" + expr + "'");
   }
 
   @Override

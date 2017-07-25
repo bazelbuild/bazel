@@ -16,7 +16,11 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 
-/** Syntax node for an index expression. e.g. obj[field], but not obj[from:to] */
+/**
+ * An index expression ({@code obj[field]}). Not to be confused with a slice expression ({@code
+ * obj[from:to]}). The object may be either a sequence or an associative mapping (most commonly
+ * lists and dictionaries).
+ */
 public final class IndexExpression extends Expression {
 
   private final Expression object;
@@ -46,32 +50,33 @@ public final class IndexExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    Object objValue = object.eval(env);
-    return eval(env, objValue);
+    return evaluate(object.eval(env), key.eval(env), env, getLocation());
   }
 
   /**
-   * This method can be used instead of eval(Environment) if we want to avoid `obj` being evaluated
-   * several times.
+   * Retrieves the value associated with a key in the given object.
+   *
+   * @throws EvalException if {@code object} is not a list or dictionary
    */
-  Object eval(Environment env, Object objValue) throws EvalException, InterruptedException {
-    Object keyValue = key.eval(env);
-    Location loc = getLocation();
-
-    if (objValue instanceof SkylarkIndexable) {
-      Object result = ((SkylarkIndexable) objValue).getIndex(keyValue, loc);
+  public static Object evaluate(Object object, Object key, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    if (object instanceof SkylarkIndexable) {
+      Object result = ((SkylarkIndexable) object).getIndex(key, loc);
+      // TODO(bazel-team): We shouldn't have this convertToSkylark call here. If it's needed at all,
+      // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Skylark
+      // values.
       return SkylarkType.convertToSkylark(result, env);
-    } else if (objValue instanceof String) {
-      String string = (String) objValue;
-      int index = EvalUtils.getSequenceIndex(keyValue, string.length(), loc);
+    } else if (object instanceof String) {
+      String string = (String) object;
+      int index = EvalUtils.getSequenceIndex(key, string.length(), loc);
       return string.substring(index, index + 1);
+    } else {
+      throw new EvalException(
+          loc,
+          String.format(
+              "type '%s' has no operator [](%s)",
+              EvalUtils.getDataTypeName(object), EvalUtils.getDataTypeName(key)));
     }
-
-    throw new EvalException(
-        loc,
-        Printer.format(
-            "type '%s' has no operator [](%s)",
-            EvalUtils.getDataTypeName(objValue), EvalUtils.getDataTypeName(keyValue)));
   }
 
   @Override

@@ -60,7 +60,7 @@ public final class AugmentedAssignmentStatement extends Statement {
 
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
-    lvalue.assign(env, getLocation(), expression, operator);
+    lvalue.assignAugmented(operator, expression, env, getLocation());
   }
 
   @Override
