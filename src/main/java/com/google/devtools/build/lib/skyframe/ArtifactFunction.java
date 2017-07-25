@@ -110,7 +110,7 @@ class ArtifactFunction implements SkyFunction {
         }
 
         return createTreeArtifactValueFromActionTemplate(
-            (ActionTemplate) actionMetadata, artifact, env);
+            (ActionTemplate<?>) actionMetadata, artifact, env);
       }
     }
     ActionExecutionValue actionValue =
@@ -142,8 +142,8 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private static TreeArtifactValue createTreeArtifactValueFromActionTemplate(
-      final ActionTemplate actionTemplate, final Artifact treeArtifact, Environment env)
-      throws ArtifactFunctionException, InterruptedException {
+      final ActionTemplate<?> actionTemplate, final Artifact treeArtifact, Environment env)
+          throws InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     SkyKey templateKey = ActionTemplateExpansionValue.key(actionTemplate);
     ActionTemplateExpansionValue expansionValue =
@@ -229,16 +229,16 @@ class ArtifactFunction implements SkyFunction {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
           InconsistentFilesystemException.class, FileSymlinkException.class);
     } catch (IOException | InconsistentFilesystemException | FileSymlinkException e) {
-      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
     if (fileValue == null) {
       return null;
     }
     if (!fileValue.exists()) {
-      if (isAllowedMissingInput(fileSkyKey)) {
+      if (!mandatory || isAllowedMissingInput(fileSkyKey)) {
         return FileArtifactValue.MISSING_FILE_MARKER;
       } else {
-        return missingInputFile(artifact, mandatory, null, env.getListener());
+        throw makeMissingInputFileException(artifact, mandatory, null, env.getListener());
       }
     }
     try {
@@ -247,7 +247,7 @@ class ArtifactFunction implements SkyFunction {
       if (isAllowedMissingInput(fileSkyKey)) {
         return FileArtifactValue.MISSING_FILE_MARKER;
       }
-      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
   }
 
@@ -255,17 +255,8 @@ class ArtifactFunction implements SkyFunction {
     return allowedMissingInputs.apply(((RootedPath) fileSkyKey.argument()).getRelativePath());
   }
 
-  private static FileArtifactValue missingInputFile(
-      Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter)
-      throws MissingInputFileException {
-    if (!mandatory) {
-      return FileArtifactValue.MISSING_FILE_MARKER;
-    }
-    throw makeMissingInputFileExn(artifact, mandatory, failure, reporter);
-  }
-
-  private static MissingInputFileException makeMissingInputFileExn(Artifact artifact,
-      boolean mandatory, Exception failure, EventHandler reporter) {
+  private static MissingInputFileException makeMissingInputFileException(
+      Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter) {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
     MissingInputFileException ex = new MissingInputFileException(
         constructErrorMessage(artifact) + extraMsg, null);
@@ -278,7 +269,7 @@ class ArtifactFunction implements SkyFunction {
   // Non-aggregating artifact -- should contain at most one piece of artifact data.
   // data may be null if and only if artifact is a middleman artifact.
   private static FileArtifactValue createSimpleFileArtifactValue(
-      Artifact artifact, ActionExecutionValue actionValue) throws ArtifactFunctionException {
+      Artifact artifact, ActionExecutionValue actionValue) {
     FileArtifactValue value = actionValue.getArtifactValue(artifact);
     if (value != null) {
       return value;
