@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/test_util.h"
@@ -257,15 +258,12 @@ TEST_F(FileWindowsTest, TestAsAbsoluteWindowsPath) {
   ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
 
   WCHAR cwd[MAX_PATH];
-  ASSERT_TRUE(::GetCurrentDirectoryW(MAX_PATH, cwd));
-  ASSERT_FALSE(bazel::windows::HasUncPrefix(cwd));
-  wstring cwdw(cwd);
-  ASSERT_EQ(cwdw.find_first_of(L'/'), wstring::npos);
+  wstring cwdw(CstringToWstring(GetCwd().c_str()).get());
   wstring expected =
       wstring(L"\\\\?\\") + cwdw +
       ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");
   ASSERT_TRUE(AsAbsoluteWindowsPath("non-existent", &actual));
-  ASSERT_EQ(expected, actual);
+  ASSERT_EQ(actual, expected);
 }
 
 TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
@@ -566,6 +564,20 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
   ASSERT_EQ(dircanon, symcanon);
+}
+
+TEST(FileTest, IsWindowsDevNullTest) {
+  ASSERT_TRUE(IsDevNull("nul"));
+  ASSERT_TRUE(IsDevNull("NUL"));
+  ASSERT_TRUE(IsDevNull("nuL"));
+  ASSERT_TRUE(IsDevNull("/dev/null"));
+  ASSERT_FALSE(IsDevNull("/Dev/Null"));
+  ASSERT_FALSE(IsDevNull("dev/null"));
+  ASSERT_FALSE(IsDevNull("/dev/nul"));
+  ASSERT_FALSE(IsDevNull("/dev/nulll"));
+  ASSERT_FALSE(IsDevNull("nu"));
+  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull(""));
 }
 
 }  // namespace blaze_util

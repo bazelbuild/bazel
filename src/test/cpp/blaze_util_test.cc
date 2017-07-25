@@ -264,6 +264,7 @@ TEST_F(BlazeUtilTest, MakeAbsolute) {
   EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "/foo");
 #endif
   EXPECT_EQ(MakeAbsolute(std::string()), blaze_util::GetCwd());
+  EXPECT_EQ(MakeAbsolute("/dev/null"), "/dev/null");
 }
 
 }  // namespace blaze

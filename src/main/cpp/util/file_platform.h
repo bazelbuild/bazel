@@ -162,6 +162,8 @@ bool CanExecuteFile(const std::string &path);
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
 
+bool IsDevNull(const char *path);
+
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
 

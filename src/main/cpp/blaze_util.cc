@@ -41,12 +41,12 @@ const unsigned int kPostShutdownGracePeriodSeconds = 60;
 
 const unsigned int kPostKillGracePeriodSeconds = 10;
 
-string MakeAbsolute(const string &path) {
+string MakeAbsolute(const string &p) {
+  string path = ConvertPath(p);
   if (path.empty()) {
     return blaze_util::GetCwd();
   }
-
-  if (blaze_util::IsAbsolute(path)) {
+  if (blaze_util::IsDevNull(path.c_str()) || blaze_util::IsAbsolute(path)) {
     return path;
   }
 
