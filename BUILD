@@ -93,3 +93,12 @@ genrule(
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
+
+# This is a workaround for fetching Bazel toolchains, for remote execution.
+# See https://github.com/bazelbuild/bazel/issues/3246.
+# Will be removed once toolchain fetching is supported.
+filegroup(
+    name = "dummy_toolchain_reference",
+    srcs = ["@bazel_toolchains//configs/debian8_clang/0.1.0:empty"],
+    visibility = ["//visibility:public"],
+)
