@@ -1092,7 +1092,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
     ObjcProvider appProvider =
         getConfiguredTarget("//test:protos_app")
-            .getProvider(XcTestAppProvider.class)
+            .get(XcTestAppProvider.SKYLARK_CONSTRUCTOR)
             .getObjcProvider();
     ConfiguredTarget binTarget = getConfiguredTarget("//test:protos_bin");
     Artifact protoHeader =

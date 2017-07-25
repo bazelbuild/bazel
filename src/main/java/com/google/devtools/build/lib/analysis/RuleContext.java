@@ -902,6 +902,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  public <C extends SkylarkClassObject>
+  Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+      String attributeName, Mode mode, final NativeClassObjectConstructor<C> classType) {
+    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
+  }
+
+
+  /**
    * Returns the prerequisite referred to by the specified attribute. Also checks whether
    * the attribute is marked as executable and that the target referred to can actually be
    * executed.

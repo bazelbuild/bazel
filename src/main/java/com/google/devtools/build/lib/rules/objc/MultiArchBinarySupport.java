@@ -258,7 +258,8 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProvider> additionalDepProviders =
           Iterables.concat(
               dylibObjcProviders,
-              ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
+              ruleContext.getPrerequisites("bundles", Mode.TARGET,
+                  ObjcProvider.SKYLARK_CONSTRUCTOR),
               protosObjcProvider.asSet());
 
       ObjcCommon common =

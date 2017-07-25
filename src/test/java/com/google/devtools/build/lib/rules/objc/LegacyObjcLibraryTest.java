@@ -108,7 +108,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 iquoteArgs(
-                    getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                    getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                     getTargetConfiguration()))
             .build();
 
@@ -170,7 +170,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 iquoteArgs(
-                    getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                    getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                     getTargetConfiguration()))
             .build();
 
@@ -249,7 +249,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     iquoteArgs(
-                        getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                        getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                         getAppleCrosstoolConfiguration()))
                 .add("-include", "objc/some.pch")
                 .add("-fobjc-arc")
@@ -295,7 +295,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     iquoteArgs(
-                        getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                        getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                         getTargetConfiguration()))
                 .add("-fobjc-arc")
                 .add("-Ifoo")

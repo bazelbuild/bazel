@@ -80,7 +80,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-            .addProvider(XcTestAppProvider.class, releaseBundlingSupport.xcTestAppProvider())
+            .addNativeDeclaredProvider(releaseBundlingSupport.xcTestAppProvider())
             .addProvider(
                 InstrumentedFilesProvider.class,
                 InstrumentedFilesCollector.forward(ruleContext, "binary"));
@@ -88,7 +88,6 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     ObjcProvider exposedObjcProvider = exposedObjcProvider(ruleContext, releaseBundlingSupport);
     if (exposedObjcProvider != null) {
       targetBuilder
-          .addProvider(ObjcProvider.class, exposedObjcProvider)
           .addNativeDeclaredProvider(exposedObjcProvider);
     }
 
@@ -143,7 +142,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     for (Attribute attribute : dependencyAttributes) {
       builder.addDepObjcProviders(
           ruleContext.getPrerequisites(
-              attribute.getName(), attribute.getAccessMode(), ObjcProvider.class));
+              attribute.getName(), attribute.getAccessMode(), ObjcProvider.SKYLARK_CONSTRUCTOR));
     }
     return builder.build();
   }

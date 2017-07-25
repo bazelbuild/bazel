@@ -57,6 +57,21 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
   }
 
   /**
+   * Implement this to mark that a native provider should be exported with
+   * certain name to Skylark.
+   * Broken: only works for rules, not for aspects.
+   * DO NOT USE FOR NEW CODE!
+   *
+   * Use native declared providers
+   * ({@link NativeClassObjectConstructor}) to
+   * expose providers to both native and Skylark code.
+   */
+  @Deprecated
+  public static interface WithLegacySkylarkName {
+    String getSkylarkName();
+  }
+
+  /**
    * A constructor for default {@code struct}s.
    *
    * <p>Singleton, instance is {@link #STRUCT}.

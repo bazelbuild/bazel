@@ -81,7 +81,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, ObjcProvider.class);
+            Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ImmutableListMultimap<BuildConfiguration, CcLinkParamsProvider> configToCcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
             Mode.SPLIT, CcLinkParamsProvider.CC_LINK_PARAMS);
@@ -181,7 +181,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     targetBuilder
         // TODO(cparsons): Remove ObjcProvider as a direct provider.
-        .addProvider(ObjcProvider.class, objcProvider)
+        .addNativeDeclaredProvider(objcProvider)
         .addNativeDeclaredProvider(
             new AppleStaticLibraryProvider(
                 ruleIntermediateArtifacts.combinedArchitectureArchive(),
@@ -215,7 +215,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .addDeps(propagatedDeps)
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .addDepObjcProviders(protosObjcProvider.asSet())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)

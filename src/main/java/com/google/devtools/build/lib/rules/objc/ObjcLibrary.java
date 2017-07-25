@@ -46,9 +46,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .addNonPropagatedDepObjcProviders(
-            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites(
+                "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -89,7 +90,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
           J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
