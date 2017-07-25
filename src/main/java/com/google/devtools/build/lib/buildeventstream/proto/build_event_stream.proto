@@ -198,6 +198,9 @@ message Aborted {
 
     // A Failure occurred in the analysis phase of a target.
     ANALYSIS_FAILURE = 6;
+
+    // Target build was skipped (e.g. due to incompatible CPU constraints).
+    SKIPPED = 7;
   }
   AbortReason reason = 1;
 

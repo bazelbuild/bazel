@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -208,6 +210,13 @@ public final class BuildTool {
         result.setTestTargets(analysisResult.getTargetsToTest());
 
         reportTargets(analysisResult);
+
+        for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
+          BuildConfiguration config = target.getConfiguration();
+          env.getEventBus().post(new AbortedEvent(config.getEventId(), AbortReason.SKIPPED,
+            String.format(
+                "Target %s build was skipped.", target.getLabel())));
+        }
 
         // Execution phase.
         if (needsExecutionPhase(request.getBuildOptions())) {
