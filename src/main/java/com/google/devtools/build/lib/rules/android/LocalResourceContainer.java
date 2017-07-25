@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -52,19 +54,9 @@ public final class LocalResourceContainer {
 
   /** Set of allowable android directories prefixes. */
   public static final ImmutableSet<String> RESOURCE_DIRECTORY_TYPES =
-      ImmutableSet.of(
-          "animator",
-          "anim",
-          "color",
-          "drawable",
-          "interpolator",
-          "layout",
-          "menu",
-          "mipmap",
-          "raw",
-          "transition",
-          "values",
-          "xml");
+      Arrays.stream(ResourceFolderType.values())
+          .map(ResourceFolderType::getName)
+          .collect(ImmutableSet.toImmutableSet());
 
   public static final String INCORRECT_RESOURCE_LAYOUT_MESSAGE =
       String.format(
