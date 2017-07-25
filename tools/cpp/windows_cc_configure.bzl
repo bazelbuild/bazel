@@ -199,7 +199,7 @@ def _find_env_vars(repository_ctx, vc_path):
   envs = execute(repository_ctx, ["./get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
-    key, value = env.split("=")
+    key, value = env.split("=", 1)
     env_map[key] = escape_string(value.replace("\\", "\\\\"))
   return env_map
 
