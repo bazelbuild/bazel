@@ -307,7 +307,6 @@ public final class ApplicationManifest {
       Artifact resourceApk,
       RuleContext ruleContext,
       ResourceDependencies resourceDeps,
-      Artifact rTxt,
       boolean incremental,
       Artifact proguardCfg) throws InterruptedException, RuleErrorException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
@@ -323,12 +322,10 @@ public final class ApplicationManifest {
         ruleContext,
         false, /* isLibrary */
         resourceDeps,
-        ImmutableList.<String>of(), /* uncompressedExtensions */
+        ImmutableList.of(), /* uncompressedExtensions */
         true, /* crunchPng */
         incremental,
-        ResourceContainer.builderFromRule(ruleContext)
-            .setRTxt(rTxt)
-            .setApk(resourceApk),
+        ResourceContainer.builderFromRule(ruleContext).setApk(resourceApk),
         data,
         proguardCfg,
         null, /* Artifact mainDexProguardCfg */
@@ -481,7 +478,6 @@ public final class ApplicationManifest {
 
   public ResourceApk packLibraryWithDataAndResources(
       RuleContext ruleContext,
-      @Nullable Artifact resourceApk,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbols,
@@ -528,7 +524,7 @@ public final class ApplicationManifest {
         ruleContext,
         true /* isLibrary */,
         resourceDeps,
-        ImmutableList.<String>of() /* uncompressedExtensions */,
+        ImmutableList.of() /* uncompressedExtensions */,
         false /* crunchPng */,
         false /* incremental */,
         builder,
@@ -583,7 +579,7 @@ public final class ApplicationManifest {
     }
 
     ResourceContainer processed;
-    if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
+    if (isLibrary) {
       // android_library should only build the APK one way (!incremental).
       Preconditions.checkArgument(!incremental);
       Artifact rJavaClassJar = ruleContext.getImplicitOutputArtifact(

@@ -624,54 +624,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isNull();
   }
 
-  private List<String> getTransitiveDependentResourceDirs(
-      ConfiguredTarget target, List<String> actualArgs) {
-    assertThat(actualArgs).contains("--data");
-    String actualFlagValue = actualArgs.get(actualArgs.indexOf("--data") + 1);
-    return getDependentResourceDirs(target, actualFlagValue);
-  }
-
-  private List<String> getDirectDependentResourceDirs(
-      ConfiguredTarget target, List<String> actualArgs) {
-    assertThat(actualArgs).contains("--directData");
-    String actualFlagValue = actualArgs.get(actualArgs.indexOf("--directData") + 1);
-    return getDependentResourceDirs(target, actualFlagValue);
-  }
-
-  private List<String> getDependentResourceDirs(
-      ConfiguredTarget target, String actualFlagValue) {
-    ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency : actualFlagValue.split(",")) {
-      if (target
-          .getConfiguration()
-          .getFragment(AndroidConfiguration.class)
-          .useParallelResourceProcessing()) {
-        assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
-        actualPaths.add(resourceDependency.split(";")[0].split("#"));
-      } else {
-        assertThat(actualFlagValue).matches("[^:]*:[^:]*:[^:]*:.*");
-        actualPaths.add(resourceDependency.split(":")[0].split("#"));
-      }
-    }
-    return actualPaths.build();
-  }
-
-  private List<String> getDependentAssetDirs(
-      ConfiguredTarget target, String flag, List<String> actualArgs) {
+  private List<String> getDependentAssetDirs(String flag, List<String> actualArgs) {
     assertThat(actualArgs).contains(flag);
     String actualFlagValue = actualArgs.get(actualArgs.indexOf(flag) + 1);
     ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
     for (String resourceDependency : actualFlagValue.split(",")) {
-      if (target
-          .getConfiguration()
-          .getFragment(AndroidConfiguration.class)
-          .useParallelResourceProcessing()) {
-        assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
-        actualPaths.add(resourceDependency.split(";")[1].split("#"));
-      } else {
-        assertThat(actualFlagValue).matches("[^:]*:[^:]*:[^:]*:.*");
-        actualPaths.add(resourceDependency.split(":")[1].split("#"));
-      }
+      assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
+      actualPaths.add(resourceDependency.split(";")[1].split("#"));
     }
     return actualPaths.build();
   }
@@ -691,7 +650,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//c/b/m/a:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("c/b/m/a/b_/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("c/b/m/a/b_/res"), args);
   }
 
   @Test
@@ -706,7 +665,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/android/res"), args);
   }
 
   @Test
@@ -723,7 +682,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/android/res"), args);
   }
 
   @Test
@@ -738,7 +697,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
 
@@ -756,7 +715,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
 
@@ -775,7 +734,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
 
@@ -796,7 +755,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
+    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
 
@@ -949,12 +908,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                deps = [':bar'])",
         "android_library(name = 'bar',",
         "                manifest = 'AndroidManifest.xml')");
-    Function<ResourceContainer, Label> getLabel = new Function<ResourceContainer, Label>() {
-      @Override
-      public Label apply(ResourceContainer container) {
-        return container.getLabel();
-      }
-    };
+    Function<ResourceContainer, Label> getLabel = ResourceContainer::getLabel;
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
     assertThat(Iterables.transform(
         foo.getProvider(AndroidResourcesProvider.class).getTransitiveAndroidResources(), getLabel))
@@ -1309,10 +1263,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                )");
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    Truth.assertThat(getDirectDependentResourceDirs(resource, args))
-        .contains("java/android/resources/d2/d2-res");
-    Truth.assertThat(getDependentAssetDirs(resource, "--directData", args))
+    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
+    assertThat(getDirectDependentResourceDirs(args)).contains("java/android/resources/d2/d2-res");
+    assertThat(getDependentAssetDirs("--directData", args))
         .contains("java/android/resources/d2/assets-d2");
     assertNoEvents();
   }
@@ -1346,15 +1299,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
     List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(
-        resource, ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    Truth.assertThat(getDirectDependentResourceDirs(resource, args))
+    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
+    Truth.assertThat(getDirectDependentResourceDirs(args))
         .contains("java/android/resources/d2/d2-res");
-    Truth.assertThat(getDependentAssetDirs(resource, "--directData", args))
+    Truth.assertThat(getDependentAssetDirs("--directData", args))
         .contains("java/android/resources/d2/assets-d2");
-    Truth.assertThat(getTransitiveDependentResourceDirs(resource, args))
+    Truth.assertThat(getTransitiveDependentResourceDirs(args))
         .contains("java/android/resources/d3/d3-res");
-    Truth.assertThat(getDependentAssetDirs(resource, "--data", args))
+    Truth.assertThat(getDependentAssetDirs("--data", args))
         .contains("java/android/resources/d3/assets-d3");
     assertNoEvents();
   }

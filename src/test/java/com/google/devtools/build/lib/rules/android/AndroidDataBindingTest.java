@@ -100,18 +100,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void basicDataBindingIntegrationParallelResourceProcessing() throws Exception {
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
-    basicDataBindingIntegration();
-  }
-
-  @Test
-  public void basicDataBindingIntegrationLegacyResourceProcessing() throws Exception {
-    useConfiguration("--noexperimental_use_parallel_android_resource_processing");
-    basicDataBindingIntegration();
-  }
-
-  private void basicDataBindingIntegration() throws Exception {
+  public void basicDataBindingIntegration() throws Exception {
     writeDataBindingFiles();
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
@@ -153,20 +142,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void dataBindingCompilationUsesMetadataFromDepsParallelResourceProcessing()
-      throws Exception {
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
-    dataBindingCompilationUsesMetadataFromDeps();
-  }
-
-  @Test
-  public void dataBindingCompilationUsesMetadataFromDepsLegacyResourceProcessing()
-      throws Exception {
-    useConfiguration("--noexperimental_use_parallel_android_resource_processing");
-    dataBindingCompilationUsesMetadataFromDeps();
-  }
-
-  private void dataBindingCompilationUsesMetadataFromDeps() throws Exception {
+  public void dataBindingCompilationUsesMetadataFromDeps() throws Exception {
     writeDataBindingFiles();
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
