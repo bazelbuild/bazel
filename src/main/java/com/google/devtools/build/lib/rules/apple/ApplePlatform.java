@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 
 /** An enum that can be used to distinguish between various apple platforms. */
 @SkylarkModule(
-  name = "platform",
+  name = "apple_platform",
   category = SkylarkModuleCategory.NONE,
   doc = "Corresponds to Xcode's notion of a platform as would be found in "
       + "<code>Xcode.app/Contents/Developer/Platforms</code>. Each platform represents an Apple "
@@ -234,7 +234,7 @@ public enum ApplePlatform implements SkylarkValue {
    */
   // TODO(cparsons): Use these values in static retrieval methods in this class.
   @SkylarkModule(
-    name = "platform_type",
+    name = "apple_platform_type",
     category = SkylarkModuleCategory.NONE,
     doc = "Describes an Apple \"platform type\", such as iOS, macOS, tvOS, or watchOS. This is "
         + "distinct from a \"platform\", which is the platform type combined with one or more CPU "
