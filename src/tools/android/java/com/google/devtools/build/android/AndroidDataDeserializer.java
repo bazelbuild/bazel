@@ -153,7 +153,7 @@ public class AndroidDataDeserializer {
       // Using Path.subpath would return a backslash-using path on Windows.
       String shortPath =
           source.getPath().getParent().getFileName() + "/" + source.getPath().getFileName();
-      if (filteredResources.contains(shortPath)) {
+      if (filteredResources.contains(shortPath) && !Files.exists(source.getPath())) {
         // Skip files that were filtered out during analysis.
         // TODO(asteinb): Properly filter out these files from android_library symbol files during
         // analysis instead, and remove this list.

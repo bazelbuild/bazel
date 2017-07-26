@@ -350,6 +350,17 @@ public class ResourceFilterTest extends ResourceTestBase {
   }
 
   @Test
+  public void testFilterResourceConflict() throws Exception {
+    testNoopFilter(
+        "en",
+        "hdpi",
+        FilterBehavior.FILTER_IN_ANALYSIS,
+        ImmutableList.of(
+            "first-subdir/res/drawable-en-hdpi/foo.png",
+            "second-subdir/res/drawable-en-hdpi/foo.png"));
+  }
+
+  @Test
   public void testFilterWithDynamicConfiguration() throws Exception {
     testFilter(
         "en",

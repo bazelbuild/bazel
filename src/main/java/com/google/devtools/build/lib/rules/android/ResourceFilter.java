@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -501,8 +502,15 @@ public class ResourceFilter {
 
       // We want to find a single best artifact for each combination of non-density qualifiers and
       // filename. Combine those two values to create a single unique key.
+      // We also need to include the path to the resource, otherwise resource conflicts (multiple
+      // resources with the same name but different locations) might accidentally get resolved here
+      // (possibly incorrectly). Resource conflicts should be resolve during merging in execution
+      // instead.
       config.setDensityQualifier(null);
-      String nameAndConfiguration = config.getUniqueKey() + "/" + artifact.getFilename();
+      Path qualifierDir = artifact.getPath().getParentDirectory();
+      String resourceDir = qualifierDir.getParentDirectory().toString();
+      String nameAndConfiguration =
+          Joiner.on('/').join(resourceDir, config.getUniqueKey(), artifact.getFilename());
 
       Artifact currentBest = nameAndConfigurationToBestArtifact.get(nameAndConfiguration);
 
