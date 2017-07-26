@@ -47,8 +47,8 @@ RELEASE_NOTE_MESSAGE='# Editing release notes
 # Fetch everything from remote repositories to avoid conflicts
 function fetch() {
   for i in ${RELEASE_REPOSITORIES}; do
-    git fetch $i &>/dev/null || true
-    git fetch $i refs/notes/*:refs/notes/* &>/dev/null || true
+    git fetch -f $i &>/dev/null || true
+    git fetch -f $i refs/notes/*:refs/notes/* &>/dev/null || true
   done
 }
 
