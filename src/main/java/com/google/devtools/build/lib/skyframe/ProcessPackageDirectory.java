@@ -198,11 +198,11 @@ public class ProcessPackageDirectory {
           && PathPackageLocator.DEFAULT_TOP_LEVEL_EXCLUDES.contains(basename)) {
         continue;
       }
-      if (basename.equals(Label.EXTERNAL_PACKAGE_NAME.getPathString())) {
+      PathFragment subdirectory = rootRelativePath.getRelative(basename);
+      if (subdirectory.equals(Label.EXTERNAL_PACKAGE_NAME)) {
         // Not a real package.
         continue;
       }
-      PathFragment subdirectory = rootRelativePath.getRelative(basename);
 
       // If this subdirectory is one of the excluded paths, don't recurse into it.
       if (excludedPaths.contains(subdirectory)) {

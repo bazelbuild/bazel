@@ -286,5 +286,18 @@ EOF
   done
 }
 
+function test_subdirectory_named_external() {
+  mkdir -p foo/external foo/bar
+  cat > foo/external/BUILD <<EOF
+sh_library(name = 't1')
+EOF
+  cat > foo/bar/BUILD <<EOF
+sh_library(name = 't2')
+EOF
+
+  bazel query foo/... >& $TEST_log || fail "Expected success"
+  expect_log "//foo/external:t1"
+  expect_log "//foo/bar:t2"
+}
 
 run_suite "${PRODUCT_NAME} query tests"
