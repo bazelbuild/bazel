@@ -356,6 +356,24 @@ function test_extra_action() {
   expect_log '^action'
 }
 
+function test_action_ids() {
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_action_listener=pkg:listener \
+    pkg:output_files_and_tags || fail "bazel build with listener failed"
+  expect_log '^action'
+
+  # Action ids should contain label and configuration if those exist.
+  # Assumes action_completed id is 6 lines long
+  for id_line in $(grep -n 'action_completed {' $TEST_log | cut -f 1 -d :)
+  do
+    sed -n "$id_line,$((id_line+6))p" $TEST_log > "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*primary_output: .*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*label: .*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*configuration.*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*id: .*' "$TEST_TMPDIR/event_id.txt"
+  done
+}
+
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \

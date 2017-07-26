@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.Path;
@@ -21,6 +23,7 @@ import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -184,13 +187,21 @@ public final class BuildEventId implements Serializable {
   }
 
   public static BuildEventId actionCompleted(Path path) {
+    return actionCompleted(path, null, null);
+  }
+
+  public static BuildEventId actionCompleted(
+      Path path, @Nullable Label label, @Nullable String configurationChecksum) {
+    ActionCompletedId.Builder actionId =
+        ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
+    if (label != null) {
+      actionId.setLabel(label.toString());
+    }
+    if (configurationChecksum != null) {
+      actionId.setConfiguration(ConfigurationId.newBuilder().setId(configurationChecksum));
+    }
     return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder()
-            .setActionCompleted(
-                BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
-                    .setPrimaryOutput(path.toString())
-                    .build())
-            .build());
+        BuildEventStreamProtos.BuildEventId.newBuilder().setActionCompleted(actionId).build());
   }
 
   public static BuildEventId fromArtifactGroupName(String name) {

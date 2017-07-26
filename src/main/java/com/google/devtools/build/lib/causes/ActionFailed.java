@@ -14,8 +14,12 @@
 package com.google.devtools.build.lib.causes;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * Class describing a {@link Cause} that is associated with an action. It is uniquely determined by
@@ -24,10 +28,12 @@ import com.google.devtools.build.lib.vfs.Path;
 public class ActionFailed implements Cause {
   private final Path path;
   private final Label label;
+  private final String configurationChecksum;
 
-  public ActionFailed(Path path, Label label) {
+  public ActionFailed(Path path, Label label, @Nullable String configurationChecksum) {
     this.path = path;
     this.label = label;
+    this.configurationChecksum = configurationChecksum;
   }
 
   @Override
@@ -42,11 +48,14 @@ public class ActionFailed implements Cause {
 
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
-    return BuildEventStreamProtos.BuildEventId.newBuilder()
-        .setActionCompleted(
-            BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
-                .setPrimaryOutput(path.toString())
-                .build())
-        .build();
+    ActionCompletedId.Builder actionId =
+        ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
+    if (label != null) {
+      actionId.setLabel(label.toString());
+    }
+    if (configurationChecksum != null) {
+      actionId.setConfiguration(ConfigurationId.newBuilder().setId(configurationChecksum));
+    }
+    return BuildEventId.newBuilder().setActionCompleted(actionId).build();
   }
 }

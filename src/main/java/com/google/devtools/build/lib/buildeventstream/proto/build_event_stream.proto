@@ -122,6 +122,10 @@ message BuildEventId {
   // this includes all failed actions).
   message ActionCompletedId {
     string primary_output = 1;
+    // Optional, the label of the owner of the action, for reference.
+    string label = 2;
+    // Optional, the id of the configuration of the action owner.
+    ConfigurationId configuration = 3;
   }
 
   // Identifier of an event reporting on an individual test run. The label
@@ -347,11 +351,11 @@ message ActionExecuted {
   // (e.g., a file path).
   File stderr = 4;
 
-  // Optionally, the label of the owner of the action, for reference.
-  string label = 5;
+  // Deprecated. This field is now present on ActionCompletedId.
+  string label = 5 [deprecated = true];
 
-  // Optinally, the id of the configuration of the action owner.
-  BuildEventId.ConfigurationId configuration = 7;
+  // Deprecated. This field is now present on ActionCompletedId.
+  BuildEventId.ConfigurationId configuration = 7 [deprecated = true];
 
   // Primary output; only provided for successful actions.
   File primary_output = 6;
