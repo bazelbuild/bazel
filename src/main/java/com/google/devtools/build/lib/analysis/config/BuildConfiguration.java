@@ -2160,6 +2160,16 @@ public final class BuildConfiguration implements BuildEvent {
       return;
     }
 
+    // Apply the parent rule's outgoing transition if it has one.
+    RuleTransitionFactory transitionFactory =
+        fromRule.getRuleClassObject().getOutgoingTransitionFactory();
+    if (transitionFactory != null) {
+      Transition transition = transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
+      if (transition != null) {
+        transitionApplier.applyTransition(transition);
+      }
+    }
+
     // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses) once
     // the static config code path is removed. They can be mixed freely with dynamic configurations.
     if (attribute.hasSplitConfigurationTransition()) {

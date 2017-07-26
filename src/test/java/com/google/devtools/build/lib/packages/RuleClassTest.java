@@ -885,6 +885,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*isConfigMatcher=*/ false,
         configurator,
         transitionFactory,
+        null,
         configuredTargetFactory,
         validityPredicate,
         preferredDependencyPredicate,

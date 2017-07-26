@@ -17,20 +17,26 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -339,7 +345,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
    */
   private static Attribute newAttributeWithConfigurator(
       final Attribute.Configurator<BuildOptions> configurator) {
-    return Attribute.attr("foo_attr", BuildType.LABEL)
+    return attr("foo_attr", BuildType.LABEL)
         .allowedRuleClasses(ANY_RULE)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .cfg(configurator)
@@ -409,5 +415,52 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     applier.applyAttributeConfigurator(newAttributeWithStaticConfigurator("from attr 1 "));
     applier.applyAttributeConfigurator(newAttributeWithStaticConfigurator("from attr 2"));
     assertThat(getTestFilterOptionValue(applier)).containsExactly("from attr 1 from attr 2");
+  }
+
+  /**
+   * Sets {@link BuildConfiguration.Options#testFilter} to the rule class of the given rule.
+   */
+  private static final RuleTransitionFactory RULE_BASED_TEST_FILTER =
+      rule ->
+          (PatchTransition) buildOptions -> {
+            BuildOptions toOptions = buildOptions.clone();
+            toOptions.get(BuildConfiguration.Options.class).testFilter = rule.getRuleClass();
+            return toOptions;
+          };
+
+  private static final class RuleWithOutgoingTransition implements MockRule {
+    @Override
+    public State define() {
+      return MockRule.define("change_deps");
+    }
+
+    @Override
+    public void customize(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      builder.depsCfg(RULE_BASED_TEST_FILTER);
+    }
+  }
+
+  @Test
+  public void outgoingRuleTransition() throws Exception {
+    setRulesAvailableInTests(new RuleWithOutgoingTransition(),
+        (MockRule) () -> MockRule.define("foo_rule"),
+        (MockRule) () -> MockRule.define("bar_rule"));
+    scratch.file("outgoing/BUILD",
+        "foo_rule(",
+        "    name = 'foolib')",
+        "bar_rule(",
+        "    name = 'barlib')",
+        "change_deps(",
+        "    name = 'bin',",
+        "    deps  = [':foolib', ':barlib'])");
+
+    List<ConfiguredTarget> deps = getConfiguredDeps("//outgoing:bin", "deps");
+    ImmutableMap<String, String> depLabelToTestFilterString = ImmutableMap.of(
+        deps.get(0).getLabel().toString(), deps.get(0).getConfiguration().getTestFilter(),
+        deps.get(1).getLabel().toString(), deps.get(1).getConfiguration().getTestFilter());
+
+    assertThat(depLabelToTestFilterString).containsExactly(
+        "//outgoing:foolib", "foo_rule",
+        "//outgoing:barlib", "bar_rule");
   }
 }
