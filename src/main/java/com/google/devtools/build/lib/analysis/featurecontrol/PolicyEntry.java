@@ -17,7 +17,13 @@ package com.google.devtools.build.lib.analysis.featurecontrol;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 
-/** Policy value object encoding the package group which can access a given feature. */
+/**
+ * Policy value object encoding the package group which can access a given feature.
+ *
+ * @deprecated This is deprecated because the dependency on the package group used to hold the
+ *     whitelist is not accessible through blaze query. Use {@link Whitelist}.
+ */
+@Deprecated
 @AutoValue
 public abstract class PolicyEntry {
   /** Creates a new PolicyEntry for the given feature and package_group label. */

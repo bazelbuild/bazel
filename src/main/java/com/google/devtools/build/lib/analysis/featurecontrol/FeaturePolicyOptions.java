@@ -21,7 +21,13 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import java.util.List;
 
-/** The options fragment which defines {@link FeaturePolicyConfiguration}. */
+/**
+ * The options fragment which defines {@link FeaturePolicyConfiguration}.
+ *
+ * @deprecated This is deprecated because the dependency on the package group used to hold the
+ *     whitelist is not accessible through blaze query. Use {@link Whitelist}.
+ */
+@Deprecated
 public final class FeaturePolicyOptions extends FragmentOptions {
   /** The mapping from features to their associated package groups. */
   @Option(

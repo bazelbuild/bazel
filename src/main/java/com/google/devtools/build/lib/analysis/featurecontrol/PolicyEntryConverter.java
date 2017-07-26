@@ -19,7 +19,13 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
-/** A converter which creates a PolicyEntry from a flag value. */
+/**
+ * A converter which creates a PolicyEntry from a flag value.
+ *
+ * @deprecated This is deprecated because the dependency on the package group used to hold the
+ *     whitelist is not accessible through blaze query. Use {@link Whitelist}.
+ */
+@Deprecated
 public final class PolicyEntryConverter implements Converter<PolicyEntry> {
   @Override
   public PolicyEntry convert(String input) throws OptionsParsingException {

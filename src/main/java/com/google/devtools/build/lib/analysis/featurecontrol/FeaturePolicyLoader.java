@@ -37,7 +37,13 @@ import java.util.Queue;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** A loader for the FeaturePolicyConfiguration fragment. */
+/**
+ * A loader for the FeaturePolicyConfiguration fragment.
+ *
+ * @deprecated This is deprecated because the dependency on the package group used to hold the
+ *     whitelist is not accessible through blaze query. Use {@link Whitelist}.
+ */
+@Deprecated
 public final class FeaturePolicyLoader implements ConfigurationFragmentFactory {
 
   private final ImmutableSet<String> permittedFeatures;
