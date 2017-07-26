@@ -1159,14 +1159,13 @@ static bool MakeDirectoriesW(const wstring& path) {
   if (IsRootDirectoryW(path) || IsDirectoryW(path)) {
     return true;
   }
-  int last_separator = path.rfind(L"\\");
-  if (last_separator < 0) {
-    // Since `path` is not a root directory, there must be at least one
+  wstring parent = SplitPathW(path).first;
+  if (parent.empty()) {
+    // Since `path` is not a root directory, there should have been at least one
     // directory above it.
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "MakeDirectoriesW(%S), could not find dirname", path.c_str());
   }
-  wstring parent = path.substr(0, last_separator);
   return MakeDirectoriesW(parent) &&
          ::CreateDirectoryW(path.c_str(), NULL) == TRUE;
 }
