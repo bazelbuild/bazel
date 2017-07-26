@@ -928,7 +928,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(RULE_TYPE, false);
+    checkCustomModuleMap(RULE_TYPE);
   }
 
   @Test

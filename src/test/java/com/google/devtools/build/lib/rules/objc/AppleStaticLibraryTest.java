@@ -149,9 +149,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "    resources = [':avoid.png']",
         ")");
 
-    ObjcProvider provider = getConfiguredTarget("//package:test")
-        .get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR)
-        .getDepsObjcProvider();
+    ObjcProvider provider = providerForTarget("//package:test");
     // Do not remove SDK_FRAMEWORK or GENERAL_RESOURCE_FILE values in avoid_deps.
     assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
         .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
