@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -197,9 +198,11 @@ public class HttpDownloader {
 
     // Connect to the best mirror and download the file, while reporting progress to the CLI.
     semaphore.acquire();
+    boolean success = false;
     try (HttpStream payload = multiplexer.connect(urls, sha256);
         OutputStream out = destination.getOutputStream()) {
       ByteStreams.copy(payload, out);
+      success = true;
     } catch (InterruptedIOException e) {
       throw new InterruptedException();
     } catch (IOException e) {
@@ -207,6 +210,7 @@ public class HttpDownloader {
           "Error downloading " + urls + " to " + destination + ": " + e.getMessage());
     } finally {
       semaphore.release();
+      eventHandler.post(new FetchEvent(urls.get(0).toString(), success));
     }
 
     if (isCaching) {

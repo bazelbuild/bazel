@@ -107,6 +107,13 @@ public final class BuildEventId implements Serializable {
             .build());
   }
 
+  public static BuildEventId fetchId(String url) {
+    BuildEventStreamProtos.BuildEventId.FetchId fetchId =
+        BuildEventStreamProtos.BuildEventId.FetchId.newBuilder().setUrl(url).build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setFetch(fetchId).build());
+  }
+
   public static BuildEventId configurationId(String id) {
     BuildEventStreamProtos.BuildEventId.ConfigurationId configurationId =
         BuildEventStreamProtos.BuildEventId.ConfigurationId.newBuilder().setId(id).build();

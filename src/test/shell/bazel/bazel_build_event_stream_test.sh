@@ -27,7 +27,18 @@ set -e
 
 function set_up() {
   mkdir -p pkg
-  touch pkg/BUILD
+  touch remote_file
+  cat > WORKSPACE <<EOF
+http_file(name="remote", urls=["file://`pwd`/remote_file"])
+EOF
+  cat > pkg/BUILD <<'EOF'
+genrule(
+  name="main",
+  srcs=["@remote//file"],
+  outs = ["main.out"],
+  cmd = "cp $< $@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -36,15 +47,41 @@ function set_up() {
 function test_fetch_test() {
   # We expect the "fetch" command to generate at least a minimally useful
   # build-event stream.
-  bazel shutdown
+  bazel clean --expunge
   rm -f "${TEST_log}"
-  bazel fetch --build_event_text_file="${TEST_log}" //pkg/... \
+  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
       || fail "bazel fetch failed"
   [ -f "${TEST_log}" ] \
       || fail "fetch did not generate requested build-event file"
   expect_log '^started'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+  expect_log '^fetch'
+  # on second attempt, the fetched file should already be cached.
+  bazel shutdown
+  rm -f "${TEST_log}"
+  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
+      || fail "bazel fetch failed"
+  [ -f "${TEST_log}" ] \
+      || fail "fetch did not generate requested build-event file"
+  expect_log '^started'
+  expect_log '^finished'
+  expect_log 'name: "SUCCESS"'
+  expect_not_log '^fetch'
+}
+
+function test_fetch_in_build() {
+  # We expect a fetch that happens as a consequence of a build to be reported.
+  bazel clean --expunge
+  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
+      || fail "bazel build failed"
+  expect_log 'name: "SUCCESS"'
+  expect_log '^fetch'
+  bazel shutdown
+  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
+      || fail "bazel build failed"
+  expect_log 'name: "SUCCESS"'
+  expect_not_log '^fetch'
 }
 
 run_suite "Bazel-specific integration tests for the build-event stream"

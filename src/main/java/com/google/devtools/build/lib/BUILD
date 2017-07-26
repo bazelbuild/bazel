@@ -807,6 +807,7 @@ java_library(
         "//third_party:slf4j",
     ],
     deps = [
+        ":buildeventstream",
         ":concurrent",
         ":events",
         ":maven-connector",

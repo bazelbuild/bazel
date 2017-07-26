@@ -65,6 +65,13 @@ message BuildEventId {
   message OptionsParsedId {
   }
 
+  // Identifier of an event reporting that an external resource was fetched
+  // from.
+  message FetchId {
+    // The external resource that was fetched from.
+    string url = 1;
+  }
+
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
   // Messages of this shape are also used to describe parts of a pattern that
@@ -147,6 +154,7 @@ message BuildEventId {
     CommandLineId command_line = 11;
     WorkspaceStatusId workspace_status = 14;
     OptionsParsedId options_parsed = 12;
+    FetchId fetch = 17;
     ConfigurationId configuration = 15;
     TargetConfiguredId target_configured = 16;
     PatternExpandedId pattern = 4;
@@ -255,6 +263,13 @@ message OptionsParsed {
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
   blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
+}
+
+// Payload of an event indicating that an external resource was fetched. This
+// event will only occur in streams where an actual fetch happened, not in ones
+// where a cached copy of the entity to be fetched was used.
+message Fetch {
+  bool success = 1;
 }
 
 // Payload of an event reporting the workspace status. Key-value pairs can be
@@ -494,6 +509,7 @@ message BuildEvent {
     CommandLine command_line = 12;
     OptionsParsed options_parsed = 13;
     WorkspaceStatus workspace_status = 16;
+    Fetch fetch = 21;
     Configuration configuration = 17;
     PatternExpanded expanded = 6;
     TargetConfigured configured = 18;
