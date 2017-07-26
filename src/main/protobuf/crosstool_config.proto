@@ -187,7 +187,7 @@ message CToolchain {
     optional string name = 1;
 
     // If 'true', this feature is enabled unless a rule type explicitly marks it
-    // as unssupported. Such features cannot be turned of from with in a BUILD
+    // as unsupported. Such features cannot be turned off from within a BUILD
     // file or the command line.
     optional bool enabled = 7;
 
