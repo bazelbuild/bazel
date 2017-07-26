@@ -248,6 +248,10 @@ public class FdoSupport {
     return fdoRoot;
   }
 
+  public Path getFdoProfile() {
+    return fdoProfile;
+  }
+
   /** Creates an initialized {@link FdoSupport} instance. */
   static FdoSupport create(
       SkyFunction.Environment env,
@@ -304,7 +308,7 @@ public class FdoSupport {
       return new FdoSupport(
           fdoMode, LipoMode.OFF, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, null);
     }
-    
+
     FdoZipContents fdoZipContents = extractFdoZip(
         fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath,
         PrecomputedValue.PRODUCT_NAME.get(env));

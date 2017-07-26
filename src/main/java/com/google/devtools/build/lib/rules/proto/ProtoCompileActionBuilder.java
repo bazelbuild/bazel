@@ -59,6 +59,7 @@ public class ProtoCompileActionBuilder {
   private String language;
   private String langPrefix;
   private Iterable<Artifact> outputs;
+  private Iterable<Artifact> inputs;
   private String langParameter;
   private String langPluginName;
   private String langPluginParameter;
@@ -100,6 +101,11 @@ public class ProtoCompileActionBuilder {
 
   public ProtoCompileActionBuilder setOutputs(Iterable<Artifact> outputs) {
     this.outputs = outputs;
+    return this;
+  }
+
+  public ProtoCompileActionBuilder setInputs(Iterable<Artifact> inputs) {
+    this.inputs = inputs;
     return this;
   }
 
@@ -221,6 +227,10 @@ public class ProtoCompileActionBuilder {
     FilesToRunProvider langPluginTarget = getLangPluginTarget();
     if (langPluginTarget != null) {
       result.addTool(langPluginTarget);
+    }
+
+    if (inputs != null) {
+      result.addInputs(inputs);
     }
 
     FilesToRunProvider compilerTarget =
