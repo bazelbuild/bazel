@@ -181,7 +181,7 @@ function generate_email() {
 }
 
 function get_release_page() {
-    echo "# $(git_commit_msg)"'
+    echo "# $(get_full_release_notes)"'
 
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
