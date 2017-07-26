@@ -83,16 +83,24 @@ public abstract class ParallelVisitor<T> {
   private static final long MIN_PENDING_TASKS = 3 * SkyQueryEnvironment.DEFAULT_THREAD_COUNT;
 
   /**
-   * Fail fast on RuntimeExceptions, including {code RuntimeInterruptedException} and {@code
-   * RuntimeQueryException}, which are resulted from InterruptedException and QueryException.
+   * Fail fast on RuntimeExceptions, including {@code RuntimeInterruptedException} and {@code
+   * RuntimeQueryException}, which result from InterruptedException and QueryException.
+   *
+   * <p>Doesn't log for {@code RuntimeInterruptedException}, which is expected when evaluations are
+   * interrupted, or {@code RuntimeQueryException}, which happens when expected query failures
+   * occur.
    */
   static final ErrorClassifier PARALLEL_VISITOR_ERROR_CLASSIFIER =
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
-          return (e instanceof RuntimeException)
-              ? ErrorClassification.CRITICAL_AND_LOG
-              : ErrorClassification.NOT_CRITICAL;
+          if (e instanceof RuntimeInterruptedException || e instanceof RuntimeQueryException) {
+            return ErrorClassification.CRITICAL;
+          } else if (e instanceof RuntimeException) {
+            return ErrorClassification.CRITICAL_AND_LOG;
+          } else {
+            return ErrorClassification.NOT_CRITICAL;
+          }
         }
       };
 
