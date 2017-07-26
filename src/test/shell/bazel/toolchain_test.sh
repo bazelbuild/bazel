@@ -182,6 +182,29 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
 }
 
+function test_toolchain_debug_messages {
+  write_test_toolchain
+  write_test_rule
+  write_toolchains
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build \
+    --toolchain_resolution_debug \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
+  expect_log 'ToolchainResolution:   Selected toolchain //:toolchain_impl_1'
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
+}
+
+
 function test_toolchain_use_in_aspect {
   write_test_toolchain
   write_test_aspect

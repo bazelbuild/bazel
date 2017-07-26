@@ -203,7 +203,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     DeclaredToolchainInfo resolvedToolchain =
         ToolchainResolutionFunction.resolveConstraints(
-            toolchainType, execPlatform, targetPlatform, toolchains);
+            toolchainType, execPlatform, targetPlatform, toolchains, null);
     return assertThat(resolvedToolchain);
   }
 

@@ -368,11 +368,6 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         public boolean apply(Event event) {
           switch (event.getKind()) {
             case INFO:
-              throw new UnsupportedOperationException(
-                  "SkyFunctions should not display INFO messages: "
-                      + event.getLocation()
-                      + ": "
-                      + event.getMessage());
             case PROGRESS:
               return false;
             default:
