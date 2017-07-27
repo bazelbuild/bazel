@@ -28,10 +28,10 @@ def _compute_make_variables(resolved_srcs, files_to_build):
 
 
 def _apple_genrule(ctx):
-  resolved_srcs = set()
+  resolved_srcs = depset()
   if not ctx.outputs.outs:
     fail("apple_genrule must have one or more outputs", attr="outs")
-  files_to_build = set(ctx.outputs.outs)
+  files_to_build = depset(ctx.outputs.outs)
 
   if ctx.attr.executable and len(files_to_build) > 1:
     fail("if genrules produce executables, they are allowed only one output. "
@@ -48,7 +48,7 @@ def _apple_genrule(ctx):
       command=ctx.attr.cmd,
       attribute="cmd",
       expand_locations=True,
-      make_variables=_compute_make_variables(set(resolved_srcs), files_to_build),
+      make_variables=_compute_make_variables(depset(resolved_srcs), files_to_build),
       tools=ctx.attr.tools,
       label_dict=label_dict,
       execution_requirements=DARWIN_EXECUTION_REQUIREMENTS)

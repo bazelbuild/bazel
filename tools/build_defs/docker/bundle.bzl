@@ -63,7 +63,7 @@ def _docker_bundle_impl(ctx):
                [l["layer"] for l in layers]))
 
   return struct(runfiles = runfiles,
-                files = set())
+                files = depset())
 
 
 docker_bundle_ = rule(

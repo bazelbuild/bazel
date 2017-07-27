@@ -123,7 +123,7 @@ def all_unique_source_directories(resources):
   """Builds a list of unique ArtifactLocation protos."""
   # Sets can contain tuples, but cannot contain structs.
   # Use set of tuples to unquify source directories.
-  source_directory_tuples = set([source_directory_tuple(f) for f in resources])
+  source_directory_tuples = depset([source_directory_tuple(f) for f in resources])
   return [to_artifact_location(
       exec_path,
       root_path_fragment,
@@ -204,7 +204,7 @@ def collect_targets_from_attrs(rule_attrs, attrs):
 
 def targets_to_labels(targets):
   """Returns a set of label strings for the given targets."""
-  return set([str(target.label) for target in targets])
+  return depset([str(target.label) for target in targets])
 
 def list_omit_none(value):
   """Returns a list of the value, or the empty list if None."""
@@ -255,7 +255,7 @@ def make_dep_from_label(label, dependency_type):
 def build_py_ide_info(target, ctx):
   """Build PyIdeInfo."""
   if not hasattr(target, "py"):
-    return (None, set())
+    return (None, depset())
 
   sources = sources_from_target(ctx)
   transitive_sources = target.py.transitive_sources
@@ -268,7 +268,7 @@ def build_py_ide_info(target, ctx):
 def build_c_ide_info(target, ctx):
   """Build CIdeInfo."""
   if not hasattr(target, "cc"):
-    return (None, set())
+    return (None, depset())
 
   sources = artifacts_from_target_list_attr(ctx, "srcs")
   headers = artifacts_from_target_list_attr(ctx, "hdrs")
@@ -305,7 +305,7 @@ def build_c_toolchain_ide_info(ctx):
   """Build CToolchainIdeInfo."""
 
   if ctx.rule.kind != "cc_toolchain":
-    return (None, set())
+    return (None, depset())
 
   # This should exist because we requested it in our aspect definition.
   cc_fragment = ctx.fragments.cpp
@@ -323,7 +323,7 @@ def build_c_toolchain_ide_info(ctx):
       built_in_include_directory = [str(d)
                                     for d in cc_fragment.built_in_include_directories],
   )
-  return (c_toolchain_ide_info, set())
+  return (c_toolchain_ide_info, depset())
 
 def get_java_provider(target):
   if hasattr(target, "proto_java"):
@@ -345,31 +345,31 @@ def build_java_ide_info(target, ctx, semantics):
   """Build JavaIdeInfo."""
   java = get_java_provider(target)
   if not java:
-    return (None, set(), set(), set())
+    return (None, depset(), depset(), depset())
 
   java_semantics = semantics.java if hasattr(semantics, "java") else None
   if java_semantics and java_semantics.skip_target(target, ctx):
-    return (None, set(), set(), set())
+    return (None, depset(), depset(), depset())
 
-  ide_info_files = set()
+  ide_info_files = depset()
   sources = sources_from_target(ctx)
   java_jars = get_java_jars(java.outputs)
   jars = [library_artifact(output) for output in java_jars]
   class_jars = [output.class_jar for output in java_jars if output and output.class_jar]
   output_jars = [jar for output in java_jars for jar in jars_from_output(output)]
-  intellij_resolve_files = set(output_jars)
-  intellij_compile_files = set(class_jars)
+  intellij_resolve_files = depset(output_jars)
+  intellij_compile_files = depset(class_jars)
 
   gen_jars = []
   if (hasattr(java, "annotation_processing") and
       java.annotation_processing and
       java.annotation_processing.enabled):
     gen_jars = [annotation_processing_jars(java.annotation_processing)]
-    intellij_resolve_files = intellij_resolve_files | set([
+    intellij_resolve_files = intellij_resolve_files | depset([
         jar for jar in [java.annotation_processing.class_jar,
                         java.annotation_processing.source_jar]
         if jar != None and not jar.is_source])
-    intellij_compile_files = intellij_compile_files | set([
+    intellij_compile_files = intellij_compile_files | depset([
         jar for jar in [java.annotation_processing.class_jar]
         if jar != None and not jar.is_source])
 
@@ -385,7 +385,7 @@ def build_java_ide_info(target, ctx, semantics):
   package_manifest = None
   if java_sources:
     package_manifest = build_java_package_manifest(ctx, target, java_sources, ".java-manifest")
-    ide_info_files = ide_info_files | set([package_manifest])
+    ide_info_files = ide_info_files | depset([package_manifest])
 
   filtered_gen_jar = None
   if java_sources and (gen_java_sources or srcjars):
@@ -475,7 +475,7 @@ def build_filtered_gen_jar(ctx, target, java, gen_java_sources, srcjars):
       jar=artifact_location(filtered_jar),
       source_jar=artifact_location(filtered_source_jar),
   )
-  intellij_resolve_files = set([filtered_jar, filtered_source_jar])
+  intellij_resolve_files = depset([filtered_jar, filtered_source_jar])
   return output_jar, intellij_resolve_files
 
 def divide_java_sources(ctx):
@@ -501,7 +501,7 @@ def divide_java_sources(ctx):
 def build_android_ide_info(target, ctx, semantics):
   """Build AndroidIdeInfo."""
   if not hasattr(target, "android"):
-    return (None, set())
+    return (None, depset())
 
   android_semantics = semantics.android if hasattr(semantics, "android") else None
   extra_ide_info = android_semantics.extra_ide_info(target, ctx) if android_semantics else {}
@@ -520,10 +520,10 @@ def build_android_ide_info(target, ctx, semantics):
       resource_jar = library_artifact(android.resource_jar),
       **extra_ide_info
   )
-  intellij_resolve_files = set(jars_from_output(android.idl.output))
+  intellij_resolve_files = depset(jars_from_output(android.idl.output))
 
   if android.manifest and not android.manifest.is_source:
-    intellij_resolve_files = intellij_resolve_files | set([android.manifest])
+    intellij_resolve_files = intellij_resolve_files | depset([android.manifest])
 
   return (android_ide_info, intellij_resolve_files)
 
@@ -591,13 +591,13 @@ def intellij_info_aspect_impl(target, ctx, semantics):
     if ctx.rule.kind == "android_library":
       if not hasattr(rule_attrs, "srcs") or not ctx.rule.attr.srcs:
         export_deps = export_deps + compiletime_deps
-  export_deps = list(set(export_deps))
+  export_deps = list(depset(export_deps))
 
   # runtime_deps
   runtime_dep_targets = collect_targets_from_attrs(
       rule_attrs, semantics_extra_deps(RUNTIME_DEPS, semantics, "extra_runtime_deps"))
   runtime_deps = make_deps(runtime_dep_targets, RUNTIME)
-  all_deps = list(set(compiletime_deps + runtime_deps))
+  all_deps = list(depset(compiletime_deps + runtime_deps))
 
   # extra prerequisites
   extra_prerequisite_targets = collect_targets_from_attrs(
@@ -605,8 +605,8 @@ def intellij_info_aspect_impl(target, ctx, semantics):
 
   # Roll up files from my prerequisites
   prerequisites = direct_dep_targets + runtime_dep_targets + extra_prerequisite_targets
-  intellij_info_text = set()
-  intellij_resolve_files = set()
+  intellij_info_text = depset()
+  intellij_resolve_files = depset()
   intellij_compile_files = target.output_group("files_to_compile_INTERNAL_")
   for dep in prerequisites:
     intellij_info_text = intellij_info_text | dep.intellij_info.intellij_info_text
@@ -678,7 +678,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   # Output the ide information file.
   output = ctx.new_file(file_name)
   ctx.file_action(output, info.to_proto())
-  intellij_info_text = intellij_info_text | set([output])
+  intellij_info_text = intellij_info_text | depset([output])
 
   # Return providers.
   return struct_omit_none(

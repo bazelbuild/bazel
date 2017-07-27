@@ -26,13 +26,13 @@ load("shared",
      "label_scoped_path")
 
 def _parent_dirs(dirs):
-  """Returns a set of parent directories for each directory in dirs."""
-  return set([f.rpartition("/")[0] for f in dirs])
+  """Returns a depset of parent directories for each directory in dirs."""
+  return depset([f.rpartition("/")[0] for f in dirs])
 
 
 def _framework_names(dirs):
   """Returns the framework name for each directory in dir."""
-  return set([f.rpartition("/")[2].partition(".")[0] for f in dirs])
+  return depset([f.rpartition("/")[2].partition(".")[0] for f in dirs])
 
 
 def _intersperse(separator, iterable):
@@ -122,7 +122,7 @@ def _swift_lib_dir(ctx):
 
 def _swift_linkopts(ctx):
   """Returns additional linker arguments for the given rule context."""
-  return set(["-L" + _swift_lib_dir(ctx)])
+  return depset(["-L" + _swift_lib_dir(ctx)])
 
 
 def _swift_xcrun_args(ctx):
@@ -193,12 +193,12 @@ def swiftc_inputs(ctx):
   for swift in swift_providers:
     dep_modules += swift.transitive_modules
 
-  objc_files = set()
+  objc_files = depset()
   for objc in objc_providers:
     objc_files += objc.header
     objc_files += objc.module_map
-    objc_files += set(objc.static_framework_file)
-    objc_files += set(objc.dynamic_framework_file)
+    objc_files += depset(objc.static_framework_file)
+    objc_files += depset(objc.dynamic_framework_file)
 
   return ctx.files.srcs + dep_modules + list(objc_files)
 
@@ -234,7 +234,7 @@ def swiftc_args(ctx):
   module_name = ctx.attr.module_name or swift_module_name(ctx.label)
 
   # A list of paths to pass with -F flag.
-  framework_dirs = set([
+  framework_dirs = depset([
       apple_toolchain.platform_developer_framework_dir(apple_fragment)])
 
   # Collect transitive dependecies.
@@ -248,10 +248,10 @@ def swiftc_args(ctx):
     dep_modules += swift.transitive_modules
     swiftc_defines += swift.transitive_defines
 
-  objc_includes = set()     # Everything that needs to be included with -I
-  objc_module_maps = set()  # Module maps for dependent targets
-  objc_defines = set()
-  static_frameworks = set()
+  objc_includes = depset()     # Everything that needs to be included with -I
+  objc_module_maps = depset()  # Module maps for dependent targets
+  objc_defines = depset()
+  static_frameworks = depset()
   for objc in objc_providers:
     objc_includes += objc.include
     objc_module_maps += objc.module_map
@@ -268,10 +268,10 @@ def swiftc_args(ctx):
   srcs_args = [f.path for f in ctx.files.srcs]
 
   # Include each swift module's parent directory for imports to work.
-  include_dirs = set([x.dirname for x in dep_modules])
+  include_dirs = depset([x.dirname for x in dep_modules])
 
   # Include the genfiles root so full-path imports can work for generated protos.
-  include_dirs += set([ctx.genfiles_dir.path])
+  include_dirs += depset([ctx.genfiles_dir.path])
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
@@ -451,11 +451,11 @@ def _swift_library_impl(ctx):
   extra_linker_args = ["-Xlinker -add_ast_path -Xlinker " + output_module.path]
 
   objc_provider = apple_common.new_objc_provider(
-      library=set([output_lib] + dep_libs),
-      header=set([output_header]),
+      library=depset([output_lib] + dep_libs),
+      header=depset([output_header]),
       providers=objc_providers,
       linkopt=_swift_linkopts(ctx) + extra_linker_args,
-      link_inputs=set([output_module]),
+      link_inputs=depset([output_module]),
       uses_swift=True,)
 
   return struct(
@@ -464,7 +464,7 @@ def _swift_library_impl(ctx):
           transitive_modules=[output_module] + dep_modules,
           transitive_defines=swiftc_defines),
       objc=objc_provider,
-      files=set([output_lib, output_module, output_header]))
+      files=depset([output_lib, output_module, output_header]))
 
 SWIFT_LIBRARY_ATTRS = {
     "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
