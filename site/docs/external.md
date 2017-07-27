@@ -5,21 +5,44 @@ title: External Dependencies
 
 # Working with external dependencies
 
-External dependencies can be specified in the `WORKSPACE` file of the
-[workspace directory](build-ref.html#workspace). This `WORKSPACE` file
-uses the same syntax as BUILD files, but allows a different set of
-rules. The full list of rules are in the Build Encyclopedia's
-[Workspace Rules](be/workspace.html).
+Bazel can depend on targets from other projects.  Dependencies from these other
+projects are called _external dependencies_.
 
-External dependencies are all downloaded and symlinked under a directory named
-`external`. You can see this directory by running:
+The `WORKSPACE` file in the [workspace directory](build-ref.html#workspace)
+tells Bazel how to get other projects' sources.  These other projects can
+contain one or more `BUILD` files with their own targets.  `BUILD` files within
+the main project can depend on these external targets by using their name from
+the `WORKSPACE` file.
+
+For example, suppose there are two projects on a system:
 
 ```
-ls $(bazel info output_base)/external
+/
+  home/
+    user/
+      project1/
+        WORKSPACE
+        BUILD
+        srcs/
+          ...
+      project2/
+        WORKSPACE
+        BUILD
+        my-libs/
 ```
 
-Note that running `bazel clean` will not actually delete the external
-directory. To remove all external artifacts, use `bazel clean --expunge`.
+If `project1` wanted to depend on a target, `:foo`, defined in
+`/home/user/project2/BUILD`, it could specify that a repository named
+`project2` could be found at `/home/user/project2`. Then targets in
+`/home/user/project1/BUILD` could depend on `@project2//:foo`.
+
+The `WORKSPACE` file allows users to depend on targets from other parts of the
+filesystem or downloaded from the internet. Users can also write custom
+[repository rules](skylark/repository_rules.html) to get more complex behavior.
+
+This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
+different set of rules. The full list of built-in rules are in the Build
+Encyclopedia's [Workspace Rules](be/workspace.html).
 
 ## Supported types of external dependencies
 
@@ -131,3 +154,15 @@ For details, see
 
 Bazel caches external dependencies and re-downloads or updates them when
 the `WORKSPACE` file changes.
+
+## Layout
+
+External dependencies are all downloaded and symlinked under a directory named
+`external`. You can see this directory by running:
+
+```
+ls $(bazel info output_base)/external
+```
+
+Note that running `bazel clean` will not actually delete the external
+directory. To remove all external artifacts, use `bazel clean --expunge`.
