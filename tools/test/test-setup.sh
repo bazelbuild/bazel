@@ -140,6 +140,49 @@ if [[ -z "$no_echo" ]]; then
   echo "-----------------------------------------------------------------------------"
 fi
 
+function encode_output_file {
+  # Replace invalid XML characters and invalid sequence in CDATA
+  # cf. https://stackoverflow.com/a/7774512/4717701
+  perl -CSDA -pe's/[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]+/?/g;' "$1" \
+    | sed 's|]]>|]]>]]<![CDATA[>|g'
+}
+
+function write_xml_output_file {
+  local duration=$(expr $(date +%s) - $start)
+  local errors=0
+  local error_msg=
+  local signal="${1-}"
+  if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
+    # Create a default XML output file if the test runner hasn't generated it
+    if [ -n "${signal}" ]; then
+      errors=1
+      if [ "${signal}" = "SIGTERM" ]; then
+        error_msg="<error message=\"Timed out\"></error>"
+      else
+        error_msg="<error message=\"Terminated by signal ${signal}\"></error>"
+      fi
+    elif (( $exitCode != 0 )); then
+      errors=1
+      error_msg="<error message=\"exited with error code $exitCode\"></error>"
+    fi
+    # Ensure that test shards have unique names in the xml output.
+    if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
+      ((shard_num=TEST_SHARD_INDEX+1))
+      TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
+    fi
+    cat <<EOF >${XML_OUTPUT_FILE}
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="${errors}">
+    <testcase name="$TEST_NAME" status="run" duration="${duration}">${error_msg}</testcase>
+    <system-out><![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]></system-out>
+  </testsuite>
+</testsuites>
+EOF
+  fi
+  rm -f "${XML_OUTPUT_FILE}.log"
+}
+
 # The path of this command-line is usually relative to the exec-root,
 # but when using --run_under it can be a "/bin/bash -c" command-line.
 
@@ -161,37 +204,21 @@ fi
 [[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
+signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
+for signal in $signals; do
+  trap "write_xml_output_file ${signal}" ${signal}
+done
 start=$(date +%s)
+
 if [ -z "$COVERAGE_DIR" ]; then
-  "${TEST_PATH}" "$@" || exitCode=$?
+  "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 else
-  "$1" "$TEST_PATH" "${@:3}" || exitCode=$?
+  "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 fi
-duration=$(expr $(date +%s) - $start)
 
-
-if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
-  # Create a default XML output file if the test runner hasn't generated it
-  if (( $exitCode != 0 )); then
-    errors=1
-    error_msg="<error message=\"exited with error code $exitCode\"></error>"
-  else
-    errors=0
-    error_msg=
-  fi
-  # Ensure that test shards have unique names in the xml output.
-  if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
-    ((shard_num=TEST_SHARD_INDEX+1))
-    TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
-  fi
-  cat <<EOF >${XML_OUTPUT_FILE}
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="$errors">
-    <testcase name="$TEST_NAME" status="run" duration="$duration">$error_msg</testcase>
-  </testsuite>
-</testsuites>
-EOF
-fi
+for signal in $signals; do
+  trap - ${signal}
+done
+write_xml_output_file
 
 exit $exitCode

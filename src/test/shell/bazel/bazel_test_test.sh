@@ -300,6 +300,42 @@ EOF
   [ -s $xml_log ] || fail "$xml_log was not present after test"
 }
 
+# Tests that the test.xml is here in case of timeout
+function test_xml_is_present_when_timingout() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "bleh"
+# Invalid XML character
+perl -e 'print "\x1b"'
+# Invalid UTF-8 characters
+perl -e 'print "\xc0\x00\xa0\xa1"'
+# ]]> needs escaping
+echo "<!CDATA[]]>"
+sleep 10
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s --test_timeout=1 \
+     //dir:test &> $TEST_log && fail "should have failed" || true
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  [ -s "${xml_log}" ] || fail "${xml_log} was not present after test"
+  cat "${xml_log}" > $TEST_log
+  expect_log '"Timed out"'
+  expect_log '<system-out><!\[CDATA\[bleh
+\?\?\?\?\?<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]></system-out>'
+}
+
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
