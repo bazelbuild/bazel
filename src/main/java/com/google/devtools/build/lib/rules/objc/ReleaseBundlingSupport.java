@@ -1174,7 +1174,8 @@ public final class ReleaseBundlingSupport {
       }
 
       for (ObjcProvider provider
-          : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK, ObjcProvider.class)) {
+          : ruleContext.getPrerequisites(
+              "binary", Mode.DONT_CHECK, ObjcProvider.SKYLARK_CONSTRUCTOR)) {
         if (!provider.get(ObjcProvider.MULTI_ARCH_LINKED_BINARIES).isEmpty()) {
           return Iterables.getOnlyElement(provider.get(ObjcProvider.MULTI_ARCH_LINKED_BINARIES));
         }
@@ -1189,7 +1190,8 @@ public final class ReleaseBundlingSupport {
 
       NestedSetBuilder<Artifact> linkedBinaries = NestedSetBuilder.stableOrder();
       for (ObjcProvider provider
-          : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK, ObjcProvider.class)) {
+          : ruleContext.getPrerequisites(
+              "binary", Mode.DONT_CHECK, ObjcProvider.SKYLARK_CONSTRUCTOR)) {
         linkedBinaries.addTransitive(provider.get(ObjcProvider.LINKED_BINARY));
       }
 
@@ -1267,7 +1269,7 @@ public final class ReleaseBundlingSupport {
       if (ruleContext.attributes().has("binary", BuildType.LABEL)) {
         for (TransitiveInfoCollection prerequisite
             : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK)) {
-          ObjcProvider prerequisiteProvider =  prerequisite.getProvider(ObjcProvider.class);
+          ObjcProvider prerequisiteProvider =  prerequisite.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
           if (prerequisiteProvider != null) {
             Artifact sourceArtifact = Iterables.getOnlyElement(prerequisiteProvider.get(key), null);
             if (sourceArtifact != null) {

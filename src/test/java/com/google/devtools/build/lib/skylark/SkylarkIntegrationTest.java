@@ -682,7 +682,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test",
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
-            + "'//test:a' does not have mandatory provider 'some_provider'",
+            + "'//test:a' does not have mandatory providers: 'some_provider'",
         "load('/test/skylark/extension', 'dependent_rule')",
         "load('/test/skylark/extension', 'main_rule')",
         "",

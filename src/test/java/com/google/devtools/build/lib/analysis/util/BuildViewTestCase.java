@@ -1670,7 +1670,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected String getErrorMsgMandatoryProviderMissing(String offendingRule, String providerName) {
-    return String.format("'%s' does not have mandatory provider '%s'", offendingRule, providerName);
+    return String.format("'%s' does not have mandatory providers: '%s'",
+        offendingRule, providerName);
   }
 
   /**

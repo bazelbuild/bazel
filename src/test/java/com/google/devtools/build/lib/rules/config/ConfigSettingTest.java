@@ -1070,7 +1070,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
     checkError("test", "invalid_flag",
         "in flag_values attribute of config_setting rule //test:invalid_flag: "
-        + "'//test:genrule' does not have mandatory provider 'FeatureFlagInfo'",
+        + "'//test:genrule' does not have mandatory providers: 'FeatureFlagInfo'",
         "config_setting(",
         "    name = 'invalid_flag',",
         "    flag_values = {",

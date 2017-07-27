@@ -61,18 +61,4 @@ package com.google.devtools.build.lib.analysis;
  */
 public interface TransitiveInfoProvider {
 
-  /**
-   * Implement this to mark that a native provider should be exported with
-   * certain name to Skylark.
-   * Broken: only works for rules, not for aspects.
-   * DO NOT USE FOR NEW CODE!
-   *
-   * Use native declared providers
-   * ({@link com.google.devtools.build.lib.packages.NativeClassObjectConstructor}) to
-   * expose providers to both native and Skylark code.
-   */
-  @Deprecated
-  interface WithLegacySkylarkName {
-    String getSkylarkName();
-  }
 }

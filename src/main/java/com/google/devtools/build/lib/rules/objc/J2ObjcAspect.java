@@ -304,7 +304,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return builder
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
-        .addProvider(common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .build();
   }
 
@@ -806,7 +806,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         builder.addDepObjcProviders(ruleContext.getPrerequisites(
             dependentAttribute.getName(),
             dependentAttribute.getAccessMode(),
-            ObjcProvider.class));
+            ObjcProvider.SKYLARK_CONSTRUCTOR));
       }
     }
 

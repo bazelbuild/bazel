@@ -150,7 +150,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       // about the macro.
       assertContainsEvent(
           "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
-              + "//test:m_skylark: '//test:jlib' does not have mandatory provider 'some_provider'. "
+              + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
+              + " 'some_provider'. "
               + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
               + "have been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
     }
@@ -184,7 +185,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       // Skylark rule WITHOUT macro -> location points to the attribute and there is no mention of
       // 'macro' at all.
       assertContainsEvent("ERROR /workspace/test/BUILD:11:10: in deps attribute of "
-          + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory provider "
+          + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
           + "'some_provider'");
     }
   }
@@ -228,7 +229,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     } catch (Exception ex) {
       assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
               + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
-              + "mandatory provider 'a' or 'c'");
+              + "mandatory providers: 'a' or 'c'");
     }
   }
 
@@ -262,7 +263,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     } catch (Exception ex) {
       assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
               + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
-              + "does not have mandatory provider 'a' or 'c'");
+              + "does not have mandatory providers: 'a' or 'c'");
     }
   }
 
@@ -1097,7 +1098,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     invalidatePackages();
     getConfiguredTarget("//:r");
     assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
-        + "'//:dep' does not have mandatory provider 'my_provider'");
+        + "'//:dep' does not have mandatory providers: 'my_provider'");
   }
 
   @Test

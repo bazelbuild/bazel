@@ -42,7 +42,8 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             .addExtraImportLibraries(
                 ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
             .addDepObjcProviders(
-                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+                ruleContext.getPrerequisites(
+                    "bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
             .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
@@ -64,7 +65,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     new ResourceSupport(ruleContext).validateAttributes();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addNativeDeclaredProvider(common.getObjcProvider())
         .build();
   }

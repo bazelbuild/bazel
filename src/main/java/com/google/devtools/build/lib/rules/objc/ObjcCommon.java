@@ -67,6 +67,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -257,7 +259,7 @@ public final class ObjcCommon {
           ImmutableList.<CcLinkParamsProvider>builder();
 
       for (TransitiveInfoCollection dep : deps) {
-        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.class);
+        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, dep, CppCompilationContext.class);
         if (isCcLibrary(dep)) {
           cppDepLinkParams.add(dep.get(CcLinkParamsProvider.CC_LINK_PARAMS));
@@ -279,7 +281,7 @@ public final class ObjcCommon {
           ImmutableList.<ObjcProvider>builder();
 
       for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(propagatedDeps, dep, ObjcProvider.class);
+        addAnyProviders(propagatedDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
       }
       this.runtimeDepObjcProviders = Iterables.concat(
           this.runtimeDepObjcProviders, propagatedDeps.build());
@@ -290,11 +292,24 @@ public final class ObjcCommon {
         ImmutableList.Builder<T> listBuilder,
         TransitiveInfoCollection collection,
         Class<T> providerClass) {
-      if (collection.getProvider(providerClass) != null) {
-        listBuilder.add(collection.getProvider(providerClass));
+      T provider = collection.getProvider(providerClass);
+      if (provider != null) {
+        listBuilder.add(provider);
       }
       return listBuilder;
     }
+
+    private <T extends SkylarkClassObject> ImmutableList.Builder<T> addAnyProviders(
+        ImmutableList.Builder<T> listBuilder,
+        TransitiveInfoCollection collection,
+        NativeClassObjectConstructor<T> providerClass) {
+      T provider = collection.get(providerClass);
+      if (provider != null) {
+        listBuilder.add(provider);
+      }
+      return listBuilder;
+    }
+
 
     /**
      * Add providers which will be exposed both to the declaring rule and to any dependers on the

@@ -1097,7 +1097,7 @@ public abstract class CompilationSupport {
       Artifact dummyArchive =
           Iterables.getOnlyElement(
               ruleContext
-                  .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.class)
+                  .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
                   .get(LIBRARY));
 
       CustomCommandLine commandLine =

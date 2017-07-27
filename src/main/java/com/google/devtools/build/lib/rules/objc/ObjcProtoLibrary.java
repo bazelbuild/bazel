@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -67,7 +66,6 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             .addFilesToBuild(filesToBuild);
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, protoSupport.getObjcProvider().get())
         .addNativeDeclaredProvider(protoSupport.getObjcProvider().get())
         .build();
   }
@@ -110,7 +108,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             .addFilesToBuild(filesToBuild);
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, protoSupport.getObjcProvider())
+        .addNativeDeclaredProvider(protoSupport.getObjcProvider())
         .build();
   }
 }
