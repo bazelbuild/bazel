@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -44,7 +46,6 @@ import com.google.devtools.remoteexecution.v1test.Directory;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
-import com.google.devtools.remoteexecution.v1test.OutputDirectory;
 import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
@@ -183,54 +184,67 @@ public class GrpcRemoteCache implements RemoteActionCache {
   }
 
   /**
-   * Download the entire tree data rooted by the given digest and write it into the given location.
-   */
-  @SuppressWarnings("unused")
-  private void downloadTree(Digest rootDigest, Path rootLocation) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * Download all results of a remotely executed action locally. TODO(olaola): will need to amend to
    * include the {@link com.google.devtools.build.lib.remote.TreeNodeRepository} for updating.
    */
   @Override
   public void download(ActionResult result, Path execRoot, FileOutErr outErr)
-      throws IOException, InterruptedException {
-    for (OutputFile file : result.getOutputFilesList()) {
-      Path path = execRoot.getRelative(file.getPath());
-      FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
-      Digest digest = file.getDigest();
-      if (digest.getSizeBytes() == 0) {
-        // Handle empty file locally.
-        FileSystemUtils.writeContent(path, new byte[0]);
-      } else {
-        if (!file.getContent().isEmpty()) {
-          try (OutputStream stream = path.getOutputStream()) {
-            file.getContent().writeTo(stream);
-          }
+      throws ExecException, IOException, InterruptedException {
+    try {
+      for (OutputFile file : result.getOutputFilesList()) {
+        Path path = execRoot.getRelative(file.getPath());
+        FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+        Digest digest = file.getDigest();
+        if (digest.getSizeBytes() == 0) {
+          // Handle empty file locally.
+          FileSystemUtils.writeContent(path, new byte[0]);
         } else {
-          retrier.execute(
-              () -> {
-                try (OutputStream stream = path.getOutputStream()) {
-                  readBlob(digest, stream);
-                }
-                return null;
-              });
-          Digest receivedDigest = Digests.computeDigest(path);
-          if (!receivedDigest.equals(digest)) {
-            throw new IOException(
-                "Digest does not match " + receivedDigest + " != " + digest);
+          if (!file.getContent().isEmpty()) {
+            try (OutputStream stream = path.getOutputStream()) {
+              file.getContent().writeTo(stream);
+            }
+          } else {
+            retrier.execute(
+                () -> {
+                  try (OutputStream stream = path.getOutputStream()) {
+                    readBlob(digest, stream);
+                  }
+                  return null;
+                });
+            Digest receivedDigest = Digests.computeDigest(path);
+            if (!receivedDigest.equals(digest)) {
+              throw new IOException(
+                  "Digest does not match " + receivedDigest + " != " + digest);
+            }
           }
         }
+        path.setExecutable(file.getIsExecutable());
       }
-      path.setExecutable(file.getIsExecutable());
+      if (!result.getOutputDirectoriesList().isEmpty()) {
+        throw new UnsupportedOperationException();
+      }
+      // TODO(ulfjack): use same code as above also for stdout / stderr if applicable.
+      downloadOutErr(result, outErr);
+    } catch (IOException downloadException) {
+      try {
+        // Delete any (partially) downloaded output files, since any subsequent local execution
+        // of this action may expect none of the output files to exist.
+        for (OutputFile file : result.getOutputFilesList()) {
+          execRoot.getRelative(file.getPath()).delete();
+        }
+        outErr.getOutputPath().delete();
+        outErr.getErrorPath().delete();
+      } catch (IOException e) {
+        // If deleting of output files failed, we abort the build with a decent error message as
+        // any subsequent local execution failure would likely be incomprehensible.
+
+        // We don't propagate the downloadException, as this is a recoverable error and the cause
+        // of the build failure is really that we couldn't delete output files.
+        throw new EnvironmentalExecException("Failed to delete output files after incomplete "
+            + "download. Cannot continue with local execution.", e, true);
+      }
+      throw downloadException;
     }
-    for (OutputDirectory directory : result.getOutputDirectoriesList()) {
-      downloadTree(directory.getDigest(), execRoot.getRelative(directory.getPath()));
-    }
-    // TODO(ulfjack): use same code as above also for stdout / stderr if applicable.
-    downloadOutErr(result, outErr);
   }
 
   private void downloadOutErr(ActionResult result, FileOutErr outErr)
