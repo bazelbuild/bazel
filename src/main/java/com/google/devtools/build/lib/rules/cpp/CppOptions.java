@@ -747,26 +747,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-    name = "experimental_skip_unused_modules",
-    defaultValue = "false",
-    category = "experimental",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Deprecated. No effect."
-  )
-  public boolean skipUnusedModules;
-
-  @Option(
-    name = "experimental_prune_more_modules",
-    defaultValue = "false",
-    category = "experimental",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Deprecated. No effect."
-  )
-  public boolean pruneMoreModules;
-
-  @Option(
     name = "prune_cpp_modules",
     defaultValue = "true",
     category = "strategy",

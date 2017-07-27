@@ -325,8 +325,7 @@ EOF
 
   bazel "$STARTUP_FLAGS" build $BUILD_FLAGS \
       --noexperimental_enable_critical_path_profiling \
-      //foo:c --experimental_skip_unused_modules \
-    --experimental_prune_more_modules >& "$TEST_log" || fail "Build failed"
+      //foo:c >& "$TEST_log" || fail "Build failed"
 }
 
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.
