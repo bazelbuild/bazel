@@ -1,4 +1,9 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+)
 
 java_test(
     name = "JavaCodeGeneratorHelperTest",
@@ -53,9 +58,4 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

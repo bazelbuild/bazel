@@ -1,10 +1,10 @@
-package(default_visibility = ["//src/tools/benchmark:__pkg__"])
+package(default_visibility = ["//src:__subpackages__"])
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["*"]),
 )
 
 pkg_tar(

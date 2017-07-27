@@ -1,4 +1,9 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+)
 
 java_binary(
     name = "codegenerator",
@@ -19,9 +24,4 @@ java_library(
         "//third_party:guava",
         "//third_party/java/javapoet",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

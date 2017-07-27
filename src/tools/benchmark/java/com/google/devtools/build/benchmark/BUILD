@@ -1,13 +1,13 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
-
-java_proto_library(
-    name = "build_data_java_proto",
-    deps = [":build_data_proto"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 proto_library(
     name = "build_data_proto",
     srcs = ["build_data.proto"],
+)
+
+java_proto_library(
+    name = "build_data_java_proto",
+    deps = [":build_data_proto"],
 )
 
 java_binary(
@@ -46,5 +46,5 @@ java_library(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["*"]),
 )
