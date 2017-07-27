@@ -94,11 +94,6 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     }
 
     @Override
-    public boolean isRegularFile(Artifact artifact) {
-      throw new UnsupportedOperationException(artifact.prettyPrint());
-    }
-
-    @Override
     public boolean artifactOmitted(Artifact artifact) {
       throw new UnsupportedOperationException(artifact.prettyPrint());
     }

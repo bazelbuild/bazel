@@ -415,16 +415,20 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * If the action might read directories as inputs in a way that is unsound wrt dependency
    * checking, this method must be called.
    */
-  protected void checkInputsForDirectories(EventHandler eventHandler,
-                                           MetadataHandler metadataHandler) {
+  protected void checkInputsForDirectories(
+      EventHandler eventHandler, MetadataHandler metadataHandler) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      if (input.isSourceArtifact() && !metadataHandler.isRegularFile(input)) {
-        eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
-            + input.prettyPrint() + "' to " + getOwner().getLabel()
-            + " is a directory; dependency checking of directories is unsound"));
+      try {
+        if (input.isSourceArtifact() && !metadataHandler.getMetadata(input).isFile()) {
+          eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
+              + input.prettyPrint() + "' to " + getOwner().getLabel()
+              + " is a directory; dependency checking of directories is unsound"));
+        }
+      } catch (IOException e) {
+        throw new UserExecException(e);
       }
     }
   }

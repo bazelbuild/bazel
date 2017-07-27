@@ -496,17 +496,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     additionalOutputData.clear();
   }
 
-  @Override
-  public boolean isRegularFile(Artifact artifact) {
-    // Currently this method is used only for genrule input directory checks. If we need to call
-    // this on output artifacts too, this could be more efficient.
-    FileArtifactValue value = getInputFileArtifactValue(artifact);
-    if (value != null && value.isFile()) {
-      return true;
-    }
-    return artifact.getPath().isFile();
-  }
-
   /** @return data for output files that was computed during execution. */
   Map<Artifact, FileValue> getOutputArtifactData() {
     return outputArtifactData;
