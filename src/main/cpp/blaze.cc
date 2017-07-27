@@ -30,7 +30,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +43,7 @@
 
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
+#include <cinttypes>
 #include <mutex>   // NOLINT
 #include <set>
 #include <string>
