@@ -41,12 +41,12 @@ function git_commit_msg() {
 
 # Extract the release candidate number from the git notes
 function get_release_candidate() {
-  git notes --ref=release-candidate show "$@" 2>/dev/null | xargs echo || true
+  git notes --ref=release-candidate show "$@" 2>/dev/null || true
 }
 
 # Extract the release name from the git notes
 function get_release_name() {
-  git notes --ref=release show "$@" 2>/dev/null | xargs echo || true
+  git notes --ref=release show "$@" 2>/dev/null || true
 }
 
 # Get the short hash of a commit
