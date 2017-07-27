@@ -596,11 +596,11 @@ public final class BuildConfiguration implements BuildEvent {
     public boolean stampBinaries;
 
     // This default value is always overwritten in the case of "bazel coverage" by
-    // CoverageCommand.setDefaultInstrumentationFilter().
+    // a value returned by InstrumentationFilterSupport.computeInstrumentationFilter.
     @Option(
       name = "instrumentation_filter",
       converter = RegexFilter.RegexFilterConverter.class,
-      defaultValue = "-/javatests[/:]",
+      defaultValue = "-/javatests[/:],-/test/java[/:]",
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
