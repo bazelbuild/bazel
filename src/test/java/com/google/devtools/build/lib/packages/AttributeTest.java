@@ -310,4 +310,19 @@ public class AttributeTest {
       return new TestSplitTransition();
     }
   }
+
+  @Test
+  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() throws Exception {
+    try {
+      attr("x", LABEL_LIST)
+          .allowedRuleClasses("foo", "bar", "baz")
+          .allowedRuleClassesWithWarning("bar")
+          .allowedFileTypes()
+          .build();
+      fail("Expected illegal state exception because rule classes and rule classes with warning "
+          + "overlap");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
+    }
+  }
 }

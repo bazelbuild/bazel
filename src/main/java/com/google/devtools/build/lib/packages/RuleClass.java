@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -422,10 +423,6 @@ public class RuleClass {
         this.ruleClasses = ImmutableSet.copyOf(ruleClasses);
       }
 
-      public RuleClassNamePredicate() {
-        this(ImmutableSet.<String>of());
-      }
-
       @Override
       public boolean apply(RuleClass ruleClass) {
         return ruleClasses.contains(ruleClass.getName());
@@ -440,6 +437,13 @@ public class RuleClass {
       public boolean equals(Object o) {
         return (o instanceof RuleClassNamePredicate)
             && ruleClasses.equals(((RuleClassNamePredicate) o).ruleClasses);
+      }
+
+      /**
+       * Returns true if this and the other predicate have common rule class entries.
+       */
+      public boolean intersects(RuleClassNamePredicate other) {
+        return !Collections.disjoint(ruleClasses, other.ruleClasses);
       }
 
       @Override

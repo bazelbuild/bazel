@@ -431,7 +431,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
   private static final class RuleWithOutgoingTransition implements MockRule {
     @Override
     public State define() {
-      return MockRule.define("change_deps");
+      return MockRule.define("change_deps", MockRule.DEPS_ATTRIBUTE);
     }
 
     @Override

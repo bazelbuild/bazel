@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -806,27 +807,39 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type, then an error is produced during
-     * the analysis phase. Defaults to allow any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types for the
+     * labels occurring in the attribute.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in
+     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
+     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
+     * Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Iterable<String> allowedRuleClasses) {
       return allowedRuleClasses(
-          new RuleClass.Builder.RuleClassNamePredicate(allowedRuleClasses));
+          new RuleClassNamePredicate(allowedRuleClasses));
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type, then an error is produced during
-     * the analysis phase. Defaults to allow any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types for the
+     * labels occurring in the attribute.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in
+     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
+     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
+     * Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Predicate<RuleClass> allowedRuleClasses) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
@@ -837,13 +850,19 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type, then an error is produced during
-     * the analysis phase. Defaults to allow any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types for the
+     * labels occurring in the attribute.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type, then if they're in
+     * {@link #allowedRuleClassesForLabelsWarning}, the build continues with a warning. Else if
+     * they fulfill {@link #getMandatoryNativeProvidersList()}, the build continues without error.
+     * Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabelsWarning} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(String... allowedRuleClasses) {
       return allowedRuleClasses(ImmutableSet.copyOf(allowedRuleClasses));
@@ -889,29 +908,39 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types with warning for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()), then a warning is produced during
-     * the analysis phase. Defaults to deny any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types with
+     * warning for the labels occurring in the attribute. This must be a disjoint set from
+     * {@link #allowedRuleClasses}.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type (other than this or those set in
+     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * continues without error. Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Collection<String> allowedRuleClasses) {
       return allowedRuleClassesWithWarning(
-          new RuleClass.Builder.RuleClassNamePredicate(allowedRuleClasses));
+          new RuleClassNamePredicate(allowedRuleClasses));
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()), then a warning is produced during
-     * the analysis phase. Defaults to deny any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types with
+     * warning for the labels occurring in the attribute. This must be a disjoint set from
+     * {@link #allowedRuleClasses}.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type (other than this or those set in
+     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * continues without error. Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Predicate<RuleClass> allowedRuleClasses) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
@@ -922,14 +951,19 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * rule types for the labels occurring in the attribute. If the attribute
-     * contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()), then a warning is produced during
-     * the analysis phase. Defaults to deny any types.
+     * If this is a label or label-list attribute, then this sets the allowed rule types with
+     * warning for the labels occurring in the attribute. This must be a disjoint set from
+     * {@link #allowedRuleClasses}.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>If the attribute contains Labels of any other rule type (other than this or those set in
+     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
+     * continues without error. Else the build fails during analysis.
+     *
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
+     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     *
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
+     * works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(String... allowedRuleClasses) {
       return allowedRuleClassesWithWarning(ImmutableSet.copyOf(allowedRuleClasses));
@@ -1123,6 +1157,16 @@ public final class Attribute implements Comparable<Attribute> {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
       }
+
+      if (allowedRuleClassesForLabels instanceof RuleClassNamePredicate
+          && allowedRuleClassesForLabelsWarning instanceof RuleClassNamePredicate) {
+        Preconditions.checkState(
+            !((RuleClassNamePredicate) allowedRuleClassesForLabels)
+                .intersects((RuleClassNamePredicate) allowedRuleClassesForLabelsWarning),
+            "allowedRuleClasses and allowedRuleClassesWithWarning may not contain "
+                + "the same rule classes");
+      }
+
       return new Attribute(
           name,
           type,

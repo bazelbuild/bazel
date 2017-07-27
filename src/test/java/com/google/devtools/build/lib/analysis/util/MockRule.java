@@ -102,6 +102,11 @@ public interface MockRule extends RuleDefinition {
   }
 
   /**
+   * Default <code>"deps"</code> attribute for rule classes that don't need special behavior.
+   */
+  Attribute.Builder<?> DEPS_ATTRIBUTE = attr("deps", BuildType.LABEL_LIST).allowedFileTypes();
+
+  /**
    * Builds out this rule with default attributes Blaze expects of all rules plus the custom
    * attributes defined by this implementation's {@link State}.
    *
@@ -110,7 +115,6 @@ public interface MockRule extends RuleDefinition {
   @Override
   default RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     builder
-        .add(attr("deps", BuildType.LABEL_LIST).allowedFileTypes())
         .add(attr("testonly", BOOLEAN).nonconfigurable("test").value(false))
         .add(attr("deprecation", STRING).nonconfigurable("test").value((String) null))
         .add(attr("tags", STRING_LIST))
