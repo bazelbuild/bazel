@@ -244,6 +244,32 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSkylarkApiProviderReexported() throws Exception {
+    scratch.file(
+        "java/test/extension.bzl",
+        "def impl(ctx):",
+        "   dep_java = ctx.attr.dep.java",
+        "   return struct(java = dep_java)",
+        "my_rule = rule(impl, attrs = { ",
+        "  'dep' : attr.label(), ",
+        "})");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'jl', srcs = ['Jl.java'])",
+        "my_rule(name = 'my', dep = ':jl')");
+    // Now, get that information and ensure it is equal to what the jl java_library
+    // was presenting
+    ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
+    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
+
+    assertThat(myConfiguredTarget.get("java")).isSameAs(
+        javaLibraryTarget.get("java")
+    );
+  }
+
+
+  @Test
   public void javaProviderFieldsAreCorrectAfterCreatingProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
