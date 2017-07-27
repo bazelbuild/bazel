@@ -44,7 +44,7 @@ public final class ConverterTesterMap
     private final ImmutableMap.Builder<Class<? extends Converter<?>>, ConverterTester> delegate;
 
     public Builder() {
-      this.delegate = new ImmutableMap.Builder<>();
+      this.delegate = ImmutableMap.builder();
     }
 
     /**
@@ -71,9 +71,7 @@ public final class ConverterTesterMap
      * permitted; duplicates will cause {@link #build} to fail.
      */
     public Builder addAll(Iterable<ConverterTester> items) {
-      for (ConverterTester item : items) {
-        add(item);
-      }
+      items.forEach(this::add);
       return this;
     }
 

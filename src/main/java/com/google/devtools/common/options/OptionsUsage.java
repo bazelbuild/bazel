@@ -21,7 +21,6 @@ import com.google.common.escape.Escaper;
 import java.lang.reflect.Field;
 import java.text.BreakIterator;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -43,7 +42,7 @@ class OptionsUsage {
   static void getUsage(Class<? extends OptionsBase> optionsClass, StringBuilder usage) {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     List<Field> optionFields = new ArrayList<>(data.getFieldsForClass(optionsClass));
-    Collections.sort(optionFields, BY_NAME);
+    optionFields.sort(BY_NAME);
     for (Field optionField : optionFields) {
       getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG, null);
     }
@@ -119,7 +118,7 @@ class OptionsUsage {
     String flagName = getFlagName(optionField);
     String typeDescription = getTypeDescription(optionField);
     Option annotation = optionField.getAnnotation(Option.class);
-    usage.append("  --" + flagName);
+    usage.append("  --").append(flagName);
     if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) { // just the name
       usage.append('\n');
       return;
@@ -128,7 +127,7 @@ class OptionsUsage {
       usage.append(" [-").append(annotation.abbrev()).append(']');
     }
     if (!typeDescription.equals("")) {
-      usage.append(" (" + typeDescription + "; ");
+      usage.append(" (").append(typeDescription).append("; ");
       if (annotation.allowMultiple()) {
         usage.append("may be used multiple times");
       } else {
@@ -137,7 +136,7 @@ class OptionsUsage {
         if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
           usage.append("default: see description");
         } else {
-          usage.append("default: \"" + defaultValueString + "\"");
+          usage.append("default: \"").append(defaultValueString).append("\"");
         }
       }
       usage.append(")");

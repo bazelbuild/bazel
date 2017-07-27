@@ -38,7 +38,7 @@ public final class OptionsTester {
   }
 
   private static ImmutableList<Field> getAllFields(Class<? extends OptionsBase> optionsClass) {
-    ImmutableList.Builder<Field> builder = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Field> builder = ImmutableList.builder();
     Class<? extends OptionsBase> current = optionsClass;
     while (!OptionsBase.class.equals(current)) {
       builder.add(current.getDeclaredFields());
@@ -103,7 +103,7 @@ public final class OptionsTester {
    */
   public OptionsTester testAllDefaultValuesTestedBy(ConverterTesterMap testers) {
     ImmutableListMultimap.Builder<Class<? extends Converter<?>>, Field> converterClassesBuilder =
-        new ImmutableListMultimap.Builder<>();
+        ImmutableListMultimap.builder();
     for (Field field : getAllFields(optionsClass)) {
       Option option = field.getAnnotation(Option.class);
       if (option != null && !Converter.class.equals(option.converter())) {
