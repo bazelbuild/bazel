@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
@@ -30,6 +32,8 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
@@ -54,6 +58,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteSpawnRunner} */
@@ -168,6 +173,42 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
+    verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
+        any(FileOutErr.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void failedActionShouldNotBeUploaded() throws Exception {
+    // Test that the outputs of a failed locally executed action are not uploaded to a remote
+    // cache.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteUploadLocalResults = true;
+
+    RemoteSpawnRunner runner =
+        spy(new RemoteSpawnRunner(execRoot, options, localRunner, true, cache, null));
+
+    Spawn spawn = new SimpleSpawn(
+        new FakeOwner("foo", "bar"),
+        /*arguments=*/ ImmutableList.of(),
+        /*environment=*/ ImmutableMap.of(),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        ResourceSet.ZERO);
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    SpawnResult res = Mockito.mock(SpawnResult.class);
+    when(res.exitCode()).thenReturn(1);
+    when(res.status()).thenReturn(Status.EXECUTION_FAILED);
+    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
+
+    assertThat(runner.exec(spawn, policy)).isSameAs(res);
+
+    verify(localRunner).exec(eq(spawn), eq(policy));
+    verify(runner).execLocallyAndUpload(eq(spawn), eq(policy), any(SortedMap.class), eq(cache),
+        any(ActionKey.class));
     verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
         any(FileOutErr.class));
   }
