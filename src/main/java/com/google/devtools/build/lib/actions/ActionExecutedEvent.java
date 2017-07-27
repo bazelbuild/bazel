@@ -113,7 +113,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration {
           .build());
     }
     if (stderr != null) {
-      actionBuilder.setStdout(
+      actionBuilder.setStderr(
           BuildEventStreamProtos.File.newBuilder()
           .setName("stderr")
           .setUri(pathConverter.apply(stderr))
