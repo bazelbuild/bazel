@@ -8,6 +8,13 @@ exports_files(
     ],
 )
 
+exports_files(
+    [
+        "images/favicon.ico",
+    ],
+    visibility = ["//src/main/native/windows:__pkg__"],
+)
+
 DOT_GRAPH_HTML_FILES = [
     "docs/query.html",
     "docs/build-ref.html",

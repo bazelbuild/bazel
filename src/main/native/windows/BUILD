@@ -48,3 +48,21 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
     ],
 )
+
+genrule(
+    name = "resources",
+    srcs = ["//site:images/favicon.ico"],
+    outs = ["resources.o"],
+    cmd = " ".join([
+        "$(location compile-resources.sh)",
+        "$(location //site:images/favicon.ico)",
+        "$@",
+        "$(location gen_vsenv_stub.sh)",
+    ]),
+    output_to_bindir = 1,
+    tools = [
+        "compile-resources.sh",
+        "gen_vsenv_stub.sh",
+    ],
+    visibility = ["//src/main/cpp:__pkg__"],
+)
