@@ -345,6 +345,7 @@ function run_bazel_jar() {
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
+      --build_python_zip \
       "${client_env[@]}" \
       --client_cwd="$(get_cwd)" \
       "${@}"

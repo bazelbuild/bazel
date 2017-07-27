@@ -1,5 +1,7 @@
 # Packaging
 
+load(":embedded_tools.bzl", "srcsfile")
+
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
@@ -29,7 +31,7 @@ filegroup(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-    ] + embedded_tools,
+    ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
         ":darwin": md5_cmd % "/sbin/md5",
@@ -37,7 +39,7 @@ filegroup(
         ":freebsd": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
     }),
-) for suffix, embedded_tools in {
+) for suffix, embedded_tools_target in {
     "": [":embedded_tools"],
     "_with_jdk": [":embedded_tools_with_jdk"],
     "_notools": [],
@@ -120,11 +122,17 @@ filegroup(
     ],
 )
 
-[genrule(
-    name = "embedded_tools" + suffix,
+py_binary(
+    name = "create_embedded_tools",
+    srcs = ["create_embedded_tools.py"],
+)
+
+# TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
+# in Skylark rules on Windows has been released.
+[filegroup(
+    name = "embedded_tools" + suffix + "_srcs",
     srcs = [
         "BUILD.tools",
-        ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
         "//third_party/java/j2objc:embedded_tools_srcs",
@@ -209,12 +217,41 @@ filegroup(
             "@openjdk_linux//file",
         ],
     }) if (suffix == "_with_jdk") else []),
-    outs = ["embedded_tools" + suffix + ".zip"],
-    cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
 ) for suffix in [
     "",
     "_with_jdk",
 ]]
+
+[srcsfile(
+    name = "embedded_tools" + suffix + "_params",
+    srcs = [":embedded_tools" + suffix + "_srcs"],
+    out = "embedded_tools" + suffix + ".params",
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
+
+genrule(
+    name = "embedded_tools",
+    srcs = [
+        ":embedded_tools_params",
+        ":embedded_tools_srcs",
+    ],
+    outs = ["embedded_tools.zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_params)",
+    tools = [":create_embedded_tools"],
+)
+
+genrule(
+    name = "embedded_tools_with_jdk",
+    srcs = [
+        ":embedded_tools_with_jdk_params",
+        ":embedded_tools_with_jdk_srcs",
+    ],
+    outs = ["embedded_tools_with_jdk.zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_with_jdk_params)",
+    tools = [":create_embedded_tools"],
+)
 
 [genrule(
     name = "package-zip" + suffix,
