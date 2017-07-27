@@ -56,6 +56,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
         env.getExecRoot(),
         remoteOptions,
         createFallbackRunner(env),
+        executionOptions.verboseFailures,
         cache,
         executor);
     RemoteSpawnStrategy spawnStrategy =

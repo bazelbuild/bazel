@@ -24,7 +24,7 @@ public final class RetryException extends IOException {
   private final int attempts;
 
   RetryException(Throwable cause, int retryAttempts) {
-    super(cause);
+    super(String.format("after %d attempts: %s", retryAttempts + 1, cause), cause);
     this.attempts = retryAttempts + 1;
   }
 
@@ -39,10 +39,5 @@ public final class RetryException extends IOException {
       return ((StatusException) getCause()).getStatus().getCode() == code;
     }
     return false;
-  }
-
-  @Override
-  public String toString() {
-    return String.format("after %d attempts: %s", attempts, getCause());
   }
 }

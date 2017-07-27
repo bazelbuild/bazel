@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -39,6 +40,7 @@ import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.Duration;
+import io.grpc.Status.Code;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +60,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
   private final SpawnRunner fallbackRunner;
+  private final boolean verboseFailures;
 
   @Nullable private final RemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
@@ -66,6 +69,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       Path execRoot,
       RemoteOptions options,
       SpawnRunner fallbackRunner,
+      boolean verboseFailures,
       @Nullable RemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor) {
     this.execRoot = execRoot;
@@ -74,6 +78,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
     this.fallbackRunner = fallbackRunner;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
+    this.verboseFailures = verboseFailures;
   }
 
   @Override
@@ -149,21 +154,20 @@ final class RemoteSpawnRunner implements SpawnRunner {
         return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
       }
 
-      io.grpc.Status grpcStatus = io.grpc.Status.fromThrowable(e);
-      final String message;
-      if (io.grpc.Status.UNAVAILABLE.getCode().equals(grpcStatus.getCode())) {
-        message = "The remote executor/cache is unavailable: " + grpcStatus.getDescription();
+      String message = "";
+      if (e instanceof RetryException
+          && ((RetryException) e).causedByStatusCode(Code.UNAVAILABLE)) {
+        message = "The remote executor/cache is unavailable";
+      } else if (e instanceof CacheNotFoundException) {
+        message = "Failed to download from remote cache";
       } else {
-        message = "I/O Error in remote cache/executor: " + e.getMessage();
+        message = "Error in remote cache/executor";
       }
-      throw new EnvironmentalExecException(message, true);
-    } catch (CacheNotFoundException e) {
-      if (options.remoteLocalFallback) {
-        return execLocally(spawn, policy, inputMap, remoteCache, actionKey);
+      // TODO(olaola): reuse the ErrorMessage class for these errors.
+      if (verboseFailures) {
+        message += "\n" + Throwables.getStackTraceAsString(e);
       }
-
-      String message = "Failed to download from remote cache: " + e.getMessage();
-      throw new EnvironmentalExecException(message, true);
+      throw new EnvironmentalExecException(message, e, true);
     }
   }
 

@@ -55,10 +55,12 @@ interface RemoteActionCache {
   /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
+   *
+   * @throws CacheNotFoundException in case of a cache miss.
    */
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   void download(ActionResult result, Path execRoot, FileOutErr outErr)
-      throws IOException, InterruptedException, CacheNotFoundException;
+      throws IOException, InterruptedException;
   /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
    * Returns {@code null} if there is no such entry. Note that a successful result from this method

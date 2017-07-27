@@ -54,7 +54,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-
 import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteSpawnRunner} */
@@ -105,7 +104,7 @@ public class RemoteSpawnRunnerTest {
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, cache, executor);
+        new RemoteSpawnRunner(execRoot, options, localRunner, true, cache, executor);
 
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
@@ -147,7 +146,7 @@ public class RemoteSpawnRunnerTest {
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, cache, null);
+        new RemoteSpawnRunner(execRoot, options, localRunner, true, cache, null);
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);

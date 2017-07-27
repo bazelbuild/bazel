@@ -19,6 +19,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.ReadRequest;
+import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -217,7 +220,7 @@ public class GrpcRemoteExecutionClientTest {
         ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
         new GrpcRemoteCache(channel, defaultOpts, options, retrier);
-    client = new RemoteSpawnRunner(execRoot, options, null, remoteCache, executor);
+    client = new RemoteSpawnRunner(execRoot, options, null, true, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
@@ -608,5 +611,113 @@ public class GrpcRemoteExecutionClientTest {
     Mockito.verify(mockWatcherImpl, Mockito.times(3))
         .watch(
             Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
+  }
+
+  @Test
+  public void passUnavailableErrorWithStackTrace() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+          }
+        });
+
+    try {
+      client.exec(simpleSpawn, simplePolicy);
+      fail("Expected an exception");
+    } catch (EnvironmentalExecException expected) {
+      assertThat(expected).hasMessageThat().contains("The remote executor/cache is unavailable");
+      // Ensure we also got back the stack trace.
+      assertThat(expected).hasMessageThat()
+          .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
+      Throwable t = expected.getCause();
+      assertThat(t).isInstanceOf(RetryException.class);
+    }
+  }
+
+  @Test
+  public void passInternalErrorWithStackTrace() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.INTERNAL.withDescription("whoa").asRuntimeException());
+          }
+        });
+
+    try {
+      client.exec(simpleSpawn, simplePolicy);
+      fail("Expected an exception");
+    } catch (EnvironmentalExecException expected) {
+      assertThat(expected).hasMessageThat().contains("Error in remote cache/executor");
+      assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
+      // Ensure we also got back the stack trace.
+      assertThat(expected).hasMessageThat()
+          .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
+      Throwable t = expected.getCause();
+      assertThat(t).isInstanceOf(RetryException.class);
+    }
+  }
+
+  @Test
+  public void passCacheMissErrorWithStackTrace() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+    Digest stdOutDigest = Digests.computeDigestUtf8("bla");
+    final ActionResult actionResult =
+        ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(stdOutDigest.getHash())).isTrue();
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+
+    try {
+      client.exec(simpleSpawn, simplePolicy);
+      fail("Expected an exception");
+    } catch (EnvironmentalExecException expected) {
+      assertThat(expected).hasMessageThat().contains("Failed to download from remote cache");
+      // Ensure we also got back the stack trace.
+      assertThat(expected).hasMessageThat()
+          .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
+      Throwable t = expected.getCause();
+      assertThat(t).isInstanceOf(CacheNotFoundException.class);
+      assertThat(((CacheNotFoundException) t).getMissingDigest()).isEqualTo(stdOutDigest);
+    }
   }
 }

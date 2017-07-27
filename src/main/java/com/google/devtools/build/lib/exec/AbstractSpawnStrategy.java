@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.base.Throwables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
@@ -144,15 +142,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     try {
       result = spawnRunner.exec(spawn, policy);
     } catch (IOException e) {
-      if (verboseFailures) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                    spawn.getMnemonic()
-                        + " remote work failed:\n"
-                        + Throwables.getStackTraceAsString(e)));
-      }
       throw new EnvironmentalExecException("Unexpected IO error.", e);
     }
 
