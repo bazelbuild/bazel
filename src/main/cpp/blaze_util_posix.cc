@@ -15,7 +15,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <limits.h>  // PATH_MAX
 #include <poll.h>
 #include <pwd.h>
@@ -32,6 +31,7 @@
 #include <unistd.h>
 
 #include <cassert>
+#include <cinttypes>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"

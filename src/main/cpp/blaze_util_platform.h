@@ -15,8 +15,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
-#include <stdint.h>
-
+#include <cinttypes>
 #include <string>
 #include <vector>
 

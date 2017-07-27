@@ -15,8 +15,9 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 
-#include <stdint.h>
 #include <stdio.h>
+
+#include <cinttypes>
 #include <memory>
 #include <string>
 #include <unordered_map>
