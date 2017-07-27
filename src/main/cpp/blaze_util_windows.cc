@@ -1166,6 +1166,25 @@ void SetEnv(const string& name, const string& value) {
 
 void UnsetEnv(const string& name) { SetEnv(name, ""); }
 
+bool WarnIfStartedFromDesktop() {
+  // GetConsoleProcessList returns:
+  //   0, if no console attached (Bazel runs as a subprocess)
+  //   1, if Bazel was started by clicking on its icon
+  //   2, if Bazel was started from the command line (even if its output is
+  //      redirected)
+  DWORD dummy[2] = {0};
+  if (GetConsoleProcessList(dummy, 2) != 1) {
+    return false;
+  }
+  printf(
+      "Bazel is a command line tool.\n\n"
+      "Try opening a console, such as the Windows Command Prompt (cmd.exe) "
+      "or PowerShell, and running \"bazel help\".\n\n"
+      "Press Enter to close this window...");
+  ReadFile(GetStdHandle(STD_INPUT_HANDLE), dummy, 1, dummy, NULL);
+  return true;
+}
+
 #ifndef ENABLE_PROCESSED_OUTPUT
 // From MSDN about BOOL SetConsoleMode(HANDLE, DWORD).
 #define ENABLE_PROCESSED_OUTPUT 0x0001

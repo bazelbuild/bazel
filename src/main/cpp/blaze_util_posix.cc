@@ -512,6 +512,8 @@ void UnsetEnv(const string& name) {
   unsetenv(name.c_str());
 }
 
+bool WarnIfStartedFromDesktop() { return false; }
+
 void SetupStdStreams() {
   // Set non-buffered output mode for stderr/stdout. The server already
   // line-buffers messages where it makes sense, so there's no need to do set
