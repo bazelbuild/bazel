@@ -1,0 +1,13 @@
+[
+    {
+        "node": "docker",
+        "variation": "",
+        "parameters": {
+            "targets": [],
+            "tests": [
+                "//tools/cpp/...",
+                "filter(\"^//src/test/docker\", //src/test/...)"
+            ]
+        }
+    }
+]
