@@ -279,17 +279,6 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean skipStaticOutputs;
 
-  // TODO(djasper): Remove once it has been removed from the global blazerc.
-  @Option(
-    name = "send_transitive_header_module_srcs",
-    defaultValue = "true",
-    category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Obsolete. Don't use."
-  )
-  public boolean sendTransitiveHeaderModuleSrcs;
-
   @Option(
     name = "process_headers_in_dependencies",
     defaultValue = "false",
