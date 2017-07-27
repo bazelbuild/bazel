@@ -70,7 +70,12 @@ public class DataValueFileWithIds {
       }
       eventReader.close();
     } catch (XMLStreamException e) {
-      throw new XMLStreamException(source + ": " + e.getMessage(), e.getLocation(), e);
+      if (e.getLocation() != null) {
+        throw new XMLStreamException(source + ": " + e.getMessage(), e.getLocation(), e);
+      } else {
+        throw new XMLStreamException(source + ": " + e.getMessage(), e);
+      }
+
     } catch (RuntimeException e) {
       throw new RuntimeException("Error parsing " + source, e);
     }
