@@ -94,7 +94,7 @@ bundled OpenJDK and other open-source components can be displayed by running
 the command `bazel license`. The vendor and version information of the bundled
 OpenJDK can be displayed by running the command `bazel info java-runtime`.
 The binaries and source-code of the bundled OpenJDK can be
-[downloaded from our mirror server](https://bazel-mirror.storage.googleapis.com/openjdk/index.html).
+[downloaded from our mirror server](https://mirror.bazel.build/openjdk/index.html).
 
 _Security_: All our binaries are signed with our
 [public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
