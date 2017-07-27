@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:private"])
 
+exports_files(
+    ["resources.o"],
+    visibility = ["//src/main/cpp:__pkg__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -47,22 +52,4 @@ genrule(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
         "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
     ],
-)
-
-genrule(
-    name = "resources",
-    srcs = ["//site:images/favicon.ico"],
-    outs = ["resources.o"],
-    cmd = " ".join([
-        "$(location compile-resources.sh)",
-        "$(location //site:images/favicon.ico)",
-        "$@",
-        "$(location gen_vsenv_stub.sh)",
-    ]),
-    output_to_bindir = 1,
-    tools = [
-        "compile-resources.sh",
-        "gen_vsenv_stub.sh",
-    ],
-    visibility = ["//src/main/cpp:__pkg__"],
 )
