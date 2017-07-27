@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
@@ -26,12 +25,11 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject {
 
   private static final String SKYLARK_NAME = "DeviceScriptFixtureInfo";
   public static final NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>
-      ANDROID_DEVICE_SCRIPT_FIXTURE_INFO =
+      SKYLARK_CONSTRUCTOR =
           new NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>(
               AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
 
@@ -42,7 +40,7 @@ public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject
 
   public AndroidDeviceScriptFixtureInfoProvider(
       Artifact fixtureScript, NestedSet<Artifact> supportApks, boolean daemon, boolean strictExit) {
-    super(ANDROID_DEVICE_SCRIPT_FIXTURE_INFO, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.fixtureScript = fixtureScript;
     this.supportApks = supportApks;
     this.daemon = daemon;

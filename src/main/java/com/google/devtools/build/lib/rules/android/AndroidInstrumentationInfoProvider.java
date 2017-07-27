@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
@@ -25,8 +24,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
  * AndroidInstrumentationTest}.
  */
 @Immutable
-public class AndroidInstrumentationInfoProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class AndroidInstrumentationInfoProvider extends SkylarkClassObject {
 
   private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
   static final NativeClassObjectConstructor<AndroidInstrumentationInfoProvider>

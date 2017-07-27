@@ -29,13 +29,11 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -100,15 +98,12 @@ public final class ConfiguredAspect {
   }
 
   public SkylarkClassObject get(ClassObjectConstructor.Key key) {
-    if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
-      return getProvider(OutputGroupProvider.class);
-    }
     return providers.getProvider(key);
   }
 
   public Object get(String legacyKey) {
     if (OutputGroupProvider.SKYLARK_NAME.equals(legacyKey)) {
-      return getProvider(OutputGroupProvider.class);
+      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey());
     }
     return providers.getProvider(legacyKey);
   }
@@ -133,10 +128,6 @@ public final class ConfiguredAspect {
     private final TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
-    private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
-        ImmutableMap.builder();
-    private final LinkedHashMap<Key, SkylarkClassObject>
-        skylarkDeclaredProvidersBuilder = new LinkedHashMap<>();
     private final RuleContext ruleContext;
     private final AspectDescriptor descriptor;
 
@@ -221,23 +212,18 @@ public final class ConfiguredAspect {
         throw new EvalException(
             constructor.getLocation(), "All providers must be top level values");
       }
-      ClassObjectConstructor.Key key = constructor.getKey();
-      addDeclaredProvider(key, declaredProvider);
+      addDeclaredProvider(declaredProvider);
       return this;
     }
 
-    private void addDeclaredProvider(Key key, SkylarkClassObject declaredProvider) {
-      if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
-        addProvider(OutputGroupProvider.class, (OutputGroupProvider) declaredProvider);
-      } else {
-        providers.put(declaredProvider);
-      }
+    private void addDeclaredProvider(SkylarkClassObject declaredProvider) {
+      providers.put(declaredProvider);
     }
 
     public Builder addNativeDeclaredProvider(SkylarkClassObject declaredProvider) {
       ClassObjectConstructor constructor = declaredProvider.getConstructor();
       Preconditions.checkState(constructor.isExported());
-      addDeclaredProvider(constructor.getKey(), declaredProvider);
+      addDeclaredProvider(declaredProvider);
       return this;
     }
 
@@ -253,8 +239,7 @@ public final class ConfiguredAspect {
           throw new IllegalStateException(
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            new OutputGroupProvider(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupProvider(outputGroups.build()));
       }
 
       addProvider(

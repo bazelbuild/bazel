@@ -100,7 +100,6 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(sourceJarsProvider)
         .addProvider(javaRunfilesProvider)
         .addProvider(JavaRuleOutputJarsProvider.EMPTY)
-        .addProvider(javaProvider)
         .addNativeDeclaredProvider(javaProvider)
         .build();
   }

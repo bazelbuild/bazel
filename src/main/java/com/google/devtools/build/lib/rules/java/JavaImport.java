@@ -166,7 +166,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaProvider)
-        .addProvider(JavaProvider.class, javaProvider)
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(
             JavaRuntimeJarProvider.class,

@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-public final class JavaProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class JavaProvider extends SkylarkClassObject {
 
   public static final NativeClassObjectConstructor<JavaProvider> JAVA_PROVIDER =
       new NativeClassObjectConstructor<JavaProvider>(JavaProvider.class, "java_common.provider") {};

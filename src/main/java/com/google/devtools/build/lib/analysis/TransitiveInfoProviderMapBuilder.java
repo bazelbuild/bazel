@@ -48,6 +48,10 @@ public class TransitiveInfoProviderMapBuilder {
       Class<? extends T> providerClass, T provider) {
     Preconditions.checkNotNull(providerClass);
     Preconditions.checkNotNull(provider);
+    Preconditions.checkState(!(provider instanceof SkylarkClassObject),
+        "Expose %s as native declared provider",
+        providerClass);
+
     // TODO(arielb): throw an exception if the providerClass is already present?
     // This is enforced by aspects but RuleConfiguredTarget presents violations
     // particularly around LicensesProvider
@@ -57,6 +61,10 @@ public class TransitiveInfoProviderMapBuilder {
 
   public TransitiveInfoProviderMapBuilder put(SkylarkClassObject classObject) {
     Preconditions.checkNotNull(classObject);
+    Preconditions.checkState(!(classObject instanceof TransitiveInfoProvider),
+        "Declared provider %s should not implement TransitiveInfoProvider",
+        classObject.getClass());
+
     providers.put(classObject.getConstructor().getKey(), classObject);
     return this;
   }

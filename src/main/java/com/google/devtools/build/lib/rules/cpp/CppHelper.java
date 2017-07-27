@@ -313,11 +313,11 @@ public class CppHelper {
   public static CcToolchainProvider getToolchain(RuleContext ruleContext,
       TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
-    if ((dep == null) || (dep.getProvider(CcToolchainProvider.class) == null)) {
+    if ((dep == null) || (dep.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
       return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
     }
-    return dep.getProvider(CcToolchainProvider.class);
+    return dep.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
   }
 
   /**

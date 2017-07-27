@@ -110,7 +110,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(javaRunfilesProvider)
         .addProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addProvider(JavaRuleOutputJarsProvider.EMPTY)
-        .addProvider(javaProvider)
         .addNativeDeclaredProvider(javaProvider)
         .build();
   }

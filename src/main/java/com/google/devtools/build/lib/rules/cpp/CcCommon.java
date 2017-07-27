@@ -684,7 +684,7 @@ public final class CcCommon {
    * toolchain.
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
-    CcToolchainProvider toolchainProvider = toolchain.getProvider(CcToolchainProvider.class);
+    CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, toolchainProvider);
     if (!featureConfiguration.actionIsConfigured(

@@ -128,7 +128,7 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups.build());
-      addProvider(OutputGroupProvider.class, outputGroupProvider);
+      addNativeDeclaredProvider(outputGroupProvider);
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
