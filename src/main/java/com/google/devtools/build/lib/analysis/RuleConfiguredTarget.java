@@ -63,7 +63,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
     // Initialize every SkylarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
-      Object providerKeyAt = providers.getProviderKeyAt(i);
       Object obj = providers.getProviderInstanceAt(i);
       if (obj instanceof SkylarkApiProvider) {
         ((SkylarkApiProvider) obj).init(this);
