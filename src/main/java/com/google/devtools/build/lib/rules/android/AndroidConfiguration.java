@@ -29,10 +29,13 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
@@ -946,5 +949,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
 
     return configurationDistinguisher.suffix + "_" + resourceFilterSuffix;
+  }
+
+  @Nullable
+  @Override
+  public PatchTransition topLevelConfigurationHook(Target toTarget) {
+    return resourceFilter.getTopLevelPatchTransition(
+        toTarget.getAssociatedRule().getRuleClass(),
+        AggregatingAttributeMapper.of(toTarget.getAssociatedRule()));
   }
 }

@@ -244,6 +244,7 @@ public class ResourceFilter {
 
     return filterBuilder.build();
   }
+
   private FolderConfiguration getFolderConfiguration(
       RuleErrorConsumer ruleErrorConsumer, String filter) {
 
@@ -320,30 +321,30 @@ public class ResourceFilter {
   }
 
   /** List of deprecated qualifiers that should currently by handled with a warning */
-  private final List<DeprecatedQualifierHandler> deprecatedQualifierHandlers = ImmutableList.of(
-      /*
-       * Aapt used to expect locale configurations of form 'en_US'. It now also supports the correct
-       * 'en-rUS' format. For backwards comparability, use a regex to convert filters with locales
-       * in the old format to filters with locales of the correct format.
-       *
-       * The correct format for locales is defined at
-       * https://developer.android.com/guide/topics/resources/providing-resources.html#LocaleQualifier
-       *
-       * TODO(bazel-team): Migrate consumers away from the old Aapt locale format, then remove this
-       * replacement.
-       *
-       * The regex is a bit complicated to avoid modifying potential new qualifiers that contain
-       * underscores. Specifically, it searches for the entire beginning of the resource qualifier,
-       * including (optionally) MCC and MNC, and then the locale itself.
-       */
-      new DeprecatedQualifierHandler(
-          "^((mcc[0-9]{3}-(mnc[0-9]{3}-)?)?[a-z]{2})_([A-Z]{2}).*",
-          "$1-r$4", "locale qualifiers with regions"),
-      new DeprecatedQualifierHandler(
-          "sr[_\\-]r?Latn.*", "b+sr+Latn", "Serbian in Latin characters"),
-      new DeprecatedQualifierHandler(
-          "es[_\\-]419.*", "b+es+419", "Spanish for Latin America and the Caribbean")
-  );
+  private final List<DeprecatedQualifierHandler> deprecatedQualifierHandlers =
+      ImmutableList.of(
+          /*
+           * Aapt used to expect locale configurations of form 'en_US'. It now also supports the
+           * correct 'en-rUS' format. For backwards comparability, use a regex to convert filters
+           * with locales in the old format to filters with locales of the correct format.
+           *
+           * The correct format for locales is defined at
+           * https://developer.android.com/guide/topics/resources/providing-resources.html#LocaleQualifier
+           *
+           * TODO(bazel-team): Migrate consumers away from the old Aapt locale format, then remove
+           * this replacement.
+           *
+           * The regex is a bit complicated to avoid modifying potential new qualifiers that contain
+           * underscores. Specifically, it searches for the entire beginning of the resource
+           * qualifier, including (optionally) MCC and MNC, and then the locale itself.
+           */
+          new DeprecatedQualifierHandler(
+              "^((mcc[0-9]{3}-(mnc[0-9]{3}-)?)?[a-z]{2})_([A-Z]{2}).*",
+              "$1-r$4", "locale qualifiers with regions"),
+          new DeprecatedQualifierHandler(
+              "sr[_\\-]r?Latn.*", "b+sr+Latn", "Serbian in Latin characters"),
+          new DeprecatedQualifierHandler(
+              "es[_\\-]419.*", "b+es+419", "Spanish for Latin America and the Caribbean"));
 
   private ImmutableList<Density> getDensities(RuleErrorConsumer ruleErrorConsumer) {
     ImmutableList.Builder<Density> densityBuilder = ImmutableList.builder();
@@ -762,24 +763,19 @@ public class ResourceFilter {
   // Transitions for dealing with dynamically configured resource filtering:
 
   @Nullable
-  PatchTransition getTopLevelPatchTransition(
-      String ruleClass, int topLevelTargetCount, AttributeMap attrs) {
+  PatchTransition getTopLevelPatchTransition(String ruleClass, AttributeMap attrs) {
     if (!usesDynamicConfiguration()) {
       // We're not using dynamic configuration, so we don't need to make a transition
       return null;
     }
 
-    if (topLevelTargetCount != 1 || !ruleClass.equals("android_binary")) {
-      // The presence of other top-level targets means we would potentially encounter multiple
-      // resource filtering settings, which, when combined with dynamic configuration, would
-      // probably split the build graph and slow everything down. For now, just use static resource
-      // filtering instead.
-      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
-    }
-
-    if (!ResourceFilter.hasFilters(attrs)) {
+    if (!ruleClass.equals("android_binary") || !ResourceFilter.hasFilters(attrs)) {
       // This target doesn't specify any filtering settings, so dynamically configured resource
       // filtering would be a waste of time.
+      // If the target's dependencies include android_binary targets, those dependencies might
+      // specify filtering settings, but we don't apply them dynamically since the chances of
+      // encountering differing settings (leading to splitting the build graph and poor overall
+      // performance) are high.
       return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
     }
 

@@ -569,8 +569,7 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.of("en"),
                 ImmutableList.of("hdpi"),
                 FilterBehavior.FILTER_IN_EXECUTION,
-                true,
-                1))
+                true))
         .isNull();
   }
 
@@ -581,21 +580,8 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.of("en"),
                 ImmutableList.of("hdpi"),
                 FilterBehavior.FILTER_IN_ANALYSIS,
-                true,
-                1))
+                true))
         .isNull();
-  }
-
-  @Test
-  public void testGetTopLevelTransitionMultipleTargets() throws Exception {
-    assertThat(
-            getTopLevelTransition(
-                ImmutableList.of("en"),
-                ImmutableList.of("hdpi"),
-                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-                true,
-                2))
-        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
   }
 
   @Test
@@ -605,8 +591,7 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.of("en"),
                 ImmutableList.of("hdpi"),
                 FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-                false,
-                1))
+                false))
         .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
   }
 
@@ -617,8 +602,7 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.<String>of(),
                 ImmutableList.<String>of(),
                 FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-                true,
-                1))
+                true))
         .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
   }
 
@@ -631,8 +615,7 @@ public class ResourceFilterTest extends ResourceTestBase {
             resourceConfigurationFilters,
             densities,
             FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-            true,
-            1);
+            true);
 
     assertThat(transition).isInstanceOf(AddDynamicallyConfiguredResourceFilteringTransition.class);
 
@@ -655,13 +638,11 @@ public class ResourceFilterTest extends ResourceTestBase {
       ImmutableList<String> resourceConfigurationFilters,
       ImmutableList<String> densities,
       FilterBehavior behavior,
-      boolean isBinary,
-      int topLevelTargetCount)
+      boolean isBinary)
       throws Exception {
     AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
     return makeResourceFilter("", "", behavior)
-        .getTopLevelPatchTransition(
-            isBinary ? "android_binary" : "android_library", topLevelTargetCount, attrs);
+        .getTopLevelPatchTransition(isBinary ? "android_binary" : "android_library", attrs);
   }
 
   @Test

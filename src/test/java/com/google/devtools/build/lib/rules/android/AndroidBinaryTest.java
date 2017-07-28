@@ -24,6 +24,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1513,6 +1514,10 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(resourceInputPaths(dir, directResources))
         .containsAllOf(matchingResource, unqualifiedResource);
+
+    String[] flagValues =
+        flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
+    assertThat(flagValues).asList().containsExactly("values-fr/foo.xml");
   }
 
   @Test
@@ -1593,6 +1598,65 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         resourceGeneratingAction(getResourceContainer(binary)).getArguments();
 
     assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
+  }
+
+  @Test
+  public void testFilteredTransitiveResourcesDynamicConfiguration() throws Exception {
+    String enResource = "res/values-en/foo.xml";
+    String unqualifiedResource = "res/values/foo.xml";
+    String frResource = "res/values-fr/foo.xml";
+
+    String dir = "java/r/android";
+    scratch.file(
+        dir + "/BUILD",
+        "android_library(name = 'lib',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = [",
+        "    '" + enResource + "',",
+        "    '" + frResource + "',",
+        "    '" + unqualifiedResource + "',",
+        "])",
+        "android_binary(name = 'en',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_configuration_filters = ['en'],",
+        "  deps = [':lib'])");
+
+    useConfiguration(
+        "--experimental_android_resource_filtering_method",
+        "filter_in_analysis_with_dynamic_configuration");
+
+    ConfiguredTarget binary =
+        Iterables.getOnlyElement(
+            update(
+                    ImmutableList.of("//" + dir + ":en"),
+                    /* keepGoing= */ false,
+                    /* loadingPhaseThreads= */ 1,
+                    /* doAnalysis= */ true,
+                    new EventBus())
+                .getTargetsToBuild());
+
+    // Assert the resources were still filtered in analysis in the binary.
+    String expectedQualifiedResource =
+        binary.getLabel().toString().endsWith("en") ? enResource : frResource;
+
+    assertThat(resourceContentsPaths(dir, getResourceContainer(binary, /* transitive=*/ true)))
+        .containsExactly(expectedQualifiedResource, unqualifiedResource);
+
+    ConfiguredTarget library = getDirectPrerequisite(binary, "//" + dir + ":lib");
+
+    // Assert the resources were filtered in the library.
+    // This is only possible if the filters are correctly being passed using dynamic
+    // configuration.
+    assertThat(resourceContentsPaths(dir, getResourceContainer(library)))
+        .containsExactly(expectedQualifiedResource, unqualifiedResource);
+
+    // assert the correct prefix is used for library outputs
+    assertThat(
+            library
+                .getConfiguration()
+                .getFragment(AndroidConfiguration.class)
+                .getOutputDirectoryName())
+        .contains("en_");
   }
 
   /**
