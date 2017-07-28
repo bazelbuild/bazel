@@ -263,7 +263,7 @@ public class SkylarkActionFactory implements SkylarkValue {
               type = Object.class,
               allowedTypes = {
                   @ParamType(type = Artifact.class),
-                  @ParamType(type = PathFragment.class),
+                  @ParamType(type = String.class),
               },
               named = true,
               positional = false,
@@ -371,12 +371,12 @@ public class SkylarkActionFactory implements SkylarkValue {
       } else {
         builder.setExecutable(provider);
       }
-    } else if (executableUnchecked instanceof PathFragment) {
-      builder.setExecutable((PathFragment) executableUnchecked);
+    } else if (executableUnchecked instanceof String) {
+      builder.setExecutable(PathFragment.create((String) executableUnchecked));
     } else {
       throw new EvalException(
           null,
-          "expected file or PathFragment for "
+          "expected file or string for "
               + "executable but got "
               + EvalUtils.getDataTypeName(executableUnchecked)
               + " instead");

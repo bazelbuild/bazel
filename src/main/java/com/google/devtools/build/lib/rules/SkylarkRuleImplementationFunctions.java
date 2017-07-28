@@ -106,7 +106,7 @@ public class SkylarkRuleImplementationFunctions {
         type = Object.class,
         allowedTypes = {
           @ParamType(type = Artifact.class),
-          @ParamType(type = PathFragment.class),
+          @ParamType(type = String.class),
           @ParamType(type = Runtime.NoneType.class),
         },
         defaultValue = "None",
