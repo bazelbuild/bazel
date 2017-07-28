@@ -89,7 +89,6 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         "toolchain/toolchain_def.bzl",
         "def _impl(ctx):",
         "  toolchain = platform_common.ToolchainInfo(",
-        "      type = Label('//toolchain:test_toolchain'),",
         "      data = ctx.attr.data)",
         "  return [toolchain]",
         "test_toolchain = rule(",

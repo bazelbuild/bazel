@@ -52,7 +52,6 @@ function write_test_toolchain() {
   cat >> toolchain/toolchain.bzl <<EOF
 def _test_toolchain_impl(ctx):
   toolchain = platform_common.ToolchainInfo(
-      type = Label('//toolchain:test_toolchain'),
       extra_label = ctx.attr.extra_label,
       extra_str = ctx.attr.extra_str)
   return [toolchain]
@@ -153,13 +152,12 @@ test_toolchain(
 )
 report_toolchain(
   name = 'report',
-  fields = ['type', 'extra_label', 'extra_str'],
+  fields = ['extra_label', 'extra_str'],
   toolchain = ':linux_toolchain',
 )
 EOF
 
   bazel build //:report &> $TEST_log || fail "Build failed"
-  expect_log 'type = "//toolchain:test_toolchain"'
   expect_log 'extra_label = "//:dep_rule"'
   expect_log 'extra_str = "bar"'
 }
