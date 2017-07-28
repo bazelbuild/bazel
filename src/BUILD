@@ -147,6 +147,7 @@ py_binary(
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
+        "//src/tools/launcher:srcs",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
@@ -179,12 +180,15 @@ py_binary(
         # is resolved, use cc implementation of singlejar on windows
         ":windows": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
         ],
         ":windows_msys": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
         ],
         ":windows_msvc": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
         ],
         ":arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",

@@ -21,3 +21,21 @@ config_setting(
     values = {"cpu": "x64_windows_msys"},
     visibility = ["//visibility:public"],
 )
+
+config_setting(
+    name = "host_windows",
+    values = {"host_cpu": "x64_windows"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "host_windows_msvc",
+    values = {"host_cpu": "x64_windows_msvc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "host_windows_msys",
+    values = {"host_cpu": "x64_windows_msys"},
+    visibility = ["//visibility:public"],
+)

@@ -227,8 +227,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         registeredSkylarkProviders = ImmutableBiMap.builder();
     private Map<String, String> platformRegexps = new TreeMap<>();
 
+    // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
+    private String nativeLauncherLabel;
+
     public Builder setProductName(String productName) {
       this.productName = productName;
+      return this;
+    }
+
+    public Builder setNativeLauncherLabel(String label) {
+      this.nativeLauncherLabel = label;
       return this;
     }
 
@@ -452,6 +460,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getToolsLabel(String labelValue) {
       return getLabel(toolsRepository + labelValue);
+    }
+
+    @Override
+    public Label getLauncherLabel() {
+      if (nativeLauncherLabel == null) {
+        return null;
+      }
+      return getToolsLabel(nativeLauncherLabel);
     }
 
     @Override

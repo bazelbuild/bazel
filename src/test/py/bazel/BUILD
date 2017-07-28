@@ -65,8 +65,8 @@ py_test(
 )
 
 py_test(
-    name = "launcher_script_test",
+    name = "launcher_test",
     size = "medium",
-    srcs = ["launcher_script_test.py"],
+    srcs = ["launcher_test.py"],
     deps = [":test_base"],
 )

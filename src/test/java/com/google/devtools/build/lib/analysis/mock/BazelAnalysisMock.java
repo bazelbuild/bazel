@@ -147,6 +147,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
         "cc_binary(name='zipper', srcs=['zip_main.cc'])");
+
+    config.create(
+        "/bazel_tools_workspace/tools/launcher/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
+
     ccSupport().setup(config);
   }
 

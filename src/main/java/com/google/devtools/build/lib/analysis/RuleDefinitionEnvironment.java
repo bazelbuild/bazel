@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
 
+import javax.annotation.Nullable;
+
 /**
  * Encapsulates the services available for implementors of the {@link RuleDefinition}
  * interface.
@@ -37,4 +39,14 @@ public interface RuleDefinitionEnvironment {
    * Returns the tools repository prefix.
    */
   String getToolsRepository();
+
+  /**
+   * Returns the label for Bazel binary launcher.
+   * In bazel, it should be //tools/launcher:launcher, otherwise it should be null.
+   *
+   * TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
+   * Related bug b/63658220
+   */
+  @Nullable
+  Label getLauncherLabel();
 }
