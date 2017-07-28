@@ -6,6 +6,8 @@ param(
   [string] $checksum = ""
 )
 
+$ErrorActionPreference = "Stop"
+
 write-host "mode: $mode"
 if ($mode -eq "release") {
   $tvVersion = $version
