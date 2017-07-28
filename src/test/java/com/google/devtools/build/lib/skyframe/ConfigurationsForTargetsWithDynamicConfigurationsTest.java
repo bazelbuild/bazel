@@ -26,7 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -428,21 +427,17 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
             return toOptions;
           };
 
-  private static final class RuleWithOutgoingTransition implements MockRule {
-    @Override
-    public State define() {
-      return MockRule.define("change_deps", MockRule.DEPS_ATTRIBUTE);
-    }
-
-    @Override
-    public void customize(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      builder.depsCfg(RULE_BASED_TEST_FILTER);
-    }
-  }
+  private static final RuleDefinition RULE_WITH_OUTGOING_TRANSITION = (MockRule) () ->
+      MockRule.define(
+          "change_deps",
+          (builder, env) ->
+            builder
+                .add(MockRule.DEPS_ATTRIBUTE)
+                .depsCfg(RULE_BASED_TEST_FILTER));
 
   @Test
   public void outgoingRuleTransition() throws Exception {
-    setRulesAvailableInTests(new RuleWithOutgoingTransition(),
+    setRulesAvailableInTests(RULE_WITH_OUTGOING_TRANSITION,
         (MockRule) () -> MockRule.define("foo_rule"),
         (MockRule) () -> MockRule.define("bar_rule"));
     scratch.file("outgoing/BUILD",

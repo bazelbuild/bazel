@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -31,62 +32,87 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Provides a simple API for creating custom rule classes for tests.
  *
- * <p>Usage:
+ * <p>Usage (for a custom rule type that just needs to exist):
  *
  * <pre>
  *   MockRule fooRule = () -> MockRule.define("foo_rule");
- *   MockRule ruleWithCustomAttr = () -> MockRule.define("attr_rule", attr("myattr", Type.STRING));
  * </pre>
  *
- * <p>If you need special behavior beyond custom attributes:
+ * <p>Usage (for custom attributes):
  *
  * <pre>
- *   class MyCustomRuleClass implements MockRule {
- *     &#064;Override
- *     public MockRule.State define() {
- *      return MockRule.define("my_custom_rule");
- *     }
- *
- *     &#064;Override
- *     public void customize(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
- *       builder.depsCfg(HostTransition.INSTANCE);
- *     }
- *  }
+ *   MockRule fooRule = () -> MockRule.define("foo_rule", attr("myattr", Type.STRING));
  * </pre>
+ *
+ * <p>Usage (for arbitrary customization):
+ *
+ * <pre>
+ *   MockRule fooRule = () -> MockRule.define(
+ *       "foo_rule",
+ *       (builder, env) ->
+ *           builder
+ *               .removeAttribute("tags")
+ *               .requiresConfigurationFragments(FooConfiguration.class);
+ *       );
+ * </pre>
+ *
  *
  * <p>We use lambdas for custom rule classes because {@link ConfiguredRuleClassProvider} indexes
  * rule class definitions by their Java class names. So each definition has to have its own
  * unique Java class.
+ *
+ * <p>Both of the following forms are valid:
+ *
+ * <pre>MockRule fooRule = () -> MockRule.define("foo_rule");</pre>
+ * <pre>RuleDefinition fooRule = (MockRule) () -> MockRule.define("foo_rule");</pre>
+ *
+ * <p>Use discretion in choosing your preferred form. The first is more compact. But the second
+ * makes it clearer that <code>fooRule</code> is a proper rule class definition.
  */
 public interface MockRule extends RuleDefinition {
   /**
-   * Container for the desired name and custom attributes for this rule class.
+   * Container for the desired name and custom settings for this rule class.
    */
   class State {
     private final String name;
-    private final List<Attribute.Builder<?>> attributes;
+    private final MockRuleCustomBehavior customBehavior;
 
-    State(String ruleClassName, Attribute.Builder<?>... attributes) {
-      this.name = ruleClassName;
-      this.attributes = Arrays.asList(attributes);
+    State(String ruleClassName, MockRuleCustomBehavior customBehavior) {
+      this.name = Preconditions.checkNotNull(ruleClassName);
+      this.customBehavior = Preconditions.checkNotNull(customBehavior);
     }
   }
 
   /**
-   * Returns a new {@link State} for this rule class. This is a convenience method for lambda
-   * definitions:
+   * Returns a new {@link State} for this rule class with custom attributes. This is a convenience
+   * method for lambda definitions:
    *
    * <pre>
    *   MockRule myRule = () -> MockRule.define("my_rule", attr("myattr", Type.STRING));
    * </pre>
    */
   static State define(String ruleClassName, Attribute.Builder<?>... attributes) {
-    return new State(ruleClassName, attributes);
+    return new State(
+        ruleClassName,
+        new MockRuleCustomBehavior.CustomAttributes(Arrays.asList(attributes)));
+  }
+
+  /**
+   * Returns a new {@link State} for this rule class with arbitrary custom behavior. This is a
+   * convenience method for lambda definitions:
+   *
+   * <pre>
+   *   MockRule myRule = () -> MockRule.define(
+   *       "my_rule",
+   *       (builder, env) -> builder.requiresConfigurationFragments(FooConfiguration.class));
+   * </pre>
+   */
+  static State define(String ruleClassName, MockRuleCustomBehavior customBehavior) {
+    return new State(ruleClassName, customBehavior);
   }
 
   /**
@@ -94,12 +120,6 @@ public interface MockRule extends RuleDefinition {
    * implementers must override.
    */
   State define();
-
-  /**
-   * Allows for custom builder configuration beyond setting attributes.
-   */
-  default void customize(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-  }
 
   /**
    * Default <code>"deps"</code> attribute for rule classes that don't need special behavior.
@@ -110,10 +130,12 @@ public interface MockRule extends RuleDefinition {
    * Builds out this rule with default attributes Blaze expects of all rules plus the custom
    * attributes defined by this implementation's {@link State}.
    *
-   * <p>Do not override this method. For extra custom behavior, override {@link #customize}.
+   * <p>Do not override this method. For extra custom behavior, use
+   * {@link #define(String, MockRuleCustomBehavior)}
    */
   @Override
   default RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    State state = define();
     builder
         .add(attr("testonly", BOOLEAN).nonconfigurable("test").value(false))
         .add(attr("deprecation", STRING).nonconfigurable("test").value((String) null))
@@ -121,13 +143,12 @@ public interface MockRule extends RuleDefinition {
         .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
             .nonconfigurable("test"))
         .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedFileTypes(FileTypeSet.NO_FILE))
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints())
         .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedFileTypes(FileTypeSet.NO_FILE));
-    for (Attribute.Builder<?> customAttribute : define().attributes) {
-      builder.add(customAttribute);
-    }
-    customize(builder, environment);
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints());
+    state.customBehavior.customize(builder, environment);
     return builder.build();
   }
 
