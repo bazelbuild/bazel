@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class ActionReuser {
 
@@ -57,12 +58,22 @@ public class ActionReuser {
       return false;
     }
 
-    JavaCompilationArgs transitiveJars =
+    boolean correctRollupTransitiveProtoRuntimes =
+        ruleContext
+            .getConfiguration()
+            .getFragment(ProtoConfiguration.class)
+            .correctRollupTransitiveProtoRuntimes();
+
+    JavaCompilationArgs.Builder transitiveJars =
         JavaCompilationArgs.builder()
             .addTransitiveArgs(javaApi.getTransitiveJavaCompilationArgsImmutable(), BOTH)
-            .addTransitiveDependencies(javaApi.getProtoRuntimeImmutable(), true /* recursive */)
-            .merge(directJars)
-            .build();
+            .merge(directJars);
+    if (correctRollupTransitiveProtoRuntimes) {
+      transitiveJars.addTransitiveArgs(javaApi.getTransitiveProtoRuntimeImmutable(), BOTH);
+    } else {
+      transitiveJars.addTransitiveDependencies(
+          javaApi.getProtoRuntimeImmutable(), true /* recursive */);
+    }
 
     Artifact outputJar = getOnlyElement(directJars.getRuntimeJars());
     Artifact compileTimeJar = getOnlyElement(directJars.getCompileTimeJars());
@@ -71,7 +82,7 @@ public class ActionReuser {
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
             JavaCompilationArgs.builder().merge(directJars).build(),
-            transitiveJars,
+            transitiveJars.build(),
             NestedSetBuilder.create(
                 Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
