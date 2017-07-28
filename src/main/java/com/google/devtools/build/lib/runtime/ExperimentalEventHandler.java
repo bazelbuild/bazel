@@ -91,7 +91,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private long mustRefreshAfterMillis;
   private boolean dateShown;
   private int numLinesProgressBar;
-  private boolean buildComplete;
+  private boolean buildRunning;
   // Number of open build even protocol transports.
   private boolean progressBarNeedsRefresh;
   private Thread updateThread;
@@ -258,7 +258,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private synchronized void maybeAddDate() {
-    if (!showTimestamp || dateShown || buildComplete) {
+    if (!showTimestamp || dateShown || !buildRunning) {
       return;
     }
     dateShown = true;
@@ -289,7 +289,7 @@ public class ExperimentalEventHandler implements EventHandler {
                 event.getKind() == EventKind.STDOUT
                     ? outErr.getOutputStream()
                     : outErr.getErrorStream();
-            if (buildComplete) {
+            if (!buildRunning) {
               stream.write(event.getMessageBytes());
               stream.flush();
             } else {
@@ -341,7 +341,7 @@ public class ExperimentalEventHandler implements EventHandler {
           case INFO:
           case SUBCOMMAND:
             boolean incompleteLine;
-            if (showProgress && !buildComplete) {
+            if (showProgress && buildRunning) {
               clearProgressBar();
             }
             incompleteLine = flushStdOutStdErrBuffers();
@@ -365,7 +365,7 @@ public class ExperimentalEventHandler implements EventHandler {
             if (incompleteLine) {
               crlf();
             }
-            if (showProgress && !buildComplete && cursorControl) {
+            if (showProgress && buildRunning && cursorControl) {
               addProgressBar();
             }
             terminal.flush();
@@ -411,6 +411,9 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
+    synchronized (this) {
+      buildRunning = true;
+    }
     maybeAddDate();
     stateTracker.buildStarted(event);
     // As a new phase started, inform immediately.
@@ -461,7 +464,7 @@ public class ExperimentalEventHandler implements EventHandler {
       // After a build has completed, only stop updating the UI if there is no more BEP
       // upload happening.
       if (stateTracker.pendingTransports() == 0) {
-        buildComplete = true;
+        buildRunning = false;
         done = true;
       }
     }
@@ -473,10 +476,10 @@ public class ExperimentalEventHandler implements EventHandler {
 
   private void completeBuild() {
     synchronized (this) {
-      if (buildComplete) {
+      if (!buildRunning) {
         return;
       }
-      buildComplete = true;
+      buildRunning = false;
     }
     stopUpdateThread();
     flushStdOutStdErrBuffers();
@@ -484,7 +487,10 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public void noBuild(NoBuildEvent event) {
-    if (event.keepShowingProgress()) {
+    if (event.showProgress()) {
+      synchronized (this) {
+        buildRunning = true;
+      }
       return;
     }
     completeBuild();
@@ -498,7 +504,7 @@ public class ExperimentalEventHandler implements EventHandler {
   @Subscribe
   public void afterCommand(AfterCommandEvent event) {
     synchronized (this) {
-      buildComplete = true;
+      buildRunning = true;
     }
     stopUpdateThread();
   }
@@ -623,7 +629,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private void doRefresh(boolean fromUpdateThread) {
-    if (buildComplete) {
+    if (!buildRunning) {
       return;
     }
     long nowMillis = clock.currentTimeMillis();
@@ -717,7 +723,7 @@ public class ExperimentalEventHandler implements EventHandler {
       // Refuse to start an update thread once the build is complete; such a situation might
       // arise if the completion of the build is reported (shortly) before the completion of
       // the last action is reported.
-      if (!buildComplete && updateThread == null) {
+      if (buildRunning && updateThread == null) {
         final ExperimentalEventHandler eventHandler = this;
         updateThread =
             new Thread(
