@@ -15,6 +15,18 @@ generate `BUILD` files.
 
 `BUILD` file formatting must match the output of `buildifier`.
 
+## Contents
+
+- [Formatting example](#formatting-example)
+- [File structure](#file-structure)
+- [References to targets in the current package](#references-to-targets-in-the-current-package)
+- [Target naming](#target-naming)
+- [Visibility](#visibility)
+- [Dependencies](#dependencies)
+- [Globs](#globs)
+- [Other conventions](#other-conventions)
+- [Differences with Python style guide](#differences-with-python-style-guide)
+
 ## Formatting example
 
 ```python
