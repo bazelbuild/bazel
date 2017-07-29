@@ -86,16 +86,6 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
 )
 
-alias(
-    name = "JarFilter",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:JarFilter",
-)
-
-alias(
-    name = "PackageParser",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
-)
-
 py_binary(
     name = "merge_manifests",
     srcs = [

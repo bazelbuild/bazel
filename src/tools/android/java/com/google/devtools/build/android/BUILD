@@ -37,7 +37,6 @@ java_library(
     ]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/junctions",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
@@ -56,7 +55,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/android/java/com/google/devtools/build/android/desugar:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/junctions:srcs",
