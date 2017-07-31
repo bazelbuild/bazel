@@ -30,9 +30,9 @@ java_library(
     name = "junctions",
     srcs = glob(["*.java"]),
     data = select({
-        "//src:windows": ["//src/main/native/windows:windows_jni"],
-        "//src:windows_msvc": ["//src/main/native/windows:windows_jni"],
-        "//src:windows_msys": ["//src/main/native/windows:windows_jni"],
+        "//src:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//src:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
+        "//src:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": [],
     }),
     visibility = [
