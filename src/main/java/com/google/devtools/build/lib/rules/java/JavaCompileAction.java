@@ -765,7 +765,26 @@ public final class JavaCompileAction extends SpawnAction {
       first = appendCount(sb, first, sourceFiles.size(), "source file");
       first = appendCount(sb, first, sourceJars.size(), "source jar");
       sb.append(")");
+      addProcessorNames(sb);
       return sb.toString();
+    }
+
+    private void addProcessorNames(StringBuilder sb) {
+      if (processorNames.isEmpty()) {
+        return;
+      }
+      List<String> shortNames = new ArrayList<>();
+      for (String name : processorNames) {
+        // Annotation processor names are qualified class names. Omit the package part for the
+        // progress message, e.g. `com.google.Foo` -> `Foo`.
+        int idx = name.lastIndexOf('.');
+        String shortName = idx != -1 ? name.substring(idx + 1) : name;
+        shortNames.add(shortName);
+      }
+      sb.append(" and running annotation processors (");
+      Joiner.on(", ").appendTo(sb, shortNames);
+      sb.append(")");
+      return;
     }
 
     /**
