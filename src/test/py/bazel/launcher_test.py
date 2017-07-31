@@ -35,6 +35,12 @@ class LauncherTest(test_base.TestBase):
         'public class Main {',
         '  public static void main(String[] args) {'
         '    System.out.println("hello java");',
+        '    System.out.println("java_runfiles=" + ',
+        '        System.getenv("JAVA_RUNFILES"));',
+        '    System.out.println("runfiles_manifest_only=" + ',
+        '        System.getenv("RUNFILES_MANIFEST_ONLY"));',
+        '    System.out.println("runfiles_manifest_file=" + ',
+        '        System.getenv("RUNFILES_MANIFEST_FILE"));',
         '  }',
         '}',
     ])
@@ -65,7 +71,16 @@ class LauncherTest(test_base.TestBase):
 
     exit_code, stdout, stderr = self.RunProgram([main_binary])
     self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual(len(stdout), 4)
     self.assertEqual(stdout[0], 'hello java')
+    if self.IsWindows():
+      self.assertRegexpMatches(stdout[1], r'java_runfiles=.*foo\\foo.runfiles')
+      self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
+      self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
+    else:
+      self.assertRegexpMatches(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
+      self.assertEqual(stdout[2], 'runfiles_manifest_only=')
+      self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
 
   def testShBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
