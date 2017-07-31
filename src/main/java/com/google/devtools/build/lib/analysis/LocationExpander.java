@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Joiner;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
 /**
  * Expands $(location) tags inside target attributes.
@@ -61,6 +63,7 @@ public class LocationExpander {
 
   private static final int MAX_PATHS_SHOWN = 5;
   private static final String LOCATION = "$(location";
+
   private final RuleContext ruleContext;
   private final ImmutableSet<Options> options;
 
@@ -194,11 +197,7 @@ public class LocationExpander {
         Collection<String> paths = resolveLabel(label, message, multiple);
         result.append(value, restart, start);
 
-        if (multiple) {
-          Joiner.on(' ').appendTo(result, paths);
-        } else {
-          result.append(Iterables.getOnlyElement(paths));
-        }
+        appendPaths(result, paths, multiple);
       } catch (IllegalStateException ise) {
         reporter.report(ruleContext, ise.getMessage());
         return value;
@@ -255,6 +254,25 @@ public class LocationExpander {
     }
 
     return paths;
+  }
+
+  private void appendPaths(StringBuilder result, Collection<String> paths, boolean multiple) {
+    Stream<String> stream = paths.stream();
+    if (!multiple) {
+      stream = stream.limit(1);
+    }
+
+    String pathString = stream.map(LocationExpander::quotePath).collect(joining(" "));
+
+    result.append(pathString);
+  }
+
+  private static String quotePath(String path) {
+    // TODO(jcater): Handle more cases where escaping is needed.
+    if (path.contains(" ")) {
+      path = "'" + path + "'";
+    }
+    return path;
   }
 
   /**
