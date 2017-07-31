@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.AliasProvider;
@@ -77,15 +75,11 @@ public class BazelPrerequisiteValidator
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
-      ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
-          mandatoryNativeProviders =
-              RawAttributeMapper.of(rule)
-                  .getAttributeDefinition(attrName)
-                  .getMandatoryNativeProvidersList();
+      RequiredProviders requiredProviders = RawAttributeMapper.of(rule)
+          .getAttributeDefinition(attrName)
+          .getRequiredProviders();
       boolean containsPackageSpecificationProvider =
-          mandatoryNativeProviders
-              .stream()
-              .anyMatch(list -> list.contains(PackageSpecificationProvider.class));
+          requiredProviders.getDescription().contains("PackageSpecificationProvider");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility") && !containsPackageSpecificationProvider) {
         context.reportError(

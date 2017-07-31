@@ -711,7 +711,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "main_rule = rule(implementation = rule_impl, attrs = {",
         "    'deps': attr.label_list(providers = [",
         "        'files', 'data_runfiles', 'default_runfiles',",
-        "        'files_to_run', 'label', 'output_groups',",
+        "        'files_to_run', 'output_groups',",
         "    ])",
         "})");
     scratch.file(
