@@ -314,12 +314,6 @@ toolchain {
     }
   }
 
-  # Stop adding any flag for dotD file, Bazel knows how to parse the output of /showIncludes option
-  # TODO(bazel-team): Remove this empty feature. https://github.com/bazelbuild/bazel/issues/2868
-  feature {
-    name: 'dependency_file'
-  }
-
   # Tell Bazel to parse the output of /showIncludes
   feature {
     name: 'parse_showincludes'
@@ -335,11 +329,6 @@ toolchain {
         flag: "/showIncludes"
       }
     }
-  }
-
-  # Stop passing -frandom-seed option
-  feature {
-    name: 'random_seed'
   }
 
   # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
