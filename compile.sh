@@ -162,7 +162,7 @@ fi
 if [ $DO_SRCS_TEST ]; then
   new_step "Checking that //:srcs contains all the sources"
   log "Querying //:srcs"
-  ${BAZEL} query 'kind("source file", deps(//:srcs))' 2>/dev/null \
+  ${BAZEL} query 'kind("source file", deps(//:srcs))' \
     | grep -v '^@' \
     | sed -e 's|^//||' | sed -e 's|^:||' | sed -e 's|:|/|' \
     | sort -u >"${OUTPUT_DIR}/srcs-query"
