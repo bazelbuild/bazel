@@ -39,6 +39,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/featurecontrol:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
