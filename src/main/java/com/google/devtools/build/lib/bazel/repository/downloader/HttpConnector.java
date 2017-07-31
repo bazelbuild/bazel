@@ -121,13 +121,10 @@ class HttpConnector {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());
         } catch (IOException e) {
-          // I'm not sure in what cases this happens, but IOException can be thrown with a null
-          // message.
-          if (e.getMessage() == null) {
-            throw new UnrecoverableHttpException(
-                "Failed to even get an error message from " + url);
-          }
-          if (!e.getMessage().startsWith("Server returned")) {
+          // Some HTTP error status codes are converted to IOExceptions, which we can only
+          // disambiguate from other IOExceptions by checking the exception message. We need to be
+          // careful because some exceptions (e.g., SocketTimeoutException) may have a null message.
+          if (e.getMessage() == null || !e.getMessage().startsWith("Server returned")) {
             throw e;
           }
           code = connection.getResponseCode();
