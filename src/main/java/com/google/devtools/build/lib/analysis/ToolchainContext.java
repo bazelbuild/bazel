@@ -51,31 +51,42 @@ import javax.annotation.Nullable;
 )
 public class ToolchainContext {
   public static ToolchainContext create(
-      List<Label> requiredToolchains, ImmutableBiMap<Label, Label> resolvedLabels) {
+      String targetDescription,
+      List<Label> requiredToolchains,
+      ImmutableBiMap<Label, Label> resolvedLabels) {
     ToolchainContext toolchainContext =
-        new ToolchainContext(requiredToolchains, new ResolvedToolchainLabels(resolvedLabels));
+        new ToolchainContext(
+            targetDescription, requiredToolchains, new ResolvedToolchainLabels(resolvedLabels));
     return toolchainContext;
   }
 
+  /** Description of the target the toolchain context applies to, for use in error messages. */
+  private final String targetDescription;
+
+  /** The toolchain types that are required by the target. */
   private final ImmutableList<Label> requiredToolchains;
 
-  // Map from toolchain type labels to actual resolved toolchain labels.
+  /** Map from toolchain type labels to actual resolved toolchain labels. */
   private final ResolvedToolchainLabels resolvedToolchainLabels;
 
-  // Stores the actual ToolchainInfo provider for each toolchain type.
-  private ResolvedToolchainProviders resolvedToolchainProviders =
-      ResolvedToolchainProviders.empty();
+  /** Stores the actual ToolchainInfo provider for each toolchain type. */
+  private ResolvedToolchainProviders resolvedToolchainProviders;
 
   private ToolchainContext(
-      List<Label> requiredToolchains, ResolvedToolchainLabels resolvedToolchainLabels) {
+      String targetDescription,
+      List<Label> requiredToolchains,
+      ResolvedToolchainLabels resolvedToolchainLabels) {
+    this.targetDescription = targetDescription;
     this.requiredToolchains = ImmutableList.copyOf(requiredToolchains);
     this.resolvedToolchainLabels = resolvedToolchainLabels;
+    this.resolvedToolchainProviders =
+        new ResolvedToolchainProviders(ImmutableMap.<Label, ToolchainInfo>of());
   }
 
   public void resolveToolchains(OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
     if (!this.requiredToolchains.isEmpty()) {
       this.resolvedToolchainProviders =
-          ResolvedToolchainProviders.create(resolvedToolchainLabels, prerequisiteMap);
+          new ResolvedToolchainProviders(findToolchains(resolvedToolchainLabels, prerequisiteMap));
     }
   }
 
@@ -109,37 +120,35 @@ public class ToolchainContext {
     }
   }
 
-  /** Tracks the mapping from toolchain type label to {@link ToolchainInfo} provider. */
-  private static class ResolvedToolchainProviders implements SkylarkValue, SkylarkIndexable {
-    private static ResolvedToolchainProviders empty() {
-      return new ResolvedToolchainProviders(ImmutableMap.<Label, ToolchainInfo>of());
-    }
+  private static ImmutableMap<Label, ToolchainInfo> findToolchains(
+      ResolvedToolchainLabels resolvedToolchainLabels,
+      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
+    // Find the prerequisites associated with the $toolchains attribute.
+    Optional<Attribute> toolchainAttribute =
+        prerequisiteMap
+            .keys()
+            .stream()
+            .filter(attribute -> attribute.getName().equals(PlatformSemantics.TOOLCHAINS_ATTR))
+            .findFirst();
+    Preconditions.checkState(
+        toolchainAttribute.isPresent(),
+        "No toolchains attribute found while loading resolved toolchains");
 
-    private static ResolvedToolchainProviders create(
-        ResolvedToolchainLabels resolvedToolchainLabels,
-        OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
-      // Find the prerequisites associated with the $toolchains attribute.
-      Optional<Attribute> toolchainAttribute =
-          prerequisiteMap
-              .keys()
-              .stream()
-              .filter(attribute -> attribute.getName().equals(PlatformSemantics.TOOLCHAINS_ATTR))
-              .findFirst();
-      Preconditions.checkState(
-          toolchainAttribute.isPresent(),
-          "No toolchains attribute found while loading resolved toolchains");
-
-      ImmutableMap.Builder<Label, ToolchainInfo> toolchains = new ImmutableMap.Builder<>();
-      for (ConfiguredTarget target : prerequisiteMap.get(toolchainAttribute.get())) {
-        Label discoveredLabel = target.getLabel();
-        Label toolchainType = resolvedToolchainLabels.getType(discoveredLabel);
-        if (toolchainType != null) {
-          ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target);
-          toolchains.put(toolchainType, toolchainInfo);
-        }
+    ImmutableMap.Builder<Label, ToolchainInfo> toolchains = new ImmutableMap.Builder<>();
+    for (ConfiguredTarget target : prerequisiteMap.get(toolchainAttribute.get())) {
+      Label discoveredLabel = target.getLabel();
+      Label toolchainType = resolvedToolchainLabels.getType(discoveredLabel);
+      if (toolchainType != null) {
+        ToolchainInfo toolchainInfo = PlatformProviderUtils.toolchain(target);
+        toolchains.put(toolchainType, toolchainInfo);
       }
-      return new ResolvedToolchainProviders(toolchains.build());
     }
+
+    return toolchains.build();
+  }
+
+  /** Tracks the mapping from toolchain type label to {@link ToolchainInfo} provider. */
+  private class ResolvedToolchainProviders implements SkylarkValue, SkylarkIndexable {
 
     private final ImmutableMap<Label, ToolchainInfo> toolchains;
 
@@ -187,6 +196,19 @@ public class ToolchainContext {
     @Override
     public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
       Label toolchainType = transformKey(key, loc);
+
+      if (!requiredToolchains.contains(toolchainType)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "In %s, toolchain type %s was requested but only types [%s] are configured",
+                targetDescription,
+                toolchainType,
+                requiredToolchains
+                    .stream()
+                    .map(toolchain -> toolchain.toString())
+                    .collect(joining())));
+      }
       return toolchains.get(toolchainType);
     }
 

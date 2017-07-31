@@ -180,6 +180,45 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
 }
 
+function test_toolchain_use_in_rule_non_required_toolchain {
+  write_test_toolchain
+  write_toolchains
+
+  # The rule argument toolchains requires one toolchain, but the implementation requests a different
+  # one.
+  mkdir -p toolchain
+  cat >> toolchain/rule.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//toolchain:wrong_toolchain']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain.extra_str))
+  return []
+
+use_toolchain = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//toolchain:test_toolchain'],
+)
+EOF
+
+  # Trigger the wrong toolchain.
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log 'In use_toolchain rule //demo:use, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
+}
+
 function test_toolchain_debug_messages {
   write_test_toolchain
   write_test_rule
@@ -201,7 +240,6 @@ EOF
   expect_log 'ToolchainResolution:   Selected toolchain //:toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
 }
-
 
 function test_toolchain_use_in_aspect {
   write_test_toolchain
@@ -231,6 +269,55 @@ EOF
     --aspects //toolchain:aspect.bzl%use_toolchain \
     //demo:demo &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from 1"'
+}
+
+function test_toolchain_use_in_aspect_non_required_toolchain {
+  write_test_toolchain
+  write_toolchains
+
+  # The aspect argument toolchains requires one toolchain, but the implementation requests a
+  # different one.
+  mkdir -p toolchain
+  cat >> toolchain/aspect.bzl <<EOF
+def _impl(target, ctx):
+  toolchain = ctx.toolchains['//toolchain:wrong_toolchain']
+  message = ctx.rule.attr.message
+  print(
+      'Using toolchain in aspect: rule message: "%s", toolchain extra_str: "%s"' %
+          (message, toolchain.extra_str))
+  return []
+
+use_toolchain = aspect(
+    implementation = _impl,
+    attrs = {},
+    toolchains = ['//toolchain:test_toolchain'],
+)
+EOF
+
+  # Trigger the wrong toolchain.
+  mkdir -p demo
+  cat >> demo/demo.bzl <<EOF
+def _impl(ctx):
+  return []
+
+demo = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    }
+)
+EOF
+  cat >> demo/BUILD <<EOF
+load(':demo.bzl', 'demo')
+demo(
+    name = 'demo',
+    message = 'bar from demo')
+EOF
+
+  bazel build \
+    --aspects //toolchain:aspect.bzl%use_toolchain \
+    //demo:demo &> $TEST_log && fail "Build failure expected"
+  expect_log 'In aspect //toolchain:aspect.bzl%use_toolchain applied to demo rule //demo:demo, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
 }
 
 function test_toolchain_constraints() {

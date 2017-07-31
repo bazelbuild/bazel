@@ -278,7 +278,12 @@ public final class AspectFunction implements SkyFunction {
         ImmutableList<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
         toolchainContext =
             ToolchainUtil.createToolchainContext(
-                env, requiredToolchains, key.getAspectConfiguration());
+                env,
+                String.format(
+                    "aspect %s applied to %s",
+                    aspect.getDescriptor().getDescription(), target.toString()),
+                requiredToolchains,
+                key.getAspectConfiguration());
       } catch (ToolchainContextException e) {
         // TODO(katre): better error handling
         throw new AspectCreationException(e.getMessage());

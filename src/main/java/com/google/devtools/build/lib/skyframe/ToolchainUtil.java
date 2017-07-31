@@ -49,11 +49,15 @@ public class ToolchainUtil {
    * of the {@link ToolchainResolutionFunction}.
    */
   public static ToolchainContext createToolchainContext(
-      Environment env, List<Label> requiredToolchains, BuildConfiguration configuration)
+      Environment env,
+      String targetDescription,
+      List<Label> requiredToolchains,
+      BuildConfiguration configuration)
       throws ToolchainContextException, InterruptedException {
     ImmutableBiMap<Label, Label> resolvedLabels =
         resolveToolchainLabels(env, requiredToolchains, configuration);
-    ToolchainContext toolchainContext = ToolchainContext.create(requiredToolchains, resolvedLabels);
+    ToolchainContext toolchainContext =
+        ToolchainContext.create(targetDescription, requiredToolchains, resolvedLabels);
     return toolchainContext;
   }
 

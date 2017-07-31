@@ -234,10 +234,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       ToolchainContext toolchainContext = null;
       if (target instanceof Rule) {
-        ImmutableList<Label> requiredToolchains =
-            ((Rule) target).getRuleClassObject().getRequiredToolchains();
+        Rule rule = ((Rule) target);
+        ImmutableList<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
         toolchainContext =
-            ToolchainUtil.createToolchainContext(env, requiredToolchains, configuration);
+            ToolchainUtil.createToolchainContext(
+                env, rule.toString(), requiredToolchains, configuration);
         if (env.valuesMissing()) {
           return null;
         }
