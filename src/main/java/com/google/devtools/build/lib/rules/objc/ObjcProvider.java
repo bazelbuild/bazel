@@ -609,30 +609,27 @@ public final class ObjcProvider extends Info {
    * @param avoidCcProviders cc providers which contain the dependency subtrees to subtract
    */
   // TODO(b/19795062): Investigate subtraction generalized to NestedSet.
-  @SuppressWarnings("unchecked")
   public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidObjcProviders,
       Iterable<CcLinkParamsProvider> avoidCcProviders) {
     // LIBRARY and CC_LIBRARY need to be special cased for objc-cc interop.
-    // A library which is a dependency of a cc_library may be present in all or any of
+    // A library which is a dependency of a cc_library may be present in all or any of 
     // three possible locations (and may be duplicated!):
     // 1. ObjcProvider.LIBRARY
     // 2. ObjcProvider.CC_LIBRARY
     // 3. CcLinkParamsProvider->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
-    HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
+    HashSet<Artifact> avoidLibrariesSet = new HashSet<>();
     for (CcLinkParamsProvider linkProvider : avoidCcProviders) {
       NestedSet<LibraryToLink> librariesToLink =
           linkProvider.getCcLinkParams(true, false).getLibraries();
       for (LibraryToLink libraryToLink : librariesToLink.toList()) {
-        avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
+        avoidLibrariesSet.add(libraryToLink.getArtifact());
       }
     }
     for (ObjcProvider avoidProvider : avoidObjcProviders) {
-      for (Artifact ccLibrary : avoidProvider.getCcLibraries()) {
-        avoidLibrariesSet.add(ccLibrary.getRunfilesPath());
-      }
+      avoidLibrariesSet.addAll(avoidProvider.getCcLibraries());
       for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY)) {
-        avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
+        avoidLibrariesSet.add(libraryToAvoid);
       }
     }
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
@@ -641,12 +638,10 @@ public final class ObjcProvider extends Info {
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
             ccLibraryNotYetLinked(avoidLibrariesSet));
       } else if (key == LIBRARY) {
-        addTransitiveAndFilter(objcProviderBuilder, LIBRARY, notContainedIn(avoidLibrariesSet));
+        addTransitiveAndFilter(objcProviderBuilder, LIBRARY,
+            notContainedIn(avoidLibrariesSet));
       } else if (NON_SUBTRACTABLE_KEYS.contains(key)) {
         addTransitiveAndAvoid(objcProviderBuilder, key, ImmutableList.<ObjcProvider>of());
-      } else if (key.getType() == Artifact.class) {
-        addTransitiveAndAvoidArtifacts(objcProviderBuilder, ((Key<Artifact>) key),
-            avoidObjcProviders);
       } else {
         addTransitiveAndAvoid(objcProviderBuilder, key, avoidObjcProviders);
       }
@@ -662,8 +657,8 @@ public final class ObjcProvider extends Info {
    *     return false
    */
   private static Predicate<Artifact> notContainedIn(
-      final HashSet<PathFragment> linkedLibraryArtifacts) {
-    return libraryToLink -> !linkedLibraryArtifacts.contains(libraryToLink.getRunfilesPath());
+      final HashSet<Artifact> linkedLibraryArtifacts) {
+    return libraryToLink -> !linkedLibraryArtifacts.contains(libraryToLink);
   }
 
   /**
@@ -674,9 +669,8 @@ public final class ObjcProvider extends Info {
    *     predicate will return false
    */
   private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
-      final HashSet<PathFragment> linkedLibraryArtifacts) {
-    return libraryToLink -> !linkedLibraryArtifacts.contains(
-        libraryToLink.getArtifact().getRunfilesPath());
+      final HashSet<Artifact> linkedLibraryArtifacts) {
+    return libraryToLink -> !linkedLibraryArtifacts.contains(libraryToLink.getArtifact());
   }
 
   @SuppressWarnings("unchecked")
@@ -698,19 +692,6 @@ public final class ObjcProvider extends Info {
       objcProviderBuilder.addAllForDirectDependents(key,
           Iterables.filter(strictItems.toList(), filterPredicate));
     }
-  }
-
-  private void addTransitiveAndAvoidArtifacts(ObjcProvider.Builder objcProviderBuilder,
-      Key<Artifact> key, Iterable<ObjcProvider> avoidProviders) {
-    // Artifacts to avoid may be in a different configuration and thus a different
-    // root directory, hence only the path fragment after the root directory is compared.
-    HashSet<PathFragment> avoidPathsSet = new HashSet<>();
-    for (ObjcProvider avoidProvider : avoidProviders) {
-      for (Artifact artifact : avoidProvider.getPropagable(key)) {
-        avoidPathsSet.add(artifact.getRunfilesPath());
-      }
-    }
-    addTransitiveAndFilter(objcProviderBuilder, key, notContainedIn(avoidPathsSet));
   }
 
   @SuppressWarnings("unchecked")
