@@ -131,8 +131,8 @@
         "parameters": {
             "build_opts": ["--cpu=x64_windows_msys", "--host_cpu=x64_windows_msys"],
             "test_tag_filters": ["-no_windows"],
-            "tests": ["//src/test/shell/bazel:bazel_windows_example_test"],
-            "targets": []
+            "tests": [],
+            "targets": ["//examples/cpp:hello-world"]
         }
     }
 ]
