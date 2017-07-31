@@ -18,8 +18,11 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -27,14 +30,21 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.analysis.util.TestAspects.BaseRule;
+import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -54,11 +64,192 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
   }
 
+  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(BuildConfiguration.Options.class).hostCpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(BuildConfiguration.Options.class).cpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsCpuPatchTransition implements PatchTransition {
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  /** A rule with an empty split transition on an attribute. */
+  private static class EmptySplitRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("with_empty_transition", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .cfg(new EmptySplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("empty_split")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** Rule with a split transition on an attribute. */
+  private static class AttributeTransitionRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(
+              attr("with_cpu_transition", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .cfg(new SetsCpuSplitTransition()))
+          .add(
+              attr("with_host_cpu_transition", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .cfg(new SetsHostCpuSplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("attribute_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** Rule with rule class configuration transition. */
+  private static class RuleClassTransitionRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.cfg(new SetsCpuPatchTransition()).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_class_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  private static class SetsTestFilterFromAttributePatchTransition implements PatchTransition {
+    private final String value;
+
+    public SetsTestFilterFromAttributePatchTransition(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(BuildConfiguration.Options.class).testFilter = "SET BY PATCH FACTORY: " + value;
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsTestFilterFromAttributeTransitionFactory
+      implements RuleTransitionFactory {
+    @Override
+    public Transition buildTransitionFor(Rule rule) {
+      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+      String value = attributes.get("sets_test_filter_to", STRING);
+      if (Strings.isNullOrEmpty(value)) {
+        return null;
+      } else {
+        return new SetsTestFilterFromAttributePatchTransition(value);
+      }
+    }
+  }
+
+  /**
+   * Rule with a RuleTransitionFactory which sets the --test_filter flag according to its attribute.
+   */
+  private static class UsesRuleTransitionFactoryRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .cfg(new SetsTestFilterFromAttributeTransitionFactory())
+          .add(
+              attr("sets_test_filter_to", STRING)
+                  .nonconfigurable("used in RuleTransitionFactory")
+                  .value(""))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("uses_rule_transition_factory")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
   @Test
   public void testRuleClassTransition() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule(),
-        new TestAspects.AttributeTransitionRule(),
-        new TestAspects.RuleClassTransitionRule());
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new AttributeTransitionRule(), new RuleClassTransitionRule());
     scratch.file("a/BUILD",
         "attribute_transition(",
         "   name='attribute',",
@@ -72,9 +263,8 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Test
   public void testNonConflictingAttributeAndRuleClassTransitions() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule(),
-        new TestAspects.AttributeTransitionRule(),
-        new TestAspects.RuleClassTransitionRule());
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new AttributeTransitionRule(), new RuleClassTransitionRule());
     scratch.file("a/BUILD",
         "attribute_transition(",
         "   name='attribute',",
@@ -89,9 +279,8 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Test
   public void testConflictingAttributeAndRuleClassTransitions() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule(),
-        new TestAspects.AttributeTransitionRule(),
-        new TestAspects.RuleClassTransitionRule());
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new AttributeTransitionRule(), new RuleClassTransitionRule());
     scratch.file("a/BUILD",
         "attribute_transition(",
         "   name='attribute',",
@@ -106,9 +295,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
   @Test
   public void testEmptySplitDoesNotSuppressRuleClassTransition() throws Exception {
     setRulesAvailableInTests(
-        new TestAspects.BaseRule(),
-        new TestAspects.EmptySplitRule(),
-        new TestAspects.RuleClassTransitionRule());
+        new TestAspects.BaseRule(), new EmptySplitRule(), new RuleClassTransitionRule());
     scratch.file(
         "a/BUILD",
         "empty_split(",
@@ -123,9 +310,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Test
   public void testTopLevelRuleClassTransition() throws Exception {
-    setRulesAvailableInTests(
-        new TestAspects.BaseRule(),
-        new TestAspects.RuleClassTransitionRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new RuleClassTransitionRule());
     scratch.file(
         "a/BUILD",
         "rule_class_transition(",
@@ -139,9 +324,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
   @Test
   public void testTopLevelRuleClassTransitionAndNoTransition() throws Exception {
     setRulesAvailableInTests(
-        new TestAspects.BaseRule(),
-        new TestAspects.RuleClassTransitionRule(),
-        new TestAspects.SimpleRule());
+        new TestAspects.BaseRule(), new RuleClassTransitionRule(), new TestAspects.SimpleRule());
     scratch.file(
         "a/BUILD",
         "rule_class_transition(",
@@ -158,8 +341,8 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       throws Exception {
     setRulesAvailableInTests(
         new TestAspects.BaseRule(),
-        new TestAspects.AttributeTransitionRule(),
-        new TestAspects.UsesRuleTransitionFactoryRule());
+        new AttributeTransitionRule(),
+        new UsesRuleTransitionFactoryRule());
     useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
     scratch.file(
         "a/BUILD",
@@ -180,8 +363,8 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
   public void ruleTransitionFactoryCanReturnNullToCauseNoTransition() throws Exception {
     setRulesAvailableInTests(
         new TestAspects.BaseRule(),
-        new TestAspects.AttributeTransitionRule(),
-        new TestAspects.UsesRuleTransitionFactoryRule());
+        new AttributeTransitionRule(),
+        new UsesRuleTransitionFactoryRule());
     useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
     scratch.file(
         "a/BUILD",
@@ -200,8 +383,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Test
   public void topLevelRuleTransitionFactoryUsesNonconfigurableAttributes() throws Exception {
-    setRulesAvailableInTests(
-        new TestAspects.BaseRule(), new TestAspects.UsesRuleTransitionFactoryRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new UsesRuleTransitionFactoryRule());
     useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
     scratch.file(
         "a/BUILD",
@@ -216,8 +398,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Test
   public void topLevelRuleTransitionFactoryCanReturnNullInTesting() throws Exception {
-    setRulesAvailableInTests(
-        new TestAspects.BaseRule(), new TestAspects.UsesRuleTransitionFactoryRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new UsesRuleTransitionFactoryRule());
     useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
     scratch.file(
         "a/BUILD",
@@ -344,7 +525,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
    */
   private static Attribute newAttributeWithConfigurator(
       final Attribute.Configurator<BuildOptions> configurator) {
-    return attr("foo_attr", BuildType.LABEL)
+    return attr("foo_attr", LABEL)
         .allowedRuleClasses(ANY_RULE)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .cfg(configurator)

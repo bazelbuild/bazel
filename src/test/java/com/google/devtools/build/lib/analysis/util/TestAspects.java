@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -43,9 +42,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,16 +52,12 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
@@ -1033,92 +1025,6 @@ public class TestAspects {
     }
   }
 
-  private static class SetsCpuPatchTransition implements PatchTransition {
-
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      BuildOptions result = options.clone();
-      result.get(Options.class).cpu = "SET BY PATCH";
-      return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
-      result.get(Options.class).cpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
-      result.get(Options.class).hostCpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  /**
-   * Rule with a split transition on an attribute.
-   */
-  public static class AttributeTransitionRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .add(attr("with_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsCpuSplitTransition()))
-          .add(attr("with_host_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsHostCpuSplitTransition()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("attribute_transition")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
   /**
    * Rule with {@link FalseAdvertisementAspect}
    */
@@ -1135,108 +1041,6 @@ public class TestAspects {
     public Metadata getMetadata() {
       return  RuleDefinition.Metadata.builder()
           .name("false_advertisement_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Rule with rule class configuration transition.
-   */
-  public static class RuleClassTransitionRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .cfg(new SetsCpuPatchTransition())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_class_transition")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  private static class SetsTestFilterFromAttributePatchTransition implements PatchTransition {
-    private final String value;
-
-    public SetsTestFilterFromAttributePatchTransition(String value) {
-      this.value = value;
-    }
-
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      BuildOptions result = options.clone();
-      result.get(Options.class).testFilter = "SET BY PATCH FACTORY: " + value;
-      return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsTestFilterFromAttributeTransitionFactory
-      implements RuleTransitionFactory {
-    @Override
-    public Transition buildTransitionFor(Rule rule) {
-      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
-      String value = attributes.get("sets_test_filter_to", STRING);
-      if (Strings.isNullOrEmpty(value)) {
-        return null;
-      } else {
-        return new SetsTestFilterFromAttributePatchTransition(value);
-      }
-    }
-  }
-
-  /**
-   * Rule with a RuleTransitionFactory which sets the --test_filter flag according to its attribute.
-   */
-  public static class UsesRuleTransitionFactoryRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .cfg(new SetsTestFilterFromAttributeTransitionFactory())
-          .add(
-              attr("sets_test_filter_to", STRING)
-                  .nonconfigurable("used in RuleTransitionFactory")
-                  .value(""))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("uses_rule_transition_factory")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  /** A rule with an empty split transition on an attribute. */
-  public static class EmptySplitRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(
-              attr("with_empty_transition", LABEL)
-                  .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .cfg(new EmptySplitTransition()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("empty_split")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
