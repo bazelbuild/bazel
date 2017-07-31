@@ -794,10 +794,6 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
-        # This will signal the wrapper that we are doing a debug build, which sets
-        # some internal state of the toolchain wrapper. It is intentionally a "-"
-        # flag to make this very obvious.
-        flag: "-g"
       }
     }
     flag_set {
