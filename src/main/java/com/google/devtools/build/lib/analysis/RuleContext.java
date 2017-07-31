@@ -64,8 +64,9 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -74,7 +75,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
@@ -717,9 +717,7 @@ public final class RuleContext extends TargetContext
       checkAttribute(attributeName, Mode.SPLIT);
       Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> map =
           getSplitPrerequisites(attributeName);
-      return map.isEmpty()
-          ? ImmutableList.of()
-          : map.entrySet().iterator().next().getValue();
+      return map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
     }
 
     checkAttribute(attributeName, mode);
@@ -820,13 +818,13 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all declared provider provided by targets
-   * of that attribute. Each declared provider is keyed by the
-   * {@link BuildConfiguration} under which the provider was created.
+   * For a given attribute, returns all declared provider provided by targets of that attribute.
+   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
+   * created.
    */
-  public <C extends SkylarkClassObject> ImmutableListMultimap<BuildConfiguration, C>
-  getPrerequisitesByConfiguration(String attributeName, Mode mode,
-      final NativeClassObjectConstructor<C> provider) {
+  public <C extends Info>
+      ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+          String attributeName, Mode mode, final NativeProvider<C> provider) {
     List<? extends TransitiveInfoCollection> transitiveInfoCollections =
         getPrerequisites(attributeName, mode);
 
@@ -873,8 +871,8 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends SkylarkClassObject> Iterable<T> getPrerequisites(
-      String attributeName, Mode mode, final NativeClassObjectConstructor<T> skylarkKey) {
+  public <T extends Info> Iterable<T> getPrerequisites(
+      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
@@ -884,8 +882,8 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends SkylarkClassObject> T getPrerequisite(
-      String attributeName, Mode mode, final NativeClassObjectConstructor<T> skylarkKey) {
+  public <T extends Info> T getPrerequisite(
+      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
@@ -904,9 +902,8 @@ public final class RuleContext extends TargetContext
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
    */
-  public <C extends SkylarkClassObject>
-  Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, Mode mode, final NativeClassObjectConstructor<C> classType) {
+  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+      String attributeName, Mode mode, final NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
@@ -1978,8 +1975,8 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Because some rules still have to use allowedRuleClasses to do rule dependency validation.
-     * A dependency is valid if it is from a rule in allowedRuledClasses, OR if all of the providers
+     * Because some rules still have to use allowedRuleClasses to do rule dependency validation. A
+     * dependency is valid if it is from a rule in allowedRuledClasses, OR if all of the providers
      * in requiredProviders are provided by the target.
      */
     private void validateRuleDependency(ConfiguredTarget prerequisite, Attribute attribute) {
@@ -1993,8 +1990,7 @@ public final class RuleContext extends TargetContext
         return;
       }
 
-      if (checkRuleDependencyMandatoryProviders(prerequisite, attribute,
-          unfulfilledRequirements)) {
+      if (checkRuleDependencyMandatoryProviders(prerequisite, attribute, unfulfilledRequirements)) {
         return;
       }
 
@@ -2005,14 +2001,13 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    /**
-     * Check if prerequisite should be allowed based on its rule class.
-     */
-    private boolean checkRuleDependencyClass(ConfiguredTarget prerequisite, Attribute attribute,
-        Set<String> unfulfilledRequirements) {
+    /** Check if prerequisite should be allowed based on its rule class. */
+    private boolean checkRuleDependencyClass(
+        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
       if (attribute.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
-        if (attribute.getAllowedRuleClassesPredicate().apply(
-            ((Rule) prerequisite.getTarget()).getRuleClassObject())) {
+        if (attribute
+            .getAllowedRuleClassesPredicate()
+            .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
           // prerequisite has an allowed rule class => accept.
           return true;
         }
@@ -2031,16 +2026,21 @@ public final class RuleContext extends TargetContext
     /**
      * Check if prerequisite should be allowed with warning based on its rule class.
      *
-     * If yes, also issues said warning.
+     * <p>If yes, also issues said warning.
      */
-    private boolean checkRuleDependencyClassWarnings(ConfiguredTarget prerequisite,
-        Attribute attribute) {
-      if (attribute.getAllowedRuleClassesWarningPredicate().apply(
-          ((Rule) prerequisite.getTarget()).getRuleClassObject())) {
+    private boolean checkRuleDependencyClassWarnings(
+        ConfiguredTarget prerequisite, Attribute attribute) {
+      if (attribute
+          .getAllowedRuleClassesWarningPredicate()
+          .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
         Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
-        reportBadPrerequisite(attribute, prerequisite.getTarget().getTargetKind(), prerequisite,
+        reportBadPrerequisite(
+            attribute,
+            prerequisite.getTarget().getTargetKind(),
+            prerequisite,
             allowedRuleClasses == Predicates.<RuleClass>alwaysTrue()
-                ? null : "expected " + allowedRuleClasses,
+                ? null
+                : "expected " + allowedRuleClasses,
             true);
         // prerequisite has a rule class allowed with a warning => accept, emitting a warning.
         return true;
@@ -2048,12 +2048,9 @@ public final class RuleContext extends TargetContext
       return false;
     }
 
-    /**
-     * Check if prerequisite should be allowed based on required providers on
-     * the attribute.
-     */
-    private boolean checkRuleDependencyMandatoryProviders(ConfiguredTarget prerequisite,
-        Attribute attribute, Set<String> unfulfilledRequirements) {
+    /** Check if prerequisite should be allowed based on required providers on the attribute. */
+    private boolean checkRuleDependencyMandatoryProviders(
+        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
       RequiredProviders requiredProviders = attribute.getRequiredProviders();
 
       if (requiredProviders.acceptsAny()) {
@@ -2066,7 +2063,8 @@ public final class RuleContext extends TargetContext
       }
 
       unfulfilledRequirements.add(
-          String.format("'%s' does not have mandatory providers: %s",
+          String.format(
+              "'%s' does not have mandatory providers: %s",
               prerequisite.getLabel(),
               prerequisite.missingProviders(requiredProviders).getDescription()));
 

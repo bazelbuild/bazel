@@ -22,8 +22,8 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
-public class PlatformInfo extends SkylarkClassObject {
+public class PlatformInfo extends Info {
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
@@ -66,8 +66,8 @@ public class PlatformInfo extends SkylarkClassObject {
                   SkylarkType.LIST, SkylarkType.of(ConstraintValueInfo.class))));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeClassObjectConstructor<PlatformInfo> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME, SIGNATURE) {
+  public static final NativeProvider<PlatformInfo> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected PlatformInfo createInstanceFromSkylark(Object[] args, Location loc)
             throws EvalException {

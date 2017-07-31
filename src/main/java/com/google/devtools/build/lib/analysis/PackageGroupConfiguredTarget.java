@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -81,7 +81,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  protected SkylarkClassObject rawGetSkylarkProvider(ClassObjectConstructor.Key providerKey) {
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return null;
   }
 

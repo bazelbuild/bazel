@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -78,7 +78,7 @@ public class SkylarkRepositoryContext {
 
   private final Rule rule;
   private final Path outputDirectory;
-  private final SkylarkClassObject attrObject;
+  private final Info attrObject;
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
@@ -110,8 +110,7 @@ public class SkylarkRepositoryContext {
                 : SkylarkType.convertToSkylark(val, null));
       }
     }
-    attrObject = NativeClassObjectConstructor.STRUCT.create(
-        attrBuilder.build(), "No such attribute '%s'");
+    attrObject = NativeProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
   }
 
   @SkylarkCallable(
@@ -130,7 +129,7 @@ public class SkylarkRepositoryContext {
         "A struct to access the values of the attributes. The values are provided by "
             + "the user (if not, a default value is used)."
   )
-  public SkylarkClassObject getAttr() {
+  public Info getAttr() {
     return attrObject;
   }
 

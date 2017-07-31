@@ -18,20 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Information about an {@code android_host_service_fixture} to run as part of an {@code
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidHostServiceFixtureInfoProvider extends SkylarkClassObject {
+public class AndroidHostServiceFixtureInfoProvider extends Info {
 
   private static final String SKYLARK_NAME = "HostServiceFixtureInfo";
-  static final NativeClassObjectConstructor<AndroidHostServiceFixtureInfoProvider>
+  static final NativeProvider<AndroidHostServiceFixtureInfoProvider>
       ANDROID_HOST_SERVICE_FIXTURE_INFO =
-          new NativeClassObjectConstructor<AndroidHostServiceFixtureInfoProvider>(
+          new NativeProvider<AndroidHostServiceFixtureInfoProvider>(
               AndroidHostServiceFixtureInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact executable;

@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.WithLegacySkylarkName;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -55,7 +55,7 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for compilation and linking of objc."
 )
-public final class ObjcProvider extends SkylarkClassObject {
+public final class ObjcProvider extends Info {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -499,8 +499,7 @@ public final class ObjcProvider extends SkylarkClassObject {
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   /** Skylark constructor and identifier for ObjcProvider. */
-  public static final NativeClassObjectConstructor<ObjcProvider> SKYLARK_CONSTRUCTOR =
-      new Constructor();
+  public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       ImmutableMap<Key<?>, NestedSet<?>> items,
@@ -1007,8 +1006,7 @@ public final class ObjcProvider extends SkylarkClassObject {
     }
   }
 
-  private static class Constructor
-      extends NativeClassObjectConstructor<ObjcProvider>
+  private static class Constructor extends NativeProvider<ObjcProvider>
       implements WithLegacySkylarkName {
     public Constructor() {
       super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);

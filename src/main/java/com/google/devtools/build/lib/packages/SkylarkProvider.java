@@ -31,40 +31,36 @@ import javax.annotation.Nullable;
  * <p>This is a result of calling {@code provider()} function from Skylark ({@link
  * com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions#provider}).
  */
-public class SkylarkClassObjectConstructor extends ClassObjectConstructor
-    implements SkylarkExportable {
+public class SkylarkProvider extends Provider implements SkylarkExportable {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
-  @Nullable
-  private SkylarkKey key;
-  @Nullable
-  private String errorMessageFormatForInstances;
+  @Nullable private SkylarkKey key;
+  @Nullable private String errorMessageFormatForInstances;
 
   private static final String DEFAULT_ERROR_MESSAFE = "Object has no '%s' attribute.";
 
   /**
-   * Creates a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor).
+   * Creates a Skylark-defined Declared Provider ({@link Info} constructor).
    *
-   * Needs to be exported later.
+   * <p>Needs to be exported later.
    */
-  public SkylarkClassObjectConstructor(String name, Location location) {
+  public SkylarkProvider(String name, Location location) {
     this(name, SIGNATURE, location);
   }
 
-  public SkylarkClassObjectConstructor(
+  public SkylarkProvider(
       String name, FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
     super(name, signature, location);
     this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
   }
 
   @Override
-  protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc)
-      throws EvalException {
+  protected Info createInstanceFromSkylark(Object[] args, Location loc) throws EvalException {
     @SuppressWarnings("unchecked")
     Map<String, Object> kwargs = (Map<String, Object>) args[0];
-    return new SkylarkClassObject(this, kwargs, loc);
+    return new Info(this, kwargs, loc);
   }
 
   @Override
@@ -92,8 +88,8 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
   public void export(Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.key = new SkylarkKey(extensionLabel, exportedName);
-    this.errorMessageFormatForInstances = String.format(
-        "'%s' object has no attribute '%%s'", exportedName);
+    this.errorMessageFormatForInstances =
+        String.format("'%s' object has no attribute '%%s'", exportedName);
   }
 
   @Override
@@ -106,10 +102,10 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
 
   @Override
   public boolean equals(@Nullable Object otherObject) {
-    if (!(otherObject instanceof  SkylarkClassObjectConstructor)) {
+    if (!(otherObject instanceof SkylarkProvider)) {
       return false;
     }
-    SkylarkClassObjectConstructor other = (SkylarkClassObjectConstructor) otherObject;
+    SkylarkProvider other = (SkylarkProvider) otherObject;
 
     if (this.isExported() && other.isExported()) {
       return this.getKey().equals(other.getKey());
@@ -130,9 +126,8 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
   }
 
   /**
-   * A serializable representation of Skylark-defined {@link SkylarkClassObjectConstructor}
-   * that uniquely identifies all {@link SkylarkClassObjectConstructor}s that
-   * are exposed to SkyFrame.
+   * A serializable representation of Skylark-defined {@link SkylarkProvider} that uniquely
+   * identifies all {@link SkylarkProvider}s that are exposed to SkyFrame.
    */
   public static class SkylarkKey extends Key {
     private final Label extensionLabel;

@@ -950,18 +950,18 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * If this is a label or label-list attribute, then this sets the allowed rule types with
-     * warning for the labels occurring in the attribute. This must be a disjoint set from
-     * {@link #allowedRuleClasses}.
+     * warning for the labels occurring in the attribute. This must be a disjoint set from {@link
+     * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getRequiredProviders()}}, the build
-     * continues without error. Else the build fails during analysis.
+     * allowedRuleClasses()) and they fulfill {@link #getRequiredProviders()}}, the build continues
+     * without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getRequiredProviders()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #getRequiredProviders()} build without error.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it
-     * works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(String... allowedRuleClasses) {
       return allowedRuleClassesWithWarning(ImmutableSet.copyOf(allowedRuleClasses));
@@ -1514,7 +1514,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Object invokeCallback(Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       ClassObject attrs =
-          NativeClassObjectConstructor.STRUCT.create(
+          NativeProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(attrs);
       try {
@@ -1792,19 +1792,16 @@ public final class Attribute implements Comparable<Attribute> {
   private final ImmutableList<RuleAspect<?>> aspects;
 
   /**
-   * Constructs a rule attribute with the specified name, type and default
-   * value.
+   * Constructs a rule attribute with the specified name, type and default value.
    *
    * @param name the name of the attribute
    * @param type the type of the attribute
-   * @param defaultValue the default value to use for this attribute if none is
-   *        specified in rule declaration in the BUILD file. Must be null, or of
-   *        type "type". May be an instance of ComputedDefault, in which case
-   *        its getDefault() method must return an instance of "type", or null.
-   *        Must be immutable.
-   * @param configTransition the configuration transition for this attribute
-   *        (which must be of type LABEL, LABEL_LIST, NODEP_LABEL or
-   *        NODEP_LABEL_LIST).
+   * @param defaultValue the default value to use for this attribute if none is specified in rule
+   *     declaration in the BUILD file. Must be null, or of type "type". May be an instance of
+   *     ComputedDefault, in which case its getDefault() method must return an instance of "type",
+   *     or null. Must be immutable.
+   * @param configTransition the configuration transition for this attribute (which must be of type
+   *     LABEL, LABEL_LIST, NODEP_LABEL or NODEP_LABEL_LIST).
    */
   private Attribute(
       String name,

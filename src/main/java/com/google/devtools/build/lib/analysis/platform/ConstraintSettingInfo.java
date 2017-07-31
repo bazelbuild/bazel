@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
-public class ConstraintSettingInfo extends SkylarkClassObject {
+public class ConstraintSettingInfo extends Info {
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
@@ -53,8 +53,8 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.of(Label.class)));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeClassObjectConstructor<ConstraintSettingInfo> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<ConstraintSettingInfo>(
+  public static final NativeProvider<ConstraintSettingInfo> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<ConstraintSettingInfo>(
           ConstraintSettingInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected ConstraintSettingInfo createInstanceFromSkylark(Object[] args, Location loc)

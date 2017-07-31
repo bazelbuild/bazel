@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -37,7 +37,7 @@ public class PlatformCommon {
             + "ConstraintValueInfo providers that defines the platform.",
     structField = true
   )
-  public ClassObjectConstructor getPlatformInfoConstructor() {
+  public Provider getPlatformInfoConstructor() {
     return PlatformInfo.SKYLARK_CONSTRUCTOR;
   }
 
@@ -48,7 +48,7 @@ public class PlatformCommon {
             + "uniquely identifies the constraint (and which should always be ctx.label).",
     structField = true
   )
-  public ClassObjectConstructor getConstraintSettingInfoConstructor() {
+  public Provider getConstraintSettingInfoConstructor() {
     return ConstraintSettingInfo.SKYLARK_CONSTRUCTOR;
   }
 
@@ -60,7 +60,7 @@ public class PlatformCommon {
             + "and the ConstraintSettingInfo which the value belongs to.",
     structField = true
   )
-  public ClassObjectConstructor getConstraintValueInfoConstructor() {
+  public Provider getConstraintValueInfoConstructor() {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
 
@@ -71,7 +71,7 @@ public class PlatformCommon {
             + "toolchain, and a map of the toolchain's data.",
     structField = true
   )
-  public ClassObjectConstructor getToolchainInfoConstructor() {
+  public Provider getToolchainInfoConstructor() {
     return ToolchainInfo.SKYLARK_CONSTRUCTOR;
   }
 

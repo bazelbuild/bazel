@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.Map;
 
 /**
@@ -24,12 +24,11 @@ import java.util.Map;
  * tests).
  */
 @Immutable
-public final class ExecutionInfoProvider extends SkylarkClassObject {
+public final class ExecutionInfoProvider extends Info {
 
   /** Skylark constructor and identifier for ExecutionInfoProvider. */
-  public static final NativeClassObjectConstructor<ExecutionInfoProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<ExecutionInfoProvider>(
-          ExecutionInfoProvider.class, "ExecutionInfo") {};
+  public static final NativeProvider<ExecutionInfoProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<ExecutionInfoProvider>(ExecutionInfoProvider.class, "ExecutionInfo") {};
 
   private final ImmutableMap<String, String> executionInfo;
 

@@ -528,8 +528,7 @@ public class WorkspaceFactory {
     }
 
     builder.put("bazel_version", version);
-    return NativeClassObjectConstructor.STRUCT.create(
-        builder.build(), "no native function or rule '%s'");
+    return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
   static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {

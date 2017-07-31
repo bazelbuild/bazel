@@ -16,26 +16,26 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
  * the 'loadable_bundle' type. This provider contains:
+ *
  * <ul>
- *   <li>'binary': The binary artifact output by apple_binary</li>
- * </ul> 
+ *   <li>'binary': The binary artifact output by apple_binary
+ * </ul>
  */
-public final class AppleLoadableBundleBinaryProvider extends SkylarkClassObject {
+public final class AppleLoadableBundleBinaryProvider extends Info {
 
   /** Skylark name for the AppleLoadableBundleBinary. */
   public static final String SKYLARK_NAME = "AppleLoadableBundleBinary";
 
   /** Skylark constructor and identifier for AppleLoadableBundleBinary. */
-  public static final NativeClassObjectConstructor<AppleLoadableBundleBinaryProvider>
-      SKYLARK_CONSTRUCTOR =
-          new NativeClassObjectConstructor<AppleLoadableBundleBinaryProvider>(
-              AppleLoadableBundleBinaryProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<AppleLoadableBundleBinaryProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleLoadableBundleBinaryProvider>(
+          AppleLoadableBundleBinaryProvider.class, SKYLARK_NAME) {};
 
   private final Artifact appleLoadableBundleBinary;
 

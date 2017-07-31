@@ -75,9 +75,8 @@ public class BazelPrerequisiteValidator
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
-      RequiredProviders requiredProviders = RawAttributeMapper.of(rule)
-          .getAttributeDefinition(attrName)
-          .getRequiredProviders();
+      RequiredProviders requiredProviders =
+          RawAttributeMapper.of(rule).getAttributeDefinition(attrName).getRequiredProviders();
       boolean containsPackageSpecificationProvider =
           requiredProviders.getDescription().contains("PackageSpecificationProvider");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.

@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
@@ -31,20 +31,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Information about a C++ compiler used by the <code>cc_*</code> rules.
- */
-@SkylarkModule(
-    name = "CcToolchainInfo",
-    doc = "Information about the C++ compiler being used."
-)
+/** Information about a C++ compiler used by the <code>cc_*</code> rules. */
+@SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
 @Immutable
-public final class CcToolchainProvider extends SkylarkClassObject {
+public final class CcToolchainProvider extends Info {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
-  public static final NativeClassObjectConstructor<CcToolchainProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<CcToolchainProvider>(
-          CcToolchainProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<CcToolchainProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<CcToolchainProvider>(CcToolchainProvider.class, SKYLARK_NAME) {};
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =

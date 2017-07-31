@@ -29,15 +29,15 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
@@ -240,7 +240,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   private static SkylarkProviderIdentifier declared(String exportedName) {
     return SkylarkProviderIdentifier.forKey(
-        new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, exportedName));
+        new SkylarkProvider.SkylarkKey(FAKE_LABEL, exportedName));
   }
 
   @Test
@@ -249,22 +249,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         buildAttribute("a1",
             "b = provider()",
             "attr.label_list(allow_files = True, providers = ['a', b])");
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b"))))
-        .isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"))))
-        .isFalse();
-
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
   }
 
   @Test
   public void testAttrWithProvidersOneEmpty() throws Exception {
     Attribute attr =
-        buildAttribute("a1",
+        buildAttribute(
+            "a1",
             "b = provider()",
             "attr.label_list(allow_files = True, providers = [['a', b],[]])");
     assertThat(attr.getRequiredProviders().acceptsAny()).isTrue();
   }
-
 
   @Test
   public void testAttrWithProvidersList() throws Exception {
@@ -272,16 +269,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         buildAttribute("a1",
             "b = provider()",
             "attr.label_list(allow_files = True, providers = [['a', b], ['c']])");
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b"))))
-        .isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("c"))))
-        .isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"))))
-        .isFalse();
-
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("c")))).isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
   }
 
-  private static AdvertisedProviderSet set(SkylarkProviderIdentifier ...ids) {
+  private static AdvertisedProviderSet set(SkylarkProviderIdentifier... ids) {
     AdvertisedProviderSet.Builder builder = AdvertisedProviderSet.builder();
     for (SkylarkProviderIdentifier id : ids) {
       builder.addSkylark(id);
@@ -450,9 +443,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY =
-      ruleContext -> {
-        throw new IllegalStateException();
-      };
+          ruleContext -> {
+            throw new IllegalStateException();
+          };
 
   private RuleClass ruleClass(String name) {
     return new RuleClass.Builder(name, RuleClassType.NORMAL, false)
@@ -1056,7 +1049,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("x = struct(a = 1, b = 2)",
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
-    SkylarkClassObject z = (SkylarkClassObject) lookup("z");
+    Info z = (Info) lookup("z");
     assertThat(z.getKeys()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
   }
 
@@ -1066,7 +1059,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("x = struct(a = 1, b = 2)",
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
-    SkylarkClassObject z = (SkylarkClassObject) lookup("z");
+    Info z = (Info) lookup("z");
     assertThat(z.getValue("a")).isEqualTo(1);
     assertThat(z.getValue("b")).isEqualTo(2);
     assertThat(z.getValue("c")).isEqualTo(1);
@@ -1088,7 +1081,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "    x += struct(c = 1, d = 2)",
         "  return x",
         "x = func()");
-    SkylarkClassObject x = (SkylarkClassObject) lookup("x");
+    Info x = (Info) lookup("x");
     assertThat(x.getValue("a")).isEqualTo(1);
     assertThat(x.getValue("b")).isEqualTo(2);
     assertThat(x.getValue("c")).isEqualTo(1);
@@ -1160,8 +1153,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval(
         "s = struct(x = {'a' : 1})",
         "s.x['b'] = 2\n");
-    assertThat(((SkylarkClassObject) lookup("s")).getValue("x"))
-        .isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+    assertThat(((Info) lookup("s")).getValue("x")).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
@@ -1169,7 +1161,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("def func():", "  return depset([struct(a='a')])", "s = func()");
     Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
-    assertThat(result.iterator().next()).isInstanceOf(SkylarkClassObject.class);
+    assertThat(result.iterator().next()).isInstanceOf(Info.class);
   }
 
   @Test
@@ -1178,21 +1170,22 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkEvalError("depsets cannot contain mutable items", "depset([struct(a=[])])");
   }
 
-  private static SkylarkClassObject makeStruct(String field, Object value) {
-    return NativeClassObjectConstructor.STRUCT.create(
-        ImmutableMap.of(field, value),
-        "no field '%'");
+  private static Info makeStruct(String field, Object value) {
+    return NativeProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }
 
-  private static SkylarkClassObject makeBigStruct(Environment env) {
+  private static Info makeBigStruct(Environment env) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
-    return NativeClassObjectConstructor.STRUCT.create(
+    return NativeProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
-            "a", MutableList.<Object>of(env,
-                NativeClassObjectConstructor.STRUCT.create(ImmutableMap.<String, Object>of(
-                    "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
-                    "no field '%s'"),
-                Tuple.of()),
+            "a",
+                MutableList.<Object>of(
+                    env,
+                    NativeProvider.STRUCT.create(
+                        ImmutableMap.<String, Object>of(
+                            "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
+                        "no field '%s'"),
+                    Tuple.of()),
             "b", Tuple.of(),
             "c", SkylarkDict.<Object, Object>of(env, 2, 2)),
         "no field '%s'");
@@ -1228,14 +1221,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     assertThat(lookup("d_x")).isEqualTo(1);
     assertThat(lookup("d_y")).isEqualTo("abc");
-    SkylarkClassObjectConstructor dataConstructor = (SkylarkClassObjectConstructor) lookup("data");
-    SkylarkClassObject data = (SkylarkClassObject) lookup("d");
-    assertThat(data.getConstructor()).isEqualTo(dataConstructor);
+    SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
+    Info data = (Info) lookup("d");
+    assertThat(data.getProvider()).isEqualTo(dataConstructor);
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
-    assertThat(dataConstructor.getKey()).isEqualTo(
-        new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "data")
-    );
+    assertThat(dataConstructor.getKey())
+        .isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "data"));
   }
 
   @Test
@@ -1250,11 +1242,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     assertThat(lookup("x")).isEqualTo(1);
     assertThat(lookup("y")).isEqualTo("abc");
-    SkylarkClassObjectConstructor dataConstructor = (SkylarkClassObjectConstructor) lookup("data");
-    SkylarkClassObject dx = (SkylarkClassObject) lookup("dx");
-    assertThat(dx.getConstructor()).isEqualTo(dataConstructor);
-    SkylarkClassObject dy = (SkylarkClassObject) lookup("dy");
-    assertThat(dy.getConstructor()).isEqualTo(dataConstructor);
+    SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
+    Info dx = (Info) lookup("dx");
+    assertThat(dx.getProvider()).isEqualTo(dataConstructor);
+    Info dy = (Info) lookup("dy");
+    assertThat(dy.getProvider()).isEqualTo(dataConstructor);
   }
 
   @Test
@@ -1276,11 +1268,10 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "data = struct(x = 1)"
     );
-    SkylarkClassObject data = (SkylarkClassObject) lookup("data");
-    assertThat(NativeClassObjectConstructor.STRUCT.isExported()).isTrue();
-    assertThat(data.getConstructor()).isEqualTo(NativeClassObjectConstructor.STRUCT);
-    assertThat(data.getConstructor().getKey())
-        .isEqualTo(NativeClassObjectConstructor.STRUCT.getKey());
+    Info data = (Info) lookup("data");
+    assertThat(NativeProvider.STRUCT.isExported()).isTrue();
+    assertThat(data.getProvider()).isEqualTo(NativeProvider.STRUCT);
+    assertThat(data.getProvider().getKey()).isEqualTo(NativeProvider.STRUCT.getKey());
   }
 
   @Test
@@ -1450,15 +1441,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "     provider() ]",
         "]"
     );
-    SkylarkClassObjectConstructor p = (SkylarkClassObjectConstructor) lookup("p");
+    SkylarkProvider p = (SkylarkProvider) lookup("p");
     SkylarkAspect a = (SkylarkAspect) lookup("a");
-    SkylarkClassObjectConstructor p1 = (SkylarkClassObjectConstructor) lookup("p1");
+    SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
-    assertThat(p.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
     assertThat(p1.getPrintableName()).isEqualTo("p1");
-    assertThat(p1.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p1"));
+    assertThat(p1.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p1"));
     assertThat(a.getAspectClass()).isEqualTo(
         new SkylarkAspectClass(FAKE_LABEL, "a")
     );
@@ -1470,13 +1459,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p = provider()",
         "p1 = p"
     );
-    SkylarkClassObjectConstructor p = (SkylarkClassObjectConstructor) lookup("p");
-    SkylarkClassObjectConstructor p1 = (SkylarkClassObjectConstructor) lookup("p1");
+    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
     assertThat(p).isEqualTo(p1);
-    assertThat(p.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
-    assertThat(p1.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
+    assertThat(p1.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
   }
 
 

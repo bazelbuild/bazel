@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -39,7 +39,7 @@ public class TransitiveInfoProviderMapBuilder {
     return providers.containsKey(legacyId);
   }
 
-  public boolean contains(ClassObjectConstructor.Key key) {
+  public boolean contains(Provider.Key key) {
     return providers.containsKey(key);
   }
 
@@ -48,9 +48,8 @@ public class TransitiveInfoProviderMapBuilder {
       Class<? extends T> providerClass, T provider) {
     Preconditions.checkNotNull(providerClass);
     Preconditions.checkNotNull(provider);
-    Preconditions.checkState(!(provider instanceof SkylarkClassObject),
-        "Expose %s as native declared provider",
-        providerClass);
+    Preconditions.checkState(
+        !(provider instanceof Info), "Expose %s as native declared provider", providerClass);
 
     // TODO(arielb): throw an exception if the providerClass is already present?
     // This is enforced by aspects but RuleConfiguredTarget presents violations
@@ -59,13 +58,13 @@ public class TransitiveInfoProviderMapBuilder {
     return this;
   }
 
-  public TransitiveInfoProviderMapBuilder put(SkylarkClassObject classObject) {
+  public TransitiveInfoProviderMapBuilder put(Info classObject) {
     Preconditions.checkNotNull(classObject);
     Preconditions.checkState(!(classObject instanceof TransitiveInfoProvider),
         "Declared provider %s should not implement TransitiveInfoProvider",
         classObject.getClass());
 
-    providers.put(classObject.getConstructor().getKey(), classObject);
+    providers.put(classObject.getProvider().getKey(), classObject);
     return this;
   }
 
@@ -105,8 +104,8 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   @Nullable
-  public SkylarkClassObject getProvider(ClassObjectConstructor.Key key) {
-    return (SkylarkClassObject) providers.get(key);
+  public Info getProvider(Provider.Key key) {
+    return (Info) providers.get(key);
   }
 
   public TransitiveInfoProviderMap build() {

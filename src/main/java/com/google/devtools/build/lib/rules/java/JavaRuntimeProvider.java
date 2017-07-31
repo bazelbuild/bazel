@@ -18,24 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
-@SkylarkModule(
-    name = "JavaRuntimeInfo",
-    doc = "Information about the Java runtime being used."
-)
+@SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
-public class JavaRuntimeProvider extends SkylarkClassObject {
+public class JavaRuntimeProvider extends Info {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
-  public static final NativeClassObjectConstructor<JavaRuntimeProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<JavaRuntimeProvider>(
-          JavaRuntimeProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<JavaRuntimeProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<JavaRuntimeProvider>(JavaRuntimeProvider.class, SKYLARK_NAME) {};
 
   private final NestedSet<Artifact> javaBaseInputs;
   private final PathFragment javaHome;

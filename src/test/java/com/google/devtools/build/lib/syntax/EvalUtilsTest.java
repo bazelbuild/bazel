@@ -20,7 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -115,19 +115,18 @@ public class EvalUtilsTest extends EvaluationTestCase {
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
     Object[] objects = {
-        "1",
-        2,
-        true,
-        Runtime.NONE,
-        SkylarkList.Tuple.of(1, 2, 3),
-        SkylarkList.Tuple.of("1", "2", "3"),
-        SkylarkList.MutableList.of(env, 1, 2, 3),
-        SkylarkList.MutableList.of(env, "1", "2", "3"),
-        SkylarkDict.of(env, "key", 123),
-        SkylarkDict.of(env, 123, "value"),
-        NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
-        NativeClassObjectConstructor.STRUCT.create(
-            ImmutableMap.of("key", (Object) "value"), "no field %s"),
+      "1",
+      2,
+      true,
+      Runtime.NONE,
+      SkylarkList.Tuple.of(1, 2, 3),
+      SkylarkList.Tuple.of("1", "2", "3"),
+      SkylarkList.MutableList.of(env, 1, 2, 3),
+      SkylarkList.MutableList.of(env, "1", "2", "3"),
+      SkylarkDict.of(env, "key", 123),
+      SkylarkDict.of(env, 123, "value"),
+      NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
+      NativeProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 
     for (int i = 0; i < objects.length; ++i) {

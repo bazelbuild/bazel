@@ -1592,8 +1592,7 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return NativeClassObjectConstructor.STRUCT.create(
-        builder.build(), "no native function or rule '%s'");
+    return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
   /** @param fakeEnv specify if we declare no-op functions, or real functions. */

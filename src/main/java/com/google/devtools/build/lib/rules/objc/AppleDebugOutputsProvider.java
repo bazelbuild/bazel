@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -37,7 +37,7 @@ import java.util.Map.Entry;
  * <p>Example: { "arm64": { "bitcode_symbols": Artifact, "dsym_binary": Artifact } }
  */
 @Immutable
-public final class AppleDebugOutputsProvider extends SkylarkClassObject {
+public final class AppleDebugOutputsProvider extends Info {
 
   /** Expected types of debug outputs. */
   enum OutputType {
@@ -61,8 +61,8 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject {
   public static final String SKYLARK_NAME = "AppleDebugOutputs";
 
   /** Skylark constructor and identifier for AppleDebugOutputsProvider. */
-  public static final NativeClassObjectConstructor<AppleDebugOutputsProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<AppleDebugOutputsProvider>(
+  public static final NativeProvider<AppleDebugOutputsProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleDebugOutputsProvider>(
           AppleDebugOutputsProvider.class, SKYLARK_NAME) {};
 
   /**

@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.WithLegacySkylarkName;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -33,14 +33,13 @@ import com.google.devtools.build.lib.util.Preconditions;
       "Deprecated. A provider for XCTest apps for testing. This is a legacy provider and should "
           + "not be used."
 )
-public final class XcTestAppProvider extends SkylarkClassObject {
+public final class XcTestAppProvider extends Info {
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String XCTEST_APP_SKYLARK_PROVIDER_NAME = "xctest_app";
 
-  public static final NativeClassObjectConstructor<XcTestAppProvider> SKYLARK_CONSTRUCTOR =
-      new Constructor();
+  public static final NativeProvider<XcTestAppProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private final Artifact bundleLoader;
   private final Artifact ipa;
@@ -85,8 +84,7 @@ public final class XcTestAppProvider extends SkylarkClassObject {
         .build();
   }
 
-  private static class Constructor
-      extends NativeClassObjectConstructor<XcTestAppProvider>
+  private static class Constructor extends NativeProvider<XcTestAppProvider>
       implements WithLegacySkylarkName {
 
     private Constructor() {

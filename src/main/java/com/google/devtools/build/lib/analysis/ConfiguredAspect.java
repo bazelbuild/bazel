@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -97,7 +97,7 @@ public final class ConfiguredAspect {
     }
   }
 
-  public SkylarkClassObject get(ClassObjectConstructor.Key key) {
+  public Info get(Provider.Key key) {
     return providers.getProvider(key);
   }
 
@@ -205,9 +205,9 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(SkylarkClassObject declaredProvider, Location loc)
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider, Location loc)
         throws EvalException {
-      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+      Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
         throw new EvalException(
             constructor.getLocation(), "All providers must be top level values");
@@ -216,12 +216,12 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    private void addDeclaredProvider(SkylarkClassObject declaredProvider) {
+    private void addDeclaredProvider(Info declaredProvider) {
       providers.put(declaredProvider);
     }
 
-    public Builder addNativeDeclaredProvider(SkylarkClassObject declaredProvider) {
-      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+    public Builder addNativeDeclaredProvider(Info declaredProvider) {
+      Provider constructor = declaredProvider.getProvider();
       Preconditions.checkState(constructor.isExported());
       addDeclaredProvider(declaredProvider);
       return this;

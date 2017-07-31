@@ -17,34 +17,34 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
  * Provider containing information about an Apple dynamic framework. This provider contains:
+ *
  * <ul>
- *   <li>'framework_dirs': The framework path names used as link inputs in order to link
- *       against the dynamic framework</li>
- *   <li>'framework_files': The full set of artifacts that should be included as inputs
- *       to link against the dynamic framework</li>
- *   <li>'binary': The dylib binary artifact of the dynamic framework</li>
+ *   <li>'framework_dirs': The framework path names used as link inputs in order to link against the
+ *       dynamic framework
+ *   <li>'framework_files': The full set of artifacts that should be included as inputs to link
+ *       against the dynamic framework
+ *   <li>'binary': The dylib binary artifact of the dynamic framework
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *     dependencies linked into the binary, (intended so that bundle loaders depending on this
- *     executable may avoid relinking symbols included in the loadable binary</li>
- * </ul> 
+ *       dependencies linked into the binary, (intended so that bundle loaders depending on this
+ *       executable may avoid relinking symbols included in the loadable binary
+ * </ul>
  */
-public final class AppleDynamicFrameworkProvider extends SkylarkClassObject {
+public final class AppleDynamicFrameworkProvider extends Info {
 
   /** Skylark name for the AppleDynamicFrameworkProvider. */
   public static final String SKYLARK_NAME = "AppleDynamicFramework";
 
   /** Skylark constructor and identifier for AppleDynamicFrameworkProvider. */
-  public static final NativeClassObjectConstructor<AppleDynamicFrameworkProvider>
-      SKYLARK_CONSTRUCTOR =
-          new NativeClassObjectConstructor<AppleDynamicFrameworkProvider>(
-              AppleDynamicFrameworkProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<AppleDynamicFrameworkProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleDynamicFrameworkProvider>(
+          AppleDynamicFrameworkProvider.class, SKYLARK_NAME) {};
 
   /** Field name for the dylib binary artifact of the dynamic framework. */
   public static final String DYLIB_BINARY_FIELD_NAME = "binary";

@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Provider.Key;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,8 +76,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected SkylarkClassObject rawGetSkylarkProvider(ClassObjectConstructor.Key providerKey) {
-    SkylarkClassObject provider = providers.getProvider(providerKey);
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+    Info provider = providers.getProvider(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
     }
@@ -142,12 +142,12 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
             throw new DuplicateException("Provider " + legacyId + " provided twice");
           }
           aspectProviders.put(legacyId, providers.getProviderInstanceAt(i));
-        } else if (providerKey instanceof ClassObjectConstructor.Key) {
-          ClassObjectConstructor.Key key = (Key) providerKey;
+        } else if (providerKey instanceof Provider.Key) {
+          Provider.Key key = (Key) providerKey;
           if (base.get(key) != null || aspectProviders.contains(key)) {
             throw new DuplicateException("Provider " + key + " provided twice");
           }
-          aspectProviders.put((SkylarkClassObject) providers.getProviderInstanceAt(i));
+          aspectProviders.put((Info) providers.getProviderInstanceAt(i));
         }
       }
     }

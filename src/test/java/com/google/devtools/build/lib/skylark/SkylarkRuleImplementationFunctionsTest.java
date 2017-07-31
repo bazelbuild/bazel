@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -906,8 +906,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultProvider.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
 
     assertThat(configuredTarget.get("dir"))
         .isEqualTo(
@@ -983,8 +983,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultProvider.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
 
     assertThat(configuredTarget.get("dir"))
         .isEqualTo(
@@ -1076,8 +1076,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultProvider.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
 
     assertThat(configuredTarget.get("dir"))
         .isEqualTo(
@@ -1139,8 +1139,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("default");
     assertThat(provider).isInstanceOf(DefaultProvider.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey());
   }
 
   @Test
@@ -1210,9 +1210,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
+    assertThat(provider).isInstanceOf(Info.class);
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
   }
 
   @Test
@@ -1250,10 +1250,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
-    assertThat(((SkylarkClassObject) provider).getValue("a")).isEqualTo(123);
+    assertThat(provider).isInstanceOf(Info.class);
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
+    assertThat(((Info) provider).getValue("a")).isEqualTo(123);
   }
 
   @Test
@@ -1297,9 +1297,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey()).isEqualTo(
-        new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
+    assertThat(provider).isInstanceOf(Info.class);
+    assertThat(((Info) provider).getProvider().getKey())
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:foo.bzl"), "foo_provider"));
   }
 
   @Test

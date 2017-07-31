@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,13 +28,11 @@ import java.util.Map;
 public final class ActionsProvider {
 
   /** The Actions provider type itself. */
-  public static final NativeClassObjectConstructor<SkylarkClassObject> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<SkylarkClassObject>(SkylarkClassObject.class, "Actions") {};
+  public static final NativeProvider<Info> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<Info>(Info.class, "Actions") {};
 
-  /**
-   * Factory method for creating instances of the Actions provider.
-   */
-  public static SkylarkClassObject create(Iterable<ActionAnalysisMetadata> actions) {
+  /** Factory method for creating instances of the Actions provider. */
+  public static Info create(Iterable<ActionAnalysisMetadata> actions) {
     Map<Artifact, ActionAnalysisMetadata> map = new HashMap<>();
     for (ActionAnalysisMetadata action : actions) {
       for (Artifact artifact : action.getOutputs()) {
@@ -46,6 +44,6 @@ public final class ActionsProvider {
       }
     }
     ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return new SkylarkClassObject(SKYLARK_CONSTRUCTOR, fields);
+    return new Info(SKYLARK_CONSTRUCTOR, fields);
   }
 }

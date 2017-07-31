@@ -16,28 +16,28 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
  * the 'dylib' type. This provider contains:
+ *
  * <ul>
- *   <li>'binary': The dylib artifact output by apple_binary</li>
+ *   <li>'binary': The dylib artifact output by apple_binary
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *     dependencies linked into the dylib, (intended so that binaries depending on this dylib may
- *     avoid relinking symbols included in the dylib</li>
- * </ul> 
+ *       dependencies linked into the dylib, (intended so that binaries depending on this dylib may
+ *       avoid relinking symbols included in the dylib
+ * </ul>
  */
-public final class AppleDylibBinaryProvider extends SkylarkClassObject {
+public final class AppleDylibBinaryProvider extends Info {
 
   /** Skylark name for the AppleDylibBinaryProvider. */
   public static final String SKYLARK_NAME = "AppleDylibBinary";
 
   /** Skylark constructor and identifier for AppleDylibBinaryProvider. */
-  public static final NativeClassObjectConstructor<AppleDylibBinaryProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<AppleDylibBinaryProvider>(
-          AppleDylibBinaryProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<AppleDylibBinaryProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleDylibBinaryProvider>(AppleDylibBinaryProvider.class, SKYLARK_NAME) {};
 
   private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;

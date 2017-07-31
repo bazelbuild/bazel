@@ -18,16 +18,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 
 /** A target that provides C linker parameters. */
 @Immutable
-public final class CcLinkParamsProvider extends SkylarkClassObject {
-  public static final NativeClassObjectConstructor<CcLinkParamsProvider> CC_LINK_PARAMS =
-      new NativeClassObjectConstructor<CcLinkParamsProvider>(
-          CcLinkParamsProvider.class, "link_params") {};
+public final class CcLinkParamsProvider extends Info {
+  public static final NativeProvider<CcLinkParamsProvider> CC_LINK_PARAMS =
+      new NativeProvider<CcLinkParamsProvider>(CcLinkParamsProvider.class, "link_params") {};
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
         // ... then try Skylark.

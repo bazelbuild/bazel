@@ -164,7 +164,7 @@ public final class AdvertisedProviderSet {
       return this;
     }
 
-    public Builder addSkylark(ClassObjectConstructor.Key id) {
+    public Builder addSkylark(Provider.Key id) {
       skylarkProviders.add(SkylarkProviderIdentifier.forKey(id));
       return this;
     }

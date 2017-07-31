@@ -19,16 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** DefaultProvider is provided by all targets implicitly and contains all standard fields. */
 @Immutable
-public final class DefaultProvider extends SkylarkClassObject {
+public final class DefaultProvider extends Info {
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -47,18 +47,18 @@ public final class DefaultProvider extends SkylarkClassObject {
   private final AtomicReference<SkylarkNestedSet> files = new AtomicReference<>();
 
   public static final String SKYLARK_NAME = "DefaultInfo";
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<SkylarkClassObject>(SkylarkClassObject.class, SKYLARK_NAME) {
+  public static final Provider SKYLARK_CONSTRUCTOR =
+      new NativeProvider<Info>(Info.class, SKYLARK_NAME) {
         @Override
-        protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc) {
+        protected Info createInstanceFromSkylark(Object[] args, Location loc) {
           @SuppressWarnings("unchecked")
           Map<String, Object> kwargs = (Map<String, Object>) args[0];
-          return new SkylarkClassObject(this, kwargs, loc);
+          return new Info(this, kwargs, loc);
         }
       };
 
   private DefaultProvider(
-      ClassObjectConstructor constructor,
+      Provider constructor,
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {

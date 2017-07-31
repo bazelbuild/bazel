@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -34,10 +34,10 @@ import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-public final class JavaProvider extends SkylarkClassObject {
+public final class JavaProvider extends Info {
 
-  public static final NativeClassObjectConstructor<JavaProvider> JAVA_PROVIDER =
-      new NativeClassObjectConstructor<JavaProvider>(JavaProvider.class, "java_common.provider") {};
+  public static final NativeProvider<JavaProvider> JAVA_PROVIDER =
+      new NativeProvider<JavaProvider>(JavaProvider.class, "java_common.provider") {};
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(

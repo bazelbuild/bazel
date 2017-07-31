@@ -16,20 +16,19 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(name = "MakeVariables", doc = "Make variables exposed by the current target.")
 @Immutable
-public final class MakeVariableProvider extends SkylarkClassObject {
+public final class MakeVariableProvider extends Info {
   public static final String SKYLARK_NAME = "MakeVariableInfo";
 
-  public static final NativeClassObjectConstructor<MakeVariableProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<MakeVariableProvider>(
-          MakeVariableProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<MakeVariableProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<MakeVariableProvider>(MakeVariableProvider.class, SKYLARK_NAME) {};
 
   private final ImmutableMap<String, String> makeVariables;
 

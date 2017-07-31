@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
@@ -96,10 +96,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
     SkylarkKey barKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar");
 
-    assertThat(configuredAspect.get(fooKey).getConstructor().getKey())
-        .isEqualTo(fooKey);
-    assertThat(configuredAspect.get(barKey).getConstructor().getKey())
-        .isEqualTo(barKey);
+    assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
+    assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
   }
 
   @Test
@@ -125,10 +123,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     SkylarkKey fooKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo");
     SkylarkKey barKey = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar");
 
-    assertThat(configuredAspect.get(fooKey).getConstructor().getKey())
-        .isEqualTo(fooKey);
-    assertThat(configuredAspect.get(barKey).getConstructor().getKey())
-        .isEqualTo(barKey);
+    assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
+    assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
   }
 
   private Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
@@ -348,7 +344,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update("//test:yyy");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
 
-    SkylarkClassObject names = target.get(providerKey);
+    Info names = target.get(providerKey);
     assertThat((Iterable<?>) names.getValue("dir"))
         .containsExactly(
             "aspect_provider",

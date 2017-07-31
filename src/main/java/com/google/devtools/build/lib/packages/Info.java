@@ -21,7 +21,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.StructConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -40,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** An implementation class of ClassObject for structs created in Skylark code. */
+/** Represents information provided by a {@link Provider}. */
 @SkylarkModule(
   name = "struct",
   category = SkylarkModuleCategory.BUILTIN,
@@ -49,53 +48,48 @@ import javax.annotation.Nullable;
           + "See the global <a href=\"globals.html#struct\">struct</a> function "
           + "for more details."
 )
-public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable, Serializable {
-  private final ClassObjectConstructor constructor;
+public class Info implements ClassObject, SkylarkValue, Concatable, Serializable {
+  private final Provider provider;
   private final ImmutableMap<String, Object> values;
   private final Location creationLoc;
   private final String errorMessage;
 
   /** Creates an empty struct with a given location. */
-  public SkylarkClassObject(ClassObjectConstructor constructor, Location location) {
-    this.constructor = constructor;
+  public Info(Provider provider, Location location) {
+    this.provider = provider;
     this.values = ImmutableMap.of();
     this.creationLoc = location;
-    this.errorMessage = constructor.getErrorMessageFormatForInstances();
+    this.errorMessage = provider.getErrorMessageFormatForInstances();
   }
 
-  /**
-   * Creates a built-in struct (i.e. without creation loc).
-   */
-  public SkylarkClassObject(ClassObjectConstructor constructor,
-      Map<String, Object> values) {
-    this.constructor = constructor;
+  /** Creates a built-in struct (i.e. without creation loc). */
+  public Info(Provider provider, Map<String, Object> values) {
+    this.provider = provider;
     this.values = copyValues(values);
     this.creationLoc = null;
-    this.errorMessage = constructor.getErrorMessageFormatForInstances();
+    this.errorMessage = provider.getErrorMessageFormatForInstances();
   }
 
   /**
    * Creates a built-in struct (i.e. without creation loc).
    *
-   * Allows to supply a specific error message.
-   * Only used in {@link StructConstructor#create(Map, String)}
-   * If you need to override an error message, preferred way is to create a specific
-   * {@link NativeClassObjectConstructor}.
+   * <p>Allows to supply a specific error message. Only used in
+   * {@link com.google.devtools.build.lib.packages.NativeProvider.StructConstructor#create(Map,
+   * String)} If you need to override an error message, preferred way is to create a specific {@link
+   * NativeProvider}.
    */
-  SkylarkClassObject(ClassObjectConstructor constructor,
-      Map<String, Object> values, String errorMessage) {
-    this.constructor = constructor;
+  Info(Provider provider, Map<String, Object> values, String errorMessage) {
+    this.provider = provider;
     this.values = copyValues(values);
     this.creationLoc = null;
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
   }
 
-  public SkylarkClassObject(ClassObjectConstructor constructor,
-      Map<String, Object> values, Location creationLoc) {
-    this.constructor = constructor;
+  public Info(Provider provider, Map<String, Object> values, Location creationLoc) {
+    this.provider = provider;
     this.values = copyValues(values);
     this.creationLoc = Preconditions.checkNotNull(creationLoc);
-    this.errorMessage = constructor.getErrorMessageFormatForInstances();
+    this.errorMessage = provider.getErrorMessageFormatForInstances();
   }
 
   // Ensure that values are all acceptable to Skylark before to stuff them in a ClassObject
@@ -117,9 +111,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
     return values.containsKey(name);
   }
 
-  /**
-   *  Returns a value and try to cast it into specified type
-   */
+  /** Returns a value and try to cast it into specified type */
   public <TYPE> TYPE getValue(String key, Class<TYPE> type) throws EvalException {
     Object obj = values.get(key);
     if (obj == null) {
@@ -135,17 +127,16 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   }
 
   public Location getCreationLoc() {
-    return Preconditions.checkNotNull(creationLoc,
-        "This struct was not created in a Skylark code");
+    return Preconditions.checkNotNull(creationLoc, "This struct was not created in a Skylark code");
   }
 
   @Override
   public Concatter getConcatter() {
     return StructConcatter.INSTANCE;
   }
-  
-  public ClassObjectConstructor getConstructor() {
-    return constructor;
+
+  public Provider getProvider() {
+    return provider;
   }
 
   @Nullable
@@ -159,27 +150,25 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
     private StructConcatter() {}
 
     @Override
-    public SkylarkClassObject concat(
-        Concatable left, Concatable right, Location loc) throws EvalException {
-      SkylarkClassObject lval = (SkylarkClassObject) left;
-      SkylarkClassObject rval = (SkylarkClassObject) right;
-      if (!lval.constructor.equals(rval.constructor)) {
-        throw new EvalException(loc,
-            String.format("Cannot concat %s with %s",
-                lval.constructor.getPrintableName(),
-                rval.constructor.getPrintableName()));
+    public Info concat(Concatable left, Concatable right, Location loc) throws EvalException {
+      Info lval = (Info) left;
+      Info rval = (Info) right;
+      if (!lval.provider.equals(rval.provider)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "Cannot concat %s with %s",
+                lval.provider.getPrintableName(), rval.provider.getPrintableName()));
       }
-      SetView<String> commonFields = Sets
-          .intersection(lval.values.keySet(), rval.values.keySet());
+      SetView<String> commonFields = Sets.intersection(lval.values.keySet(), rval.values.keySet());
       if (!commonFields.isEmpty()) {
-        throw new EvalException(loc, "Cannot concat structs with common field(s): "
-            + Joiner.on(",").join(commonFields));
+        throw new EvalException(
+            loc,
+            "Cannot concat structs with common field(s): " + Joiner.on(",").join(commonFields));
       }
-      return new SkylarkClassObject(lval.constructor,
-          ImmutableMap.<String, Object>builder()
-              .putAll(lval.values)
-              .putAll(rval.values)
-              .build(),
+      return new Info(
+          lval.provider,
+          ImmutableMap.<String, Object>builder().putAll(lval.values).putAll(rval.values).build(),
           loc);
     }
   }
@@ -194,8 +183,8 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
 
   @Override
   public boolean isImmutable() {
-    // If the constructor is not yet exported the hash code of the object is subject to change
-    if (!constructor.isExported()) {
+    // If the provider is not yet exported the hash code of the object is subject to change
+    if (!provider.isExported()) {
       return false;
     }
     for (Object item : values.values()) {
@@ -208,14 +197,14 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof SkylarkClassObject)) {
+    if (!(otherObject instanceof Info)) {
       return false;
     }
-    SkylarkClassObject other = (SkylarkClassObject) otherObject;
+    Info other = (Info) otherObject;
     if (this == other) {
       return true;
     }
-    if (!this.constructor.equals(other.constructor)) {
+    if (!this.provider.equals(other.provider)) {
       return false;
     }
     // Compare objects' keys and values
@@ -235,7 +224,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
     List<String> keys = new ArrayList<>(getKeys());
     Collections.sort(keys);
     List<Object> objectsToHash = new ArrayList<>();
-    objectsToHash.add(constructor);
+    objectsToHash.add(provider);
     for (String key : keys) {
       objectsToHash.add(key);
       objectsToHash.add(getValue(key));
@@ -267,7 +256,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   @Override
   public void reprLegacy(SkylarkPrinter printer) {
     boolean first = true;
-    printer.append(constructor.getPrintableName());
+    printer.append(provider.getPrintableName());
     printer.append("(");
     // Sort by key to ensure deterministic output.
     for (String key : Ordering.natural().sortedCopy(values.keySet())) {

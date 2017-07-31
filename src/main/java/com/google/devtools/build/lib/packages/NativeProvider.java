@@ -23,31 +23,27 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Base class for declared providers {@see ClassObjectConstructor} defined in native code.
+ * Base class for declared providers {@see Provider} defined in native code.
  *
- * <p>Every non-abstract derived class of {@link NativeClassObjectConstructor} corresponds to a
- * single declared provider. This is enforced by final {@link #equals(Object)} and {@link
- * #hashCode()}.
+ * <p>Every non-abstract derived class of {@link NativeProvider} corresponds to a single declared
+ * provider. This is enforced by final {@link #equals(Object)} and {@link #hashCode()}.
  *
  * <p>Typical implementation of a non-constructable from Skylark declared provider is as follows:
  *
  * <pre>
- *     public static final ClassObjectConstructor CC_LINK_PARAMS =
- *       new NativeClassObjectConstructor("link_params") { };
+ *     public static final Provider CC_LINK_PARAMS =
+ *       new NativeProvider("link_params") { };
  * </pre>
  *
  * To allow construction from Skylark and custom construction logic, override {@link
  * #createInstanceFromSkylark(Object[], Location)} (see {@link #STRUCT} for an example.
  */
 @Immutable
-public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObject>
-    extends ClassObjectConstructor {
+public abstract class NativeProvider<VALUE extends Info> extends Provider {
   private final NativeKey key;
   private final String errorMessageForInstances;
 
-  /**
-   * "struct" function.
-   */
+  /** "struct" function. */
   public static final StructConstructor STRUCT = new StructConstructor();
 
   private final Class<VALUE> valueClass;
@@ -57,13 +53,11 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
   }
 
   /**
-   * Implement this to mark that a native provider should be exported with
-   * certain name to Skylark.
-   * Broken: only works for rules, not for aspects.
-   * DO NOT USE FOR NEW CODE!
+   * Implement this to mark that a native provider should be exported with certain name to Skylark.
+   * Broken: only works for rules, not for aspects. DO NOT USE FOR NEW CODE!
    *
-   * Use native declared providers mechanism
-   * exclusively to expose providers to both native and Skylark code.
+   * <p>Use native declared providers mechanism exclusively to expose providers to both native and
+   * Skylark code.
    */
   @Deprecated
   public static interface WithLegacySkylarkName {
@@ -75,36 +69,35 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
    *
    * <p>Singleton, instance is {@link #STRUCT}.
    */
-  public static final class StructConstructor
-      extends NativeClassObjectConstructor<SkylarkClassObject> {
+  public static final class StructConstructor extends NativeProvider<Info> {
     private StructConstructor() {
-      super(SkylarkClassObject.class, "struct");
+      super(Info.class, "struct");
     }
 
     @Override
-    protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc) {
+    protected Info createInstanceFromSkylark(Object[] args, Location loc) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return new SkylarkClassObject(this, kwargs, loc);
+      return new Info(this, kwargs, loc);
     }
 
-    public SkylarkClassObject create(Map<String, Object> values, String message) {
-      return new SkylarkClassObject(this, values, message);
+    public Info create(Map<String, Object> values, String message) {
+      return new Info(this, values, message);
     }
 
-    public SkylarkClassObject create(Location loc) {
-      return new SkylarkClassObject(this, loc);
+    public Info create(Location loc) {
+      return new Info(this, loc);
     }
   }
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
-  protected NativeClassObjectConstructor(Class<VALUE> clazz, String name) {
+  protected NativeProvider(Class<VALUE> clazz, String name) {
     this(clazz, name, SIGNATURE);
   }
 
-  protected NativeClassObjectConstructor(
+  protected NativeProvider(
       Class<VALUE> valueClass,
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature) {
@@ -117,8 +110,8 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
   /**
    * equals() implements singleton class semantics.
    *
-   * Every non-abstract derived class of {@link NativeClassObjectConstructor}
-   * corresponds to a single declared provider.
+   * <p>Every non-abstract derived class of {@link NativeProvider} corresponds to a single declared
+   * provider.
    */
   @Override
   public final boolean equals(@Nullable Object other) {
@@ -128,8 +121,8 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
   /**
    * hashCode() implements singleton class semantics.
    *
-   * Every non-abstract derived class of {@link NativeClassObjectConstructor}
-   * corresponds to a single declared provider.
+   * <p>Every non-abstract derived class of {@link NativeProvider} corresponds to a single declared
+   * provider.
    */
   @Override
   public final int hashCode() {
@@ -157,10 +150,9 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
   }
 
   @Override
-  protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc)
-      throws EvalException {
-    throw new EvalException(loc,
-        String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+  protected Info createInstanceFromSkylark(Object[] args, Location loc) throws EvalException {
+    throw new EvalException(
+        loc, String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
   }
 
   public static Pair<String, String> getSerializedRepresentationForNativeKey(NativeKey key) {
@@ -169,26 +161,24 @@ public abstract class NativeClassObjectConstructor<VALUE extends SkylarkClassObj
 
   public static NativeKey getNativeKeyFromSerializedRepresentation(Pair<String, String> serialized)
       throws ClassNotFoundException {
-    Class<? extends NativeClassObjectConstructor> aClass =
-        Class.forName(serialized.second).asSubclass(NativeClassObjectConstructor.class);
+    Class<? extends NativeProvider> aClass =
+        Class.forName(serialized.second).asSubclass(NativeProvider.class);
     return new NativeKey(serialized.first, aClass);
   }
 
   /**
-   * A serializable representation of {@link NativeClassObjectConstructor}.
+   * A serializable representation of {@link NativeProvider}.
    *
-   * Just a wrapper around its class.
+   * <p>Just a wrapper around its class.
    */
   // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
   // we will need to serialize this somehow.
   @Immutable
   public static final class NativeKey extends Key {
     private final String name;
-    private final Class<? extends NativeClassObjectConstructor> aClass;
+    private final Class<? extends NativeProvider> aClass;
 
-    private NativeKey(
-        String name,
-        Class<? extends NativeClassObjectConstructor> aClass) {
+    private NativeKey(String name, Class<? extends NativeProvider> aClass) {
       this.name = name;
       this.aClass = aClass;
     }

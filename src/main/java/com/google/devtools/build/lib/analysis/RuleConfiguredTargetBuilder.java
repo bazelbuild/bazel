@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
@@ -250,13 +250,10 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(
-      SkylarkClassObject value) {
-    if (value.getConstructor() instanceof NativeClassObjectConstructor.WithLegacySkylarkName) {
+  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(Info value) {
+    if (value.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
       addSkylarkTransitiveInfo(
-          ((NativeClassObjectConstructor.WithLegacySkylarkName) value.getConstructor())
-              .getSkylarkName(),
-          value);
+          ((NativeProvider.WithLegacySkylarkName) value.getProvider()).getSkylarkName(), value);
     }
   }
 
@@ -273,18 +270,17 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds a "declared provider" defined in Skylark to the rule.
-   * Use this method for declared providers defined in Skyark.
+   * Adds a "declared provider" defined in Skylark to the rule. Use this method for declared
+   * providers defined in Skyark.
    *
-   * Has special handling for {@link OutputGroupProvider}: that provider is not added
-   * from Skylark directly, instead its outpuyt groups are added.
+   * <p>Has special handling for {@link OutputGroupProvider}: that provider is not added from
+   * Skylark directly, instead its outpuyt groups are added.
    *
-   * Use {@link #addNativeDeclaredProvider(SkylarkClassObject)} in definitions of
-   * native rules.
+   * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
-      SkylarkClassObject provider, Location loc) throws EvalException {
-    ClassObjectConstructor constructor = provider.getConstructor();
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider, Location loc)
+      throws EvalException {
+    Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
@@ -304,26 +300,23 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)} for Skylark rule
-   * implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(
-      Iterable<SkylarkClassObject> providers) {
-    for (SkylarkClassObject provider : providers) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
+    for (Info provider : providers) {
       addNativeDeclaredProvider(provider);
     }
     return this;
   }
 
   /**
-   * Adds a "declared provider" defined in native code to the rule.
-   * Use this method for declared providers in definitions of native rules.
+   * Adds a "declared provider" defined in native code to the rule. Use this method for declared
+   * providers in definitions of native rules.
    *
-   * Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)}
-   * for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
-    ClassObjectConstructor constructor = provider.getConstructor();
+  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
+    Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);
     maybeAddSkylarkLegacyProvider(provider);

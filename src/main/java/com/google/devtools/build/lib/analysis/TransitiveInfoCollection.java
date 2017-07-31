@@ -87,22 +87,18 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
   default boolean satisfies(RequiredProviders providers) {
     return providers.isSatisfiedBy(
         aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null
-    );
+        id -> this.get(id) != null);
   }
 
   /**
-   * Returns providers that this {@link TransitiveInfoCollection} misses from
-   * a given {@link RequiredProviders}.
+   * Returns providers that this {@link TransitiveInfoCollection} misses from a given {@link
+   * RequiredProviders}.
    *
-   * If none are missing, returns {@link RequiredProviders} that accept any set
-   * of providers.
+   * <p>If none are missing, returns {@link RequiredProviders} that accept any set of providers.
    */
   default RequiredProviders missingProviders(RequiredProviders providers) {
     return providers.getMissing(
         aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null
-    );
+        id -> this.get(id) != null);
   }
-
 }

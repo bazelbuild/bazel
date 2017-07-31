@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentProvider extends SkylarkClassObject {
+public final class TestEnvironmentProvider extends Info {
 
   /** Skylark constructor and identifier for TestEnvironmentProvider. */
-  public static final NativeClassObjectConstructor<TestEnvironmentProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<TestEnvironmentProvider>(
+  public static final NativeProvider<TestEnvironmentProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<TestEnvironmentProvider>(
           TestEnvironmentProvider.class, "TestEnvironment") {};
 
   private final Map<String, String> environment;

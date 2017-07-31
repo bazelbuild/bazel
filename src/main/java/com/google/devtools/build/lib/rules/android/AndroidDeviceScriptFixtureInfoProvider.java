@@ -17,21 +17,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Information about an {@code android_device_script_fixture} to run as part of an {@code
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject {
+public class AndroidDeviceScriptFixtureInfoProvider extends Info {
 
   private static final String SKYLARK_NAME = "DeviceScriptFixtureInfo";
-  public static final NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>
-      SKYLARK_CONSTRUCTOR =
-          new NativeClassObjectConstructor<AndroidDeviceScriptFixtureInfoProvider>(
-              AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<AndroidDeviceScriptFixtureInfoProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AndroidDeviceScriptFixtureInfoProvider>(
+          AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact fixtureScript;
   private final NestedSet<Artifact> supportApks;

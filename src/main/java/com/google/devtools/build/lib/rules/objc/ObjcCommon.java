@@ -67,8 +67,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -299,10 +299,10 @@ public final class ObjcCommon {
       return listBuilder;
     }
 
-    private <T extends SkylarkClassObject> ImmutableList.Builder<T> addAnyProviders(
+    private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
         ImmutableList.Builder<T> listBuilder,
         TransitiveInfoCollection collection,
-        NativeClassObjectConstructor<T> providerClass) {
+        NativeProvider<T> providerClass) {
       T provider = collection.get(providerClass);
       if (provider != null) {
         listBuilder.add(provider);

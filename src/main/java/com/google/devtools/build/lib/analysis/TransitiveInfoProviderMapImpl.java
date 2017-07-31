@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -43,8 +43,8 @@ class TransitiveInfoProviderMapImpl
 
   @Nullable
   @Override
-  public SkylarkClassObject getProvider(ClassObjectConstructor.Key key) {
-    return (SkylarkClassObject) get(key);
+  public Info getProvider(Provider.Key key) {
+    return (Info) get(key);
   }
 
   @Nullable

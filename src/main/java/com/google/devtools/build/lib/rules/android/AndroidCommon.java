@@ -38,10 +38,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
@@ -101,8 +101,8 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  public static final <T extends SkylarkClassObject> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, Mode mode, NativeClassObjectConstructor<T> key) {
+  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
+      RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {

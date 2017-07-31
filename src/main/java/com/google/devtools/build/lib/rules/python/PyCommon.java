@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -162,11 +162,11 @@ public final class PyCommon {
   /**
    * Returns a Skylark struct for exposing transitive Python sources:
    *
-   *     addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
+   * <p>addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
-  public static SkylarkClassObject createSourceProvider(
+  public static Info createSourceProvider(
       NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
-    return NativeClassObjectConstructor.STRUCT.create(
+    return NativeProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
@@ -301,14 +301,15 @@ public final class PyCommon {
 
   private NestedSet<Artifact> getTransitivePythonSourcesFromSkylarkProvider(
       TransitiveInfoCollection dep) {
-    SkylarkClassObject pythonSkylarkProvider = null;
+    Info pythonSkylarkProvider = null;
     try {
-      pythonSkylarkProvider = SkylarkType.cast(
+      pythonSkylarkProvider =
+          SkylarkType.cast(
               dep.get(PYTHON_SKYLARK_PROVIDER_NAME),
-              SkylarkClassObject.class,
+              Info.class,
               null,
-              "%s should be a struct", PYTHON_SKYLARK_PROVIDER_NAME
-      );
+              "%s should be a struct",
+              PYTHON_SKYLARK_PROVIDER_NAME);
 
       if (pythonSkylarkProvider != null) {
         Object sourceFiles = pythonSkylarkProvider.getValue(TRANSITIVE_PYTHON_SRCS);
@@ -487,8 +488,8 @@ public final class PyCommon {
     for (TransitiveInfoCollection dep : deps) {
       Object providerObject = dep.get(PYTHON_SKYLARK_PROVIDER_NAME);
       if (providerObject != null) {
-        SkylarkType.checkType(providerObject, SkylarkClassObject.class, null);
-        SkylarkClassObject provider = (SkylarkClassObject) providerObject;
+        SkylarkType.checkType(providerObject, Info.class, null);
+        Info provider = (Info) providerObject;
         Boolean isUsingSharedLibrary = provider.getValue(IS_USING_SHARED_LIBRARY, Boolean.class);
         if (Boolean.TRUE.equals(isUsingSharedLibrary)) {
           return true;

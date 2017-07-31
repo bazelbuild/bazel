@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -298,8 +298,7 @@ public class ValidationTest extends EvaluationTestCase {
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
     assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
 
-    assertThat(EvalUtils.getSkylarkType(SkylarkClassObject.class))
-        .isEqualTo(SkylarkClassObject.class);
+    assertThat(EvalUtils.getSkylarkType(Info.class)).isEqualTo(Info.class);
     try {
       EvalUtils.getSkylarkType(ClassObject.class);
       throw new Exception("Should have raised IllegalArgumentException exception");
@@ -338,8 +337,7 @@ public class ValidationTest extends EvaluationTestCase {
     // TODO(bazel-team): move to some other place to remove dependency of syntax tests on Artifact?
     assertThat(SkylarkType.of(Artifact.SpecialArtifact.class))
         .isEqualTo(SkylarkType.of(Artifact.class));
-    assertThat(SkylarkType.of(RuleConfiguredTarget.class))
-        .isNotEqualTo(SkylarkType.of(SkylarkClassObject.class));
+    assertThat(SkylarkType.of(RuleConfiguredTarget.class)).isNotEqualTo(SkylarkType.of(Info.class));
   }
 
   @Test

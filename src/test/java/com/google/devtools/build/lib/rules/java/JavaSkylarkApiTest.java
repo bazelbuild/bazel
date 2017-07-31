@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -96,19 +96,17 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
-    SkylarkNestedSet sourceJars = ((SkylarkNestedSet) skylarkClassObject.getValue("source_jars"));
-    SkylarkNestedSet transitiveDeps =
-        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_deps"));
+    SkylarkNestedSet sourceJars = ((SkylarkNestedSet) info.getValue("source_jars"));
+    SkylarkNestedSet transitiveDeps = ((SkylarkNestedSet) info.getValue("transitive_deps"));
     SkylarkNestedSet transitiveRuntimeDeps =
-        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_deps"));
+        ((SkylarkNestedSet) info.getValue("transitive_runtime_deps"));
     SkylarkNestedSet transitiveSourceJars =
-        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_source_jars"));
-    SkylarkList<OutputJar> outputJars =
-        ((SkylarkList<OutputJar>) skylarkClassObject.getValue("outputs"));
+        ((SkylarkNestedSet) info.getValue("transitive_source_jars"));
+    SkylarkList<OutputJar> outputJars = ((SkylarkList<OutputJar>) info.getValue("outputs"));
 
     assertThat(artifactFilesNames(sourceJars.toCollection(Artifact.class)))
         .containsExactly("libdep-src.jar");
@@ -157,15 +155,15 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       "    srcs = ['ToBeProcessed.java'])",
       "my_rule(name = 'my', dep = ':to_be_processed')");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    SkylarkClassObject skylarkClassObject = configuredTarget.get(
-          new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
+    Info info =
+        configuredTarget.get(
+            new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
-    assertThat((List<?>) skylarkClassObject.getValue("processor_classnames"))
+    assertThat((List<?>) info.getValue("processor_classnames"))
         .containsExactly("com.google.process.stuff");
     assertThat(
             Iterables.transform(
-                ((SkylarkNestedSet) skylarkClassObject.getValue("processor_classpath"))
-                    .toCollection(),
+                ((SkylarkNestedSet) info.getValue("processor_classpath")).toCollection(),
                 new Function<Object, String>() {
                   @Override
                   public String apply(Object o) {
@@ -173,7 +171,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                   }
                 }))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
-
   }
 
   @Test
@@ -211,16 +208,15 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
     // Extract out the information from skylark rule
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         myConfiguredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
-    SkylarkNestedSet rawMyCompileJars =
-        (SkylarkNestedSet) (skylarkClassObject.getValue("compile_jars"));
+    SkylarkNestedSet rawMyCompileJars = (SkylarkNestedSet) (info.getValue("compile_jars"));
     SkylarkNestedSet rawMyTransitiveRuntimeJars =
-        (SkylarkNestedSet) (skylarkClassObject.getValue("transitive_runtime_jars"));
+        (SkylarkNestedSet) (info.getValue("transitive_runtime_jars"));
     SkylarkNestedSet rawMyTransitiveCompileTimeJars =
-        (SkylarkNestedSet) (skylarkClassObject.getValue("transitive_compile_time_jars"));
+        (SkylarkNestedSet) (info.getValue("transitive_compile_time_jars"));
 
     NestedSet<Artifact> myCompileJars = rawMyCompileJars.getSet(Artifact.class);
     NestedSet<Artifact> myTransitiveRuntimeJars = rawMyTransitiveRuntimeJars.getSet(Artifact.class);
@@ -299,18 +295,18 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject = target.get(JavaProvider.JAVA_PROVIDER);
+    Info info = target.get(JavaProvider.JAVA_PROVIDER);
 
-    SkylarkNestedSet compileJars = (SkylarkNestedSet) skylarkClassObject.getValue("compile_jars");
+    SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
     SkylarkNestedSet transitiveCompileTimeJars =
-        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_compile_time_jars");
+        (SkylarkNestedSet) info.getValue("transitive_compile_time_jars");
     assertThat(prettyJarNames(
         transitiveCompileTimeJars.getSet(Artifact.class))).containsExactly("foo/libc.jar");
 
     SkylarkNestedSet transitiveRuntimeJars =
-        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_jars");
+        (SkylarkNestedSet) info.getValue("transitive_runtime_jars");
     assertThat(prettyJarNames(
         transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
   }
@@ -339,17 +335,17 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject = target.get(JavaProvider.JAVA_PROVIDER);
+    Info info = target.get(JavaProvider.JAVA_PROVIDER);
 
-    SkylarkNestedSet compileJars = (SkylarkNestedSet) skylarkClassObject.getValue("compile_jars");
+    SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
     SkylarkNestedSet transitiveCompileTimeJars =
-        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_compile_time_jars");
+        (SkylarkNestedSet) info.getValue("transitive_compile_time_jars");
     assertThat(prettyJarNames(transitiveCompileTimeJars.getSet(Artifact.class))).isEmpty();
 
     SkylarkNestedSet transitiveRuntimeJars =
-        (SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_jars");
+        (SkylarkNestedSet) info.getValue("transitive_runtime_jars");
     assertThat(prettyJarNames(
         transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
   }
@@ -508,8 +504,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     SkylarkKey myProviderKey =
         new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "my_provider");
-    SkylarkClassObject declaredProvider =
-        myRuleTarget.get(myProviderKey);
+    Info declaredProvider = myRuleTarget.get(myProviderKey);
     Object javaProvider = declaredProvider.getValue("p");
     assertThat(javaProvider).isInstanceOf(JavaProvider.class);
     assertThat(javaLibraryTarget.get(JavaProvider.JAVA_PROVIDER)).isEqualTo(javaProvider);
@@ -728,9 +723,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule(name='myrule')"
     );
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
-    assertThat(((String) skylarkClassObject.getValue("strict_java_deps"))).isEqualTo("default");
+    assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("default");
   }
 
   @Test
@@ -752,9 +747,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     useConfiguration("--strict_java_deps=ERROR");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
-    assertThat(((String) skylarkClassObject.getValue("strict_java_deps"))).isEqualTo("error");
+    assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("error");
   }
 
   @Test
@@ -778,9 +773,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule(name='myrule')"
     );
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
-    Label javaToolchainLabel = ((Label) skylarkClassObject.getValue("java_toolchain_label"));
+    Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
     assertThat(javaToolchainLabel.toString()).endsWith("jdk:toolchain");
   }
 
@@ -806,9 +801,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     useConfiguration("--java_toolchain=//java/com/google/test:toolchain");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    SkylarkClassObject skylarkClassObject =
+    Info info =
         configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
-    Label javaToolchainLabel = ((Label) skylarkClassObject.getValue("java_toolchain_label"));
+    Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
   }
 

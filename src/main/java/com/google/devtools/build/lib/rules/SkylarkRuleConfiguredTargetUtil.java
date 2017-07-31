@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -103,7 +103,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (!(target instanceof SkylarkClassObject)
+      } else if (!(target instanceof Info)
           && target != Runtime.NONE
           && !(target instanceof Iterable)) {
         ruleContext.ruleError(
@@ -187,7 +187,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   private static void addInstrumentedFiles(
-      SkylarkClassObject insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
+      Info insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     Location insLoc = insStruct.getCreationLoc();
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
@@ -269,25 +269,25 @@ public final class SkylarkRuleConfiguredTargetUtil {
       RuleContext ruleContext, RuleConfiguredTargetBuilder builder, Object target, Location loc)
       throws EvalException {
 
-    SkylarkClassObject oldStyleProviders = NativeClassObjectConstructor.STRUCT.create(loc);
-    ArrayList<SkylarkClassObject> declaredProviders = new ArrayList<>();
+    Info oldStyleProviders = NativeProvider.STRUCT.create(loc);
+    ArrayList<Info> declaredProviders = new ArrayList<>();
 
-    if (target instanceof SkylarkClassObject) {
+    if (target instanceof Info) {
       // Either an old-style struct or a single declared provider (not in a list)
-      SkylarkClassObject struct = (SkylarkClassObject) target;
+      Info struct = (Info) target;
       // Use the creation location of this struct as a better reference in error messages
       loc = struct.getCreationLoc();
-      if (struct.getConstructor().getKey().equals(NativeClassObjectConstructor.STRUCT.getKey())) {
+      if (struct.getProvider().getKey().equals(NativeProvider.STRUCT.getKey())) {
         // Old-style struct, but it may contain declared providers
         oldStyleProviders = struct;
 
         if (struct.hasKey("providers")) {
           Iterable iterable = cast("providers", struct, Iterable.class, loc);
           for (Object o : iterable) {
-            SkylarkClassObject declaredProvider =
+            Info declaredProvider =
                 SkylarkType.cast(
                     o,
-                    SkylarkClassObject.class,
+                    Info.class,
                     loc,
                     "The value of 'providers' should be a sequence of declared providers");
             declaredProviders.add(declaredProvider);
@@ -300,10 +300,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
     } else if (target instanceof Iterable) {
       // Sequence of declared providers
       for (Object o : (Iterable) target) {
-        SkylarkClassObject declaredProvider =
+        Info declaredProvider =
             SkylarkType.cast(
                 o,
-                SkylarkClassObject.class,
+                Info.class,
                 loc,
                 "A return value of a rule implementation function should be "
                     + "a sequence of declared providers");
@@ -313,9 +313,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
     boolean defaultProviderProvidedExplicitly = false;
 
-    for (SkylarkClassObject declaredProvider : declaredProviders) {
+    for (Info declaredProvider : declaredProviders) {
       if (declaredProvider
-          .getConstructor()
+          .getProvider()
           .getKey()
           .equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
         parseDefaultProviderKeys(declaredProvider, ruleContext, builder);
@@ -346,11 +346,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
       } else if (key.equals("output_groups")) {
         addOutputGroups(oldStyleProviders.getValue(key), loc, builder);
       } else if (key.equals("instrumented_files")) {
-        SkylarkClassObject insStruct =
-            cast("instrumented_files", oldStyleProviders, SkylarkClassObject.class, loc);
+        Info insStruct = cast("instrumented_files", oldStyleProviders, Info.class, loc);
         addInstrumentedFiles(insStruct, ruleContext, builder);
       } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(key))) {
-        builder.addNativeDeclaredProvider((SkylarkClassObject) oldStyleProviders.getValue(key));
+        builder.addNativeDeclaredProvider((Info) oldStyleProviders.getValue(key));
       } else if (!key.equals("providers")) {
         // We handled providers already.
         builder.addSkylarkTransitiveInfo(key, oldStyleProviders.getValue(key), loc);
@@ -359,11 +358,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   private static boolean isNativeDeclaredProviderWithLegacySkylarkName(Object value) {
-    if (!(value instanceof SkylarkClassObject)) {
+    if (!(value instanceof Info)) {
       return false;
     }
-    return ((SkylarkClassObject) value).getConstructor()
-        instanceof NativeClassObjectConstructor.WithLegacySkylarkName;
+    return ((Info) value).getProvider() instanceof NativeProvider.WithLegacySkylarkName;
   }
 
   /**
@@ -371,7 +369,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
    * throws an {@link EvalException} if there are unknown keys.
    */
   private static void parseDefaultProviderKeys(
-      SkylarkClassObject provider, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
+      Info provider, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     SkylarkNestedSet files = null;
     Runfiles statelessRunfiles = null;
@@ -398,7 +396,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       } else if (key.equals("executable")) {
         executable = cast("executable", provider, Artifact.class, loc);
       } else if (provider
-          .getConstructor()
+          .getProvider()
           .getKey()
           .equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
         // Custom keys are not allowed for default providers
@@ -473,8 +471,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
 
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
-      SkylarkClassObject actions = ActionsProvider.create(
-          ruleContext.getAnalysisEnvironment().getRegisteredActions());
+      Info actions =
+          ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
       builder.addSkylarkDeclaredProvider(actions, loc);
     }
   }

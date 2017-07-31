@@ -18,8 +18,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -31,14 +31,14 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
   doc = "A provider used to access information about config_feature_flag rules."
 )
 @Immutable
-public class ConfigFeatureFlagProvider extends SkylarkClassObject {
+public class ConfigFeatureFlagProvider extends Info {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /** Skylark constructor and identifier for ConfigFeatureFlagProvider. */
-  static final NativeClassObjectConstructor<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<ConfigFeatureFlagProvider>(
+  static final NativeProvider<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<ConfigFeatureFlagProvider>(
           ConfigFeatureFlagProvider.class, SKYLARK_NAME) {};
 
   private final String value;
@@ -87,7 +87,7 @@ public class ConfigFeatureFlagProvider extends SkylarkClassObject {
   }
 
   // ConfigFeatureFlagProvider instances should all be unique, so we override the default
-  // equals and hashCode from SkylarkClassObject to ensure that. SCO's toString is fine, however.
+  // equals and hashCode from Info to ensure that. SCO's toString is fine, however.
   @Override
   public boolean equals(Object other) {
     return other == this;
