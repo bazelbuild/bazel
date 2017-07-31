@@ -347,6 +347,22 @@ toolchain {
     name: 'compile_action_flags_in_flag_set'
   }
 
+  feature {
+    name: "preprocessor_defines"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "/D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
+      }
+    }
+  }
+
   action_config {
     config_name: 'c-compile'
     action_name: 'c-compile'

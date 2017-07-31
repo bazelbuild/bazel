@@ -225,11 +225,11 @@ public class BazelCppRuleClasses {
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
           <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
-          is prepended with <code>-D</code> and added to
+          is prepended with <code>-D</code> (or <code>/D</code> on Windows) and added to
           <code>COPTS</code>.
           Unlike <a href="#cc_binary.copts"><code>copts</code></a>, these flags are added for the
           target and every rule that depends on it!  Be very careful, since this may have
-          far-reaching effects.  When in doubt, add "-D" flags to
+          far-reaching effects.  When in doubt, add "-D" (or <code>/D</code> on Windows) flags to
           <a href="#cc_binary.copts"><code>copts</code></a> instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
