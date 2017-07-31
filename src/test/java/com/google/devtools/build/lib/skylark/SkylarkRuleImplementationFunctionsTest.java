@@ -633,7 +633,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
         "  substitutions = {'a': 'b'},",
-        "  executable = False)");
+        "  is_executable = False)");
 
     TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
         ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
@@ -669,7 +669,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
         "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
-        "  executable = False)");
+        "  is_executable = False)");
     TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
         ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();

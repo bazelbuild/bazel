@@ -669,7 +669,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         doc = "substitutions to make when expanding the template."
       ),
       @Param(
-        name = "executable",
+        name = "is_executable",
         type = Boolean.class,
         defaultValue = "False",
         named = true,
