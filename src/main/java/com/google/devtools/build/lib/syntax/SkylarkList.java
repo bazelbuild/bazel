@@ -29,7 +29,7 @@ import java.util.ListIterator;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
-/** A class to handle lists and tuples in Skylark. */
+/** A Skylark list or tuple. */
 @SkylarkModule(
   name = "sequence",
   documented = false,
@@ -333,6 +333,26 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     }
 
     /**
+     * A shared instance for the empty list with immutable mutability.
+     *
+     * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
+     * environments were then frozen. This instance is for empty lists that were always frozen from
+     * the beginning.
+     *
+     * @deprecated Prefer {@link #empty()} instead, since that includes a cast for the element type.
+     *     This field will be made private in the near future.
+     */
+    @Deprecated
+    public static final MutableList<?> EMPTY =
+        new MutableList<>(ImmutableList.of(), Mutability.IMMUTABLE);
+
+    /** Returns an empty frozen list, cast to have an arbitrary content type. */
+    @SuppressWarnings("unchecked")
+    public static <E> MutableList<E> empty() {
+      return (MutableList<E>) EMPTY;
+    }
+
+    /**
      * Builds a Skylark list from a variable number of arguments.
      * @param env an Environment from which to inherit Mutability, or null for immutable
      * @param contents the contents of the list
@@ -493,11 +513,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     public boolean isTuple() {
       return false;
     }
-
-    /**
-     * An empty IMMUTABLE MutableList.
-     */
-    public static final MutableList<?> EMPTY = new MutableList<>(Tuple.EMPTY, Mutability.IMMUTABLE);
   }
 
   /** An immutable tuple, e.g. in (1, 2, 3) */
@@ -528,16 +543,14 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
       this.contents = contents;
     }
 
-    @Override
-    public Mutability mutability() {
-      return Mutability.IMMUTABLE;
-    }
-
     /**
-     * THE empty Skylark tuple.
+     * A shared instance for the empty tuple.
+     *
+     * <p>This instance should be the only empty tuple.
      */
     private static final Tuple<?> EMPTY = new Tuple<>(ImmutableList.of());
 
+    /** Returns the empty tuple, cast to have an arbitrary content type. */
     @SuppressWarnings("unchecked")
     public static <E> Tuple<E> empty() {
       return (Tuple<E>) EMPTY;
@@ -551,6 +564,11 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
         return empty();
       }
       return new Tuple<>(contents);
+    }
+
+    @Override
+    public Mutability mutability() {
+      return Mutability.IMMUTABLE;
     }
 
     /**

@@ -460,13 +460,13 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("[1, 2] * 3", MutableList.of(env, 1, 2, 1, 2, 1, 2))
         .testStatement("[1, 2] * 4", MutableList.of(env, 1, 2, 1, 2, 1, 2, 1, 2))
         .testStatement("[8] * 5", MutableList.of(env, 8, 8, 8, 8, 8))
-        .testStatement("[    ] * 10", MutableList.EMPTY)
-        .testStatement("[1, 2] * 0", MutableList.EMPTY)
-        .testStatement("[1, 2] * -4", MutableList.EMPTY)
+        .testStatement("[    ] * 10", MutableList.empty())
+        .testStatement("[1, 2] * 0", MutableList.empty())
+        .testStatement("[1, 2] * -4", MutableList.empty())
         .testStatement(" 2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
-        .testStatement("10 * []", MutableList.EMPTY)
-        .testStatement(" 0 * [1, 2]", MutableList.EMPTY)
-        .testStatement("-4 * [1, 2]", MutableList.EMPTY);
+        .testStatement("10 * []", MutableList.empty())
+        .testStatement(" 0 * [1, 2]", MutableList.empty())
+        .testStatement("-4 * [1, 2]", MutableList.empty());
   }
 
   @SuppressWarnings("unchecked")

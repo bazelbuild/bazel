@@ -1538,7 +1538,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testEmptyLabelListTypeAttrInCtx() throws Exception {
     SkylarkRuleContext ctx = createRuleContext("//foo:baz");
     Object result = evalRuleContextCode(ctx, "ruleContext.attr.srcs");
-    assertThat(result).isEqualTo(MutableList.EMPTY);
+    assertThat(result).isEqualTo(MutableList.empty());
   }
 
   @Test

@@ -932,7 +932,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
     assertThat(target.get("o1")).isEqualTo(Runtime.NONE);
-    assertThat(target.get("o2")).isEqualTo(MutableList.EMPTY);
+    assertThat(target.get("o2")).isEqualTo(MutableList.empty());
   }
 
   @Test
