@@ -1937,6 +1937,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         requestedFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
       }
     }
+    if (useFission()) {
+      requestedFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+    }
     return requestedFeatures.build();
   }
 

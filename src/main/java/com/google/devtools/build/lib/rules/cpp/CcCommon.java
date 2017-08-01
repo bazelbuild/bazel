@@ -94,7 +94,6 @@ public final class CcCommon {
           CppRuleClasses.HEADER_MODULE_COMPILE,
           CppRuleClasses.INCLUDE_PATHS,
           CppRuleClasses.PIC,
-          CppRuleClasses.PER_OBJECT_DEBUG_INFO,
           CppRuleClasses.PREPROCESSOR_DEFINES);
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
 
