@@ -11,5 +11,9 @@ java_binary(
     runtime_deps = [
         ":classes",
     ],
-    data = ["//src/main/native/windows:windows_jni.dll"],
+    data = select({
+        "//src:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//src:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
+        "//conditions:default": [],
+    }),
 )
