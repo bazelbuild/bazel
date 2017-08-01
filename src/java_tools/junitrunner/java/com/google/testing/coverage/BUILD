@@ -65,9 +65,6 @@ java_library(
         "BitField.java",
         "IllegalStringException.java",
     ],
-    deps = [
-        "//third_party:apache_commons_lang",
-    ],
 )
 
 genrule(
