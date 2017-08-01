@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -1355,9 +1354,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertOnlyRequiredInputsArePresentForBundledCompilation(topTarget);
     assertCoptsAndDefinesForBundlingTarget(topTarget);
     assertBundledGroupsGetCreatedAndLinked(topTarget);
-    if (getObjcCrosstoolMode() == ObjcCrosstoolMode.ALL) {
-      assertBundledCompilationUsesCrosstool(topTarget);
-    }
   }
 
   protected ImmutableList<Artifact> getAllObjectFilesLinkedInBin(Artifact bin) {
@@ -1456,22 +1452,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .doesNotContain("protos/data_b.proto");
   }
 
-  /**
-   * Ensures that all middleman artifacts in the action input are expanded so that the real inputs
-   * are also included.
-   */
-  protected Iterable<Artifact> getExpandedActionInputs(Action action) {
-    List<Artifact> containedArtifacts = new ArrayList<>();
-    for (Artifact input : action.getInputs()) {
-      if (input.isMiddlemanArtifact()) {
-        Action middlemanAction = getGeneratingAction(input);
-        Iterables.addAll(containedArtifacts, getExpandedActionInputs(middlemanAction));
-      }
-      containedArtifacts.add(input);
-    }
-    return containedArtifacts;
-  }
-
   private void assertOnlyRequiredInputsArePresentForBundledCompilation(ConfiguredTarget topTarget) {
     Artifact protoHeaderA = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
     Artifact protoHeaderB = getBinArtifact("_generated_protos/x/protos/DataB.pbobjc.h", topTarget);
@@ -1497,15 +1477,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(protoObjectActionC).isNotNull();
     assertThat(protoObjectActionD).isNotNull();
 
-    assertThat(getExpandedActionInputs(protoObjectActionA))
+    assertThat(protoObjectActionA.getInputs())
         .containsNoneOf(protoHeaderB, protoHeaderC, protoHeaderD);
-    assertThat(getExpandedActionInputs(protoObjectActionB))
+    assertThat(protoObjectActionB.getInputs())
         .containsNoneOf(protoHeaderA, protoHeaderC, protoHeaderD);
-    assertThat(getExpandedActionInputs(protoObjectActionC))
+    assertThat(protoObjectActionC.getInputs())
         .containsNoneOf(protoHeaderA, protoHeaderB, protoHeaderD);
-    assertThat(getExpandedActionInputs(protoObjectActionD))
+    assertThat(protoObjectActionD.getInputs())
         .containsAllOf(protoHeaderA, protoHeaderC, protoHeaderD);
-    assertThat(getExpandedActionInputs(protoObjectActionD))
+    assertThat(protoObjectActionD.getInputs())
         .doesNotContain(protoHeaderB);
   }
 
@@ -1547,22 +1527,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction binAction = (CommandAction) getGeneratingAction(bin);
     assertThat(binAction.getInputs())
         .containsAllOf(protosGroup0Lib, protosGroup1Lib, protosGroup2Lib, protosGroup3Lib);
-  }
-
-  private void assertBundledCompilationUsesCrosstool(ConfiguredTarget topTarget) {
-    Artifact protoObjectA =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
-    Artifact protoObjectB =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataB.pbobjc.o", topTarget);
-    Artifact protoObjectC =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataC.pbobjc.o", topTarget);
-    Artifact protoObjectD =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataD.pbobjc.o", topTarget);
-
-    assertThat(getGeneratingAction(protoObjectA)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectB)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectC)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectD)).isInstanceOf(CppCompileAction.class);
   }
 
   protected void checkProtoBundlingDoesNotHappen(RuleType ruleType) throws Exception {

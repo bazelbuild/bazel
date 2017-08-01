@@ -243,8 +243,7 @@ public class MultiArchBinarySupport {
                     protosToAvoid,
                     ImmutableList.<ProtoSourcesProvider>of(),
                     objcProtoProviders,
-                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
-                    childConfigurationsAndToolchains.get(childConfig))
+                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();

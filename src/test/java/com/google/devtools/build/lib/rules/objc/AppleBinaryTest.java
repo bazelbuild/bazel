@@ -568,9 +568,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataB.pbobjc.o")).isNull();
     Action dataAObjectAction =
         getGeneratingAction(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o"));
-    assertThat(
-            getFirstArtifactEndingWith(
-                getExpandedActionInputs(dataAObjectAction), "DataB.pbobjc.h"))
+    assertThat(getFirstArtifactEndingWith(dataAObjectAction.getInputs(), "DataB.pbobjc.h"))
         .isNotNull();
   }
 
