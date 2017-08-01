@@ -18,7 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
+import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -111,6 +113,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addProvider(JavaRuleOutputJarsProvider.EMPTY)
         .addNativeDeclaredProvider(javaProvider)
+        .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
         .build();
   }
 

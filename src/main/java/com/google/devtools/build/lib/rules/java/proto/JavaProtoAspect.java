@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -237,6 +238,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       }
 
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
+      javaProvidersBuilder.add(createCcLinkParamsStore(ruleContext, getProtoRuntimeDeps()));
       TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
       aspect
           .addSkylarkTransitiveInfo(
@@ -291,12 +293,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               .addSourceJars(sourceJar)
               .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
       helper.addDep(dependencyCompilationArgs).setCompilationStrictDepsMode(StrictDepsMode.OFF);
-      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
-      if (runtime != null) {
-        helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
+      for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
+        JavaCompilationArgsProvider provider = t.getProvider(JavaCompilationArgsProvider.class);
+        if (provider != null) {
+          helper.addDep(provider);
+        }
       }
 
-      rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(
           helper.build(
               javaSemantics,
@@ -304,6 +307,16 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaHelper.getHostJavabaseInputs(ruleContext),
               JavaCompilationHelper.getInstrumentationJars(ruleContext)),
           true /* isReportedAsStrict */);
+    }
+
+    private ImmutableList<TransitiveInfoCollection> getProtoRuntimeDeps() {
+      ImmutableList.Builder<TransitiveInfoCollection> result = ImmutableList.builder();
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        result.add(runtime);
+      }
+      result.addAll(rpcSupport.getRuntimes(ruleContext));
+      return result.build();
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {

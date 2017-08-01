@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import java.util.List;
 
@@ -37,7 +38,7 @@ public interface RpcSupport {
   void mutateProtoCompileAction(
       RuleContext ruleContext, Artifact sourceJar, ProtoCompileActionBuilder actionBuilder);
 
-  void mutateJavaCompileAction(RuleContext ruleContext, JavaLibraryHelper helper);
+  ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext);
 
   void mutateAspectDefinition(AspectDefinition.Builder def, AspectParameters aspectParameters);
 

@@ -931,6 +931,7 @@ java_library(
         "rules/java/proto/JavaProtoLibrary.java",
         "rules/java/proto/JavaProtoLibraryAspectProvider.java",
         "rules/java/proto/JavaProtoSkylarkCommon.java",
+        "rules/java/proto/JplCcLinkParams.java",
         "rules/java/proto/ProtoJavacOpts.java",
         "rules/java/proto/StrictDepsUtils.java",
     ],
@@ -970,6 +971,7 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
     ],
 )
 
