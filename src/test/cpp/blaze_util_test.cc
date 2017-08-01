@@ -91,9 +91,7 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFrom(string input) {
-    AssertReadFrom2(std::move(input), "");
-  }
+  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
   static void AssertReadJvmVersion(string expected, const string& input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
