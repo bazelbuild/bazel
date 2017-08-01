@@ -515,6 +515,7 @@ message MakeVariable {
 message DefaultCpuToolchain {
   required string cpu = 1;
   required string toolchain_identifier = 2;
+  optional bool supports_lipo = 3 [default = true];
 }
 
 // An entire crosstool release, containing the version number, a default target

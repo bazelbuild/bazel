@@ -1759,6 +1759,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           + "Remove one of the '--fdo_instrument' and '--fdo_optimize' options"));
     }
 
+    if (cppOptions.getLipoMode() != LipoMode.OFF
+        && isLLVMCompiler()
+        && !cppOptions.convertLipoToThinLTO) {
+      reporter.handle(
+          Event.error(
+              "The LLVM compiler does not support LIPO. Use --convert_lipo_to_thinlto to "
+                  + "automatically fall back to thinlto."));
+    }
     if (cppOptions.lipoContextForBuild != null) {
       if (isLLVMCompiler()) {
         reporter.handle(

@@ -485,6 +485,17 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+    name = "convert_lipo_to_thinlto",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "If set, builds using LIPO will automatically be converted to ThinLTO for the LLVM "
+            + "compiler."
+  )
+  public boolean convertLipoToThinLTO;
+
+  @Option(
     name = "lipo",
     defaultValue = "off",
     converter = LipoModeConverter.class,
