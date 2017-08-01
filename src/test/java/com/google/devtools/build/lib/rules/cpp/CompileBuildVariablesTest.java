@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -61,5 +62,18 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         .contains("x/bin.cc");
     assertThat(variables.getStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME))
         .contains("x/bin");
+  }
+
+  @Test
+  public void testPresenceOfCoptsVariable() throws Exception {
+    scratch.file(
+        "x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo', '-bar'])");
+    scratch.file("x/bin.cc");
+
+    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        Variables.toStringList(variables, CppModel.COPTS_VARIABLE_VALUE);
+    assertThat(copts).containsExactly("-foo", "-bar").inOrder();
   }
 }

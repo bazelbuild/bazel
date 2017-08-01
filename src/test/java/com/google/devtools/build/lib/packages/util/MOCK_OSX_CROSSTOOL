@@ -1111,6 +1111,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -1186,6 +1206,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -1205,6 +1226,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -1219,6 +1241,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -1233,6 +1256,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -1247,6 +1271,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -1270,6 +1295,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -1294,6 +1320,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -1306,6 +1333,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -1320,6 +1348,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -2659,6 +2688,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -2734,6 +2783,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -2753,6 +2803,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -2767,6 +2818,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -2781,6 +2833,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -2795,6 +2848,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -2818,6 +2872,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -2842,6 +2897,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -2854,6 +2910,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -2868,6 +2925,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -4211,6 +4269,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -4290,6 +4368,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -4309,6 +4388,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -4323,6 +4403,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -4337,6 +4418,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -4351,6 +4433,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -4374,6 +4457,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4399,6 +4483,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4412,6 +4497,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -4426,6 +4512,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -5771,6 +5858,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -5850,6 +5957,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -5869,6 +5977,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -5883,6 +5992,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -5897,6 +6007,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -5911,6 +6022,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -5934,6 +6046,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5959,6 +6072,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5972,6 +6086,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -5986,6 +6101,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -7330,6 +7446,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "cpp_linker_flags"
     flag_set {
       action: "c++-link-executable"
@@ -7438,6 +7574,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7458,6 +7595,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7473,6 +7611,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7488,6 +7627,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7503,6 +7643,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7527,6 +7668,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -7552,6 +7694,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -7565,6 +7708,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7580,6 +7724,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -8924,6 +9069,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -9003,6 +9168,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -9022,6 +9188,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -9036,6 +9203,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -9050,6 +9218,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -9064,6 +9233,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -9087,6 +9257,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -9112,6 +9283,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -9125,6 +9297,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -9139,6 +9312,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -10482,6 +10656,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -10586,6 +10780,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -10605,6 +10800,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -10619,6 +10815,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -10633,6 +10830,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -10647,6 +10845,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -10670,6 +10869,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -10694,6 +10894,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -10706,6 +10907,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -10720,6 +10922,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -12065,6 +12268,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -12169,6 +12392,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -12188,6 +12412,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -12202,6 +12427,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -12216,6 +12442,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -12230,6 +12457,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -12253,6 +12481,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -12277,6 +12506,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -12289,6 +12519,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -12303,6 +12534,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"
@@ -13647,6 +13879,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "cpp_linker_flags"
     flag_set {
       action: "c++-link-executable"
@@ -13780,6 +14032,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13800,6 +14053,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13815,6 +14069,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13830,6 +14085,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13845,6 +14101,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13869,6 +14126,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -13893,6 +14151,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -13905,6 +14164,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -13920,6 +14180,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -15264,6 +15525,26 @@ toolchain {
     provides: "profile"
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -15368,6 +15649,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-compile"
@@ -15387,6 +15669,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -15401,6 +15684,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -15415,6 +15699,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -15429,6 +15714,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-compile"
@@ -15452,6 +15738,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -15476,6 +15763,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -15488,6 +15776,7 @@ toolchain {
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -15502,6 +15791,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc-archive"

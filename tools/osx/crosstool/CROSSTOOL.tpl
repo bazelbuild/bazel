@@ -1029,6 +1029,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -1055,6 +1075,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -1069,6 +1090,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -1083,6 +1105,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -1097,6 +1120,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -1111,6 +1135,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -1141,6 +1166,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -1166,6 +1192,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -1174,6 +1201,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -1186,6 +1214,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2459,6 +2488,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -2489,6 +2538,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2503,6 +2553,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2517,6 +2568,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2531,6 +2583,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2545,6 +2598,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -2575,6 +2629,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -2601,6 +2656,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -2610,6 +2666,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -2622,6 +2679,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -3897,6 +3955,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -3927,6 +4005,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -3941,6 +4020,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -3955,6 +4035,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -3969,6 +4050,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -3983,6 +4065,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -4013,6 +4096,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4039,6 +4123,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4048,6 +4133,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -4060,6 +4146,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5334,6 +5421,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -5393,6 +5500,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5408,6 +5516,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5423,6 +5532,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5438,6 +5548,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5453,6 +5564,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -5484,6 +5596,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5510,6 +5623,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5519,6 +5633,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -5532,6 +5647,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6808,6 +6924,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -6838,6 +6974,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6852,6 +6989,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6866,6 +7004,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6880,6 +7019,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6894,6 +7034,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -6924,6 +7065,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -6950,6 +7092,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -6959,6 +7102,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -6971,6 +7115,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8244,6 +8389,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -8261,6 +8426,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8275,6 +8441,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8289,6 +8456,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8303,6 +8471,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8317,6 +8486,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -8347,6 +8517,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -8372,6 +8543,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -8380,6 +8552,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -8392,6 +8565,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9667,6 +9841,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -9684,6 +9878,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9698,6 +9893,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9712,6 +9908,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9726,6 +9923,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9740,6 +9938,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -9770,6 +9969,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -9795,6 +9995,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -9803,6 +10004,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -9815,6 +10017,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11089,6 +11292,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -11135,6 +11358,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11150,6 +11374,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11165,6 +11390,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11180,6 +11406,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11195,6 +11422,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -11226,6 +11454,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -11251,6 +11480,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -11259,6 +11489,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -11272,6 +11503,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12548,6 +12780,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -12565,6 +12817,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12579,6 +12832,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12593,6 +12847,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12607,6 +12862,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12621,6 +12877,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -12651,6 +12908,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -12676,6 +12934,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -12684,6 +12943,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -12696,6 +12956,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -13975,6 +14236,26 @@ toolchain {
     }
   }
   feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
+    }
+  }
+  feature {
     name: "apply_implicit_frameworks"
     flag_set {
       action: "objc-executable"
@@ -13992,6 +14273,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -14006,6 +14288,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -14020,6 +14303,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -14034,6 +14318,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -14048,6 +14333,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
@@ -14078,6 +14364,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "objc++-compile"
@@ -14103,6 +14390,7 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "copts"
   }
   action_config {
     config_name: "assemble"
@@ -14111,6 +14399,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
@@ -14123,6 +14412,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"

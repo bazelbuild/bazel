@@ -134,6 +134,9 @@ public final class CppModel {
   /** Name of the build variable for the LTO indexing bitcode file. */
   public static final String LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME = "lto_indexing_bitcode_file";
 
+  /** Build variable for all user provided copt flags. */
+  public static final String COPTS_VARIABLE_VALUE = "copts";
+
   private final CppSemantics semantics;
   private final RuleContext ruleContext;
   private final BuildConfiguration configuration;
@@ -143,7 +146,7 @@ public final class CppModel {
   private CppCompilationContext context;
   private final Set<CppSource> sourceFiles = new LinkedHashSet<>();
   private final List<Artifact> mandatoryInputs = new ArrayList<>();
-  private final List<String> copts = new ArrayList<>();
+  private final ImmutableList<String> copts;
   @Nullable private Pattern nocopts;
   private boolean fake;
   private boolean maySaveTemps;
@@ -164,19 +167,28 @@ public final class CppModel {
   private final FdoSupportProvider fdoSupport;
   private String linkedArtifactNameSuffix = "";
 
-  public CppModel(RuleContext ruleContext, CppSemantics semantics,
-      CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport) {
-    this(ruleContext, semantics, ccToolchain, fdoSupport, ruleContext.getConfiguration());
+  public CppModel(
+      RuleContext ruleContext,
+      CppSemantics semantics,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      ImmutableList<String> copts) {
+    this(ruleContext, semantics, ccToolchain, fdoSupport, ruleContext.getConfiguration(), copts);
  }
 
-  public CppModel(RuleContext ruleContext, CppSemantics semantics,
-      CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport,
-      BuildConfiguration configuration) {
+  public CppModel(
+      RuleContext ruleContext,
+      CppSemantics semantics,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      BuildConfiguration configuration,
+      ImmutableList<String> copts) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
     this.configuration = configuration;
+    this.copts = copts;
     cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
   }
 
@@ -251,14 +263,6 @@ public final class CppModel {
   /** Adds mandatory inputs. */
   public CppModel addMandatoryInputs(Collection<Artifact> artifacts) {
     this.mandatoryInputs.addAll(artifacts);
-    return this;
-  }
-
-  /**
-   * Adds the given copts.
-   */
-  public CppModel addCopts(Collection<String> copts) {
-    this.copts.addAll(copts);
     return this;
   }
 
@@ -462,6 +466,7 @@ public final class CppModel {
 
     buildVariables.addStringVariable(SOURCE_FILE_VARIABLE_NAME, sourceFile.getExecPathString());
     buildVariables.addStringVariable(OUTPUT_FILE_VARIABLE_NAME, outputFile.getExecPathString());
+    buildVariables.addStringSequenceVariable(COPTS_VARIABLE_VALUE, copts);
 
     if (builder.getTempOutputFile() != null) {
       realOutputFilePath = builder.getTempOutputFile().getPathString();
@@ -1342,7 +1347,7 @@ public final class CppModel {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(ruleContext, label, ccToolchain, configuration);
     builder.setSourceFile(source);
-    builder.setContext(context).addCopts(copts);
+    builder.setContext(context);
     builder.addEnvironment(ccToolchain.getEnvironment());
     return builder;
   }

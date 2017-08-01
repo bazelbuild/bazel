@@ -104,7 +104,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         scratchArtifact("a/FakeInput"),
         scratchArtifact("a/FakeOutput"),
         makeLabel("//a:FakeInput"),
-        ImmutableList.<String>of(),
         new Predicate<String>() {
           @Override
           public boolean apply(String s) {

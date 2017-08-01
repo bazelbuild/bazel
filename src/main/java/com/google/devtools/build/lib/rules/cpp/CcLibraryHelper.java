@@ -263,7 +263,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
-  private final List<String> copts = new ArrayList<>();
+  private ImmutableList<String> copts = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
   @Nullable private Pattern nocopts;
   private final Set<String> defines = new LinkedHashSet<>();
@@ -371,15 +371,14 @@ public final class CcLibraryHelper {
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
   public CcLibraryHelper fromCommon(CcCommon common) {
-    this
-        .addCopts(common.getCopts())
-        .addDefines(common.getDefines())
-        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-        .addLooseIncludeDirs(common.getLooseIncludeDirs())
-        .addNonCodeLinkerInputs(common.getLinkerScripts())
-        .addSystemIncludeDirs(common.getSystemIncludeDirs())
-        .setNoCopts(common.getNoCopts())
-        .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
+    setCopts(common.getCopts());
+    addDefines(common.getDefines());
+    addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
+    addLooseIncludeDirs(common.getLooseIncludeDirs());
+    addNonCodeLinkerInputs(common.getLinkerScripts());
+    addSystemIncludeDirs(common.getSystemIncludeDirs());
+    setNoCopts(common.getNoCopts());
+    setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
     return this;
   }
 
@@ -635,11 +634,8 @@ public final class CcLibraryHelper {
     return this;
   }
 
-  /**
-   * Adds the copts to the compile command line.
-   */
-  public CcLibraryHelper addCopts(Iterable<String> copts) {
-    Iterables.addAll(this.copts, copts);
+  public CcLibraryHelper setCopts(ImmutableList<String> copts) {
+    this.copts = Preconditions.checkNotNull(copts);
     return this;
   }
 
@@ -1152,9 +1148,14 @@ public final class CcLibraryHelper {
    * Creates the C/C++ compilation action creator.
    */
   private CppModel initializeCppModel() {
-    return new CppModel(ruleContext, semantics, ccToolchain, fdoSupport, configuration)
+    return new CppModel(
+            ruleContext,
+            semantics,
+            ccToolchain,
+            fdoSupport,
+            configuration,
+            copts)
         .addCompilationUnitSources(compilationUnitSources)
-        .addCopts(copts)
         .setLinkTargetType(linkType)
         .setNeverLink(neverlink)
         .addLinkActionInputs(linkActionInputs)

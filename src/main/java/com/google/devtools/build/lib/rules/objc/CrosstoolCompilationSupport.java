@@ -448,10 +448,16 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             // For example, objc_proto_library can depend on a proto_library rule that does not
             // generate C++ protos.
             .setCheckDepsGenerateCpp(false)
-            .addCopts(getCompileRuleCopts())
+            .setCopts(
+                ImmutableList.<String>builder()
+                    .addAll(getCompileRuleCopts())
+                    .addAll(
+                        ruleContext
+                            .getFragment(ObjcConfiguration.class)
+                            .getCoptsForCompilationMode())
+                    .build())
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
-            .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
             .setCppModuleMap(intermediateArtifacts.moduleMap())
             .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())

@@ -752,6 +752,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'copts'
   }
 
   action_config {
@@ -783,6 +784,26 @@ toolchain {
       flag_group {
         flag: '/P'
         flag: '/Fi%{output_preprocess_file}'
+      }
+    }
+    implies: 'copts'
+  }
+
+  feature {
+    name: 'copts'
+    flag_set {
+      expand_if_all_available: 'copts'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'copts'
+        flag: '%{copts}'
       }
     }
   }

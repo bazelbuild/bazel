@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -825,6 +826,20 @@ public class CcToolchainFeatures implements Serializable {
     public static final Variables EMPTY = new Variables.Builder().build();
 
     /**
+     * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
+     * and converts it into a list of plain strings.
+     *
+     * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
+     */
+    public static final ImmutableList<String> toStringList(
+        CcToolchainFeatures.Variables variables, String variableName) {
+      return Streams
+          .stream(variables.getSequenceVariable(variableName))
+          .map(variable -> variable.getStringValue(variableName))
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
      * Variables can be either String values or an arbitrarily deeply nested recursive sequences,
      * which we represent as a tree of {@code VariableValue} nodes. The nodes are {@code Sequence}
      * objects, while the leafs are {@code StringSequence} objects. We do not allow {@code
@@ -1144,7 +1159,7 @@ public class CcToolchainFeatures implements Serializable {
      * objects significantly reduces memory overhead.
      */
     @Immutable
-    private static final class StringSequence implements VariableValue {
+    static final class StringSequence implements VariableValue {
 
       private final Iterable<String> values;
 

@@ -74,7 +74,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
-      ImmutableList<String> copts,
       Predicate<String> nocopts,
       Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
@@ -111,7 +110,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         // time, so they can't depend on the contents of the ".d" file.)
         CppCompilationContext.disallowUndeclaredHeaders(context),
         actionContext,
-        copts,
         nocopts,
         VOID_SPECIAL_INPUTS_HANDLER,
         lipoScannables,

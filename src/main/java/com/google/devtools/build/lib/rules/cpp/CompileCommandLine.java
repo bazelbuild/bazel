@@ -36,7 +36,6 @@ public final class CompileCommandLine {
   private final Artifact sourceFile;
   private final Artifact outputFile;
   private final Label sourceLabel;
-  private final List<String> copts;
   private final Predicate<String> coptsFilter;
   private final Collection<String> features;
   private final FeatureConfiguration featureConfiguration;
@@ -50,7 +49,6 @@ public final class CompileCommandLine {
       Artifact sourceFile,
       Artifact outputFile,
       Label sourceLabel,
-      ImmutableList<String> copts,
       Predicate<String> coptsFilter,
       Collection<String> features,
       FeatureConfiguration featureConfiguration,
@@ -62,7 +60,6 @@ public final class CompileCommandLine {
     this.sourceFile = Preconditions.checkNotNull(sourceFile);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceLabel = Preconditions.checkNotNull(sourceLabel);
-    this.copts = Preconditions.checkNotNull(copts);
     this.coptsFilter = coptsFilter;
     this.features = Preconditions.checkNotNull(features);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
@@ -152,8 +149,6 @@ public final class CompileCommandLine {
     }
     addFilteredOptions(options, featureConfiguration.getCommandLine(actionName, updatedVariables));
 
-    addFilteredOptions(options, copts);
-
     // Unfiltered compiler options contain system include paths. These must be added after
     // the user provided options, otherwise users adding include paths will not pick up their
     // own include paths first.
@@ -204,19 +199,29 @@ public final class CompileCommandLine {
     return dotdFile;
   }
 
-  public List<String> getCopts() {
-    return copts;
-  }
-
   public Variables getVariables() {
     return variables;
+  }
+
+  /**
+   * Returns all user provided copts flags.
+   *
+   * TODO(b/64108724): Get rid of this method when we don't need to parse copts to collect include
+   * directories anymore (meaning there is a way of specifying include directories using an
+   * explicit attribute, not using platform-dependent garbage bag that copts is).
+   */
+  public ImmutableList<String> getCopts() {
+    if (variables.isAvailable(CppModel.COPTS_VARIABLE_VALUE)) {
+      return Variables.toStringList(variables, CppModel.COPTS_VARIABLE_VALUE);
+    } else {
+      return ImmutableList.of();
+    }
   }
 
   public static Builder builder(
       Artifact sourceFile,
       Artifact outputFile,
       Label sourceLabel,
-      ImmutableList<String> copts,
       Predicate<String> coptsFilter,
       ImmutableList<String> features,
       String actionName,
@@ -227,7 +232,6 @@ public final class CompileCommandLine {
         sourceFile,
         outputFile,
         sourceLabel,
-        copts,
         coptsFilter,
         features,
         actionName,
@@ -241,7 +245,6 @@ public final class CompileCommandLine {
     private final Artifact sourceFile;
     private final Artifact outputFile;
     private final Label sourceLabel;
-    private final ImmutableList<String> copts;
     private final Predicate<String> coptsFilter;
     private final Collection<String> features;
     private FeatureConfiguration featureConfiguration;
@@ -256,7 +259,6 @@ public final class CompileCommandLine {
           Preconditions.checkNotNull(sourceFile),
           Preconditions.checkNotNull(outputFile),
           Preconditions.checkNotNull(sourceLabel),
-          Preconditions.checkNotNull(copts),
           Preconditions.checkNotNull(coptsFilter),
           Preconditions.checkNotNull(features),
           Preconditions.checkNotNull(featureConfiguration),
@@ -271,7 +273,6 @@ public final class CompileCommandLine {
         Artifact sourceFile,
         Artifact outputFile,
         Label sourceLabel,
-        ImmutableList<String> copts,
         Predicate<String> coptsFilter,
         Collection<String> features,
         String actionName,
@@ -281,7 +282,6 @@ public final class CompileCommandLine {
       this.sourceFile = sourceFile;
       this.outputFile = outputFile;
       this.sourceLabel = sourceLabel;
-      this.copts = copts;
       this.coptsFilter = coptsFilter;
       this.features = features;
       this.actionName = actionName;

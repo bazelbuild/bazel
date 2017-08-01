@@ -386,6 +386,7 @@ toolchain {
     implies: 'nologo'
     implies: 'msvc_env'
     implies: 'parse_showincludes'
+    implies: 'copts'
   }
 
   action_config {
@@ -422,6 +423,7 @@ toolchain {
     implies: 'nologo'
     implies: 'msvc_env'
     implies: 'parse_showincludes'
+    implies: 'copts'
   }
 
   action_config {
@@ -840,6 +842,25 @@ toolchain {
       }
     }
     implies: 'link_crt_library'
+  }
+
+  feature {
+    name: 'copts'
+    flag_set {
+      expand_if_all_available: 'copts'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'copts'
+        flag: '%{copts}'
+      }
+    }
   }
 
 %{compilation_mode_content}

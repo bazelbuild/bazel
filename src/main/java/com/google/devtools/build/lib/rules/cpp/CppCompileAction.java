@@ -267,7 +267,6 @@ public class CppCompileAction extends AbstractAction
    * @param cppConfiguration TODO(bazel-team): Add parameter description.
    * @param context the compilation context
    * @param actionContext TODO(bazel-team): Add parameter description.
-   * @param copts options for the compiler
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param specialInputsHandler TODO(bazel-team): Add parameter description.
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
@@ -305,7 +304,6 @@ public class CppCompileAction extends AbstractAction
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
-      ImmutableList<String> copts,
       Predicate<String> coptsFilter,
       SpecialInputsHandler specialInputsHandler,
       Iterable<IncludeScannable> lipoScannables,
@@ -349,7 +347,6 @@ public class CppCompileAction extends AbstractAction
                 sourceFile,
                 outputFile,
                 sourceLabel,
-                copts,
                 coptsFilter,
                 features,
                 actionName,
