@@ -249,18 +249,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         buildAttribute("a1",
             "b = provider()",
             "attr.label_list(allow_files = True, providers = ['a', b])");
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
-  }
-
-  @Test
-  public void testAttrWithProvidersOneEmpty() throws Exception {
-    Attribute attr =
-        buildAttribute(
-            "a1",
-            "b = provider()",
-            "attr.label_list(allow_files = True, providers = [['a', b],[]])");
-    assertThat(attr.getRequiredProviders().acceptsAny()).isTrue();
+    assertThat(attr.getMandatoryProvidersList())
+        .containsExactly(ImmutableSet.of(legacy("a"), declared("b")));
   }
 
   @Test
@@ -269,17 +259,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         buildAttribute("a1",
             "b = provider()",
             "attr.label_list(allow_files = True, providers = [['a', b], ['c']])");
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("c")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
-  }
-
-  private static AdvertisedProviderSet set(SkylarkProviderIdentifier... ids) {
-    AdvertisedProviderSet.Builder builder = AdvertisedProviderSet.builder();
-    for (SkylarkProviderIdentifier id : ids) {
-      builder.addSkylark(id);
-    }
-    return builder.build();
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(
+        ImmutableSet.of(legacy("a"), declared("b")),
+        ImmutableSet.of(legacy("c")));
   }
 
   private void checkAttributeError(String expectedMessage, String... lines) throws Exception {
@@ -443,9 +425,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY =
-          ruleContext -> {
-            throw new IllegalStateException();
-          };
+      new RuleClass.ConfiguredTargetFactory<Object, Object>() {
+        @Override
+        public Object create(Object ruleContext) throws InterruptedException {
+          throw new IllegalStateException();
+        }
+      };
 
   private RuleClass ruleClass(String name) {
     return new RuleClass.Builder(name, RuleClassType.NORMAL, false)

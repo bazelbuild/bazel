@@ -13,14 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /**
  * Represents a constraint on a set of providers required by a dependency (of a rule
@@ -53,10 +52,6 @@ public final class RequiredProviders {
    */
   private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> skylarkProviders;
 
-  public String getDescription() {
-    return constraint.getDescription(this);
-  }
-
   /**
    * Represents one of the constraints as desctibed in {@link RequiredProviders}
    */
@@ -64,10 +59,8 @@ public final class RequiredProviders {
     /** Accept any dependency */
     ANY {
       @Override
-      public boolean satisfies(
-          AdvertisedProviderSet advertisedProviderSet,
-          RequiredProviders requiredProviders,
-          Builder missing) {
+      public boolean satisfies(AdvertisedProviderSet advertisedProviderSet,
+          RequiredProviders requiredProviders) {
         return true;
       }
 
@@ -75,28 +68,15 @@ public final class RequiredProviders {
       public boolean satisfies(
           Predicate<Class<?>> hasNativeProvider,
           Predicate<SkylarkProviderIdentifier> hasSkylarkProvider,
-          RequiredProviders requiredProviders,
-          Builder missingProviders) {
+          RequiredProviders requiredProviders) {
         return true;
-      }
-
-      @Override
-      Builder copyAsBuilder(RequiredProviders providers) {
-        return acceptAnyBuilder();
-      }
-
-      @Override
-      public String getDescription(RequiredProviders providers) {
-        return "no providers required";
       }
     },
     /** Accept no dependency */
     NONE {
       @Override
-      public boolean satisfies(
-          AdvertisedProviderSet advertisedProviderSet,
-          RequiredProviders requiredProviders,
-          Builder missing) {
+      public boolean satisfies(AdvertisedProviderSet advertisedProviderSet,
+          RequiredProviders requiredProviders) {
         return false;
       }
 
@@ -104,124 +84,56 @@ public final class RequiredProviders {
       public boolean satisfies(
           Predicate<Class<?>> hasNativeProvider,
           Predicate<SkylarkProviderIdentifier> hasSkylarkProvider,
-          RequiredProviders requiredProviders,
-          Builder missingProviders) {
+          RequiredProviders requiredProviders) {
         return false;
       }
-
-      @Override
-      Builder copyAsBuilder(RequiredProviders providers) {
-        return acceptNoneBuilder();
-      }
-
-      @Override
-      public String getDescription(RequiredProviders providers) {
-        return "no providers accepted";
-      }
     },
-
     /** Accept a dependency that has all providers from one of the sets. */
     RESTRICTED {
       @Override
-      public boolean satisfies(
-          final AdvertisedProviderSet advertisedProviderSet,
-          RequiredProviders requiredProviders,
-          Builder missing) {
-        if (advertisedProviderSet.canHaveAnyProvider()) {
-          return true;
-        }
-        return satisfies(
-            advertisedProviderSet.getNativeProviders()::contains,
-            advertisedProviderSet.getSkylarkProviders()::contains,
-            requiredProviders,
-            missing);
-      }
-
-      @Override
-      public boolean satisfies(
-          Predicate<Class<?>> hasNativeProvider,
+      public boolean satisfies(Predicate<Class<?>> hasNativeProvider,
           Predicate<SkylarkProviderIdentifier> hasSkylarkProvider,
-          RequiredProviders requiredProviders,
-          Builder missingProviders) {
+          RequiredProviders requiredProviders) {
         for (ImmutableSet<Class<?>> nativeProviderSet : requiredProviders.nativeProviders) {
-          if (nativeProviderSet.stream().allMatch(hasNativeProvider)) {
+          if (Iterables.all(nativeProviderSet, hasNativeProvider)) {
             return true;
-          }
-
-          // Collect missing providers
-          if (missingProviders != null) {
-            missingProviders.addNativeSet(
-                nativeProviderSet
-                    .stream()
-                    .filter(hasNativeProvider.negate())
-                    .collect(ImmutableSet.toImmutableSet()));
           }
         }
 
         for (ImmutableSet<SkylarkProviderIdentifier> skylarkProviderSet
             : requiredProviders.skylarkProviders) {
-          if (skylarkProviderSet.stream().allMatch(hasSkylarkProvider)) {
+          if (Iterables.all(skylarkProviderSet, hasSkylarkProvider)) {
             return true;
-          }
-          // Collect missing providers
-          if (missingProviders != null) {
-            missingProviders.addSkylarkSet(
-                skylarkProviderSet
-                    .stream()
-                    .filter(hasSkylarkProvider.negate())
-                    .collect(ImmutableSet.toImmutableSet()));
           }
         }
         return false;
       }
-
-      @Override
-      Builder copyAsBuilder(RequiredProviders providers) {
-        Builder result = acceptAnyBuilder();
-        for (ImmutableSet<Class<?>> nativeProviderSet : providers.nativeProviders) {
-          result.addNativeSet(nativeProviderSet);
-        }
-        for (ImmutableSet<SkylarkProviderIdentifier> skylarkProviderSet :
-            providers.skylarkProviders) {
-          result.addSkylarkSet(skylarkProviderSet);
-        }
-        return result;
-      }
-
-      @Override
-      public String getDescription(RequiredProviders providers) {
-        StringBuilder result = new StringBuilder();
-        describe(result, providers.nativeProviders, Class::getSimpleName);
-        describe(result, providers.skylarkProviders, id -> "'" + id.toString() + "'");
-        return result.toString();
-      }
     };
 
     /** Checks if {@code advertisedProviderSet} satisfies these {@code RequiredProviders} */
-    public abstract boolean satisfies(
-        AdvertisedProviderSet advertisedProviderSet,
-        RequiredProviders requiredProviders,
-        Builder missing);
+    public boolean satisfies(final AdvertisedProviderSet advertisedProviderSet,
+        RequiredProviders requiredProviders) {
+      if (advertisedProviderSet.canHaveAnyProvider()) {
+        return true;
+      }
+      return satisfies(
+          aClass -> advertisedProviderSet.getNativeProviders().contains(aClass),
+          Predicates.in(advertisedProviderSet.getSkylarkProviders()),
+          requiredProviders);
+    }
 
     /**
      * Checks if a set of providers encoded by predicates {@code hasNativeProviders} and {@code
      * hasSkylarkProvider} satisfies these {@code RequiredProviders}
      */
-    abstract boolean satisfies(
-        Predicate<Class<?>> hasNativeProvider,
+    abstract boolean satisfies(Predicate<Class<?>> hasNativeProvider,
         Predicate<SkylarkProviderIdentifier> hasSkylarkProvider,
-        RequiredProviders requiredProviders,
-        @Nullable Builder missingProviders);
-
-    abstract Builder copyAsBuilder(RequiredProviders providers);
-
-    /** Returns a string describing the providers that can be presented to the user. */
-    abstract String getDescription(RequiredProviders providers);
+        RequiredProviders requiredProviders);
   }
 
   /** Checks if {@code advertisedProviderSet} satisfies this {@code RequiredProviders} instance. */
   public boolean isSatisfiedBy(AdvertisedProviderSet advertisedProviderSet) {
-    return constraint.satisfies(advertisedProviderSet, this, null);
+    return constraint.satisfies(advertisedProviderSet, this);
   }
 
   /**
@@ -231,40 +143,7 @@ public final class RequiredProviders {
   public boolean isSatisfiedBy(
       Predicate<Class<?>> hasNativeProvider,
       Predicate<SkylarkProviderIdentifier> hasSkylarkProvider) {
-    return constraint.satisfies(hasNativeProvider, hasSkylarkProvider, this, null);
-  }
-
-  /**
-   * Returns providers that are missing. If none are missing, returns {@code RequiredProviders} that
-   * accept anything.
-   */
-  public RequiredProviders getMissing(
-      Predicate<Class<?>> hasNativeProvider,
-      Predicate<SkylarkProviderIdentifier> hasSkylarkProvider) {
-    Builder builder = acceptAnyBuilder();
-    if (constraint.satisfies(hasNativeProvider, hasSkylarkProvider, this, builder)) {
-      // Ignore all collected missing providers.
-      return acceptAnyBuilder().build();
-    }
-    return builder.build();
-  }
-
-  /**
-   * Returns providers that are missing. If none are missing, returns {@code RequiredProviders} that
-   * accept anything.
-   */
-  public RequiredProviders getMissing(AdvertisedProviderSet set) {
-    Builder builder = acceptAnyBuilder();
-    if (constraint.satisfies(set, this, builder)) {
-      // Ignore all collected missing providers.
-      return acceptAnyBuilder().build();
-    }
-    return builder.build();
-  }
-
-  /** Returns true if this {@code RequiredProviders} instance accept any set of providers. */
-  public boolean acceptsAny() {
-    return constraint.equals(Constraint.ANY);
+    return constraint.satisfies(hasNativeProvider, hasSkylarkProvider, this);
   }
 
 
@@ -282,22 +161,6 @@ public final class RequiredProviders {
     this.skylarkProviders = skylarkProviders;
   }
 
-  /** Helper method to describe lists of sets of things. */
-  private static <T> void describe(
-      StringBuilder result,
-      ImmutableList<ImmutableSet<T>> listOfSets,
-      Function<T, String> describeOne) {
-    Joiner joiner = Joiner.on(", ");
-    for (ImmutableSet<T> ids : listOfSets) {
-      if (result.length() > 0) {
-        result.append(" or ");
-      }
-      result.append((ids.size() > 1) ? "[" : "");
-      joiner.appendTo(result, ids.stream().map(describeOne).iterator());
-      result.append((ids.size() > 1) ? "]" : "");
-    }
-  }
-
   /**
    * A builder for {@link RequiredProviders} that accepts any dependency
    * unless restriction provider sets are added.
@@ -312,11 +175,6 @@ public final class RequiredProviders {
    */
   public static Builder acceptNoneBuilder() {
     return new Builder(true);
-  }
-
-  /** Returns a Builder initialized to the same value as this {@code RequiredProvider} */
-  public Builder copyAsBuilder() {
-    return constraint.copyAsBuilder(this);
   }
 
   /** A builder for {@link RequiredProviders} */

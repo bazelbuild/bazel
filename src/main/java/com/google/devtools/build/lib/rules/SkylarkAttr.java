@@ -276,11 +276,7 @@ public final class SkylarkAttr implements SkylarkValue {
       SkylarkType.checkType(obj, SkylarkList.class, PROVIDERS_ARG);
       ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList = buildProviderPredicate(
           (SkylarkList<?>) obj, PROVIDERS_ARG, ast.getLocation());
-
-      // If there is at least one empty set, there is no restriction.
-      if (providersList.stream().noneMatch(ImmutableSet::isEmpty)) {
-        builder.mandatoryProvidersList(providersList);
-      }
+      builder.mandatoryProvidersList(providersList);
     }
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {

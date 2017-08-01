@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -80,25 +79,4 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
    * <b>null</b>.</p>
    */
   @Nullable BuildConfiguration getConfiguration();
-
-  /**
-   * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.
-   */
-  default boolean satisfies(RequiredProviders providers) {
-    return providers.isSatisfiedBy(
-        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null);
-  }
-
-  /**
-   * Returns providers that this {@link TransitiveInfoCollection} misses from a given {@link
-   * RequiredProviders}.
-   *
-   * <p>If none are missing, returns {@link RequiredProviders} that accept any set of providers.
-   */
-  default RequiredProviders missingProviders(RequiredProviders providers) {
-    return providers.getMissing(
-        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null);
-  }
 }

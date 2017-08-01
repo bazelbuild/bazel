@@ -70,17 +70,18 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -1974,101 +1975,154 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    /**
-     * Because some rules still have to use allowedRuleClasses to do rule dependency validation. A
-     * dependency is valid if it is from a rule in allowedRuledClasses, OR if all of the providers
-     * in requiredProviders are provided by the target.
-     */
-    private void validateRuleDependency(ConfiguredTarget prerequisite, Attribute attribute) {
-
-      Set<String> unfulfilledRequirements = new LinkedHashSet<>();
-      if (checkRuleDependencyClass(prerequisite, attribute, unfulfilledRequirements)) {
-        return;
+    private String getMissingMandatoryProviders(ConfiguredTarget prerequisite, Attribute attribute){
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList =
+          attribute.getMandatoryProvidersList();
+      if (mandatoryProvidersList.isEmpty()) {
+        return null;
       }
-
-      if (checkRuleDependencyClassWarnings(prerequisite, attribute)) {
-        return;
+      List<List<String>> missingProvidersList = new ArrayList<>();
+      for (ImmutableSet<SkylarkProviderIdentifier> providers : mandatoryProvidersList) {
+        List<String> missing = new ArrayList<>();
+        for (SkylarkProviderIdentifier provider : providers) {
+          // A rule may require a built-in provider that is always implicitly provided, e.g. "files"
+          ImmutableSet<String> availableKeys =
+              ImmutableSet.copyOf(((ClassObject) prerequisite).getKeys());
+          if ((prerequisite.get(provider) == null)
+              && !(provider.isLegacy() && availableKeys.contains(provider.getLegacyId()))) {
+            missing.add(provider.toString());
+          }
+        }
+        if (missing.isEmpty()) {
+          return null;
+        } else {
+          missingProvidersList.add(missing);
+        }
       }
-
-      if (checkRuleDependencyMandatoryProviders(prerequisite, attribute, unfulfilledRequirements)) {
-        return;
+      StringBuilder missingProviders = new StringBuilder();
+      Joiner joinProvider = Joiner.on("', '");
+      for (List<String> providers : missingProvidersList) {
+        if (missingProviders.length() > 0) {
+          missingProviders.append(" or ");
+        }
+        missingProviders.append((providers.size() > 1) ? "[" : "")
+                        .append("'");
+        joinProvider.appendTo(missingProviders, providers);
+        missingProviders.append("'")
+                        .append((providers.size() > 1) ? "]" : "");
       }
-
-      // not allowed rule class and some mandatory providers missing => reject.
-      if (!unfulfilledRequirements.isEmpty()) {
-        attributeError(
-            attribute.getName(), StringUtil.joinEnglishList(unfulfilledRequirements, "and"));
-      }
+      return missingProviders.toString();
     }
 
-    /** Check if prerequisite should be allowed based on its rule class. */
-    private boolean checkRuleDependencyClass(
-        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
+    private String getMissingMandatoryNativeProviders(
+        ConfiguredTarget prerequisite, Attribute attribute) {
+      List<ImmutableList<Class<? extends TransitiveInfoProvider>>> mandatoryProvidersList =
+          attribute.getMandatoryNativeProvidersList();
+      if (mandatoryProvidersList.isEmpty()) {
+        return null;
+      }
+      List<List<String>> missingProvidersList = new ArrayList<>();
+      for (ImmutableList<Class<? extends TransitiveInfoProvider>> providers
+          : mandatoryProvidersList) {
+        List<String> missing = new ArrayList<>();
+        for (Class<? extends TransitiveInfoProvider> provider : providers) {
+          if (prerequisite.getProvider(provider) == null) {
+            missing.add(provider.getSimpleName());
+          }
+        }
+        if (missing.isEmpty()) {
+          return null;
+        } else {
+          missingProvidersList.add(missing);
+        }
+      }
+      StringBuilder missingProviders = new StringBuilder();
+      Joiner joinProvider = Joiner.on(", ");
+      for (List<String> providers : missingProvidersList) {
+        if (missingProviders.length() > 0) {
+          missingProviders.append(" or ");
+        }
+        missingProviders.append((providers.size() > 1) ? "[" : "");
+        joinProvider.appendTo(missingProviders, providers);
+        missingProviders.append((providers.size() > 1) ? "]" : "");
+      }
+      return missingProviders.toString();
+    }
+
+    /**
+     * Because some rules still have to use allowedRuleClasses to do rule dependency validation.
+     * A dependency is valid if it is from a rule in allowedRuleClasses, OR if all of the providers
+     * in mandatoryNativeProviders AND mandatoryProvidersList are provided by the target.
+     */
+    private void validateRuleDependency(ConfiguredTarget prerequisite, Attribute attribute) {
+      Target prerequisiteTarget = prerequisite.getTarget();
+      RuleClass ruleClass = ((Rule) prerequisiteTarget).getRuleClassObject();
+      String notAllowedRuleClassesMessage = null;
+
       if (attribute.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
-        if (attribute
-            .getAllowedRuleClassesPredicate()
-            .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
+        if (attribute.getAllowedRuleClassesPredicate().apply(ruleClass)) {
           // prerequisite has an allowed rule class => accept.
-          return true;
+          return;
         }
         // remember that the rule class that was not allowed;
         // but maybe prerequisite provides required providers? do not reject yet.
-        unfulfilledRequirements.add(
+        notAllowedRuleClassesMessage =
             badPrerequisiteMessage(
-                prerequisite.getTarget().getTargetKind(),
+                prerequisiteTarget.getTargetKind(),
                 prerequisite,
                 "expected " + attribute.getAllowedRuleClassesPredicate(),
-                false));
+                false);
       }
-      return false;
-    }
 
-    /**
-     * Check if prerequisite should be allowed with warning based on its rule class.
-     *
-     * <p>If yes, also issues said warning.
-     */
-    private boolean checkRuleDependencyClassWarnings(
-        ConfiguredTarget prerequisite, Attribute attribute) {
-      if (attribute
-          .getAllowedRuleClassesWarningPredicate()
-          .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
+      if (attribute.getAllowedRuleClassesWarningPredicate().apply(ruleClass)) {
         Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
-        reportBadPrerequisite(
-            attribute,
-            prerequisite.getTarget().getTargetKind(),
-            prerequisite,
+        reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisite,
             allowedRuleClasses == Predicates.<RuleClass>alwaysTrue()
                 ? null
                 : "expected " + allowedRuleClasses,
             true);
         // prerequisite has a rule class allowed with a warning => accept, emitting a warning.
-        return true;
-      }
-      return false;
-    }
-
-    /** Check if prerequisite should be allowed based on required providers on the attribute. */
-    private boolean checkRuleDependencyMandatoryProviders(
-        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
-      RequiredProviders requiredProviders = attribute.getRequiredProviders();
-
-      if (requiredProviders.acceptsAny()) {
-        // If no required providers specified, we do not know if we should accept.
-        return false;
+        return;
       }
 
-      if (prerequisite.satisfies(requiredProviders)) {
-        return true;
+      // If we get here, we have no allowed rule class.
+      // If mandatory providers are specified, try them.
+      Set<String> unfulfilledRequirements = new LinkedHashSet<>();
+      if (!attribute.getMandatoryNativeProvidersList().isEmpty()
+          || !attribute.getMandatoryProvidersList().isEmpty()) {
+        boolean hadAllMandatoryProviders = true;
+
+        String missingNativeProviders = getMissingMandatoryNativeProviders(prerequisite, attribute);
+        if (missingNativeProviders != null) {
+          unfulfilledRequirements.add(
+              "'" + prerequisite.getLabel() + "' does not have mandatory providers: "
+                  + missingNativeProviders);
+          hadAllMandatoryProviders = false;
+        }
+
+        String missingProviders = getMissingMandatoryProviders(prerequisite, attribute);
+        if (missingProviders != null) {
+          unfulfilledRequirements.add(
+              "'" + prerequisite.getLabel() + "' does not have mandatory providers: "
+                  + missingProviders);
+          hadAllMandatoryProviders = false;
+        }
+
+        if (hadAllMandatoryProviders) {
+          // all mandatory providers are present => accept.
+          return;
+        }
       }
 
-      unfulfilledRequirements.add(
-          String.format(
-              "'%s' does not have mandatory providers: %s",
-              prerequisite.getLabel(),
-              prerequisite.missingProviders(requiredProviders).getDescription()));
+      // not allowed rule class and some mandatory providers missing => reject.
+      if (notAllowedRuleClassesMessage != null) {
+        unfulfilledRequirements.add(notAllowedRuleClassesMessage);
+      }
 
-      return false;
+      if (!unfulfilledRequirements.isEmpty()) {
+        attributeError(
+            attribute.getName(), StringUtil.joinEnglishList(unfulfilledRequirements, "and"));
+      }
     }
 
     private void validateDirectPrerequisite(Attribute attribute, ConfiguredTarget prerequisite) {

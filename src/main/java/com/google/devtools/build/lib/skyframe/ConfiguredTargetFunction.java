@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -65,6 +67,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
@@ -985,7 +988,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (!aspect.getDefinition().applyToFiles() && !(dep.getTarget() instanceof Rule)) {
       return false;
     }
-    return dep.satisfies(aspect.getDefinition().getRequiredProviders());
+    return aspect.getDefinition().getRequiredProviders().isSatisfiedBy(
+        new Predicate<Class<?>>() {
+          @Override
+          public boolean apply(Class<?> provider) {
+            return dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) != null;
+          }
+        },
+        new Predicate<SkylarkProviderIdentifier>() {
+          @Override
+          public boolean apply(SkylarkProviderIdentifier skylarkProviderIdentifier) {
+            return dep.get(skylarkProviderIdentifier) != null;
+          }
+        }
+    );
   }
 
   /**
