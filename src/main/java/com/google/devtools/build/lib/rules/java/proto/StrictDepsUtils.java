@@ -16,12 +16,72 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class StrictDepsUtils {
+
+  /**
+   * Used in JavaXXXProtoLibrary.java files to construct a JCAP from 'deps', where those were
+   * populated by the Aspect it injected.
+   *
+   * <p>Takes care of strict deps.
+   */
+  public static JavaCompilationArgsProvider constructJcapFromAspectDeps(
+      RuleContext ruleContext,
+      Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders) {
+    JavaCompilationArgsProvider strictCompProvider =
+        JavaCompilationArgsProvider.merge(
+            WrappingProvider.Helper.unwrapProviders(
+                javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
+    if (StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
+      return strictCompProvider;
+    } else if (ruleContext
+        .getConfiguration()
+        .getFragment(ProtoConfiguration.class)
+        .jplNonStrictDepsLikePl()) {
+      JavaCompilationArgs.Builder nonStrictDirectJars = JavaCompilationArgs.builder();
+      for (JavaProtoLibraryAspectProvider p : javaProtoLibraryAspectProviders) {
+        nonStrictDirectJars.addTransitiveArgs(p.getNonStrictCompArgs(), BOTH);
+      }
+      return JavaCompilationArgsProvider.create(
+          nonStrictDirectJars.build(),
+          strictCompProvider.getRecursiveJavaCompilationArgs(),
+          strictCompProvider.getCompileTimeJavaDependencyArtifacts(),
+          strictCompProvider.getRunTimeJavaDependencyArtifacts());
+    } else {
+      return StrictDepsUtils.makeNonStrict(strictCompProvider);
+    }
+  }
+
+  /**
+   * Creates a JavaCompilationArgsProvider that's used when java_proto_library sets strict_deps=0.
+   * It contains the jars a proto_library (or the proto aspect) produced, as well as all transitive
+   * proto jars, and the proto runtime jars, all described as direct dependencies.
+   */
+  public static JavaCompilationArgs createNonStrictCompilationArgsProvider(
+      Iterable<JavaProtoLibraryAspectProvider> deps,
+      JavaCompilationArgs directJars,
+      ImmutableList<TransitiveInfoCollection> protoRuntimes) {
+    JavaCompilationArgs.Builder result = JavaCompilationArgs.builder();
+    for (JavaProtoLibraryAspectProvider p : deps) {
+      result.addTransitiveArgs(p.getNonStrictCompArgs(), BOTH);
+    }
+    result.addTransitiveArgs(directJars, BOTH);
+    for (TransitiveInfoCollection t : protoRuntimes) {
+      JavaCompilationArgsProvider p = t.getProvider(JavaCompilationArgsProvider.class);
+      if (p != null) {
+        result.addTransitiveArgs(p.getJavaCompilationArgs(), BOTH);
+      }
+    }
+    return result.build();
+  }
 
   /**
    * Returns true iff 'ruleContext' should enforce strict-deps.

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
+import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -245,7 +246,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
               JavaSkylarkApiProvider.fromProviderMap(javaProviders))
           .addProvider(
-              new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
+              new JavaProtoLibraryAspectProvider(
+                  javaProviders,
+                  transitiveOutputJars.build(),
+                  createNonStrictCompilationArgsProvider(
+                      javaProtoLibraryAspectProviders,
+                      generatedCompilationArgsProvider.getJavaCompilationArgs(),
+                      getProtoRuntimeDeps())));
     }
 
     /**

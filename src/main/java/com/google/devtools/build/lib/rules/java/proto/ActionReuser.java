@@ -20,6 +20,7 @@ import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
+import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -100,9 +101,11 @@ public class ActionReuser {
             .add(compilationArgsProvider)
             .add(createCcLinkParamsStore(ruleContext, javaApi.getProtoRuntimeImmutable()));
 
+    Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
+        ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class);
+
     NestedSetBuilder<Artifact> transitiveOutputJars = NestedSetBuilder.stableOrder();
-    for (JavaProtoLibraryAspectProvider provider :
-        ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class)) {
+    for (JavaProtoLibraryAspectProvider provider : javaProtoLibraryAspectProviders) {
       transitiveOutputJars.addTransitive(provider.getJars());
     }
     transitiveOutputJars.add(outputJar);
@@ -113,7 +116,13 @@ public class ActionReuser {
             JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
             JavaSkylarkApiProvider.fromProviderMap(javaProviders))
         .addProviders(
-            new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
+            new JavaProtoLibraryAspectProvider(
+                javaProviders,
+                transitiveOutputJars.build(),
+                createNonStrictCompilationArgsProvider(
+                    javaProtoLibraryAspectProviders,
+                    JavaCompilationArgs.builder().merge(directJars).build(),
+                    javaApi.getProtoRuntimeImmutable())));
     return true;
   }
 
