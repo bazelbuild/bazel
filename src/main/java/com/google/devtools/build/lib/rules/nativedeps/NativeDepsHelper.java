@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.nativedeps;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
@@ -213,19 +215,36 @@ public abstract class NativeDepsHelper {
       builder.setRuntimeInputs(ArtifactCategory.STATIC_LIBRARY,
           toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
     }
-    CppLinkAction linkAction =
-        builder
-            .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
-            .setCrosstoolInputs(toolchain.getLink())
-            .addLibraries(linkerInputs)
-            .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
-            .setLibraryIdentifier(libraryIdentifier)
-            .addLinkopts(linkopts)
-            .setNativeDeps(true)
-            .addLinkstamps(linkstamps)
-            .build();
+    ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFilesMap = new ImmutableMap.Builder<>();
+    for (LibraryToLink lib : linkerInputs) {
+      if (!lib.getLTOBitcodeFiles().isEmpty()) {
+        ltoBitcodeFilesMap.putAll(lib.getLTOBitcodeFiles());
+      }
+    }
+    builder
+        .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
+        .setCrosstoolInputs(toolchain.getLink())
+        .addLibraries(linkerInputs)
+        .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
+        .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
+        .setLibraryIdentifier(libraryIdentifier)
+        .addLinkopts(linkopts)
+        .setNativeDeps(true)
+        .addLinkstamps(linkstamps)
+        .addLTOBitcodeFiles(ltoBitcodeFilesMap.build());
 
+    if (!builder.getLtoBitcodeFiles().isEmpty()
+        && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
+      builder.setLTOIndexing(true);
+      builder.setUsePicForLTOBackendActions(CppHelper.usePic(ruleContext, false));
+      builder.setUseFissionForLTOBackendActions(
+          ruleContext.getFragment(CppConfiguration.class).useFission());
+      CppLinkAction indexAction = builder.build();
+      ruleContext.registerAction(indexAction);
+      builder.setLTOIndexing(false);
+    }
+
+    CppLinkAction linkAction = builder.build();
     ruleContext.registerAction(linkAction);
     Artifact linkerOutput = linkAction.getPrimaryOutput();
 
