@@ -329,16 +329,6 @@ public final class Converters {
     }
   }
 
-  /**
-   * Validating converter for a list of Paths. The list is considered valid if all Paths resolve to
-   * a file that exists.
-   */
-  public static class ExistingPathListConverter extends PathListConverter {
-    public ExistingPathListConverter() {
-      super(true);
-    }
-  }
-
   // Commas that are not escaped by a backslash.
   private static final String UNESCAPED_COMMA_REGEX = "(?<!\\\\)\\,";
   // Colons that are not escaped by a backslash.

@@ -15,9 +15,7 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Joiner;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.ExistingPathListConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
@@ -96,16 +94,6 @@ public final class ConvertersTest {
     assertThat(result)
         .containsAllOf(Paths.get("foo"), Paths.get("bar"), Paths.get("baz"))
         .inOrder();
-  }
-
-  @Test
-  public void testExisingPathListConverter() throws Exception {
-    String arg = "non-existing";
-    ExistingPathListConverter converter = new ExistingPathListConverter();
-    Path existingFile = tmp.newFile("existing").toPath();
-    expected.expect(OptionsParsingException.class);
-    expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
-    converter.convert(Joiner.on(SEPARATOR).join(existingFile.toString(), arg));
   }
 
   @Test
