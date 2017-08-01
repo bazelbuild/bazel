@@ -465,6 +465,9 @@ message TestSummary {
 
   // Path to logs of failed runs;
   repeated File failed = 4;
+
+  // Total number of cached test actions
+  int32 total_num_cached = 6;
 }
 
 // Event indicating the end of a build.

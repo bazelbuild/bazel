@@ -470,6 +470,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
+            .setTotalNumCached(getNumCached())
             .setTotalRunCount(totalRuns());
     for (Path path : getFailedLogs()) {
       summaryBuilder.addFailed(
