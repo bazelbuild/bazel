@@ -71,6 +71,11 @@ genrule(
   name = "fails_to_build",
   outs = ["fails_to_build.txt"],
   cmd = "false",
+  executable = 1,
+)
+sh_test(
+  name = "test_that_fails_to_build",
+  srcs = [":fails_to_build"],
 )
 genrule(
   name = "output_files_and_tags",
@@ -565,6 +570,12 @@ function test_srcfiles() {
   expect_log 'SUCCESS'
   expect_log_once '^configuration'
   expect_not_log 'aborted'
+}
+
+function test_test_fails_to_build() {
+  (bazel test --build_event_text_file=$TEST_log \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log '^test_summary'
 }
 
 run_suite "Integration tests for the build event stream"

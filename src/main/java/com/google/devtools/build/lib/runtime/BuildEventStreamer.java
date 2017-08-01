@@ -375,7 +375,9 @@ public class BuildEventStreamer implements EventHandler {
 
   @Subscribe
   public void buildEvent(BuildEvent event) {
-    if (isActionWithoutError(event) || bufferUntilPrerequisitesReceived(event)) {
+    if (isActionWithoutError(event)
+        || bufferUntilPrerequisitesReceived(event)
+        || isVacuousTestSummary(event)) {
       return;
     }
 
@@ -494,5 +496,10 @@ public class BuildEventStreamer implements EventHandler {
       }
     }
     return false;
+  }
+
+  /** Return true if the test summary contains no actual test runs. */
+  private boolean isVacuousTestSummary(BuildEvent event) {
+    return event instanceof TestSummary && (((TestSummary) event).totalRuns() == 0);
   }
 }
