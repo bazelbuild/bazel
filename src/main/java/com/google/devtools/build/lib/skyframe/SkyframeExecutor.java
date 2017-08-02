@@ -289,7 +289,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final RuleClassProvider ruleClassProvider;
 
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
-  
+
   private final List<BuildFileName> buildFilesByPriority;
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
@@ -600,9 +600,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     progressReceiver = newSkyframeProgressReceiver();
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
         skyFunctions(pkgFactory, allowedMissingInputs);
-    memoizingEvaluator = evaluatorSupplier.create(
-        skyFunctions, evaluatorDiffer(), progressReceiver, emittedEventState,
-        hasIncrementalState());
+    memoizingEvaluator =
+        evaluatorSupplier.create(
+            skyFunctions,
+            evaluatorDiffer(),
+            progressReceiver,
+            emittedEventState,
+            hasIncrementalState());
     buildDriver = getBuildDriver();
   }
 
@@ -1774,6 +1778,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @Override
   public SkyKey getUniverseKey(Collection<String> patterns, String offset) {
+    return computeUniverseKey(ImmutableList.copyOf(patterns), offset);
+  }
+
+  /** Computes the {@link SkyKey} that defines this universe. */
+  public static SkyKey computeUniverseKey(Collection<String> patterns, String offset) {
     return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
   }
 
