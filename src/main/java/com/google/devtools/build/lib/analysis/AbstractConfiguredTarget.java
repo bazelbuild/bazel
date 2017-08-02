@@ -104,12 +104,6 @@ public abstract class AbstractConfiguredTarget
   @Override
   public Object getValue(String name) {
     switch (name) {
-      case FILES_FIELD:
-      case DEFAULT_RUNFILES_FIELD:
-      case DATA_RUNFILES_FIELD:
-      case FilesToRunProvider.SKYLARK_NAME:
-        // Standard fields should be proxied to their default provider object
-        return getDefaultProvider().getValue(name);
       case LABEL_FIELD:
         return getLabel();
       default:
@@ -205,7 +199,18 @@ public abstract class AbstractConfiguredTarget
     if (OutputGroupProvider.SKYLARK_NAME.equals(providerKey)) {
       return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
     }
-    return rawGetSkylarkProvider(providerKey);
+    switch (providerKey) {
+      case FILES_FIELD:
+      case DEFAULT_RUNFILES_FIELD:
+      case DATA_RUNFILES_FIELD:
+      case FilesToRunProvider.SKYLARK_NAME:
+        // Standard fields should be proxied to their default provider object
+        return getDefaultProvider().getValue(providerKey);
+      case OutputGroupProvider.SKYLARK_NAME:
+        return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+      default:
+        return rawGetSkylarkProvider(providerKey);
+    }
   }
 
   /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */

@@ -457,10 +457,8 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
-    private ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList =
-        ImmutableList.<ImmutableSet<SkylarkProviderIdentifier>>of();
-    private ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
-        mandatoryNativeProvidersList = ImmutableList.of();
+    private RequiredProviders.Builder requiredProvidersBuilder =
+        RequiredProviders.acceptAnyBuilder();
     private HashMap<String, RuleAspect<?>> aspects = new LinkedHashMap<>();
 
     /**
@@ -956,11 +954,11 @@ public final class Attribute implements Comparable<Attribute> {
      * #allowedRuleClasses}.
      *
      * <p>If the attribute contains Labels of any other rule type (other than this or those set in
-     * allowedRuleClasses()) and they fulfill {@link #getMandatoryNativeProvidersList()}}, the build
-     * continues without error. Else the build fails during analysis.
+     * allowedRuleClasses()) and they fulfill {@link #getRequiredProviders()}}, the build continues
+     * without error. Else the build fails during analysis.
      *
-     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that
-     * fulfill {@link #getMandatoryNativeProvidersList()} build without error.
+     * <p>If neither this nor {@link #allowedRuleClassesForLabels} is set, only rules that fulfill
+     * {@link #getRequiredProviders()} build without error.
      *
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
@@ -978,12 +976,10 @@ public final class Attribute implements Comparable<Attribute> {
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
           "must be a label-valued type");
-      ImmutableList.Builder<ImmutableList<Class<? extends TransitiveInfoProvider>>> listBuilder
-          = ImmutableList.builder();
+
       for (Iterable<Class<? extends TransitiveInfoProvider>> providers : providersList) {
-        listBuilder.add(ImmutableList.<Class<? extends TransitiveInfoProvider>>copyOf(providers));
+        this.requiredProvidersBuilder.addNativeSet(ImmutableSet.copyOf(providers));
       }
-      this.mandatoryNativeProvidersList = listBuilder.build();
       return this;
     }
 
@@ -1005,12 +1001,9 @@ public final class Attribute implements Comparable<Attribute> {
         Iterable<? extends Iterable<SkylarkProviderIdentifier>> providersList){
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
           "must be a label-valued type");
-      ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> listBuilder
-          = ImmutableList.builder();
       for (Iterable<SkylarkProviderIdentifier> providers : providersList) {
-        listBuilder.add(ImmutableSet.copyOf(providers));
+        this.requiredProvidersBuilder.addSkylarkSet(ImmutableSet.copyOf(providers));
       }
-      this.mandatoryProvidersList = listBuilder.build();
       return this;
     }
 
@@ -1181,8 +1174,7 @@ public final class Attribute implements Comparable<Attribute> {
           validityPredicate,
           condition,
           allowedValues,
-          mandatoryProvidersList,
-          mandatoryNativeProvidersList,
+          requiredProvidersBuilder.build(),
           ImmutableList.copyOf(aspects.values()));
     }
   }
@@ -1795,10 +1787,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final PredicateWithMessage<Object> allowedValues;
 
-  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList;
-
-  private final ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
-      mandatoryNativeProvidersList;
+  private final RequiredProviders requiredProviders;
 
   private final ImmutableList<RuleAspect<?>> aspects;
 
@@ -1828,9 +1817,7 @@ public final class Attribute implements Comparable<Attribute> {
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList,
-      ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
-          mandatoryNativeProvidersList,
+      RequiredProviders requiredProviders,
       ImmutableList<RuleAspect<?>> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
@@ -1864,8 +1851,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.validityPredicate = validityPredicate;
     this.condition = condition;
     this.allowedValues = allowedValues;
-    this.mandatoryProvidersList = mandatoryProvidersList;
-    this.mandatoryNativeProvidersList = mandatoryNativeProvidersList;
+    this.requiredProviders = requiredProviders;
     this.aspects = aspects;
   }
 
@@ -2064,17 +2050,8 @@ public final class Attribute implements Comparable<Attribute> {
     return allowedRuleClassesForLabelsWarning;
   }
 
-  /**
-   * Returns the list of sets of mandatory Skylark providers.
-   */
-  public ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> getMandatoryProvidersList() {
-    return mandatoryProvidersList;
-  }
-
-  /** Returns the list of lists of mandatory native providers. */
-  public ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
-      getMandatoryNativeProvidersList() {
-    return mandatoryNativeProvidersList;
+  public RequiredProviders getRequiredProviders() {
+    return requiredProviders;
   }
 
   public FileTypeSet getAllowedFileTypesPredicate() {
@@ -2233,8 +2210,7 @@ public final class Attribute implements Comparable<Attribute> {
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
-    builder.mandatoryNativeProvidersList = mandatoryNativeProvidersList;
-    builder.mandatoryProvidersList = mandatoryProvidersList;
+    builder.requiredProvidersBuilder = requiredProviders.copyAsBuilder();
     builder.validityPredicate = validityPredicate;
     builder.condition = condition;
     builder.configTransition = configTransition;
