@@ -180,7 +180,8 @@ class InterfaceDesugaring extends ClassVisitor {
       result = super.visitMethod(access, name, desc, signature, exceptions);
     }
     return result != null
-        ? new InterfaceInvocationRewriter(result, internalName, bootclasspath)
+        ? new InterfaceInvocationRewriter(
+            result, isInterface() ? internalName : null, bootclasspath)
         : null;
   }
 
@@ -277,29 +278,32 @@ class InterfaceDesugaring extends ClassVisitor {
    */
   static class InterfaceInvocationRewriter extends MethodVisitor {
 
-    private final String internalName;
+    /**
+     * If we're visiting a method declared in an interface, the internal name of that interface.
+     * That lets us rewrite invocations of other methods within that interface even if the bytecode
+     * fails to indicate them as interface method invocations, as older versions of JaCoCo failed to
+     * do (b/62623509).
+     */
+    @Nullable private final String interfaceName;
     private final ClassReaderFactory bootclasspath;
 
     public InterfaceInvocationRewriter(
-        MethodVisitor dest, String internalName, ClassReaderFactory bootclasspath) {
+        MethodVisitor dest, @Nullable String knownInterfaceName, ClassReaderFactory bootclasspath) {
       super(Opcodes.ASM5, dest);
-      this.internalName = internalName;
+      this.interfaceName = knownInterfaceName;
       this.bootclasspath = bootclasspath;
     }
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       // Assume that any static interface methods on the classpath are moved
-      if (itf) {
+      if (itf || owner.equals(interfaceName)) {
         boolean isLambda = name.startsWith("lambda$");
         name = normalizeInterfaceMethodName(name, isLambda, opcode == Opcodes.INVOKESTATIC);
         if (isLambda) {
           // Redirect lambda invocations to completely remove all lambda methods from interfaces.
           checkArgument(
-              !owner.endsWith(COMPANION_SUFFIX),
-              "%s shouldn't consider %s an interface",
-              internalName,
-              owner);
+              !owner.endsWith(COMPANION_SUFFIX), "shouldn't consider %s an interface", owner);
           checkArgument(!bootclasspath.isKnown(owner)); // must be in current input
           if (opcode == Opcodes.INVOKEINTERFACE) {
             opcode = Opcodes.INVOKESTATIC;
@@ -325,10 +329,7 @@ class InterfaceDesugaring extends ClassVisitor {
         } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)
             && !bootclasspath.isKnown(owner)) {
           checkArgument(
-              !owner.endsWith(COMPANION_SUFFIX),
-              "%s shouldn't consider %s an interface",
-              internalName,
-              owner);
+              !owner.endsWith(COMPANION_SUFFIX), "shouldn't consider %s an interface", owner);
           if (opcode == Opcodes.INVOKESPECIAL) {
             // Turn Interface.super.m() into Interface$$CC.m(receiver)
             opcode = Opcodes.INVOKESTATIC;
