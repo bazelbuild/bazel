@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
-import static com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.FEATURE_POLICY_FEATURES;
+import static com.google.devtools.build.lib.rules.core.CoreRules.FEATURE_POLICY_FEATURES;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;

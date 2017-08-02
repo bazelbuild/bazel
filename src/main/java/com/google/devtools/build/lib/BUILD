@@ -692,6 +692,7 @@ java_library(
         ":buildeventstream",
         ":collect",
         ":concurrent",
+        ":core-rules",
         ":events",
         ":java-compilation",
         ":java-rules",
@@ -1048,6 +1049,19 @@ java_library(
 java_library(
     name = "java-implicit-attributes",
     srcs = ["rules/java/JavaImplicitAttributes.java"],
+)
+
+java_library(
+    name = "core-rules",
+    srcs = glob(
+        ["rules/core/*.java"],
+    ),
+    deps = [
+        ":build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis/featurecontrol",
+        "//src/main/java/com/google/devtools/build/lib/rules/config",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
