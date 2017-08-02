@@ -27,19 +27,33 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Base class for data structures that are only mutable with a proper Mutability.
+ * Base class for data structures that are only mutable using a proper, unfrozen {@link Mutability}.
  */
 public abstract class SkylarkMutable implements Freezable, SkylarkValue {
 
-  protected SkylarkMutable() {}
+  /**
+   * Checks whether this object is currently mutable in the given {@link Environment}, and throws
+   * an exception if it is not.
+   *
+   * @deprecated prefer {@link #checkMutable(Location, Mutability)} instead
+   */
+  @Deprecated
+  protected void checkMutable(Location loc, Environment env) throws EvalException {
+    checkMutable(loc, env.mutability());
+  }
 
   /**
-   * Check whether this object is mutable in the current evaluation Environment.
-   * @throws EvalException if the object was not mutable.
+   * Checks whether this object is currently mutable using the given {@link Mutability}, and throws
+   * an exception if it is not.
+   *
+   * @throws EvalException if the object is not mutable. This may be because the object (i.e., its
+   *     {@code Mutability} was frozen, or because it is temporarily locked from mutation (due to
+   *     being iterated over by a loop), or because it is associated with a different {@code
+   *     Mutability} than the one given.
    */
-  protected void checkMutable(Location loc, Environment env) throws EvalException {
+  protected void checkMutable(Location loc, Mutability mutability) throws EvalException {
     try {
-      Mutability.checkMutable(this, env);
+      Mutability.checkMutable(this, mutability);
     } catch (MutabilityException ex) {
       throw new EvalException(loc, ex);
     }
@@ -48,11 +62,6 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
   @Override
   public boolean isImmutable() {
     return mutability().isFrozen();
-  }
-
-  @Override
-  public String toString() {
-    return Printer.repr(this);
   }
 
   /**
@@ -69,6 +78,11 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     mutability().unlock(this, loc);
   }
 
+  /**
+   * Base class for a {@link SkylarkMutable} that is also a {@link Collection}.
+   *
+   * <p>The mutating methods from {@code Collection} are not supported.
+   */
   abstract static class MutableCollection<E> extends SkylarkMutable implements Collection<E> {
 
     protected MutableCollection() {}
@@ -167,9 +181,12 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
   }
 
+  /**
+   * Base class for a {@link SkylarkMutable} that is also a {@link Map}.
+   *
+   * <p>The mutating methods from {@code Map} are not supported.
+   */
   abstract static class MutableMap<K, V> extends SkylarkMutable implements Map<K, V> {
-
-    MutableMap() {}
 
     /**
      * The underlying contents is a (usually) mutable data structure.

@@ -203,6 +203,11 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     return getClass().hashCode() + 31 * getContentsUnsafe().hashCode();
   }
 
+  @Override
+  public String toString() {
+    return Printer.repr(this);
+  }
+
   /**
    * Cast a {@code List<?>} to a {@code List<T>} after checking its current contents.
    * @param list the List to cast

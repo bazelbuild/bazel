@@ -253,7 +253,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     mutability.unlock(dummy, locA);
     assertThat(mutability.isLocked(dummy)).isTrue();
     try {
-      Mutability.checkMutable(dummy, env);
+      Mutability.checkMutable(dummy, env.mutability());
       fail("Able to mutate locked object");
     } catch (Mutability.MutabilityException e) {
       assertThat(e).hasMessage("trying to mutate a locked object (is it currently being iterated "
@@ -263,20 +263,20 @@ public class EnvironmentTest extends EvaluationTestCase {
     try {
       mutability.unlock(dummy, locA);
       fail("Able to unlock object with wrong location");
-    } catch (AssertionError e) {
+    } catch (IllegalArgumentException e) {
       assertThat(e).hasMessage("trying to unlock an object for a location at which "
           + "it was not locked (/a:1)");
     }
     mutability.unlock(dummy, locB);
     assertThat(mutability.isLocked(dummy)).isFalse();
-    Mutability.checkMutable(dummy, env);
+    Mutability.checkMutable(dummy, env.mutability());
 
     // Acquire, then freeze.
     mutability.lock(dummy, locA);
     mutability.freeze();
     assertThat(mutability.isLocked(dummy)).isFalse();
     try {
-      Mutability.checkMutable(dummy, env);
+      Mutability.checkMutable(dummy, env.mutability());
       fail("Able to mutate locked object");
     } catch (Mutability.MutabilityException e) {
       assertThat(e).hasMessage("trying to mutate a frozen object");

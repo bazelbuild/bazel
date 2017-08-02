@@ -238,7 +238,7 @@ public final class Environment implements Freezable {
      */
     public void put(Environment env, String varname, Object value)
         throws MutabilityException {
-      Mutability.checkMutable(this, env);
+      Mutability.checkMutable(this, env.mutability());
       bindings.put(varname, value);
     }
 
@@ -247,7 +247,7 @@ public final class Environment implements Freezable {
      * be part of the public interface.
      */
     void remove(Environment env, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, env);
+      Mutability.checkMutable(this, env.mutability());
       bindings.remove(varname);
     }
 

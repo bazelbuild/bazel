@@ -233,6 +233,11 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return this.containsKey(key);
   }
 
+  @Override
+  public String toString() {
+    return Printer.repr(this);
+  }
+
   public static <K, V> SkylarkDict<K, V> plus(
       SkylarkDict<? extends K, ? extends V> left,
       SkylarkDict<? extends K, ? extends V> right,
