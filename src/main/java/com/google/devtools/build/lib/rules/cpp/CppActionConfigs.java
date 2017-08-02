@@ -524,7 +524,7 @@ public class CppActionConfigs {
                     "    action: 'c++-link-pic-static-library'",
                     "    action: 'c++-link-alwayslink-pic-static-library'",
                     "    flag_group {",
-                    ifLinux(platform, "  flag: 'rcsD'", "  flag: '%{output_execpath}'"),
+                    ifLinux(platform, "flag: 'rcsD'", "flag: '%{output_execpath}'"),
                     ifMac(
                         platform,
                         "  flag: '-static'",
