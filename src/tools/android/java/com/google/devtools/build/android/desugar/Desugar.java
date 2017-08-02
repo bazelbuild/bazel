@@ -491,6 +491,14 @@ class Desugar {
           new TryWithResourcesRewriter(
               visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
     }
+    if (!allowCallsToObjectsNonNull) {
+      // Not sure whether there will be implicit null check emitted by javac, so we rerun
+      // the inliner again
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+    }
+    if (!allowCallsToLongCompare) {
+      visitor = new LongCompareMethodRewriter(visitor);
+    }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
@@ -514,14 +522,6 @@ class Desugar {
     visitor =
         new LambdaDesugaring(
             visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
-    if (!allowCallsToObjectsNonNull) {
-      // Not sure whether there will be implicit null check emitted by javac, so we rerun
-      // the inliner again
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
-    }
-    if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor);
-    }
     return visitor;
   }
 
@@ -543,6 +543,12 @@ class Desugar {
           new TryWithResourcesRewriter(
               visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
     }
+    if (!allowCallsToObjectsNonNull) {
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+    }
+    if (!allowCallsToLongCompare) {
+      visitor = new LongCompareMethodRewriter(visitor);
+    }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
         visitor = new Java7Compatibility(visitor, classpathReader);
@@ -560,12 +566,6 @@ class Desugar {
               interfaceLambdaMethodCollector,
               lambdaMethodsUsedInInvokeDynamic,
               allowDefaultMethods);
-    }
-    if (!allowCallsToObjectsNonNull) {
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
-    }
-    if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor);
     }
     return visitor;
   }
