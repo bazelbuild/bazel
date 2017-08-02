@@ -63,7 +63,7 @@ def _apple_genrule(ctx):
                outputs=list(files_to_build),
                env=env,
                command=argv,
-               progress_message="%s %s" % (message, ctx),
+               progress_message="%s %s" % (message, ctx.label),
                mnemonic="Genrule",
                input_manifests=runfiles_manifests)
 
