@@ -39,11 +39,11 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Action used by LTOBackendArtifacts to create an LTOBackendAction. Similar to {@link SpawnAction},
+ * Action used by LtoBackendArtifacts to create an LtoBackendAction. Similar to {@link SpawnAction},
  * except that inputs are discovered from the imports file created by the ThinLTO indexing step for
  * each backend artifact.
  *
- * <p>See {@link LTOBackendArtifacts} for a high level description of the ThinLTO build process. The
+ * <p>See {@link LtoBackendArtifacts} for a high level description of the ThinLTO build process. The
  * LTO indexing step takes all bitcode .o files and decides which other .o file symbols can be
  * imported/inlined. The additional input files for each backend action are then written to an
  * imports file. Therefore these new inputs must be discovered here by subsetting the imports paths
@@ -52,14 +52,14 @@ import javax.annotation.Nullable;
  * <p>For more information on ThinLTO see
  * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
-public final class LTOBackendAction extends SpawnAction {
+public final class LtoBackendAction extends SpawnAction {
   private Collection<Artifact> mandatoryInputs;
   private Map<PathFragment, Artifact> bitcodeFiles;
   private Artifact imports;
 
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
 
-  public LTOBackendAction(
+  public LtoBackendAction(
       Collection<Artifact> inputs,
       Map<PathFragment, Artifact> allBitcodeFiles,
       Artifact importsFile,
@@ -188,7 +188,7 @@ public final class LTOBackendAction extends SpawnAction {
     return f.hexDigestAndReset();
   }
 
-  /** Builder class to construct {@link LTOBackendAction} instances. */
+  /** Builder class to construct {@link LtoBackendAction} instances. */
   public static class Builder extends SpawnAction.Builder {
     private Map<PathFragment, Artifact> bitcodeFiles;
     private Artifact imports;
@@ -214,7 +214,7 @@ public final class LTOBackendAction extends SpawnAction {
         String progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
-      return new LTOBackendAction(
+      return new LtoBackendAction(
           inputsAndTools.toCollection(),
           bitcodeFiles,
           imports,

@@ -1154,7 +1154,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Returns the set of command-line LTO indexing options. */
-  public ImmutableList<String> getLTOIndexOptions() {
+  public ImmutableList<String> getLtoIndexOptions() {
     return ltoindexOptions;
   }
 
@@ -1761,7 +1761,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     if (cppOptions.getLipoMode() != LipoMode.OFF
         && isLLVMCompiler()
-        && !cppOptions.convertLipoToThinLTO) {
+        && !cppOptions.convertLipoToThinLto) {
       reporter.handle(
           Event.error(
               "The LLVM compiler does not support LIPO. Use --convert_lipo_to_thinlto to "

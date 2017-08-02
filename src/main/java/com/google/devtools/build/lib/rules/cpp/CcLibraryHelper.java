@@ -957,7 +957,7 @@ public final class CcLibraryHelper {
       ccOutputs =
           new CcCompilationOutputs.Builder()
               .merge(ccOutputs)
-              .addLTOBitcodeFile(ccOutputs.getLtoBitcodeFiles())
+              .addLtoBitcodeFile(ccOutputs.getLtoBitcodeFiles())
               .addObjectFiles(objectFiles)
               .addPicObjectFiles(picObjectFiles)
               .build();
@@ -1032,7 +1032,7 @@ public final class CcLibraryHelper {
             deps, /*generateDwo=*/
             false, /*ltoBackendArtifactsUsePic=*/
             false, /*ltoBackendArtifacts=*/
-            ImmutableList.<LTOBackendArtifacts>of());
+            ImmutableList.<LtoBackendArtifacts>of());
     Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true);
     Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
 

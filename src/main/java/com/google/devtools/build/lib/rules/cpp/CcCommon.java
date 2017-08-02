@@ -186,7 +186,7 @@ public final class CcCommon {
       CcCompilationOutputs compilationOutputs,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     ImmutableList.Builder<TransitiveInfoCollection> deps =
         ImmutableList.<TransitiveInfoCollection>builder();
 

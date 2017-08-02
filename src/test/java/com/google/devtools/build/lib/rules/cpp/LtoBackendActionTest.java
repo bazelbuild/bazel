@@ -40,9 +40,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link com.google.devtools.build.lib.rules.cpp.LTOBackendAction}. */
+/** Tests {@link com.google.devtools.build.lib.rules.cpp.LtoBackendAction}. */
 @RunWith(JUnit4.class)
-public class LTOBackendActionTest extends BuildViewTestCase {
+public class LtoBackendActionTest extends BuildViewTestCase {
   private Artifact bitcode1Artifact;
   private Artifact bitcode2Artifact;
   private Artifact index1Artifact;
@@ -83,7 +83,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   @Test
   public void testEmptyImports() throws Exception {
     Action[] actions =
-        new LTOBackendAction.Builder()
+        new LtoBackendAction.Builder()
             .addImportsInfo(allBitcodeFiles, imports1Artifact)
             .addInput(bitcode1Artifact)
             .addInput(index1Artifact)
@@ -92,7 +92,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .setProgressMessage("Test")
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
-    LTOBackendAction action = (LTOBackendAction) actions[0];
+    LtoBackendAction action = (LtoBackendAction) actions[0];
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
@@ -112,7 +112,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   @Test
   public void testNonEmptyImports() throws Exception {
     Action[] actions =
-        new LTOBackendAction.Builder()
+        new LtoBackendAction.Builder()
             .addImportsInfo(allBitcodeFiles, imports2Artifact)
             .addInput(bitcode2Artifact)
             .addInput(index2Artifact)
@@ -121,7 +121,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .setProgressMessage("Test")
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
-    LTOBackendAction action = (LTOBackendAction) actions[0];
+    LtoBackendAction action = (LtoBackendAction) actions[0];
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode2Artifact, index2Artifact);
@@ -160,7 +160,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
         new ActionCombinationFactory<KeyAttributes>() {
           @Override
           public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
-            LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
+            LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
             builder.addOutput(destinationArtifact);
 
             PathFragment executable =

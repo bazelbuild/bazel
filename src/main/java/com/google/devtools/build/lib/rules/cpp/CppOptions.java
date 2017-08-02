@@ -493,7 +493,7 @@ public class CppOptions extends FragmentOptions {
         "If set, builds using LIPO will automatically be converted to ThinLTO for the LLVM "
             + "compiler."
   )
-  public boolean convertLipoToThinLTO;
+  public boolean convertLipoToThinLto;
 
   @Option(
     name = "lipo",

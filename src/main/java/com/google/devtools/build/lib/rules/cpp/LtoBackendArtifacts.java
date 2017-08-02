@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * LTOBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
+ * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
  *
  * <p>ThinLTO expands the traditional 2 step compile (N x compile .cc, 1x link (N .o files) into a 4
  * step process:
@@ -38,7 +38,7 @@ import java.util.Map;
  * <li>2. Indexing (once on N files). This takes all bitcode .o files, and for each .o file, it
  *     decides from which other .o files symbols can be inlined. In addition, it generates an index
  *     for looking up these symbols, and an imports file for identifying new input files for each
- *     step 3 {@link LTOBackendAction}.
+ *     step 3 {@link LtoBackendAction}.
  * <li>3. Backend compile (N times). This is the traditional compilation, and uses the same command
  *     line as the Bitcode generation in 1). Since the compiler has many bit code files available,
  *     it can inline functions and propagate constants across .o files. This step is costly, as it
@@ -46,7 +46,7 @@ import java.util.Map;
  * <li>4. Backend link (once). This is the traditional link, and produces the final executable.
  * </ul>
  */
-public final class LTOBackendArtifacts {
+public final class LtoBackendArtifacts {
   // A file containing mapping of symbol => bitcode file containing the symbol.
   private final Artifact index;
 
@@ -61,7 +61,7 @@ public final class LTOBackendArtifacts {
   private final Artifact objectFile;
 
   // A map of all of the bitcode files. This is the universe from which the .imports file
-  // distills its lists.  The map is the same across all LTOBackendArtifacts of a given
+  // distills its lists.  The map is the same across all LtoBackendArtifacts of a given
   // binary.
   private final Map<PathFragment, Artifact> bitcodeFiles;
 
@@ -69,7 +69,7 @@ public final class LTOBackendArtifacts {
   // the feature configuration and user-provided linkopts.
   private List<String> commandLine;
 
-  LTOBackendArtifacts(
+  LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
@@ -105,14 +105,14 @@ public final class LTOBackendArtifacts {
     commandLine = cmdLine;
   }
 
-  public void scheduleLTOBackendAction(
+  public void scheduleLtoBackendAction(
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoSupportProvider fdoSupport,
       boolean usePic,
       boolean generateDwo) {
-    LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
+    LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
     builder.addImportsInfo(bitcodeFiles, imports);
 
     builder.addInput(bitcodeFile);

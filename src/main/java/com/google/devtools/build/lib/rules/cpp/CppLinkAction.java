@@ -113,10 +113,10 @@ public final class CppLinkAction extends AbstractAction
 
   /** True for cc_fake_binary targets. */
   private final boolean fake;
-  private final boolean isLTOIndexing;
+  private final boolean isLtoIndexing;
 
   // This is set for both LTO indexing and LTO linking.
-  @Nullable private final Iterable<LTOBackendArtifacts> allLTOBackendArtifacts;
+  @Nullable private final Iterable<LtoBackendArtifacts> allLtoBackendArtifacts;
   private final Iterable<Artifact> mandatoryInputs;
 
   // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib.
@@ -153,8 +153,8 @@ public final class CppLinkAction extends AbstractAction
       Artifact linkOutput,
       LibraryToLink interfaceOutputLibrary,
       boolean fake,
-      boolean isLTOIndexing,
-      Iterable<LTOBackendArtifacts> allLTOBackendArtifacts,
+      boolean isLtoIndexing,
+      Iterable<LtoBackendArtifacts> allLtoBackendArtifacts,
       LinkCommandLine linkCommandLine,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> actionEnv,
@@ -162,7 +162,7 @@ public final class CppLinkAction extends AbstractAction
       ImmutableSet<String> executionRequirements) {
     super(owner, inputs, outputs);
     if (mnemonic == null) {
-      this.mnemonic = (isLTOIndexing) ? "CppLTOIndexing" : "CppLink";
+      this.mnemonic = (isLtoIndexing) ? "CppLTOIndexing" : "CppLink";
     } else {
       this.mnemonic = mnemonic;
     }
@@ -172,8 +172,8 @@ public final class CppLinkAction extends AbstractAction
     this.linkOutput = linkOutput;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
     this.fake = fake;
-    this.isLTOIndexing = isLTOIndexing;
-    this.allLTOBackendArtifacts = allLTOBackendArtifacts;
+    this.isLtoIndexing = isLtoIndexing;
+    this.allLtoBackendArtifacts = allLtoBackendArtifacts;
     this.linkCommandLine = linkCommandLine;
     this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.actionEnv = actionEnv;
@@ -291,8 +291,8 @@ public final class CppLinkAction extends AbstractAction
     return linkCommandLine.getCommandLine();
   }
 
-  Iterable<LTOBackendArtifacts> getAllLTOBackendArtifacts() {
-    return allLTOBackendArtifacts;
+  Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
+    return allLtoBackendArtifacts;
   }
 
   private boolean needsToRunOnMac() {
@@ -468,7 +468,7 @@ public final class CppLinkAction extends AbstractAction
     if (linkCommandLine.getRuntimeSolibDir() != null) {
       f.addPath(linkCommandLine.getRuntimeSolibDir());
     }
-    f.addBoolean(isLTOIndexing);
+    f.addBoolean(isLtoIndexing);
     return f.hexDigestAndReset();
   }
 
@@ -500,7 +500,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   protected String getRawProgressMessage() {
-    return (isLTOIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
+    return (isLtoIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
   }
 
   /**

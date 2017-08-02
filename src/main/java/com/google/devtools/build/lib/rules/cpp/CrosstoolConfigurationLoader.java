@@ -330,7 +330,7 @@ public class CrosstoolConfigurationLoader {
     String desiredCpu = cpuTransformer.apply(config.getCpu());
     CppOptions cppOptions = options.get(CppOptions.class);
     boolean needsLipo =
-        cppOptions.getLipoMode() != LipoMode.OFF && !cppOptions.convertLipoToThinLTO;
+        cppOptions.getLipoMode() != LipoMode.OFF && !cppOptions.convertLipoToThinLto;
     for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
       if (needsLipo && !selector.getSupportsLipo()) {
         continue;
