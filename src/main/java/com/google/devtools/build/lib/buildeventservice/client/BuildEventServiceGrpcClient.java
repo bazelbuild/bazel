@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.buildeventservice.client;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.util.Preconditions.checkState;
-import static java.lang.System.getenv;
 import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -62,8 +61,6 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   /** Max wait time for a single non-streaming RPC to finish */
   private static final Duration RPC_TIMEOUT = Duration.standardSeconds(15);
-  /** See https://developers.google.com/identity/protocols/application-default-credentials * */
-  private static final String DEFAULT_APP_CREDENTIALS_ENV_VAR = "GOOGLE_APPLICATION_CREDENTIALS";
   /** TODO(eduardocolaco): Scope documentation.* */
   private static final String CREDENTIALS_SCOPE =
       "https://www.googleapis.com/auth/cloud-build-service";
@@ -186,7 +183,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   /**
    * Returns call credentials read from the specified file (if non-empty) or from
-   * env(GOOGLE_APPLICATION_CREDENTIALS) otherwise.
+   * Google Application Default Credentials otherwise.
    */
   @Nullable
   private static CallCredentials getCallCredentials(@Nullable String credentialsFile,
@@ -198,11 +195,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
             GoogleCredentials.fromStream(newInputStream(Paths.get(credentialsFile)))
                 .createScoped(ImmutableList.of(effectiveScope)));
 
-      } else if (!isNullOrEmpty(getenv(DEFAULT_APP_CREDENTIALS_ENV_VAR))) {
-        return MoreCallCredentials.from(
-            GoogleCredentials.getApplicationDefault()
-                .createScoped(ImmutableList.of(effectiveScope)));
       }
+      return MoreCallCredentials.from(
+          GoogleCredentials.getApplicationDefault()
+              .createScoped(ImmutableList.of(effectiveScope)));
     } catch (IOException e) {
       logger.log(Level.WARNING, "Failed to read credentials", e);
     }
