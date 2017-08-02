@@ -114,7 +114,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG);
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG);
     useConfiguration();
 
     checkError(
@@ -131,7 +131,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
-            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG);
+            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG);
     useConfiguration();
 
     checkError(
@@ -761,8 +761,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration("--cpu=k8");
     writeSimpleCcLibrary();
@@ -778,10 +778,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             "needsPic: false",
-            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
+            MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration();
     scratchConfiguredTarget("a", "a",
@@ -795,10 +795,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
-            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
+            MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.PIC_FEATURE);
     useConfiguration();

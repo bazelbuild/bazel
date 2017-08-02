@@ -427,164 +427,43 @@ public abstract class MockCcSupport {
           + "   pattern: 'foo%{bad_variable}bar'"
           + "}";
 
-  /** An action_config for 'c++-compile action using DUMMY_TOOL that doesn't imply any features. */
-  public static final String INCOMPLETE_COMPILE_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + CppCompileAction.CPP_COMPILE
-          + "'"
-          + "   action_name: '"
-          + CppCompileAction.CPP_COMPILE
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
+  public static final String EMPTY_COMPILE_ACTION_CONFIG =
+      emptyActionConfigFor(CppCompileAction.CPP_COMPILE);
+
+  public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
+      emptyActionConfigFor(CppCompileAction.CPP_MODULE_CODEGEN);
+
+  public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
+      emptyActionConfigFor(CppCompileAction.CPP_MODULE_COMPILE);
+
+  public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
+      emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
+
+  public static final String EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG =
+      emptyActionConfigFor(LinkTargetType.DYNAMIC_LIBRARY.getActionName());
+
+  public static final String EMPTY_STATIC_LIBRARY_ACTION_CONFIG =
+      emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
+
+  public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
+      emptyActionConfigFor(CppCompileAction.CLIF_MATCH);
 
   /**
-   * An action_config for 'c++-module-codegen action using DUMMY_TOOL that doesn't imply any
+   * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
    * features.
    */
-  public static final String INCOMPLETE_MODULE_CODEGEN_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + CppCompileAction.CPP_MODULE_CODEGEN
-          + "'"
-          + "   action_name: '"
-          + CppCompileAction.CPP_MODULE_CODEGEN
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-
-  /**
-   * An action_config for 'c++-module-compile action using DUMMY_TOOL that doesn't imply any
-   * features.
-   */
-  public static final String INCOMPLETE_MODULE_COMPILE_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + CppCompileAction.CPP_MODULE_COMPILE
-          + "'"
-          + "   action_name: '"
-          + CppCompileAction.CPP_MODULE_COMPILE
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-
-  public static final String INCOMPLETE_EXECUTABLE_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.EXECUTABLE.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.EXECUTABLE.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-
-  public static final String INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.DYNAMIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.DYNAMIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-  public static final String INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-  public static final String INCOMPLETE_PIC_STATIC_LIBRARY_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.PIC_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.PIC_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-  public static final String INCOMPLETE_ALWAYS_LINK_STATIC_LIBRARY_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-  public static final String INCOMPLETE_ALWAYS_LINK_PIC_STATIC_LIBRARY_EXECUTABLE_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-  public static final String INCOMPLETE_INTERFACE_DYNAMIC_LIBRARY_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName()
-          + "'"
-          + "   action_name: '"
-          + LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName()
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
-
-  /** An action_config for clif-match action using DUMMY_TOOL that doesn't imply any features. */
-  public static final String INCOMPLETE_CLIF_MATCH_ACTION_CONFIG =
-      ""
-          + "action_config {"
-          + "   config_name: '"
-          + CppCompileAction.CLIF_MATCH
-          + "'"
-          + "   action_name: '"
-          + CppCompileAction.CLIF_MATCH
-          + "'"
-          + "   tool {"
-          + "      tool_path: 'DUMMY_TOOL'"
-          + "   }"
-          + "}";
+  private static String emptyActionConfigFor(String actionName) {
+    return String.format(
+        ""
+            + "action_config {"
+            + "  config_name: '%s'"
+            + "  action_name: '%s'"
+            + "  tool {"
+            + "    tool_path: 'DUMMY_TOOL'"
+            + "  }"
+            + "}",
+        actionName, actionName);
+  }
 
   /** Filter to remove implicit dependencies of C/C++ rules. */
   private final Predicate<Label> ccLabelFilter =
