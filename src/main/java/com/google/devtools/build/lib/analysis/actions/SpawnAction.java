@@ -829,8 +829,35 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Sets the environment to the configurations default shell environment,
-     * see {@link BuildConfiguration#getLocalShellEnvironment}.
+     * Sets the environment to the configuration's default shell environment.
+     *
+     * <p><b>All actions should set this if possible and avoid using {@link #setEnvironment}.</b>
+     *
+     * <p>When this property is set, the action will use a minimal, standardized environment map.
+     *
+     * <p>The list of envvars available to the action (the keys in this map) comes from two places:
+     * from the configuration fragments ({@link BuildConfiguration.Fragment#setupActionEnvironment})
+     * and from the command line or rc-files via {@code --action_env} flags.
+     *
+     * <p>The values for these variables may come from one of three places: from the configuration
+     * fragment, or from the {@code --action_env} flag (when the flag specifies a name-value pair,
+     * e.g. {@code --action_env=FOO=bar}), or from the client environment (when the flag only
+     * specifies a name, e.g. {@code --action_env=HOME}).
+     *
+     * <p>The client environment is specified by the {@code --client_env} flags. The Bazel client
+     * passes these flags to the Bazel server upon each build (e.g.
+     * {@code --client_env=HOME=/home/johndoe}), so the server can keep track of environmental
+     * changes between builds, and always use the up-to-date environment (as opposed to calling
+     * {@code System.getenv}, which it should never do, though as of 2017-08-02 it still does in a
+     * few places).
+     *
+     * <p>The {@code --action_env} has priority over configuration-fragment-dictated envvar values,
+     * i.e. if the configuration fragment tries to add FOO=bar to the environment, and there's also
+     * {@link --action_env=FOO=baz} or {@link --action_env=FOO}, then FOO will be available to the
+     * action and its value will be "baz", or whatever the corresponding {@code --client_env} flag
+     * specified, respectively.
+     *
+     * @see {@link BuildConfiguration#getLocalShellEnvironment}
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
