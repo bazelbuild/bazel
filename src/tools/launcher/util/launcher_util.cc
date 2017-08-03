@@ -67,8 +67,8 @@ void PrintError(const char* format, ...) {
   fputc('\n', stderr);
 }
 
-bool DoesFilePathExist(const string& path) {
-  DWORD dwAttrib = GetFileAttributes(path.c_str());
+bool DoesFilePathExist(const char* path) {
+  DWORD dwAttrib = GetFileAttributes(path);
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));

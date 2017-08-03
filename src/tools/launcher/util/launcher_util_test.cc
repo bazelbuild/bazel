@@ -86,8 +86,8 @@ TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
   string file1 = GetTmpDir() + "/foo";
   string file2 = GetTmpDir() + "/bar";
   CreateEmptyFile(file1);
-  ASSERT_TRUE(DoesFilePathExist(file1));
-  ASSERT_FALSE(DoesFilePathExist(file2));
+  ASSERT_TRUE(DoesFilePathExist(file1.c_str()));
+  ASSERT_FALSE(DoesFilePathExist(file2.c_str()));
 }
 
 }  // namespace launcher
