@@ -151,7 +151,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                   .getFragment(BazelConfiguration.class)
                   .getShellExecutable()
                   .getPathString());
-      dataSize += writeLaunchInfo(launchInfo, "bash_main_file", mainFile.getRunfilesPathString());
+      dataSize += writeLaunchInfo(launchInfo, "bash_main_file", mainFile.getExecPathString());
 
       ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
       // All Windows versions are little endian.
