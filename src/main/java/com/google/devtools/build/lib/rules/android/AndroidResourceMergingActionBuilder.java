@@ -186,6 +186,7 @@ public class AndroidResourceMergingActionBuilder {
     ruleContext.registerAction(
         spawnActionBuilder
             .useParameterFile(ParameterFileType.UNQUOTED)
+            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())

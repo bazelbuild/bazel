@@ -100,6 +100,7 @@ public class RobolectricResourceSymbolsActionBuilder {
     ruleContext.registerAction(
         spawnActionBuilder
             .useParameterFile(ParameterFileType.UNQUOTED)
+            .useDefaultShellEnvironment()
             .addInputs(inputs)
             .addOutput(classJarOut)
             .setCommandLine(builder.build())
