@@ -105,7 +105,7 @@ public final class OneVersionCheckActionBuilder {
             .setCommandLine(oneVersionArgs)
             .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
             .setMnemonic("JavaOneVersion")
-            .setProgressMessage("Checking for one-version violations in " + ruleContext.getLabel())
+            .setProgressMessage("Checking for one-version violations in %s", ruleContext.getLabel())
             .build(ruleContext));
     return outputArtifact;
   }

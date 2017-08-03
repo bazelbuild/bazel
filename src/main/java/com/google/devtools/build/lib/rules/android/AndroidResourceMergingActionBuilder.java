@@ -191,7 +191,7 @@ public class AndroidResourceMergingActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Merging Android resources for " + ruleContext.getLabel())
+            .setProgressMessage("Merging Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidResourceMerger")
             .build(context));
 

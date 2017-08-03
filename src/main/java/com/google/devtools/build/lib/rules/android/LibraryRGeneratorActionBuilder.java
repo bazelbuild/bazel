@@ -92,7 +92,7 @@ public class LibraryRGeneratorActionBuilder {
             .useParameterFile(ParameterFileType.UNQUOTED)
             .setCommandLine(builder.build())
             .setExecutable(executable)
-            .setProgressMessage("Generating Library R Classes: " + ruleContext.getLabel())
+            .setProgressMessage("Generating Library R Classes: %s", ruleContext.getLabel())
             .setMnemonic("LibraryRClassGenerator")
             .build(ruleContext));
     return resourceContainer.toBuilder().setJavaClassJar(rJavaClassJar).build();

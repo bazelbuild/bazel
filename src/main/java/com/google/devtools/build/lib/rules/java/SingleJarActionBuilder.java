@@ -75,7 +75,7 @@ public final class SingleJarActionBuilder {
         .addInputs(resourceJars)
         .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
         .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building source jar " + outputJar.prettyPrint())
+        .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
         .setMnemonic("JavaSourceJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }

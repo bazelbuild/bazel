@@ -218,14 +218,15 @@ public class AndroidCommon {
     args.add("--output=" + classesDex.getExecPathString());
     args.add(jarToDex.getExecPathString());
 
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
-        .addInput(jarToDex)
-        .addOutput(classesDex)
-        .addArguments(args)
-        .setProgressMessage("Converting " + jarToDex.getExecPathString() + " to dex format")
-        .setMnemonic("AndroidDexer")
-        .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
+            .addInput(jarToDex)
+            .addOutput(classesDex)
+            .addArguments(args)
+            .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
+            .setMnemonic("AndroidDexer")
+            .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
     if (mainDexList != null) {
       builder.addInput(mainDexList);
     }

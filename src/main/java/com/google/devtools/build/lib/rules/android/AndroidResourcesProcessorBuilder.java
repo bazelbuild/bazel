@@ -296,7 +296,7 @@ public class AndroidResourcesProcessorBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Processing Android resources for " + ruleContext.getLabel())
+            .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidAapt2")
             .build(context));
 
@@ -341,7 +341,7 @@ public class AndroidResourcesProcessorBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Processing Android resources for " + ruleContext.getLabel())
+            .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AaptPackage")
             .build(context));
 

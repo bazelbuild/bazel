@@ -472,20 +472,19 @@ public abstract class ProguardHelper {
               ruleContext, optMode.name().toLowerCase(), mnemonic + "_optimization_" + i + ".jar");
           ruleContext.registerAction(
               defaultAction(
-                  checkNotNull(executable, "couldn't find optimizer %s", optimizer),
-                  programJar,
-                  proguardSpecs,
-                  proguardMapping,
-                  libraryJars,
-                  output.getOutputJar(),
-                  /* proguardOutputMap */ null,
-                  /* proguardOutputProtoMap */ null,
-                  /* proguardSeeds */ null,
-                  /* proguardUsage */ null,
-                  /* constantStringObfuscatedMapping */ null,
-                  /* proguardConfigOutput */ null)
-                  .setProgressMessage(
-                      "Trimming binary with " + mnemonic + ": Optimization Pass " + i)
+                      checkNotNull(executable, "couldn't find optimizer %s", optimizer),
+                      programJar,
+                      proguardSpecs,
+                      proguardMapping,
+                      libraryJars,
+                      output.getOutputJar(),
+                      /* proguardOutputMap */ null,
+                      /* proguardOutputProtoMap */ null,
+                      /* proguardSeeds */ null,
+                      /* proguardUsage */ null,
+                      /* constantStringObfuscatedMapping */ null,
+                      /* proguardConfigOutput */ null)
+                  .setProgressMessage("Trimming binary with %s: Optimization Pass %d", mnemonic, +i)
                   .setMnemonic(mnemonic)
                   .addArgument("-runtype OPTIMIZATION")
                   .addArgument("-laststageoutput")

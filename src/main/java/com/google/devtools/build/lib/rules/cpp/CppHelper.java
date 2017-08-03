@@ -606,26 +606,27 @@ public class CppHelper {
    */
   public static void createStripAction(RuleContext context, CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration, Artifact input, Artifact output) {
-    context.registerAction(new SpawnAction.Builder()
-        .addInput(input)
-        .addTransitiveInputs(toolchain.getStrip())
-        .addOutput(output)
-        .useDefaultShellEnvironment()
-        .setExecutable(cppConfiguration.getStripExecutable())
-        .addArguments("-S", "-p", "-o", output.getExecPathString())
-        .addArguments("-R", ".gnu.switches.text.quote_paths")
-        .addArguments("-R", ".gnu.switches.text.bracket_paths")
-        .addArguments("-R", ".gnu.switches.text.system_paths")
-        .addArguments("-R", ".gnu.switches.text.cpp_defines")
-        .addArguments("-R", ".gnu.switches.text.cpp_includes")
-        .addArguments("-R", ".gnu.switches.text.cl_args")
-        .addArguments("-R", ".gnu.switches.text.lipo_info")
-        .addArguments("-R", ".gnu.switches.text.annotation")
-        .addArguments(cppConfiguration.getStripOpts())
-        .addArgument(input.getExecPathString())
-        .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
-        .setMnemonic("CcStrip")
-        .build(context));
+    context.registerAction(
+        new SpawnAction.Builder()
+            .addInput(input)
+            .addTransitiveInputs(toolchain.getStrip())
+            .addOutput(output)
+            .useDefaultShellEnvironment()
+            .setExecutable(cppConfiguration.getStripExecutable())
+            .addArguments("-S", "-p", "-o", output.getExecPathString())
+            .addArguments("-R", ".gnu.switches.text.quote_paths")
+            .addArguments("-R", ".gnu.switches.text.bracket_paths")
+            .addArguments("-R", ".gnu.switches.text.system_paths")
+            .addArguments("-R", ".gnu.switches.text.cpp_defines")
+            .addArguments("-R", ".gnu.switches.text.cpp_includes")
+            .addArguments("-R", ".gnu.switches.text.cl_args")
+            .addArguments("-R", ".gnu.switches.text.lipo_info")
+            .addArguments("-R", ".gnu.switches.text.annotation")
+            .addArguments(cppConfiguration.getStripOpts())
+            .addArgument(input.getExecPathString())
+            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
+            .setMnemonic("CcStrip")
+            .build(context));
   }
 
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,

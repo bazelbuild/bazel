@@ -121,7 +121,7 @@ public final class LtoBackendArtifacts {
 
     builder.addOutput(objectFile);
 
-    builder.setProgressMessage("LTO Backend Compile " + objectFile.getFilename());
+    builder.setProgressMessage("LTO Backend Compile %s", objectFile.getFilename());
     builder.setMnemonic("CcLtoBackendCompile");
 
     // The command-line doesn't specify the full path to clang++, so we set it in the

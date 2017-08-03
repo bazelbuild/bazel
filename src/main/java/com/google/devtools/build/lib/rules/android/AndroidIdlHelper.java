@@ -325,25 +325,28 @@ public class AndroidIdlHelper {
         .getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_idl"))
         .getRelative(basename + "_temp");
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(manifestProtoOutput)
-        .addInput(classJar)
-        .addInputs(generatedIdlJavaFiles)
-        .addOutput(idlClassJar)
-        .addOutput(idlSourceJar)
-        .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
-        .setCommandLine(CustomCommandLine.builder()
-            .addExecPath("--manifest_proto", manifestProtoOutput)
-            .addExecPath("--class_jar", classJar)
-            .addExecPath("--output_class_jar", idlClassJar)
-            .addExecPath("--output_source_jar", idlSourceJar)
-            .add("--temp_dir").addPath(idlTempDir)
-            .addExecPaths(generatedIdlJavaFiles)
-            .build())
-        .useParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building idl jars " + idlClassJar.prettyPrint())
-        .setMnemonic("AndroidIdlJars")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(manifestProtoOutput)
+            .addInput(classJar)
+            .addInputs(generatedIdlJavaFiles)
+            .addOutput(idlClassJar)
+            .addOutput(idlSourceJar)
+            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--manifest_proto", manifestProtoOutput)
+                    .addExecPath("--class_jar", classJar)
+                    .addExecPath("--output_class_jar", idlClassJar)
+                    .addExecPath("--output_source_jar", idlSourceJar)
+                    .add("--temp_dir")
+                    .addPath(idlTempDir)
+                    .addExecPaths(generatedIdlJavaFiles)
+                    .build())
+            .useParameterFile(ParameterFileType.SHELL_QUOTED)
+            .setProgressMessage("Building idl jars %s", idlClassJar.prettyPrint())
+            .setMnemonic("AndroidIdlJars")
+            .build(ruleContext));
   }
 
   /**

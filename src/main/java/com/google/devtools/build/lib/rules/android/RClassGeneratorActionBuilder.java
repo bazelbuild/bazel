@@ -124,7 +124,7 @@ public class RClassGeneratorActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Generating R Classes: " + ruleContext.getLabel())
+            .setProgressMessage("Generating R Classes: %s", ruleContext.getLabel())
             .setMnemonic("RClassGenerator")
             .build(ruleContext));
   }

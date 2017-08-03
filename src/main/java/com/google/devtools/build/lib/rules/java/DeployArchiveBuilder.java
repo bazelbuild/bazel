@@ -277,13 +277,10 @@ public class DeployArchiveBuilder {
               .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
               .addOutput(outputJar)
               .setResources(resourceSet)
-              .setJarExecutable(
-                  JavaCommon.getHostJavaExecutable(ruleContext),
-                  singlejar,
-                  jvmArgs)
+              .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)
               .setCommandLine(commandLine)
               .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
               .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
               .build(ruleContext));
@@ -296,7 +293,7 @@ public class DeployArchiveBuilder {
               .setExecutable(singlejar)
               .setCommandLine(commandLine)
               .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
               .build(ruleContext));
     }

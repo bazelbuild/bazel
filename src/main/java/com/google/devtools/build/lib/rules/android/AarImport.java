@@ -182,7 +182,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST))
         .setMnemonic("AarFileExtractor")
-        .setProgressMessage("Extracting " + filename + " from " + aar.getFilename())
+        .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
         .addArgument("x")
         .addInputArgument(aar)
         .addArgument("-d")
@@ -212,7 +212,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(
             ruleContext.getExecutablePrerequisite("$aar_embedded_jars_extractor", Mode.HOST))
         .setMnemonic("AarEmbeddedJarsExtractor")
-        .setProgressMessage("Extracting classes.jar and libs/*.jar from " + aar.getFilename())
+        .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
         .addArgument("--input_aar")
         .addInputArgument(aar)
         .addArgument("--output_dir")

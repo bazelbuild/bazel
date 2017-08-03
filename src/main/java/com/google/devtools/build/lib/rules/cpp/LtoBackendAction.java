@@ -69,7 +69,7 @@ public final class LtoBackendAction extends SpawnAction {
       boolean isShellCommand,
       ActionEnvironment env,
       Map<String, String> executionInfo,
-      String progressMessage,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic) {
     super(
@@ -211,7 +211,7 @@ public final class LtoBackendAction extends SpawnAction {
         boolean isShellCommand,
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
-        String progressMessage,
+        CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LtoBackendAction(

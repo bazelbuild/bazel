@@ -479,7 +479,7 @@ public final class ReleaseBundlingSupport {
         ObjcRuleClasses.spawnBashOnDarwinActionBuilder(actionCommandLine)
             .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
             .setMnemonic("ObjcProcessIpa")
-            .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
+            .setProgressMessage("Processing iOS IPA: %s", ruleContext.getLabel())
             .disableSandboxing()
             .addTransitiveInputs(inputs.build())
             .addOutput(processedIpa);
@@ -850,7 +850,7 @@ public final class ReleaseBundlingSupport {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .setMnemonic("IosBundle")
-            .setProgressMessage("Bundling iOS application: " + ruleContext.getLabel())
+            .setProgressMessage("Bundling iOS application: %s", ruleContext.getLabel())
             .setExecutable(attributes.bundleMergeExecutable())
             .addInputArgument(bundleMergeControlArtifact)
             .addTransitiveInputs(bundling.getBundleContentArtifacts())
@@ -974,7 +974,7 @@ public final class ReleaseBundlingSupport {
         ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("ExtractIosEntitlements")
             .disableSandboxing()
-            .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
+            .setProgressMessage("Extracting entitlements: %s", ruleContext.getLabel())
             .addInput(releaseBundling.getProvisioningProfile())
             .addOutput(entitlements)
             .build(ruleContext));

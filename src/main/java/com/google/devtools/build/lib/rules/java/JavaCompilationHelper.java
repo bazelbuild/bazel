@@ -470,7 +470,7 @@ public final class JavaCompilationHelper {
                         .add("--temp_dir")
                         .addPath(tempDir(genClassJar))
                         .build())
-                .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
+                .setProgressMessage("Building genclass jar %s", genClassJar.prettyPrint())
                 .setMnemonic("JavaSourceJar")
                 .build(getRuleContext()));
   }
@@ -797,19 +797,20 @@ public final class JavaCompilationHelper {
     Artifact interfaceJar = getIjarArtifact(ruleContext, inputJar, addPrefix);
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     if (!ruleContext.hasErrors()) {
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .addInput(inputJar)
-          .addOutput(interfaceJar)
-          .setExecutable(ijarTarget)
-          // On Windows, ijar.exe needs msys-2.0.dll and zlib1.dll in PATH.
-          // Use default shell environment so that those can be found.
-          // TODO(dslomov): revisit this. If ijar is not msys-dependent, this is not needed.
-          .useDefaultShellEnvironment()
-          .addArgument(inputJar.getExecPathString())
-          .addArgument(interfaceJar.getExecPathString())
-          .setProgressMessage("Extracting interface " + ruleContext.getLabel())
-          .setMnemonic("JavaIjar")
-          .build(ruleContext));
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addInput(inputJar)
+              .addOutput(interfaceJar)
+              .setExecutable(ijarTarget)
+              // On Windows, ijar.exe needs msys-2.0.dll and zlib1.dll in PATH.
+              // Use default shell environment so that those can be found.
+              // TODO(dslomov): revisit this. If ijar is not msys-dependent, this is not needed.
+              .useDefaultShellEnvironment()
+              .addArgument(inputJar.getExecPathString())
+              .addArgument(interfaceJar.getExecPathString())
+              .setProgressMessage("Extracting interface %s", ruleContext.getLabel())
+              .setMnemonic("JavaIjar")
+              .build(ruleContext));
     }
     return interfaceJar;
   }

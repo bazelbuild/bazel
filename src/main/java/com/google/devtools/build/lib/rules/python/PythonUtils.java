@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -120,14 +119,15 @@ public final class PythonUtils {
     argv.add("--write-unchanged-files");
     argv.add(input.getExecPathString());
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(input)
-        .addOutput(output)
-        .setExecutable(py2to3converter)
-        .addArguments(argv)
-        .setProgressMessage("Converting to Python 3: " + input.prettyPrint())
-        .setMnemonic("2to3")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutable(py2to3converter)
+            .addArguments(argv)
+            .setProgressMessage("Converting to Python 3: %s", input.prettyPrint())
+            .setMnemonic("2to3")
+            .build(ruleContext));
     return output;
   }
 }

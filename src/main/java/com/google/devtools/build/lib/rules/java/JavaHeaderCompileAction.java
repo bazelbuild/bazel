@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -102,7 +103,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       Iterable<Artifact> outputs,
       CommandLine directCommandLine,
       CommandLine transitiveCommandLine,
-      String progressMessage) {
+      CharSequence progressMessage) {
     super(
         owner,
         tools,
@@ -477,21 +478,29 @@ public class JavaHeaderCompileAction extends SpawnAction {
       };
     }
 
-    private String getProgressMessageWithAnnotationProcessors() {
+    private LazyString getProgressMessageWithAnnotationProcessors() {
       List<String> shortNames = new ArrayList<>();
       for (String name : processorNames) {
         shortNames.add(name.substring(name.lastIndexOf('.') + 1));
       }
-      return getProgressMessage()
-          + " and running annotation processors ("
-          + Joiner.on(", ").join(shortNames)
-          + ")";
+      String tail = " and running annotation processors (" + Joiner.on(", ").join(shortNames) + ")";
+      return getProgressMessage(tail);
     }
 
-    private String getProgressMessage() {
-      return String.format(
-          "Compiling Java headers %s (%d files)",
-          outputJar.prettyPrint(), sourceFiles.size() + sourceJars.size());
+    private LazyString getProgressMessage() {
+      return getProgressMessage("");
+    }
+
+    private LazyString getProgressMessage(String tail) {
+      Artifact outputJar = this.outputJar;
+      int fileCount = sourceFiles.size() + sourceJars.size();
+      return new LazyString() {
+        @Override
+        public String toString() {
+          return String.format(
+              "Compiling Java headers %s (%d files)%s", outputJar.prettyPrint(), fileCount, tail);
+        }
+      };
     }
 
     private CustomCommandLine.Builder getBaseArgs(JavaToolchainProvider javaToolchain) {

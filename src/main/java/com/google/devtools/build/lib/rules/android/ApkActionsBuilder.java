@@ -304,7 +304,7 @@ public class ApkActionsBuilder {
           new SpawnAction.Builder()
               .setExecutable(resourceExtractor)
               .setMnemonic("ResourceExtractor")
-              .setProgressMessage("Extracting Java resources from deploy jar for " + apkName)
+              .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
               .addInputArgument(javaResourceZip)
               .addOutputArgument(extractedJavaResourceZip)
               .build(ruleContext));
@@ -365,16 +365,17 @@ public class ApkActionsBuilder {
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
   private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(inputApk)
-        .addOutput(zipAlignedApk)
-        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
-        .addArgument("4")
-        .addInputArgument(inputApk)
-        .addOutputArgument(zipAlignedApk)
-        .setProgressMessage("Zipaligning " + apkName)
-        .setMnemonic("AndroidZipAlign")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(inputApk)
+            .addOutput(zipAlignedApk)
+            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
+            .addArgument("4")
+            .addInputArgument(inputApk)
+            .addOutputArgument(zipAlignedApk)
+            .setProgressMessage("Zipaligning %s", apkName)
+            .setMnemonic("AndroidZipAlign")
+            .build(ruleContext));
   }
 
   /**
@@ -386,21 +387,22 @@ public class ApkActionsBuilder {
       RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
-        .setProgressMessage("Signing " + apkName)
-        .setMnemonic("ApkSignerTool")
-        .addArgument("sign")
-        .addArgument("--ks")
-        .addInputArgument(signingKey)
-        .addArguments("--ks-pass", "pass:android")
-        .addArguments("--v1-signing-enabled", Boolean.toString(signingMethod.signV1()))
-        .addArguments("--v1-signer-name", "CERT")
-        .addArguments("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()))
-        .addArgument("--out")
-        .addOutputArgument(signedAndZipalignedApk)
-        .addInputArgument(unsignedApk)
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
+            .setProgressMessage("Signing %s", apkName)
+            .setMnemonic("ApkSignerTool")
+            .addArgument("sign")
+            .addArgument("--ks")
+            .addInputArgument(signingKey)
+            .addArguments("--ks-pass", "pass:android")
+            .addArguments("--v1-signing-enabled", Boolean.toString(signingMethod.signV1()))
+            .addArguments("--v1-signer-name", "CERT")
+            .addArguments("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()))
+            .addArgument("--out")
+            .addOutputArgument(signedAndZipalignedApk)
+            .addInputArgument(unsignedApk)
+            .build(ruleContext));
   }
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.

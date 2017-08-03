@@ -150,7 +150,7 @@ public class AndroidResourceParsingActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Parsing Android resources for " + ruleContext.getLabel())
+            .setProgressMessage("Parsing Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidResourceParser")
             .build(context));
 
@@ -185,7 +185,7 @@ public class AndroidResourceParsingActionBuilder {
               .setCommandLine(flatFileBuilder.build())
               .setExecutable(
                   ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-              .setProgressMessage("Compiling Android resources for " + ruleContext.getLabel())
+              .setProgressMessage("Compiling Android resources for %s", ruleContext.getLabel())
               .setMnemonic("AndroidResourceCompiler")
               .build(context));
       return resourceContainer

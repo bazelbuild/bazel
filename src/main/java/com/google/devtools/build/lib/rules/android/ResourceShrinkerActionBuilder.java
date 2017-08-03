@@ -231,7 +231,7 @@ public class ResourceShrinkerActionBuilder {
             .setCommandLine(commandLine.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Shrinking resources for " + ruleContext.getLabel())
+            .setProgressMessage("Shrinking resources for %s", ruleContext.getLabel())
             .setMnemonic("ResourceShrinker")
             .build(ruleContext));
 

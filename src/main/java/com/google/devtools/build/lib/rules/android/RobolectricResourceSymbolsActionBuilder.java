@@ -105,7 +105,7 @@ public class RobolectricResourceSymbolsActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Generating R classes for " + ruleContext.getLabel())
+            .setProgressMessage("Generating R classes for %s", ruleContext.getLabel())
             .setMnemonic("GenerateRobolectricRClasses")
             .build(ruleContext));
 

@@ -55,9 +55,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -93,7 +96,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   private final boolean executeUnconditionally;
   private final boolean isShellCommand;
-  private final String progressMessage;
+  private final CharSequence progressMessage;
   private final String mnemonic;
 
   private final ResourceSet resourceSet;
@@ -118,7 +121,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *     it may include the names of input and output files, but this is not necessary.
    * @param isShellCommand Whether the command line represents a shell command with the given shell
    *     executable. This is used to give better error messages.
-   * @param progressMessage the message printed during the progression of the build
+   * @param progressMessage the message printed during the progression of the build.
    * @param mnemonic the mnemonic that is reported in the master log.
    */
   public SpawnAction(
@@ -130,7 +133,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       CommandLine argv,
       boolean isShellCommand,
       ActionEnvironment env,
-      String progressMessage,
+      CharSequence progressMessage,
       String mnemonic) {
     this(
         owner,
@@ -183,7 +186,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       boolean isShellCommand,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      String progressMessage,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
@@ -263,7 +266,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     try {
       internalExecute(actionExecutionContext);
     } catch (ExecException e) {
-      String failMessage = progressMessage;
+      final String failMessage;
       if (isShellCommand()) {
         // The possible reasons it could fail are: shell executable not found, shell
         // exited non-zero, or shell died from signal.  The first is impossible
@@ -274,6 +277,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         // 0=shell executable, 1=shell command switch, 2=command
         failMessage = "error executing shell command: " + "'"
             + truncate(Iterables.get(argv.arguments(), 2), 200) + "'";
+      } else {
+        failMessage = getRawProgressMessage();
       }
       throw e.toActionExecutionException(
           failMessage, actionExecutionContext.getVerboseFailures(), this);
@@ -364,7 +369,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   protected String getRawProgressMessage() {
     if (progressMessage != null) {
-      return progressMessage;
+      return progressMessage.toString();
     }
     return super.getRawProgressMessage();
   }
@@ -514,7 +519,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private final IterablesChain.Builder<String> argumentsBuilder = IterablesChain.builder();
     private CommandLine commandLine;
 
-    private String progressMessage;
+    private CharSequence progressMessage;
     private ParamFileInfo paramFileInfo = null;
     private String mnemonic = "Unknown";
     protected ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
@@ -691,7 +696,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         boolean isShellCommand,
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
-        String progressMessage,
+        CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new SpawnAction(
@@ -1113,7 +1118,106 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
+    /**
+     * Sets the progress message.
+     *
+     * <p>If you are formatting the string in any way, prefer one of the overloads that do the
+     * formatting lazily. This helps save memory by delaying the construction of the progress
+     * message string.
+     */
     public Builder setProgressMessage(String progressMessage) {
+      this.progressMessage = progressMessage;
+      return this;
+    }
+
+    /**
+     * Sets the progress message. The string is lazily evaluated.
+     *
+     * @param progressMessage The message to display
+     * @param subject Passed to {@link String#format}
+     */
+    @FormatMethod
+    public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
+      return setProgressMessage(
+          new LazyString() {
+            @Override
+            public String toString() {
+              return String.format(progressMessage, subject);
+            }
+          });
+    }
+
+    /**
+     * Sets the progress message. The string is lazily evaluated.
+     *
+     * @param progressMessage The message to display
+     * @param subject0 Passed to {@link String#format}
+     * @param subject1 Passed to {@link String#format}
+     */
+    @FormatMethod
+    public Builder setProgressMessage(
+        @FormatString String progressMessage, Object subject0, Object subject1) {
+      return setProgressMessage(
+          new LazyString() {
+            @Override
+            public String toString() {
+              return String.format(progressMessage, subject0, subject1);
+            }
+          });
+    }
+
+    /**
+     * Sets the progress message. The string is lazily evaluated.
+     *
+     * @param progressMessage The message to display
+     * @param subject0 Passed to {@link String#format}
+     * @param subject1 Passed to {@link String#format}
+     * @param subject2 Passed to {@link String#format}
+     */
+    @FormatMethod
+    public Builder setProgressMessage(
+        @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
+      return setProgressMessage(
+          new LazyString() {
+            @Override
+            public String toString() {
+              return String.format(progressMessage, subject0, subject1, subject2);
+            }
+          });
+    }
+
+    /**
+     * Sets the progress message. The string is lazily evaluated.
+     *
+     * @param progressMessage The message to display
+     * @param subject0 Passed to {@link String#format}
+     * @param subject1 Passed to {@link String#format}
+     * @param subject2 Passed to {@link String#format}
+     * @param subject3 Passed to {@link String#format}
+     */
+    @FormatMethod
+    public Builder setProgressMessage(
+        @FormatString String progressMessage,
+        Object subject0,
+        Object subject1,
+        Object subject2,
+        Object subject3) {
+      return setProgressMessage(
+          new LazyString() {
+            @Override
+            public String toString() {
+              return String.format(progressMessage, subject0, subject1, subject2, subject3);
+            }
+          });
+    }
+
+    /**
+     * Sets a lazily computed progress message.
+     *
+     * <p>When possible, prefer use of one of the overloads that use {@link String#format}. If you
+     * do use this overload, take care not to capture anything expensive.
+     */
+    public Builder setProgressMessage(LazyString progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }

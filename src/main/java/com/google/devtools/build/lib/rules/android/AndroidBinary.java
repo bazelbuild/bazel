@@ -608,15 +608,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact incrementalDexManifest =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEX_MANIFEST);
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setMnemonic("AndroidDexManifest")
-        .setProgressMessage("Generating incremental installation manifest for "
-            + ruleContext.getLabel())
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest", Mode.HOST))
-        .addOutputArgument(incrementalDexManifest)
-        .addInputArguments(dexingOutput.shardDexZips)
-        .useParameterFile(ParameterFileType.UNQUOTED).build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setMnemonic("AndroidDexManifest")
+            .setProgressMessage(
+                "Generating incremental installation manifest for %s", ruleContext.getLabel())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest", Mode.HOST))
+            .addOutputArgument(incrementalDexManifest)
+            .addInputArguments(dexingOutput.shardDexZips)
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .build(ruleContext));
 
     Artifact stubData = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA);
@@ -857,24 +859,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact marker, Artifact argsArtifact, Artifact splitMainApk, NestedSet<Artifact> splitApks,
       Artifact stubDataFile) {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
-        .addTool(adb)
-        .executeUnconditionally()
-        .setMnemonic("AndroidInstall")
-        .setProgressMessage("Installing " + ruleContext.getLabel() + " using split apks")
-        .setExecutionInfo(ImmutableMap.of("local", ""))
-        .addArgument("--output_marker")
-        .addOutputArgument(marker)
-        .addArgument("--stub_datafile")
-        .addInputArgument(stubDataFile)
-        .addArgument("--adb")
-        .addArgument(adb.getExecutable().getExecPathString())
-        .addTool(adb)
-        .addArgument("--flagfile")
-        .addInputArgument(argsArtifact)
-        .addArgument("--split_main_apk")
-        .addInputArgument(splitMainApk);
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
+            .addTool(adb)
+            .executeUnconditionally()
+            .setMnemonic("AndroidInstall")
+            .setProgressMessage("Installing %s using split apks", ruleContext.getLabel())
+            .setExecutionInfo(ImmutableMap.of("local", ""))
+            .addArgument("--output_marker")
+            .addOutputArgument(marker)
+            .addArgument("--stub_datafile")
+            .addInputArgument(stubDataFile)
+            .addArgument("--adb")
+            .addArgument(adb.getExecutable().getExecPathString())
+            .addTool(adb)
+            .addArgument("--flagfile")
+            .addInputArgument(argsArtifact)
+            .addArgument("--split_main_apk")
+            .addInputArgument(splitMainApk);
 
     for (Artifact splitApk : splitApks) {
       builder
@@ -890,28 +893,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact dexmanifest, Artifact resourceApk, Artifact apk, NativeLibs nativeLibs,
       Artifact stubDataFile) {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
-        // We cannot know if the user connected a new device, uninstalled the app from the device
-        // or did anything strange to it, so we always run this action.
-        .executeUnconditionally()
-        .setMnemonic("AndroidInstall")
-        .setProgressMessage(
-            "Installing " + ruleContext.getLabel() + (incremental ? " incrementally" : ""))
-        .setExecutionInfo(ImmutableMap.of("local", ""))
-        .addArgument("--output_marker")
-        .addOutputArgument(marker)
-        .addArgument("--dexmanifest")
-        .addInputArgument(dexmanifest)
-        .addArgument("--resource_apk")
-        .addInputArgument(resourceApk)
-        .addArgument("--stub_datafile")
-        .addInputArgument(stubDataFile)
-        .addArgument("--adb")
-        .addArgument(adb.getExecutable().getExecPathString())
-        .addTool(adb)
-        .addArgument("--flagfile")
-        .addInputArgument(argsArtifact);
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
+            // We cannot know if the user connected a new device, uninstalled the app from the
+            // device
+            // or did anything strange to it, so we always run this action.
+            .executeUnconditionally()
+            .setMnemonic("AndroidInstall")
+            .setProgressMessage(
+                "Installing %s%s", ruleContext.getLabel(), (incremental ? " incrementally" : ""))
+            .setExecutionInfo(ImmutableMap.of("local", ""))
+            .addArgument("--output_marker")
+            .addOutputArgument(marker)
+            .addArgument("--dexmanifest")
+            .addInputArgument(dexmanifest)
+            .addArgument("--resource_apk")
+            .addInputArgument(resourceApk)
+            .addArgument("--stub_datafile")
+            .addInputArgument(stubDataFile)
+            .addArgument("--adb")
+            .addArgument(adb.getExecutable().getExecPathString())
+            .addTool(adb)
+            .addArgument("--flagfile")
+            .addInputArgument(argsArtifact);
 
     if (!incremental) {
       builder
@@ -1334,14 +1339,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addBeforeEachExecPath("--input_zip", shardDexes)
             .addExecPath("--output_zip", classesDex)
             .build();
-        ruleContext.registerAction(new SpawnAction.Builder()
-            .setMnemonic("MergeDexZips")
-            .setProgressMessage("Merging dex shards for " + ruleContext.getLabel())
-            .setExecutable(ruleContext.getExecutablePrerequisite("$merge_dexzips", Mode.HOST))
-            .addInputs(shardDexes)
-            .addOutput(classesDex)
-            .setCommandLine(mergeCommandLine)
-            .build(ruleContext));
+        ruleContext.registerAction(
+            new SpawnAction.Builder()
+                .setMnemonic("MergeDexZips")
+                .setProgressMessage("Merging dex shards for %s", ruleContext.getLabel())
+                .setExecutable(ruleContext.getExecutablePrerequisite("$merge_dexzips", Mode.HOST))
+                .addInputs(shardDexes)
+                .addOutput(classesDex)
+                .setCommandLine(mergeCommandLine)
+                .build(ruleContext));
         if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED)) {
           // Using the deploy jar for java resources gives better "bazel mobile-install" performance
           // with incremental dexing b/c bazel can create the "incremental" and "split resource"
@@ -1426,16 +1432,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact classesDex,
       @Nullable Artifact mainDexList,
       Collection<String> dexopts) {
-    SpawnAction.Builder dexmerger = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
-        .addArgument("--input")
-        .addInputArgument(inputJar)
-        .addArgument("--output")
-        .addOutputArgument(classesDex)
-        .addArguments(DexArchiveAspect.mergerDexopts(ruleContext, dexopts))
-        .addArgument("--multidex=" + multidexStrategy)
-        .setMnemonic("DexMerger")
-        .setProgressMessage("Assembling dex files into " + classesDex.prettyPrint());
+    SpawnAction.Builder dexmerger =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
+            .addArgument("--input")
+            .addInputArgument(inputJar)
+            .addArgument("--output")
+            .addOutputArgument(classesDex)
+            .addArguments(DexArchiveAspect.mergerDexopts(ruleContext, dexopts))
+            .addArgument("--multidex=" + multidexStrategy)
+            .setMnemonic("DexMerger")
+            .setProgressMessage("Assembling dex files into %s", classesDex.prettyPrint());
     if (mainDexList != null) {
       dexmerger.addArgument("--main-dex-list").addInputArgument(mainDexList);
     }
@@ -1543,12 +1550,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact javaResourceJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.JAVA_RESOURCES_JAR);
 
-    SpawnAction.Builder shardAction = new SpawnAction.Builder()
-        .setMnemonic("ShardClassesToDex")
-        .setProgressMessage("Sharding classes for dexing for " + ruleContext.getLabel())
-        .setExecutable(ruleContext.getExecutablePrerequisite("$shuffle_jars", Mode.HOST))
-        .addOutputs(shards)
-        .addOutput(javaResourceJar);
+    SpawnAction.Builder shardAction =
+        new SpawnAction.Builder()
+            .setMnemonic("ShardClassesToDex")
+            .setProgressMessage("Sharding classes for dexing for %s", ruleContext.getLabel())
+            .setExecutable(ruleContext.getExecutablePrerequisite("$shuffle_jars", Mode.HOST))
+            .addOutputs(shards)
+            .addOutput(javaResourceJar);
 
     CustomCommandLine.Builder shardCommandLine = CustomCommandLine.builder()
         .addBeforeEachExecPath("--output_jar", shards)
@@ -1650,7 +1658,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addOutputArgument(outputZip)
             .addArgument("--include_prefixes")
             .addArgument("classes")
-            .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
+            .setProgressMessage("Trimming %s", inputZip.getExecPath().getBaseName())
             .setMnemonic("TrimDexZip")
             .build(ruleContext));
   }
@@ -1730,18 +1738,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .getManifest();
     Artifact splitResources = getDxArtifact(ruleContext, "split_" + splitName + ".ap_");
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setExecutable(sdk.getAapt())
-        .setMnemonic("AaptSplitResourceApk")
-        .setProgressMessage("Generating resource apk for split " + splitName)
-        .addArgument("package")
-        .addArgument("-F")
-        .addOutputArgument(splitResources)
-        .addArgument("-M")
-        .addInputArgument(splitManifest)
-        .addArgument("-I")
-        .addInputArgument(sdk.getAndroidJar())
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setExecutable(sdk.getAapt())
+            .setMnemonic("AaptSplitResourceApk")
+            .setProgressMessage("Generating resource apk for split %s", splitName)
+            .addArgument("package")
+            .addArgument("-F")
+            .addOutputArgument(splitResources)
+            .addArgument("-M")
+            .addInputArgument(splitManifest)
+            .addArgument("-I")
+            .addInputArgument(sdk.getAndroidJar())
+            .build(ruleContext));
 
     return splitResources;
   }

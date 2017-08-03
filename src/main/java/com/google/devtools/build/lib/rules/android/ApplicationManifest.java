@@ -64,17 +64,19 @@ public final class ApplicationManifest {
     // explicitly designated as manifests on the command line
     Artifact result = AndroidBinary.getDxArtifact(
         ruleContext, "split_" + splitName + "/AndroidManifest.xml");
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$build_split_manifest", Mode.HOST))
-        .setProgressMessage("Creating manifest for split " + splitName)
-        .setMnemonic("AndroidBuildSplitManifest")
-        .addArgument("--main_manifest")
-        .addInputArgument(manifest)
-        .addArgument("--split_manifest")
-        .addOutputArgument(result)
-        .addArgument("--split")
-        .addArgument(splitName)
-        .addArgument(hasCode ? "--hascode" : "--nohascode");
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$build_split_manifest", Mode.HOST))
+            .setProgressMessage("Creating manifest for split %s", splitName)
+            .setMnemonic("AndroidBuildSplitManifest")
+            .addArgument("--main_manifest")
+            .addInputArgument(manifest)
+            .addArgument("--split_manifest")
+            .addOutputArgument(result)
+            .addArgument("--split")
+            .addArgument(splitName)
+            .addArgument(hasCode ? "--hascode" : "--nohascode");
 
     String overridePackage = manifestValues.get("applicationId");
     if (overridePackage != null) {
