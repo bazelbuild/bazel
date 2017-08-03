@@ -186,7 +186,6 @@ public class AndroidResourceValidatorActionBuilder {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useParameterFile(ParameterFileType.UNQUOTED)
-            .useDefaultShellEnvironment()
             .addTool(sdk.getAapt2())
             .addInputs(inputs.build())
             .addOutputs(outs.build())
@@ -257,7 +256,6 @@ public class AndroidResourceValidatorActionBuilder {
     ruleContext.registerAction(
         spawnActionBuilder
             .useParameterFile(ParameterFileType.UNQUOTED)
-            .useDefaultShellEnvironment()
             .addTool(sdk.getAapt())
             .addInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))

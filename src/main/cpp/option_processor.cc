@@ -24,8 +24,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/util/errors.h"
-#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
@@ -453,8 +451,7 @@ static void PreprocessEnvString(string* env_str) {
     env_str->assign("PATH=" + ConvertPathList(env_str->substr(pos + 1)));
   } else if (name == "TMP") {
     // A valid Windows path "c:/foo" is also a valid Unix path list of
-    // ["c", "/foo"] so we must use ConvertPath here.
-    // See https://github.com/bazelbuild/bazel/issues/1684
+    // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
     env_str->assign("TMP=" + ConvertPath(env_str->substr(pos + 1)));
   }
 }
@@ -498,24 +495,11 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   }
 
   // Pass the client environment to the server.
-#ifdef COMPILER_MSVC
-  string tempEnvvarName;
-#endif
-
   for (char** env = environ; *env != NULL; env++) {
     string env_str(*env);
     if (IsValidEnvName(*env)) {
       PreprocessEnvString(&env_str);
       result.push_back("--client_env=" + env_str);
-#ifdef COMPILER_MSVC
-      if (tempEnvvarName.empty()) {
-        if (env_str.find("TMP=") == 0) {
-          tempEnvvarName = "TMP";
-        } else if (env_str.find("TEMP=") == 0) {
-          tempEnvvarName = "TEMP";
-        }
-      }
-#endif
     }
   }
   result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
@@ -523,35 +507,6 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   if (IsEmacsTerminal()) {
     result.push_back("--emacs");
   }
-
-#ifdef COMPILER_MSVC
-  if (tempEnvvarName.empty()) {
-    blaze_util::die(
-        blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "ERROR: Neither %%TMP%% nor %%TEMP%% environment variable is defined");
-  }
-
-  // Propagate $TMP or $TEMP from the client environment (see --client_env
-  // flags) to all actions that use the default shell environment (see
-  // SpawnAction.Builder.useDefaultShellEnvironment).
-  //
-  // This is a short-term solution. Setting TMP or TEMP is essential for every
-  // action trying to create temp files, because on Windows there's no default
-  // "/tmp" path (except for c:\windows, but that's not writable). See
-  // GetTempPath on MSDN:
-  // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364992(v=vs.85).aspx
-  //
-  // The long-term solution will be to update the execution strategies to set a
-  // TMP or TEMP envvar on Windows, for every action, whose value is independent
-  // of the client environment and is also not part of the action's fingerprint.
-  // That will allow cross-user build output sharing if Bazel runs with remote
-  // execution support.
-  //
-  // TODO(laszlocsomor) TODO(dslomov) TODO(ulfjack) : implement the long-term
-  // solution described above.
-  result.push_back("--action_env=" + tempEnvvarName);
-#endif
-
   return result;
 }
 

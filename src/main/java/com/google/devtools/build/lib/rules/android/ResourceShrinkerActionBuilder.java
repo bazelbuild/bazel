@@ -225,7 +225,6 @@ public class ResourceShrinkerActionBuilder {
 
     ruleContext.registerAction(
         spawnActionBuilder
-            .useDefaultShellEnvironment()
             .addTool(sdk.getAapt())
             .addInputs(inputs.build())
             .addOutputs(outputs.build())

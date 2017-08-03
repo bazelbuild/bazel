@@ -87,10 +87,9 @@ public class LibraryRGeneratorActionBuilder {
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     ruleContext.registerAction(
         spawnActionBuilder
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>of(rJavaClassJar))
+            .useParameterFile(ParameterFileType.UNQUOTED)
             .setCommandLine(builder.build())
             .setExecutable(executable)
             .setProgressMessage("Generating Library R Classes: %s", ruleContext.getLabel())
