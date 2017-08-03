@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
+import com.google.devtools.build.lib.rules.test.TestConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -110,45 +111,61 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("size", STRING).value("medium").taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("timeout", STRING).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations")
-              .value(new Attribute.ComputedDefault() {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                  if (size != null) {
-                    String timeout = size.getDefaultTimeout().toString();
-                    if (timeout != null) {
-                      return timeout;
-                    }
-                  }
-                  return "illegal";
-                }
-              }))
-          .add(attr("flaky", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .requiresConfigurationFragments(TestConfiguration.class)
+          .add(
+              attr("size", STRING)
+                  .value("medium")
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(
+              attr("timeout", STRING)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations")
+                  .value(
+                      new Attribute.ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+                          if (size != null) {
+                            String timeout = size.getDefaultTimeout().toString();
+                            if (timeout != null) {
+                              return timeout;
+                            }
+                          }
+                          return "illegal";
+                        }
+                      }))
+          .add(
+              attr("flaky", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("shard_count", INTEGER).value(-1))
-          .add(attr("local", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(
+              attr("local", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("args", STRING_LIST))
           // Input files for every test action
-          .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getToolsLabel("//tools/test:runtime"))))
+          .add(
+              attr("$test_runtime", LABEL_LIST)
+                  .cfg(HOST)
+                  .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
           // Input files for test actions collecting code coverage
-          .add(attr("$coverage_support", LABEL)
-              .value(env.getLabel("//tools/defaults:coverage_support")))
+          .add(
+              attr("$coverage_support", LABEL)
+                  .value(env.getLabel("//tools/defaults:coverage_support")))
           // Used in the one-per-build coverage report generation action.
-          .add(attr("$coverage_report_generator", LABEL)
-              .cfg(HOST)
-              .value(env.getLabel("//tools/defaults:coverage_report_generator"))
-              .singleArtifact())
+          .add(
+              attr("$coverage_report_generator", LABEL)
+                  .cfg(HOST)
+                  .value(env.getLabel("//tools/defaults:coverage_report_generator"))
+                  .singleArtifact())
 
           // The target itself and run_under both run on the same machine. We use the DATA config
           // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER)
-              .skipPrereqValidatorCheck())
+          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER).skipPrereqValidatorCheck())
           .build();
     }
 

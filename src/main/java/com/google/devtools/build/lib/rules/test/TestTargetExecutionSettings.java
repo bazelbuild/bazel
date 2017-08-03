@@ -52,6 +52,7 @@ public final class TestTargetExecutionSettings {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
+    TestConfiguration testConfig = config.getFragment(TestConfiguration.class);
 
     CommandLine targetArgs = runfilesSupport.getArgs();
     testArguments = CommandLine.concat(targetArgs, ImmutableList.copyOf(config.getTestArguments()));
@@ -60,7 +61,7 @@ public final class TestTargetExecutionSettings {
     runUnder = config.getRunUnder();
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
-    this.testFilter = config.getTestFilter();
+    this.testFilter = testConfig.getTestFilter();
     this.executable = executable;
     this.runfilesSymlinksCreated = runfilesSupport.getCreateSymlinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();

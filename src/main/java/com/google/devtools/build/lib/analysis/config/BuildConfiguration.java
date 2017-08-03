@@ -875,19 +875,6 @@ public final class BuildConfiguration implements BuildEvent {
     public List<String> testArguments;
 
     @Option(
-      name = "test_filter",
-      allowMultiple = false,
-      defaultValue = "null",
-      category = "testing",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies a filter to forward to the test framework.  Used to limit "
-              + "the tests run. Note that this does not affect which targets are built."
-    )
-    public String testFilter;
-
-    @Option(
       name = "check_fileset_dependencies_recursively",
       defaultValue = "true",
       category = "semantics",
@@ -2537,10 +2524,6 @@ public final class BuildConfiguration implements BuildEvent {
 
   public List<String> getTestArguments() {
     return options.testArguments;
-  }
-
-  public String getTestFilter() {
-    return options.testFilter;
   }
 
   /**

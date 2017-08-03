@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyOptions;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
+import com.google.devtools.build.lib.rules.test.TestConfiguration;
 
 /** A set of basic rules - Bazel won't work correctly without these. */
 public final class CoreRules implements RuleSet {
@@ -39,6 +40,7 @@ public final class CoreRules implements RuleSet {
     builder.addConfigurationFragment(new FeaturePolicyLoader(FEATURE_POLICY_FEATURES));
     builder.addDynamicTransitionMaps(BaseRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
+    builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.RuleBase());

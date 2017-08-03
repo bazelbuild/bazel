@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.rules.test.TestConfiguration;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -142,41 +143,61 @@ public class SkylarkRuleClassFunctions {
   /** Parent rule class for test Skylark rules. */
   public static final RuleClass getTestBaseRule(String toolsRepository) {
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
-        .add(attr("size", STRING).value("medium").taggable()
-            .nonconfigurable("used in loading phase rule validation logic"))
-        .add(attr("timeout", STRING).taggable()
-            .nonconfigurable("used in loading phase rule validation logic").value(
-                new Attribute.ComputedDefault() {
-                  @Override
-                  public Object getDefault(AttributeMap rule) {
-                    TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                    if (size != null) {
-                      String timeout = size.getDefaultTimeout().toString();
-                      if (timeout != null) {
-                        return timeout;
+        .requiresConfigurationFragments(TestConfiguration.class)
+        .add(
+            attr("size", STRING)
+                .value("medium")
+                .taggable()
+                .nonconfigurable("used in loading phase rule validation logic"))
+        .add(
+            attr("timeout", STRING)
+                .taggable()
+                .nonconfigurable("used in loading phase rule validation logic")
+                .value(
+                    new Attribute.ComputedDefault() {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+                        if (size != null) {
+                          String timeout = size.getDefaultTimeout().toString();
+                          if (timeout != null) {
+                            return timeout;
+                          }
+                        }
+                        return "illegal";
                       }
-                    }
-                    return "illegal";
-                  }
-                }))
-        .add(attr("flaky", BOOLEAN).value(false).taggable()
-            .nonconfigurable("taggable - called in Rule.getRuleTags"))
+                    }))
+        .add(
+            attr("flaky", BOOLEAN)
+                .value(false)
+                .taggable()
+                .nonconfigurable("taggable - called in Rule.getRuleTags"))
         .add(attr("shard_count", INTEGER).value(-1))
-        .add(attr("local", BOOLEAN).value(false).taggable()
-            .nonconfigurable("policy decision: this should be consistent across configurations"))
+        .add(
+            attr("local", BOOLEAN)
+                .value(false)
+                .taggable()
+                .nonconfigurable(
+                    "policy decision: this should be consistent across configurations"))
         .add(attr("args", STRING_LIST))
         // Input files for every test action
-        .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-            labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
+        .add(
+            attr("$test_runtime", LABEL_LIST)
+                .cfg(HOST)
+                .value(
+                    ImmutableList.of(
+                        labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
         // Input files for test actions collecting code coverage
-        .add(attr("$coverage_support", LABEL)
-            .cfg(HOST)
-            .value(labelCache.getUnchecked("//tools/defaults:coverage_support")))
+        .add(
+            attr("$coverage_support", LABEL)
+                .cfg(HOST)
+                .value(labelCache.getUnchecked("//tools/defaults:coverage_support")))
         // Used in the one-per-build coverage report generation action.
-        .add(attr("$coverage_report_generator", LABEL)
-            .cfg(HOST)
-            .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
-            .singleArtifact())
+        .add(
+            attr("$coverage_report_generator", LABEL)
+                .cfg(HOST)
+                .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
+                .singleArtifact())
         .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
         .build();
   }
