@@ -58,7 +58,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** 
@@ -212,7 +211,7 @@ public final class CppLinkAction extends AbstractAction
     result.putAll(actionEnv);
     result.putAll(toolchainEnv);
 
-    if (!needsToRunOnMac()) {
+    if (!executionRequirements.contains(ExecutionRequirements.REQUIRES_DARWIN)) {
       // This prevents gcc from writing the unpredictable (and often irrelevant)
       // value of getcwd() into the debug info.
       result.put("PWD", "/proc/self/cwd");
@@ -258,7 +257,7 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
     for (String requirement : executionRequirements) {
       result.put(requirement, "");
@@ -295,10 +294,6 @@ public final class CppLinkAction extends AbstractAction
     return allLtoBackendArtifacts;
   }
 
-  private boolean needsToRunOnMac() {
-    return getHostSystemName().equals(CppConfiguration.MAC_SYSTEM_NAME);
-  }
-
   @Override
   @ThreadCompatible
   public void execute(ActionExecutionContext actionExecutionContext)
@@ -312,16 +307,11 @@ public final class CppLinkAction extends AbstractAction
         Artifact.addExpandedArtifacts(
             getMandatoryInputs(), allInputs, actionExecutionContext.getArtifactExpander());
 
-        ImmutableMap<String, String> executionInfo = ImmutableMap.of();
-        if (needsToRunOnMac()) {
-          executionInfo = ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
-        }
-
         Spawn spawn = new SimpleSpawn(
             this,
             ImmutableList.copyOf(getCommandLine()),
             getEnvironment(),
-            executionInfo,
+            getExecutionInfo(),
             ImmutableList.copyOf(allInputs),
             getOutputs().asList(),
             estimateResourceConsumptionLocal());

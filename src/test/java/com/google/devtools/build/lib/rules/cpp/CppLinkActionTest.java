@@ -131,6 +131,33 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExecutionRequirementsFromCrosstool() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        CcToolchainFeaturesTest.buildFeatures(
+                "action_config {",
+                "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
+                "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
+                "   tool {",
+                "      tool_path: 'DUMMY_TOOL'",
+                "      execution_requirement: 'dummy-exec-requirement'",
+                "   }",
+                "}")
+            .getFeatureConfiguration(
+                FeatureSpecification.create(
+                    ImmutableSet.of(LinkTargetType.EXECUTABLE.getActionName()), ImmutableSet.of()));
+
+    CppLinkAction linkAction =
+        createLinkBuilder(
+                LinkTargetType.EXECUTABLE,
+                "dummyRuleContext/out",
+                ImmutableList.of(),
+                ImmutableList.of(),
+                featureConfiguration)
+            .build();
+    assertThat(linkAction.getExecutionInfo()).containsEntry("dummy-exec-requirement", "");
+  }
+
+  @Test
   public void testLibOptsAndLibSrcsAreInCorrectOrder() throws Exception {
     scratch.file(
         "x/BUILD",

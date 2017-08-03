@@ -1379,6 +1379,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -1398,6 +1399,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -1418,6 +1420,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1431,6 +1434,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1444,6 +1448,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1457,6 +1462,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2844,6 +2850,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -2863,6 +2870,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -2883,6 +2891,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2896,6 +2905,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2909,6 +2919,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2922,6 +2933,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -4311,6 +4323,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -4330,6 +4343,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -4350,6 +4364,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -4363,6 +4378,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -4376,6 +4392,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -4389,6 +4406,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5813,6 +5831,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -5833,6 +5852,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -5854,6 +5874,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5867,6 +5888,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5880,6 +5902,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5893,6 +5916,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7280,6 +7304,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -7299,6 +7324,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -7319,6 +7345,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7332,6 +7359,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7345,6 +7373,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7358,6 +7387,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8730,6 +8760,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -8749,6 +8780,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -8769,6 +8801,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8782,6 +8815,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8795,6 +8829,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8808,6 +8843,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10182,6 +10218,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -10201,6 +10238,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -10221,6 +10259,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10234,6 +10273,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10247,6 +10287,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10260,6 +10301,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11669,6 +11711,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -11689,6 +11732,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -11710,6 +11754,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11723,6 +11768,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11736,6 +11782,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11749,6 +11796,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -13121,6 +13169,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -13140,6 +13189,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -13160,6 +13210,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -13173,6 +13224,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -13186,6 +13238,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -13199,6 +13252,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -14577,6 +14631,7 @@ toolchain {
     action_name: "c++-link-executable"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -14596,6 +14651,7 @@ toolchain {
     action_name: "c++-link-dynamic-library"
     tool {
       tool_path: "cc_wrapper.sh"
+      execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -14616,6 +14672,7 @@ toolchain {
     action_name: "c++-link-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -14629,6 +14686,7 @@ toolchain {
     action_name: "c++-link-alwayslink-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -14642,6 +14700,7 @@ toolchain {
     action_name: "c++-link-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -14655,6 +14714,7 @@ toolchain {
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
+      execution_requirement: "requires-darwin"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
