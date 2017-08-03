@@ -121,6 +121,9 @@ public class CppCompileAction extends AbstractAction
   public static final java.lang.String CC_FLAGS_MAKE_VARIABLE_ACTION_NAME =
       "cc-flags-make-variable";
 
+  /** A string constant for the strip action name. */
+  public static final String STRIP_ACTION_NAME = "strip";
+
   /**
    * A string constant for the c compilation action.
    */
@@ -438,7 +441,8 @@ public class CppCompileAction extends AbstractAction
     return discoversInputs;
   }
 
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  @Override
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public Iterable<Artifact> getPossibleInputsForTesting() {
     return Iterables.concat(getInputs(), prunableInputs);
   }

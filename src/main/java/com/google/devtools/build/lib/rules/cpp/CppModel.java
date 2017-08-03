@@ -66,6 +66,9 @@ public final class CppModel {
   /** Name of the build variable for the path to the source file being compiled. */
   public static final String SOURCE_FILE_VARIABLE_NAME = "source_file";
 
+  /** Name of the build variable for the path to the input file being processed. */
+  public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
+
   /** Name of the build variable for the path to the compilation output file. */
   public static final String OUTPUT_FILE_VARIABLE_NAME = "output_file";
 
@@ -136,6 +139,9 @@ public final class CppModel {
 
   /** Build variable for all user provided copt flags. */
   public static final String COPTS_VARIABLE_VALUE = "copts";
+
+  /** Name of the build variable for stripopts for the strip action. */
+  public static final String STRIPOPTS_VARIABLE_NAME = "stripopts";
 
   private final CppSemantics semantics;
   private final RuleContext ruleContext;

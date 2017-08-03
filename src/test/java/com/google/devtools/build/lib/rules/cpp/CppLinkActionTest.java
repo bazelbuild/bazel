@@ -88,6 +88,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "gcc_tool",
                 "dynamic_library_linker_tool",
                 "ar_tool",
+                "strip_tool",
                 true,
                 false))
         .getFeatureConfiguration(

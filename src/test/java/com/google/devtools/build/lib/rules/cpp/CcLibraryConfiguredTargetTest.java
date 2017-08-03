@@ -782,6 +782,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_STRIP_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration();
     scratchConfiguredTarget("a", "a",

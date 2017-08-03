@@ -1069,6 +1069,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -2534,6 +2571,43 @@ toolchain {
         flag: "-fasm-blocks"
         flag: "-fobjc-abi-version=2"
         flag: "-fobjc-legacy-dispatch"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
       }
     }
   }
@@ -4007,6 +4081,43 @@ toolchain {
         flag: "-fasm-blocks"
         flag: "-fobjc-abi-version=2"
         flag: "-fobjc-legacy-dispatch"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
       }
     }
   }
@@ -5512,6 +5623,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -6992,6 +7140,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -8450,6 +8635,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -9904,6 +10126,43 @@ toolchain {
       flag_group {
         flag: "-framework Foundation"
         flag: "-framework UIKit"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
       }
     }
   }
@@ -11394,6 +11653,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -12859,6 +13155,43 @@ toolchain {
     }
   }
   action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
@@ -14317,6 +14650,43 @@ toolchain {
       flag_group {
         flag: "-framework Foundation"
         flag: "-framework UIKit"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "/usr/bin/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+        flag: "-R"
+        flag: ".gnu.switches.text.quote_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.bracket_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.system_paths"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_defines"
+        flag: "-R"
+        flag: ".gnu.switches.text.cpp_includes"
+        flag: "-R"
+        flag: ".gnu.switches.text.cl_args"
+        flag: "-R"
+        flag: ".gnu.switches.text.lipo_info"
+        flag: "-R"
+        flag: ".gnu.switches.text.annotation"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
       }
     }
   }

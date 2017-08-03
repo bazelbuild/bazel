@@ -448,14 +448,16 @@ public abstract class MockCcSupport {
   public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
       emptyActionConfigFor(CppCompileAction.CLIF_MATCH);
 
+  public static final String EMPTY_STRIP_ACTION_CONFIG =
+      emptyActionConfigFor(CppCompileAction.STRIP_ACTION_NAME);
+
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
    * features.
    */
   private static String emptyActionConfigFor(String actionName) {
     return String.format(
-        ""
-            + "action_config {"
+        "action_config {"
             + "  config_name: '%s'"
             + "  action_name: '%s'"
             + "  tool {"

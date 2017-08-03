@@ -18,7 +18,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -40,6 +42,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -601,32 +606,49 @@ public class CppHelper {
         .getChild(configuration.getGenfilesFragment().getBaseName());
   }
 
-  /**
-   * Creates an action to strip an executable.
-   */
-  public static void createStripAction(RuleContext context, CcToolchainProvider toolchain,
-      CppConfiguration cppConfiguration, Artifact input, Artifact output) {
-    context.registerAction(
+  /** Creates an action to strip an executable. */
+  public static void createStripAction(
+      RuleContext context,
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
+      Artifact input,
+      Artifact output,
+      FeatureConfiguration featureConfiguration) {
+    if (!featureConfiguration.actionIsConfigured(CppCompileAction.STRIP_ACTION_NAME)) {
+      context.ruleError("Expected action_config for 'strip' to be configured.");
+      return;
+    }
+
+    Tool stripTool =
+        Preconditions.checkNotNull(
+            featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
+    Variables variables =
+        new Variables.Builder()
+            .addStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
+            .addStringSequenceVariable(
+                CppModel.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
+            .addStringVariable(CppModel.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
+            .build();
+    ImmutableList<String> commandLine =
+        ImmutableList.copyOf(
+            featureConfiguration.getCommandLine(CppCompileAction.STRIP_ACTION_NAME, variables));
+    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+    for (String executionRequirement : stripTool.getExecutionRequirements()) {
+      executionInfoBuilder.put(executionRequirement, "");
+    }
+    Action[] stripAction =
         new SpawnAction.Builder()
             .addInput(input)
             .addTransitiveInputs(toolchain.getStrip())
             .addOutput(output)
             .useDefaultShellEnvironment()
-            .setExecutable(cppConfiguration.getStripExecutable())
-            .addArguments("-S", "-p", "-o", output.getExecPathString())
-            .addArguments("-R", ".gnu.switches.text.quote_paths")
-            .addArguments("-R", ".gnu.switches.text.bracket_paths")
-            .addArguments("-R", ".gnu.switches.text.system_paths")
-            .addArguments("-R", ".gnu.switches.text.cpp_defines")
-            .addArguments("-R", ".gnu.switches.text.cpp_includes")
-            .addArguments("-R", ".gnu.switches.text.cl_args")
-            .addArguments("-R", ".gnu.switches.text.lipo_info")
-            .addArguments("-R", ".gnu.switches.text.annotation")
-            .addArguments(cppConfiguration.getStripOpts())
-            .addArgument(input.getExecPathString())
-            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
+            .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
+            .addArguments(commandLine)
+            .setExecutionInfo(executionInfoBuilder.build())
+            .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
             .setMnemonic("CcStrip")
-            .build(context));
+            .build(context);
+    context.registerAction(stripAction);
   }
 
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,

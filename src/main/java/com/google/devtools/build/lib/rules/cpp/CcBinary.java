@@ -332,7 +332,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact strippedFile = ruleContext.getImplicitOutputArtifact(
         CppRuleClasses.CC_BINARY_STRIPPED);
     CppHelper.createStripAction(
-        ruleContext, ccToolchain, cppConfiguration, executable, strippedFile);
+        ruleContext, ccToolchain, cppConfiguration, executable, strippedFile, featureConfiguration);
 
     DwoArtifactsCollector dwoArtifacts =
         collectTransitiveDwoArtifacts(

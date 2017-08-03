@@ -641,6 +641,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         String gccToolPath = "DUMMY_GCC_TOOL";
         String linkerToolPath = "DUMMY_LINKER_TOOL";
         String arToolPath = "DUMMY_AR_TOOL";
+        String stripToolPath = "DUMMY_STRIP_TOOL";
         for (ToolPath tool : toolchain.getToolPathList()) {
           if (tool.getName().equals(Tool.GCC.getNamePart())) {
             gccToolPath = tool.getPath();
@@ -652,6 +653,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           if (tool.getName().equals(Tool.AR.getNamePart())) {
             arToolPath = tool.getPath();
           }
+          if (tool.getName().equals(Tool.STRIP.getNamePart())) {
+            stripToolPath = tool.getPath();
+          }
         }
         TextFormat.merge(
             CppActionConfigs.getCppActionConfigs(
@@ -660,9 +664,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 gccToolPath,
                 linkerToolPath,
                 arToolPath,
+                stripToolPath,
                 supportsEmbeddedRuntimes,
                 toolchain.getSupportsInterfaceSharedObjects()),
-              toolchainBuilder);
+            toolchainBuilder);
       } catch (ParseException e) {
         // Can only happen if we change the proto definition without changing our
         // configuration above.

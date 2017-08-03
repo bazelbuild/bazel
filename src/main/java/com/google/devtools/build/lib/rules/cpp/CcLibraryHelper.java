@@ -104,6 +104,7 @@ public final class CcLibraryHelper {
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
         ImmutableSet.<String>of(
             CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
+            CppCompileAction.STRIP_ACTION_NAME,
             CppCompileAction.C_COMPILE,
             CppCompileAction.CPP_COMPILE,
             CppCompileAction.CPP_HEADER_PARSING,
