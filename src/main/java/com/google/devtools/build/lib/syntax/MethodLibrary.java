@@ -1636,7 +1636,8 @@ public class MethodLibrary {
     returnType = String.class,
     doc =
         "Converts any object to string. This is useful for debugging."
-            + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
+            + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
+            + "str(8) == \"8\"</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
     useEnvironment = true
   )
@@ -1652,7 +1653,7 @@ public class MethodLibrary {
     returnType = String.class,
     doc =
         "Converts any object to a string representation. This is useful for debugging.<br>"
-            + "<pre class=\"language-python\">str(\"ab\") == \"\\\"ab\\\"\"</pre>",
+            + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
     useEnvironment = true
   )
