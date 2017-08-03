@@ -66,12 +66,15 @@ class BinaryLauncherBase {
   // A map to store all the launch information.
   const LaunchDataParser::LaunchInfo& launch_info;
 
+  // Absolute path to the runfiles manifest file.
+  const std::string manifest_file;
+
   // The commandline arguments recieved.
   // The first argument is the path of this launcher itself.
   std::vector<std::string> commandline_arguments;
 
   // The workspace name of the repository this target belongs to.
-  std::string workspace_name;
+  const std::string workspace_name;
 
   // A map to store all entries of the manifest file.
   std::unordered_map<std::string, std::string> manifest_file_map;
@@ -89,7 +92,7 @@ class BinaryLauncherBase {
   // Expect the manifest file to be at
   //    1. <path>/<to>/<binary>/<target_name>.runfiles/MANIFEST
   // or 2. <path>/<to>/<binary>/<target_name>.runfiles_manifest
-  std::string FindManifestFile() const;
+  static std::string FindManifestFile(const char* argv0);
 
   // Parse manifest file into a map
   static void ParseManifestFile(ManifestFileMap* manifest_file_map,

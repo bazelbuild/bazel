@@ -30,7 +30,7 @@ ExitCode BashBinaryLauncher::Launch() {
   string bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
   // If specified bash binary path doesn't exist, then fall back to
   // bash.exe and hope it's in PATH.
-  if (!DoesFilePathExist(bash_binary)) {
+  if (!DoesFilePathExist(bash_binary.c_str())) {
     bash_binary = "bash.exe";
   }
 

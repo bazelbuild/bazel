@@ -112,6 +112,8 @@ class LauncherTest(test_base.TestBase):
     foo_sh = self.ScratchFile('foo/foo.sh', [
         '#!/bin/bash',
         'echo hello shell',
+        'echo runfiles_manifest_only=${RUNFILES_MANIFEST_ONLY:-}',
+        'echo runfiles_manifest_file=${RUNFILES_MANIFEST_FILE:-}',
     ])
     foo_cmd = self.ScratchFile('foo/foo.cmd', ['@echo hello batch'])
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
@@ -182,7 +184,18 @@ class LauncherTest(test_base.TestBase):
 
     exit_code, stdout, stderr = self.RunProgram([bin1])
     self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual(len(stdout), 3)
     self.assertEqual(stdout[0], 'hello shell')
+    if self.IsWindows():
+      self.assertEqual(stdout[1], 'runfiles_manifest_only=1')
+      self.assertRegexpMatches(stdout[2], r'^runfiles_manifest_file.*MANIFEST$')
+    else:
+      # TODO(laszlocsomor): Find out whether the runfiles-related envvars should
+      # be set on Linux (e.g. $RUNFILES, $RUNFILES_MANIFEST_FILE). Currently
+      # they aren't, and that may be a bug. If it's indeed a bug, fix that bug
+      # and update this test.
+      self.assertEqual(stdout[1], 'runfiles_manifest_only=')
+      self.assertEqual(stdout[2], 'runfiles_manifest_file=')
 
     if self.IsWindows():
       exit_code, stdout, stderr = self.RunProgram([bin2])

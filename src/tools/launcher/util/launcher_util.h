@@ -48,7 +48,7 @@ std::string GetBinaryPathWithExtension(const std::string& binary);
 std::string GetEscapedArgument(const std::string& argument);
 
 // Check if a file exists at a given path.
-bool DoesFilePathExist(const std::string& path);
+bool DoesFilePathExist(const char* path);
 
 }  // namespace launcher
 }  // namespace bazel

@@ -34,27 +34,28 @@ using std::vector;
 
 BinaryLauncherBase::BinaryLauncherBase(
     const LaunchDataParser::LaunchInfo& _launch_info, int argc, char* argv[])
-    : launch_info(_launch_info) {
-  this->workspace_name = GetLaunchInfoByKey(WORKSPACE_NAME);
+    : launch_info(_launch_info),
+      manifest_file(FindManifestFile(argv[0])),
+      workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)) {
   for (int i = 0; i < argc; i++) {
     this->commandline_arguments.push_back(argv[i]);
   }
-  ParseManifestFile(&this->manifest_file_map, FindManifestFile());
+  ParseManifestFile(&this->manifest_file_map, this->manifest_file);
 }
 
-string BinaryLauncherBase::FindManifestFile() const {
+string BinaryLauncherBase::FindManifestFile(const char* argv0) {
   // Get the name of the binary
-  string binary = GetBinaryPathWithoutExtension(this->commandline_arguments[0]);
+  string binary = GetBinaryPathWithoutExtension(argv0);
 
   // Try to find <path to binary>.runfiles/MANIFEST
   string manifest_file = binary + ".runfiles\\MANIFEST";
-  if (DoesFilePathExist(manifest_file)) {
+  if (DoesFilePathExist(manifest_file.c_str())) {
     return manifest_file;
   }
 
   // Also try to check if <path to binary>.runfiles_manifest exists
   manifest_file = binary + ".runfiles_manifest";
-  if (DoesFilePathExist(manifest_file)) {
+  if (DoesFilePathExist(manifest_file.c_str())) {
     return manifest_file;
   }
 
@@ -125,6 +126,8 @@ void BinaryLauncherBase::CreateCommandLine(
 
 ExitCode BinaryLauncherBase::LaunchProcess(
     const string& executable, const vector<string>& arguments) const {
+  SetEnvironmentVariableA("RUNFILES_MANIFEST_ONLY", "1");
+  SetEnvironmentVariableA("RUNFILES_MANIFEST_FILE", manifest_file.c_str());
   CmdLine cmdline;
   CreateCommandLine(&cmdline, executable, arguments);
   PROCESS_INFORMATION processInfo = {0};
