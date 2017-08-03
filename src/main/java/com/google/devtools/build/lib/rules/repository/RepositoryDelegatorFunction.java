@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.ExternalPackageUtil;
@@ -131,9 +130,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     if (handler == null) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
-              "Could not find handler for " + rule),
+          new EvalException(rule.getLocation(), "Could not find handler for " + rule),
           Transience.PERSISTENT);
     }
 
