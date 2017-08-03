@@ -40,13 +40,13 @@ COPTS = ["-DVERSION=5"]
 
 cc_library(
   name = "foo",
-  copts = [COPTS],
+  copts = COPTS,
   srcs = ["foo.cc"],
 )
 
 cc_library(
   name = "bar",
-  copts = [COPTS],
+  copts = COPTS,
   srcs = ["bar.cc"],
   deps = [":foo"],
 )
@@ -74,13 +74,13 @@ load("//path/to:variables.bzl", "COPTS")
 
 cc_library(
   name = "foo",
-  copts = [COPTS],
+  copts = COPTS,
   srcs = ["foo.cc"],
 )
 
 cc_library(
   name = "bar",
-  copts = [COPTS],
+  copts = COPTS,
   srcs = ["bar.cc"],
   deps = [":foo"],
 )
