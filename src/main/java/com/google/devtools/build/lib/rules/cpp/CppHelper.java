@@ -645,7 +645,7 @@ public class CppHelper {
             .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
             .addArguments(commandLine)
             .setExecutionInfo(executionInfoBuilder.build())
-            .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
+            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")
             .build(context);
     context.registerAction(stripAction);

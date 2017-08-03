@@ -242,7 +242,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(ruleContext.getExecutablePrerequisite("$zip_manifest_creator", Mode.HOST))
         .setMnemonic("ZipManifestCreator")
         .setProgressMessage(
-            "Creating manifest for " + aar.getFilename() + " matching " + filenameRegexp)
+            "Creating manifest for %s matching %s", aar.getFilename(), filenameRegexp)
         .addArgument(filenameRegexp)
         .addInputArgument(aar)
         .addOutputArgument(manifest)

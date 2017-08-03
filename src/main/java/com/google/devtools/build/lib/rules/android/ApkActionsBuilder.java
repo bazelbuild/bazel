@@ -145,9 +145,9 @@ public class ApkActionsBuilder {
         ? unsignedApk
         : AndroidBinary.getDxArtifact(ruleContext, "unsigned_" + signedApk.getFilename());
     if (useSingleJarApkBuilder) {
-      buildApk(ruleContext, intermediateUnsignedApk, "Generating unsigned " + apkName);
+      buildApk(ruleContext, intermediateUnsignedApk);
     } else {
-      legacyBuildApk(ruleContext, intermediateUnsignedApk, "Generating unsigned " + apkName);
+      legacyBuildApk(ruleContext, intermediateUnsignedApk);
     }
 
     if (signedApk != null) {
@@ -169,12 +169,13 @@ public class ApkActionsBuilder {
    * <p>If {@code signingKey} is not null, the apk will be signed with it using the V1 signature
    * scheme.
    */
-  private void legacyBuildApk(RuleContext ruleContext, Artifact outApk, String message) {
-    SpawnAction.Builder actionBuilder = new SpawnAction.Builder()
-        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkBuilder())
-        .setProgressMessage(message)
-        .setMnemonic("AndroidApkBuilder")
-        .addOutputArgument(outApk);
+  private void legacyBuildApk(RuleContext ruleContext, Artifact outApk) {
+    SpawnAction.Builder actionBuilder =
+        new SpawnAction.Builder()
+            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkBuilder())
+            .setProgressMessage("Generating unsigned %s", apkName)
+            .setMnemonic("AndroidApkBuilder")
+            .addOutputArgument(outApk);
 
     if (javaResourceZip != null) {
       actionBuilder
@@ -230,20 +231,19 @@ public class ApkActionsBuilder {
     ruleContext.registerAction(actionBuilder.build(ruleContext));
   }
 
-  /**
-   * Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar.
-   */
-  private void buildApk(RuleContext ruleContext, Artifact outApk, String message) {
+  /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
+  private void buildApk(RuleContext ruleContext, Artifact outApk) {
     Artifact compressedApk =
         AndroidBinary.getDxArtifact(ruleContext, "compressed_" + outApk.getFilename());
-    SpawnAction.Builder compressedApkActionBuilder = new SpawnAction.Builder()
-        .setMnemonic("ApkBuilder")
-        .setProgressMessage(message)
-        .addArgument("--exclude_build_data")
-        .addArgument("--compression")
-        .addArgument("--normalize")
-        .addArgument("--output")
-        .addOutputArgument(compressedApk);
+    SpawnAction.Builder compressedApkActionBuilder =
+        new SpawnAction.Builder()
+            .setMnemonic("ApkBuilder")
+            .setProgressMessage("Generating unsigned %s", apkName)
+            .addArgument("--exclude_build_data")
+            .addArgument("--compression")
+            .addArgument("--normalize")
+            .addArgument("--output")
+            .addOutputArgument(compressedApk);
     setSingleJarAsExecutable(ruleContext, compressedApkActionBuilder);
 
     if (classesDex != null) {
@@ -284,16 +284,17 @@ public class ApkActionsBuilder {
       }
     }
 
-    SpawnAction.Builder singleJarActionBuilder = new SpawnAction.Builder()
-        .setMnemonic("ApkBuilder")
-        .setProgressMessage(message)
-        .addArgument("--exclude_build_data")
-        .addArgument("--dont_change_compression")
-        .addArgument("--normalize")
-        .addArgument("--sources")
-        .addInputArgument(compressedApk)
-        .addArgument("--output")
-        .addOutputArgument(outApk);
+    SpawnAction.Builder singleJarActionBuilder =
+        new SpawnAction.Builder()
+            .setMnemonic("ApkBuilder")
+            .setProgressMessage("Generating unsigned %s", apkName)
+            .addArgument("--exclude_build_data")
+            .addArgument("--dont_change_compression")
+            .addArgument("--normalize")
+            .addArgument("--sources")
+            .addInputArgument(compressedApk)
+            .addArgument("--output")
+            .addOutputArgument(outApk);
     setSingleJarAsExecutable(ruleContext, singleJarActionBuilder);
 
     if (javaResourceZip != null) {
