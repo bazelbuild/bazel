@@ -402,8 +402,80 @@ EOF
     --experimental_host_platform=//:platform1 \
     --experimental_platforms=//:platform1 \
     //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log 'no matching toolchains found for types //toolchain:test_toolchain for target //demo:use'
+  expect_log 'While resolving toolchains for target //demo:use: no matching toolchains found for types //toolchain:test_toolchain'
   expect_not_log 'Using toolchain: rule message:'
+}
+
+function test_register_toolchain_error_invalid_label() {
+  write_test_toolchain
+  write_test_rule
+  write_toolchains
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('/:invalid:label:syntax')
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log 'In register_toolchains: unable to parse toolchain label /:invalid:label:syntax'
+}
+
+function test_register_toolchain_error_invalid_target() {
+  write_test_toolchain
+  write_test_rule
+  write_toolchains
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//demo:not_a_target')
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //demo:use: no such target '//demo:not_a_target': target 'not_a_target' not declared in package 'demo"
+}
+
+function test_register_toolchain_error_target_not_a_toolchain() {
+  write_test_toolchain
+  write_test_rule
+  write_toolchains
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//demo:invalid')
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+genrule(
+    name = "invalid",
+    srcs = [],
+    outs = ["out.log"],
+    cmd = "echo invalid > $@")
+
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //demo:use: invalid registered toolchain '//demo:invalid': target does not provide the DeclaredToolchainInfo provider"
 }
 
 run_suite "toolchain tests"

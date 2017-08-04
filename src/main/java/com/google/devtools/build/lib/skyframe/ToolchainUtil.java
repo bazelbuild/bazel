@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidTargetException;
+import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionValue.ToolchainResolutionKey;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -140,14 +140,14 @@ public class ToolchainUtil {
     Map<
             SkyKey,
             ValueOrException4<
-                NoToolchainFoundException, ConfiguredValueCreationException, InvalidTargetException,
-                EvalException>>
+                NoToolchainFoundException, ConfiguredValueCreationException,
+                InvalidToolchainLabelException, EvalException>>
         results =
             env.getValuesOrThrow(
                 registeredToolchainKeys,
                 NoToolchainFoundException.class,
                 ConfiguredValueCreationException.class,
-                InvalidTargetException.class,
+                InvalidToolchainLabelException.class,
                 EvalException.class);
     if (env.valuesMissing()) {
       return null;
@@ -159,8 +159,8 @@ public class ToolchainUtil {
     for (Map.Entry<
             SkyKey,
             ValueOrException4<
-                NoToolchainFoundException, ConfiguredValueCreationException, InvalidTargetException,
-                EvalException>>
+                NoToolchainFoundException, ConfiguredValueCreationException,
+                InvalidToolchainLabelException, EvalException>>
         entry : results.entrySet()) {
       try {
         Label requiredToolchainType =
@@ -172,7 +172,7 @@ public class ToolchainUtil {
         missingToolchains.add(e.missingToolchainType());
       } catch (ConfiguredValueCreationException e) {
         throw new ToolchainContextException(e);
-      } catch (InvalidTargetException e) {
+      } catch (InvalidToolchainLabelException e) {
         throw new ToolchainContextException(e);
       } catch (EvalException e) {
         throw new ToolchainContextException(e);
@@ -213,7 +213,7 @@ public class ToolchainUtil {
       super(e);
     }
 
-    public ToolchainContextException(InvalidTargetException e) {
+    public ToolchainContextException(InvalidToolchainLabelException e) {
       super(e);
     }
 

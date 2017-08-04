@@ -123,7 +123,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(toolchainsKey)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("target '//error:not_a_toolchain' does not provide a toolchain");
+        .contains(
+            "invalid registered toolchain '//error:not_a_toolchain': "
+                + "target does not provide the DeclaredToolchainInfo provider");
   }
 
   @Test

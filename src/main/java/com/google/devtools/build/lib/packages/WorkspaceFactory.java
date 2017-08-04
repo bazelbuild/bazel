@@ -420,7 +420,9 @@ public class WorkspaceFactory {
                 } catch (LabelSyntaxException e) {
                   throw new EvalException(
                       ast.getLocation(),
-                      String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()),
+                      String.format(
+                          "In register_toolchains: unable to parse toolchain label %s: %s",
+                          rawLabel, e.getMessage()),
                       e);
                 }
               }

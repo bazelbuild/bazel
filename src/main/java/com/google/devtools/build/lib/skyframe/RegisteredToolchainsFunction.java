@@ -106,11 +106,12 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(
-              new InvalidTargetException(toolchainLabel), Transience.PERSISTENT);
+              new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
         }
         toolchains.add(toolchainInfo);
       } catch (ConfiguredValueCreationException e) {
-        throw new RegisteredToolchainsFunctionException(e, Transience.PERSISTENT);
+        throw new RegisteredToolchainsFunctionException(
+            new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);
       }
     }
     return toolchains.build();
@@ -126,12 +127,22 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link DeclaredToolchainInfo} provider.
    */
-  public static final class InvalidTargetException extends Exception {
+  public static final class InvalidToolchainLabelException extends Exception {
 
     private final Label invalidLabel;
 
-    public InvalidTargetException(Label invalidLabel) {
-      super(String.format("target '%s' does not provide a toolchain", invalidLabel));
+    public InvalidToolchainLabelException(Label invalidLabel) {
+      super(
+          String.format(
+              "invalid registered toolchain '%s': "
+                  + "target does not provide the DeclaredToolchainInfo provider",
+              invalidLabel));
+      this.invalidLabel = invalidLabel;
+    }
+
+    public InvalidToolchainLabelException(Label invalidLabel, ConfiguredValueCreationException e) {
+      super(
+          String.format("invalid registered toolchain '%s': %s", invalidLabel, e.getMessage()), e);
       this.invalidLabel = invalidLabel;
     }
 
@@ -147,13 +158,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   public static class RegisteredToolchainsFunctionException extends SkyFunctionException {
 
     public RegisteredToolchainsFunctionException(
-        InvalidTargetException cause, Transience transience) {
+        InvalidToolchainLabelException cause, Transience transience) {
       super(cause, transience);
-    }
-
-    public RegisteredToolchainsFunctionException(
-        ConfiguredValueCreationException cause, Transience persistent) {
-      super(cause, persistent);
     }
   }
 }

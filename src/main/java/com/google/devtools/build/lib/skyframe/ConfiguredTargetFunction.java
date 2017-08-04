@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationExcep
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -300,20 +299,21 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(e.getMessage(), analysisRootCause));
     } catch (ToolchainContextException e) {
-      if (e.getCause() instanceof UnresolvedToolchainsException) {
-        UnresolvedToolchainsException ute = (UnresolvedToolchainsException) e.getCause();
-        env.getListener()
-            .handle(Event.error(ute.getMessage() + " for target " + target.getLabel()));
-        throw new ConfiguredTargetFunctionException(
-            new ConfiguredValueCreationException(ute.getMessage(), target.getLabel()));
-      } else if (e.getCause() instanceof ConfiguredValueCreationException) {
-        ConfiguredValueCreationException cvce = (ConfiguredValueCreationException) e.getCause();
-        throw new ConfiguredTargetFunctionException(cvce);
+      // We need to throw a ConfiguredValueCreationException, so either find one or make one.
+      ConfiguredValueCreationException cvce;
+      if (e.getCause() instanceof ConfiguredValueCreationException) {
+        cvce = (ConfiguredValueCreationException) e.getCause();
       } else {
-        // TODO(katre): better error handling
-        throw new ConfiguredTargetFunctionException(
-            new ConfiguredValueCreationException(e.getMessage()));
+        cvce = new ConfiguredValueCreationException(e.getCause().getMessage(), target.getLabel());
       }
+
+      env.getListener()
+          .handle(
+              Event.error(
+                  String.format(
+                      "While resolving toolchains for target %s: %s",
+                      target.getLabel(), e.getCause().getMessage())));
+      throw new ConfiguredTargetFunctionException(cvce);
     } finally {
       cpuBoundSemaphore.release();
     }

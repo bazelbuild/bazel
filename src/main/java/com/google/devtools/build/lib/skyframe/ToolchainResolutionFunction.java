@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidTargetException;
+import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionValue.ToolchainResolutionKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,15 +62,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
                   RegisteredToolchainsValue.key(key.configuration()),
-                  ConfiguredValueCreationException.class,
-                  InvalidTargetException.class,
+                  InvalidToolchainLabelException.class,
                   EvalException.class);
       if (toolchains == null) {
         return null;
       }
-    } catch (ConfiguredValueCreationException e) {
-      throw new ToolchainResolutionFunctionException(e);
-    } catch (InvalidTargetException e) {
+    } catch (InvalidToolchainLabelException e) {
       throw new ToolchainResolutionFunctionException(e);
     } catch (EvalException e) {
       throw new ToolchainResolutionFunctionException(e);
@@ -203,7 +200,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       super(e, Transience.PERSISTENT);
     }
 
-    public ToolchainResolutionFunctionException(InvalidTargetException e) {
+    public ToolchainResolutionFunctionException(InvalidToolchainLabelException e) {
       super(e, Transience.PERSISTENT);
     }
 
