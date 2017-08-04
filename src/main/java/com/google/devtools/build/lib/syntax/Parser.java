@@ -1336,7 +1336,7 @@ public class Parser {
     boolean hasArg = false;
     boolean hasStar = false;
     boolean hasStarStar = false;
-    ArrayList<V> arguments = new ArrayList<>();
+    ImmutableList.Builder<V> argumentsBuilder = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
       if (hasStarStar) {
@@ -1358,9 +1358,9 @@ public class Parser {
       } else if (arg.isStarStar()) {
         hasStarStar = true;
       }
-      arguments.add(arg);
+      argumentsBuilder.add(arg);
     }
-    return ImmutableList.copyOf(arguments);
+    return argumentsBuilder.build();
   }
 
   // suite is typically what follows a colon (e.g. after def or for).
