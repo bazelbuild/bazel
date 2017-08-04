@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -767,75 +766,6 @@ public final class BuildConfiguration implements BuildEvent {
     public boolean useLLVMCoverageMapFormat;
 
     @Option(
-      name = "cache_test_results",
-      defaultValue = "auto",
-      category = "testing",
-      abbrev = 't', // it's useful to toggle this on/off quickly
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to 'auto', Bazel reruns a test if and only if: "
-              + "(1) Bazel detects changes in the test or its dependencies, "
-              + "(2) the test is marked as external, "
-              + "(3) multiple test runs were requested with --runs_per_test, or"
-              + "(4) the test previously failed. "
-              + "If set to 'yes', Bazel caches all test results except for tests marked as "
-              + "external. If set to 'no', Bazel does not cache any test results."
-    )
-    public TriState cacheTestResults;
-
-    @Deprecated
-    @Option(
-      name = "test_result_expiration",
-      defaultValue = "-1", // No expiration by defualt.
-      category = "testing",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "This option is deprecated and has no effect."
-    )
-    public int testResultExpiration;
-
-    @Option(
-      name = "test_sharding_strategy",
-      defaultValue = "explicit",
-      category = "testing",
-      converter = TestActionBuilder.ShardingStrategyConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specify strategy for test sharding: "
-              + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
-              + "'disabled' to never use test sharding. "
-              + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
-              + "explicit  'shard_count' attribute which link in a supported framework. Considered "
-              + "experimental."
-    )
-    public TestActionBuilder.TestShardingStrategy testShardingStrategy;
-
-    @Option(
-      name = "runs_per_test",
-      allowMultiple = true,
-      defaultValue = "1",
-      category = "testing",
-      converter = RunsPerTestConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies number of times to run each test. If any of those attempts "
-              + "fail for any reason, the whole test would be considered failed. "
-              + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
-              + "will run all tests 3 times. "
-              + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
-              + "an integer value and regex_filter stands "
-              + "for a list of include and exclude regular expression patterns (Also see "
-              + "--instrumentation_filter). Example: "
-              + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
-              + "except those under foo/bar three times. "
-              + "This option can be passed multiple times. "
-    )
-    public List<PerLabelOptions> runsPerTest;
-
-    @Option(
       name = "build_runfile_links",
       defaultValue = "true",
       category = "strategy",
@@ -858,21 +788,6 @@ public final class BuildConfiguration implements BuildEvent {
               + ".runfiles/wsname/external/repo (in addition to .runfiles/repo)."
     )
     public boolean legacyExternalRunfiles;
-
-    @Option(
-      name = "test_arg",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "testing",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies additional options and arguments that should be passed to the test "
-              + "executable. Can be used multiple times to specify several arguments. "
-              + "If multiple tests are executed, each of them will receive identical arguments. "
-              + "Used only by the 'bazel test' command."
-    )
-    public List<String> testArguments;
 
     @Option(
       name = "check_fileset_dependencies_recursively",
@@ -1445,14 +1360,6 @@ public final class BuildConfiguration implements BuildEvent {
     if (options.outputDirectoryName != null) {
       reporter.handle(Event.error(
           "The internal '--output directory name' option cannot be used on the command line"));
-    }
-
-    if (options.testShardingStrategy
-        == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
-      reporter.handle(Event.warn(
-          "Heuristic sharding is intended as a one-off experimentation tool for determing the "
-              + "benefit from sharding certain tests. Please don't keep this option in your "
-              + ".blazerc or continuous build"));
     }
   }
 
@@ -2534,10 +2441,6 @@ public final class BuildConfiguration implements BuildEvent {
     return options.skyframeNativeFileset;
   }
 
-  public List<String> getTestArguments() {
-    return options.testArguments;
-  }
-
   /**
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
@@ -2565,10 +2468,6 @@ public final class BuildConfiguration implements BuildEvent {
     return testEnv;
   }
 
-  public TriState cacheTestResults() {
-    return options.cacheTestResults;
-  }
-
   public int getMinParamFileSize() {
     return options.minParamFileSize;
   }
@@ -2589,23 +2488,6 @@ public final class BuildConfiguration implements BuildEvent {
   /** If false, AnalysisEnvironment doesn't register any actions created by the ConfiguredTarget. */
   public boolean isActionsEnabled() {
     return actionsEnabled;
-  }
-
-  public TestActionBuilder.TestShardingStrategy testShardingStrategy() {
-    return options.testShardingStrategy;
-  }
-
-  /**
-   * @return number of times the given test should run.
-   * If the test doesn't match any of the filters, runs it once.
-   */
-  public int getRunsPerTestForLabel(Label label) {
-    for (PerLabelOptions perLabelRuns : options.runsPerTest) {
-      if (perLabelRuns.isIncluded(label)) {
-        return Integer.parseInt(Iterables.getOnlyElement(perLabelRuns.getOptions()));
-      }
-    }
-    return 1;
   }
 
   public RunUnder getRunUnder() {

@@ -73,7 +73,8 @@ public final class TestActionBuilder {
   public TestParams build() {
     Preconditions.checkState(runfilesSupport != null);
     boolean local = TargetUtils.isTestRuleAndRunsLocally(ruleContext.getRule());
-    TestShardingStrategy strategy = ruleContext.getConfiguration().testShardingStrategy();
+    TestShardingStrategy strategy =
+        ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
     int shards = strategy.getNumberOfShards(
         local, explicitShardCount, isTestShardingCompliant(),
         TestSize.getTestSize(ruleContext.getRule()));
@@ -259,7 +260,8 @@ public final class TestActionBuilder {
       }
     }
 
-    int runsPerTest = config.getRunsPerTestForLabel(ruleContext.getLabel());
+    int runsPerTest =
+        config.getFragment(TestConfiguration.class).getRunsPerTestForLabel(ruleContext.getLabel());
 
     Iterable<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shards > 0 ? shards : 1);

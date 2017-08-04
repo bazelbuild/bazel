@@ -342,7 +342,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
     BuildConfiguration.Options options =
         ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.testArguments).containsExactly("CONFIG HOOK 1");
+    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1");
   }
 
   @Test
@@ -356,7 +356,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
     BuildConfiguration.Options options =
         ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
-    assertThat(options.testArguments).containsExactly("CONFIG HOOK 1", "CONFIG HOOK 2");
+    assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1$CONFIG HOOK 2");
   }
 
   @Test

@@ -68,6 +68,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private final NestedSet<Artifact> runtime;
   private final BuildConfiguration configuration;
+  private final TestConfiguration testConfiguration;
   private final Artifact testLog;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
@@ -147,6 +148,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         list(testLog, cacheStatus, coverageArtifact));
     this.runtime = runtime;
     this.configuration = Preconditions.checkNotNull(configuration);
+    this.testConfiguration =
+        Preconditions.checkNotNull(configuration.getFragment(TestConfiguration.class));
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
@@ -242,7 +245,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     f.addInt(shardNum);
     f.addInt(executionSettings.getTotalShards());
     f.addInt(runNumber);
-    f.addInt(configuration.getRunsPerTestForLabel(getOwner().getLabel()));
+    f.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
     f.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
     return f.hexDigestAndReset();
   }
@@ -285,10 +288,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
-        configuration.cacheTestResults(),
+        testConfiguration.cacheTestResults(),
         readCacheStatus(),
         testProperties.isExternal(),
-        configuration.getRunsPerTestForLabel(getOwner().getLabel()));
+        testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
   }
 
   @VisibleForTesting
@@ -408,7 +411,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
     // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
     // Don't override any previous setting.
-    if (getConfiguration().getRunsPerTestForLabel(getOwner().getLabel()) > 1
+    if (testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()) > 1
         && !env.containsKey("TEST_RANDOM_SEED")) {
       env.put("TEST_RANDOM_SEED", Integer.toString(getRunNumber() + 1));
     }
@@ -476,7 +479,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   public String getTestSuffix() {
     int totalShards = executionSettings.getTotalShards();
     // Use a 1-based index for user friendliness.
-    int runsPerTest = configuration.getRunsPerTestForLabel(getOwner().getLabel());
+    int runsPerTest = testConfiguration.getRunsPerTestForLabel(getOwner().getLabel());
     if (totalShards > 1 && runsPerTest > 1) {
       return String.format("(shard %d of %d, run %d of %d)", shardNum + 1, totalShards,
           runNumber + 1, runsPerTest);

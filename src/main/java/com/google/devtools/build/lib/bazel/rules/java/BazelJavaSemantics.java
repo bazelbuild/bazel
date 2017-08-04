@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.rules.test.TestConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -664,7 +665,9 @@ public class BazelJavaSemantics implements JavaSemantics {
   public List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (ruleContext.getRule().getRuleClass().equals("java_test")) {
       if (useLegacyJavaTest(ruleContext)) {
-        if (ruleContext.getConfiguration().getTestArguments().isEmpty()
+        TestConfiguration testConfiguration =
+            ruleContext.getConfiguration().getFragment(TestConfiguration.class);
+        if (testConfiguration.getTestArguments().isEmpty()
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {
