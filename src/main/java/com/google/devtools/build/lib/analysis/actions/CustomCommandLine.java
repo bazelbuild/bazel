@@ -107,16 +107,23 @@ public final class CustomCommandLine extends CommandLine {
   // It's better to avoid anonymous classes if we want to serialize command lines
   private static final class JoinExecPathsArg extends ArgvFragment {
 
+    private final String arg;
     private final String delimiter;
     private final Iterable<Artifact> artifacts;
 
-    private JoinExecPathsArg(String delimiter, Iterable<Artifact> artifacts) {
+    private JoinExecPathsArg(String arg, String delimiter, Iterable<Artifact> artifacts) {
+      this.arg = arg;
       this.delimiter = delimiter;
       this.artifacts = CollectionUtils.makeImmutable(artifacts);
     }
 
     @Override
     void eval(ImmutableList.Builder<String> builder) {
+      Iterator<Artifact> it = artifacts.iterator();
+      if (!it.hasNext()) {
+        return;
+      }
+      builder.add(arg);
       builder.add(Artifact.joinExecPaths(delimiter, artifacts));
     }
   }
@@ -287,28 +294,43 @@ public final class CustomCommandLine extends CommandLine {
 
   private static final class JoinStringsArg extends ArgvFragment {
 
+    private final String arg;
     private final String delimiter;
     private final Iterable<String> strings;
 
-    private JoinStringsArg(String delimiter, Iterable<String> strings) {
+    private JoinStringsArg(String arg, String delimiter, Iterable<String> strings) {
+      this.arg = arg;
       this.delimiter = delimiter;
       this.strings = CollectionUtils.makeImmutable(strings);
     }
 
     @Override
     void eval(ImmutableList.Builder<String> builder) {
-      builder.add(Joiner.on(delimiter).join(strings));
+      Iterator<String> parts = strings.iterator();
+      if (!parts.hasNext()) {
+        return;
+      }
+      builder.add(this.arg);
+      StringBuilder arg = new StringBuilder();
+      arg.append(parts.next());
+      while (parts.hasNext()) {
+        arg.append(delimiter);
+        arg.append(parts.next());
+      }
+      builder.add(arg.toString());
     }
   }
 
   private static final class JoinValuesTransformed<T> extends ArgvFragment {
 
+    private final String arg;
     private final String delimiter;
     private final Iterable<T> values;
     private final Function<T, String> toString;
 
     private JoinValuesTransformed(
-        String delimiter, Iterable<T> values, Function<T, String> toString) {
+        String arg, String delimiter, Iterable<T> values, Function<T, String> toString) {
+      this.arg = arg;
       this.delimiter = delimiter;
       this.values = CollectionUtils.makeImmutable(values);
       this.toString = toString;
@@ -316,14 +338,16 @@ public final class CustomCommandLine extends CommandLine {
 
     @Override
     void eval(ImmutableList.Builder<String> builder) {
-      StringBuilder arg = new StringBuilder();
       Iterator<T> parts = values.iterator();
-      if (parts.hasNext()) {
+      if (!parts.hasNext()) {
+        return;
+      }
+      builder.add(this.arg);
+      StringBuilder arg = new StringBuilder();
+      arg.append(toString.apply(parts.next()));
+      while (parts.hasNext()) {
+        arg.append(delimiter);
         arg.append(toString.apply(parts.next()));
-        while (parts.hasNext()) {
-          arg.append(delimiter);
-          arg.append(toString.apply(parts.next()));
-        }
       }
       builder.add(arg.toString());
     }
@@ -344,35 +368,55 @@ public final class CustomCommandLine extends CommandLine {
    * consider using "before" only but storing the strings pre-formatted in a {@link NestedSet}.
    */
   private static final class InterspersingArgs extends ArgvFragment {
+    @Nullable private final String arg;
     private final Iterable<?> sequence;
-    private final String beforeEach;
-    private final String formatEach;
+    @Nullable private final String beforeEach;
+    @Nullable private final String formatEach;
 
     /**
      * Do not call from outside this class because this does not guarantee that {@code sequence} is
      * immutable.
      */
-    private InterspersingArgs(Iterable<?> sequence, String beforeEach, String formatEach) {
+    private InterspersingArgs(
+        @Nullable String arg,
+        Iterable<?> sequence,
+        @Nullable String beforeEach,
+        @Nullable String formatEach) {
+      this.arg = arg;
       this.sequence = sequence;
       this.beforeEach = beforeEach;
       this.formatEach = formatEach;
     }
 
     static InterspersingArgs fromStrings(
-        Iterable<?> sequence, String beforeEach, String formatEach) {
+        @Nullable String arg,
+        Iterable<?> sequence,
+        @Nullable String beforeEach,
+        @Nullable String formatEach) {
       return new InterspersingArgs(
-          CollectionUtils.makeImmutable(sequence), beforeEach, formatEach);
+          arg, CollectionUtils.makeImmutable(sequence), beforeEach, formatEach);
     }
 
     static InterspersingArgs fromExecPaths(
-        Iterable<Artifact> sequence, String beforeEach, String formatEach) {
+        @Nullable String arg,
+        Iterable<Artifact> sequence,
+        @Nullable String beforeEach,
+        @Nullable String formatEach) {
       return new InterspersingArgs(
-          Artifact.toExecPaths(CollectionUtils.makeImmutable(sequence)), beforeEach, formatEach);
+          arg,
+          Artifact.toExecPaths(CollectionUtils.makeImmutable(sequence)),
+          beforeEach,
+          formatEach);
     }
 
     @Override
     void eval(ImmutableList.Builder<String> builder) {
-      for (Object item : sequence) {
+      Iterator<?> it = sequence.iterator();
+      if (arg != null && it.hasNext()) {
+        builder.add(arg);
+      }
+      while (it.hasNext()) {
+        Object item = it.next();
         if (item == null) {
           continue;
         }
@@ -448,18 +492,17 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder add(String arg, @Nullable Iterable<String> args) {
       Preconditions.checkNotNull(arg);
-      if (args != null && !Iterables.isEmpty(args)) {
-        arguments.add(arg);
+      if (args != null) {
         arguments.add(
-            InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
+            InterspersingArgs.fromStrings(arg, args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder add(@Nullable Iterable<String> args) {
-      if (args != null && !Iterables.isEmpty(args)) {
+      if (args != null) {
         arguments.add(
-            InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
+            InterspersingArgs.fromStrings(null, args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
@@ -475,18 +518,19 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addExecPaths(String arg, @Nullable Iterable<Artifact> artifacts) {
       Preconditions.checkNotNull(arg);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
-        arguments.add(arg);
+      if (artifacts != null) {
         arguments.add(
-            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
+            InterspersingArgs.fromExecPaths(
+                arg, artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addExecPaths(@Nullable Iterable<Artifact> artifacts) {
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
+      if (artifacts != null) {
         arguments.add(
-            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
+            InterspersingArgs.fromExecPaths(
+                null, artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
@@ -528,9 +572,8 @@ public final class CustomCommandLine extends CommandLine {
         String arg, String delimiter, @Nullable Iterable<String> strings) {
       Preconditions.checkNotNull(arg);
       Preconditions.checkNotNull(delimiter);
-      if (strings != null && !Iterables.isEmpty(strings)) {
-        arguments.add(arg);
-        arguments.add(new JoinStringsArg(delimiter, strings));
+      if (strings != null) {
+        arguments.add(new JoinStringsArg(arg, delimiter, strings));
       }
       return this;
     }
@@ -552,9 +595,8 @@ public final class CustomCommandLine extends CommandLine {
       Preconditions.checkNotNull(arg);
       Preconditions.checkNotNull(delimiter);
       Preconditions.checkNotNull(toString);
-      if (values != null && !Iterables.isEmpty(values)) {
-        arguments.add(arg);
-        arguments.add(new JoinValuesTransformed<T>(delimiter, values, toString));
+      if (values != null) {
+        arguments.add(new JoinValuesTransformed<>(arg, delimiter, values, toString));
       }
       return this;
     }
@@ -563,9 +605,8 @@ public final class CustomCommandLine extends CommandLine {
         String arg, String delimiter, @Nullable Iterable<Artifact> artifacts) {
       Preconditions.checkNotNull(arg);
       Preconditions.checkNotNull(delimiter);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
-        arguments.add(arg);
-        arguments.add(new JoinExecPathsArg(delimiter, artifacts));
+      if (artifacts != null) {
+        arguments.add(new JoinExecPathsArg(arg, delimiter, artifacts));
       }
       return this;
     }
@@ -654,32 +695,33 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addBeforeEachPath(String repeated, @Nullable Iterable<PathFragment> paths) {
       Preconditions.checkNotNull(repeated);
-      if (paths != null && !Iterables.isEmpty(paths)) {
-        arguments.add(InterspersingArgs.fromStrings(paths, repeated, /*formatEach=*/ null));
+      if (paths != null) {
+        arguments.add(InterspersingArgs.fromStrings(null, paths, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addBeforeEach(String repeated, @Nullable Iterable<String> strings) {
       Preconditions.checkNotNull(repeated);
-      if (strings != null && !Iterables.isEmpty(strings)) {
-        arguments.add(InterspersingArgs.fromStrings(strings, repeated, /*formatEach=*/ null));
+      if (strings != null) {
+        arguments.add(InterspersingArgs.fromStrings(null, strings, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addBeforeEachExecPath(String repeated, @Nullable Iterable<Artifact> artifacts) {
       Preconditions.checkNotNull(repeated);
-      if (artifacts != null && !Iterables.isEmpty(artifacts)) {
-        arguments.add(InterspersingArgs.fromExecPaths(artifacts, repeated, /*formatEach=*/ null));
+      if (artifacts != null) {
+        arguments.add(
+            InterspersingArgs.fromExecPaths(null, artifacts, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addFormatEach(String format, @Nullable Iterable<String> strings) {
       Preconditions.checkNotNull(format);
-      if (strings != null && !Iterables.isEmpty(strings)) {
-        arguments.add(InterspersingArgs.fromStrings(strings, /*beforeEach=*/null, format));
+      if (strings != null) {
+        arguments.add(InterspersingArgs.fromStrings(null, strings, /*beforeEach=*/ null, format));
       }
       return this;
     }
