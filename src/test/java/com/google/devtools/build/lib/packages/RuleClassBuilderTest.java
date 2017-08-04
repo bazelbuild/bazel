@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import org.junit.Test;
@@ -187,5 +189,21 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     } catch (IllegalStateException e) {
       // Expected exception.
     }
+  }
+
+  @Test
+  public void testRequiredToolchainsAreInherited() throws Exception {
+    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .build();
+    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
   }
 }
