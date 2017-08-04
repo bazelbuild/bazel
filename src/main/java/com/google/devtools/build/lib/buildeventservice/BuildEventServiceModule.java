@@ -85,7 +85,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
             commandEnvironment.getRuntime().getPathToUriConverter(),
             commandEnvironment.getReporter(),
             commandEnvironment.getClientEnv().get("BAZEL_INTERNAL_BUILD_REQUEST_ID"),
-            commandEnvironment.getCommandId().toString());
+            commandEnvironment.getCommandId().toString(),
+            commandEnvironment.getCommandName());
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
@@ -124,7 +125,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   /**
    * Returns {@code null} if no stream could be created.
    *
-   * @param buildRequestId  if {@code null} or {@code ""} a random UUID is used instead.
+   * @param buildRequestId if {@code null} or {@code ""} a random UUID is used instead.
    */
   @Nullable
   @VisibleForTesting
@@ -136,7 +137,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       PathConverter pathConverter,
       Reporter reporter,
       String buildRequestId,
-      String invocationId) {
+      String invocationId,
+      String commandName) {
     try {
       T besOptions =
           checkNotNull(
@@ -151,8 +153,17 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
       BuildEventTransport besTransport = null;
       try {
-        besTransport = tryCreateBesTransport(besOptions, authTlsOptions, buildRequestId,
-            invocationId, moduleEnvironment, clock, pathConverter, commandLineReporter);
+        besTransport =
+            tryCreateBesTransport(
+                besOptions,
+                authTlsOptions,
+                buildRequestId,
+                invocationId,
+                commandName,
+                moduleEnvironment,
+                clock,
+                pathConverter,
+                commandLineReporter);
       } catch (Exception e) {
         if (besOptions.besBestEffort) {
           commandLineReporter.handle(Event.warn(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
@@ -183,9 +194,16 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Nullable
-  private BuildEventTransport tryCreateBesTransport(T besOptions, AuthAndTLSOptions authTlsOptions,
-      String buildRequestId, String invocationId, ModuleEnvironment moduleEnvironment, Clock clock,
-      PathConverter pathConverter, EventHandler commandLineReporter) throws IOException {
+  private BuildEventTransport tryCreateBesTransport(
+      T besOptions,
+      AuthAndTLSOptions authTlsOptions,
+      String buildRequestId,
+      String invocationId,
+      String commandName,
+      ModuleEnvironment moduleEnvironment,
+      Clock clock,
+      PathConverter pathConverter,
+      EventHandler commandLineReporter) throws IOException {
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
       return null;
@@ -210,6 +228,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               besOptions.besLifecycleEvents,
               buildRequestId,
               invocationId,
+              commandName,
               moduleEnvironment,
               clock,
               pathConverter,

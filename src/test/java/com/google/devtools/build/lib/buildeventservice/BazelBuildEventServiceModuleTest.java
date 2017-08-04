@@ -129,8 +129,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "build");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -143,8 +151,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -157,8 +173,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "fetch");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -171,8 +195,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "build");
     assertThat(buildEventStreamer).isNotNull();
   }
 
@@ -185,8 +217,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -198,8 +238,16 @@ public class BazelBuildEventServiceModuleTest {
   public void testDoesNotCreatesStreamerWithoutTransports() throws Exception {
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "fetch");
     assertThat(buildEventStreamer).isNull();
   }
 }

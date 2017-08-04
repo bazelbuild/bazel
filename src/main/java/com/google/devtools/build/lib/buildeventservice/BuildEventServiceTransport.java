@@ -118,6 +118,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       boolean publishLifecycleEvents,
       String buildRequestId,
       String invocationId,
+      String command,
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       PathConverter pathConverter,
@@ -129,7 +130,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         bestEffortUpload,
         publishLifecycleEvents,
         moduleEnvironment,
-        new BuildEventServiceProtoUtil(buildRequestId, invocationId, projectId, clock),
+        new BuildEventServiceProtoUtil(buildRequestId, invocationId, projectId, command, clock),
         pathConverter,
         commandLineReporter);
   }
@@ -434,14 +435,18 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   private static boolean isLastEvent(PublishBuildToolEventStreamRequest event) {
-    return event != null && event.getEvent().getEventCase() == COMPONENT_STREAM_FINISHED;
+    return event != null
+        && event.getOrderedBuildEvent().getEvent().getEventCase() == COMPONENT_STREAM_FINISHED;
   }
 
   private static Function<PublishBuildToolEventStreamResponse, Void> ackCallback(
       final Deque<PublishBuildToolEventStreamRequest> pendingAck,
       final BuildEventServiceClient besClient) {
     return ack -> {
-      long pendingSeq = pendingAck.isEmpty() ? -1 : pendingAck.peekFirst().getSequenceNumber();
+      long pendingSeq =
+          pendingAck.isEmpty()
+              ? -1
+              : pendingAck.peekFirst().getOrderedBuildEvent().getSequenceNumber();
       long ackSeq = ack.getSequenceNumber();
       if (pendingSeq != ackSeq) {
         besClient.abortStream(

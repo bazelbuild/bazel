@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -44,13 +45,19 @@ public final class BuildEventServiceProtoUtil {
   private final String buildInvocationId;
   private final String projectId;
   private final AtomicInteger streamSequenceNumber;
+  private final String commandName;
   private final Clock clock;
 
-  public BuildEventServiceProtoUtil(String buildRequestId, String buildInvocationId,
-      @Nullable String projectId, Clock clock) {
+  public BuildEventServiceProtoUtil(
+      String buildRequestId,
+      String buildInvocationId,
+      @Nullable String projectId,
+      String commandName,
+      Clock clock) {
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
+    this.commandName = commandName;
     this.clock = clock;
     this.streamSequenceNumber = new AtomicInteger(1);
   }
@@ -126,11 +133,18 @@ public final class BuildEventServiceProtoUtil {
   @VisibleForTesting
   public PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
       int sequenceNumber, BuildEvent.Builder besEvent) {
-    return PublishBuildToolEventStreamRequest.newBuilder()
-        .setSequenceNumber(sequenceNumber)
-        .setEvent(besEvent.setEventTime(Timestamps.fromMillis(clock.currentTimeMillis())))
-        .setStreamId(streamId(besEvent.getEventCase()))
-        .build();
+    PublishBuildToolEventStreamRequest.Builder builder =
+        PublishBuildToolEventStreamRequest.newBuilder()
+            .setOrderedBuildEvent(
+                OrderedBuildEvent.newBuilder()
+                    .setSequenceNumber(sequenceNumber)
+                    .setEvent(
+                        besEvent.setEventTime(Timestamps.fromMillis(clock.currentTimeMillis())))
+                    .setStreamId(streamId(besEvent.getEventCase())));
+    if (sequenceNumber == 1) {
+      builder.addAllNotificationKeywords(getKeywords());
+    }
+    return builder.build();
   }
 
   @VisibleForTesting
@@ -171,5 +185,10 @@ public final class BuildEventServiceProtoUtil {
         throw new IllegalArgumentException("Illegal EventCase " + eventCase);
     }
     return streamId.build();
+  }
+
+  /** Keywords used by BES subscribers to filter notifications */
+  private ImmutableList<String> getKeywords() {
+    return ImmutableList.of("command_name=" + commandName, "protocol_name=BEP");
   }
 }
