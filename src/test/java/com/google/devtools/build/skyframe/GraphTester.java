@@ -164,10 +164,8 @@ public class GraphTester {
     return LegacySkyKey.create(NODE_TYPE, key);
   }
 
-  /**
-   * A value in the testing graph that is constructed in the tester.
-   */
-  public class TestFunction {
+  /** A value in the testing graph that is constructed in the tester. */
+  public static class TestFunction {
     // TODO(bazel-team): We could use a multiset here to simulate multi-pass dependency discovery.
     private final Set<Pair<SkyKey, SkyValue>> deps = new LinkedHashSet<>();
     private SkyValue value;
@@ -213,6 +211,11 @@ public class GraphTester {
     public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
+      return this;
+    }
+
+    public TestFunction unsetConstantValue() {
+      this.value = null;
       return this;
     }
 

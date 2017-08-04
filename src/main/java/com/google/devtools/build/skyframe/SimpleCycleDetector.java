@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.devtools.build.skyframe.ParallelEvaluator.isDoneForBuild;
-import static com.google.devtools.build.skyframe.ParallelEvaluator.maybeMarkRebuilding;
+import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
+import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.maybeMarkRebuilding;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
