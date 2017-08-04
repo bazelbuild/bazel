@@ -94,6 +94,7 @@ class HttpConnector {
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
+        connection.setInstanceFollowRedirects(false);
         for (Map.Entry<String, String> entry : requestHeaders.entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
@@ -132,7 +133,7 @@ class HttpConnector {
         // 206 means partial content and only happens if caller specified Range. See RFC7233 § 4.1.
         if (code == 200 || code == 206) {
           return connection;
-        } else if (code == 301 || code == 302 || code == 307) {
+        } else if (code == 301 || code == 302 || code == 303 || code == 307) {
           readAllBytesAndClose(connection.getInputStream());
           if (++redirects == MAX_REDIRECTS) {
             eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
