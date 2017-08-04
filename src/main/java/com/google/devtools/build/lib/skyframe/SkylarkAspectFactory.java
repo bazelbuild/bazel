@@ -143,6 +143,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private void addDeclaredProviders(ConfiguredAspect.Builder builder, Iterable aspectSkylarkObject)
       throws EvalException {
+    int i = 0;
     for (Object o : aspectSkylarkObject) {
       Location loc = skylarkAspect.getImplementation().getLocation();
       Info declaredProvider =
@@ -151,9 +152,12 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               Info.class,
               loc,
               "A return value of an aspect implementation function should be "
-                  + "a sequence of declared providers");
+                  + "a sequence of declared providers, instead got a %s at index %d",
+              o.getClass(),
+              i);
       Location creationLoc = declaredProvider.getCreationLocOrNull();
       builder.addSkylarkDeclaredProvider(declaredProvider, creationLoc != null ? creationLoc : loc);
+      i++;
     }
   }
 
