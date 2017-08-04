@@ -59,7 +59,8 @@
                 "{} +"
             ],
             "tests": [
-                "//src/test/shell/integration/..."
+                "//src/test/shell/integration/...",
+                "let bazel=\"//src/test/shell/bazel/...\" in $bazel - filter(\"all_tests\", $bazel) - filter(\"jdk\", $bazel) - filter(\"maven\", $bazel) - filter(\"android\", $bazel) - filter(\"java\", $bazel) - filter(\"workspace\", $bazel) - filter(\"external\", $bazel) - filter(\"example\", $bazel) - filter(\"skylark_repository\", $bazel) - filter(\"repository_cache\", $bazel)"
             ],
             "targets": []
         }

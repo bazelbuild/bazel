@@ -15,7 +15,7 @@
 # limitations under the License.
 
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function nc_l() {
       nc -l $1
     }

@@ -46,32 +46,32 @@ function test_basic_functionality() {
 }
 
 function test_to_stderr() {
-  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/bash -c "/bin/echo hi there >&2" &> $TEST_log || fail
+  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/sh -c "/bin/echo hi there >&2" &> $TEST_log || fail
   assert_output "" "hi there"
 }
 
 function test_exit_code() {
   local code=0
-  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/bash -c "exit 71" &> $TEST_log || code=$?
+  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/sh -c "exit 71" &> $TEST_log || code=$?
   assert_equals 71 "$code"
 }
 
 function test_signal_death() {
   local code=0
-  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/bash -c 'kill -ABRT $$' &> $TEST_log || code=$?
+  $process_wrapper --stdout=$OUT --stderr=$ERR /bin/sh -c 'kill -ABRT $$' &> $TEST_log || code=$?
   assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
 }
 
 function test_signal_catcher() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/bash -c \
+  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
     'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "later"
 }
 
 function test_basic_timeout() {
-  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/bash -c \
+  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
     "echo before; sleep 10; echo after" &> $TEST_log && fail
   assert_stdout "before"
 }
@@ -82,11 +82,12 @@ function test_basic_timeout() {
 # grace period, thus printing "beforeafter".
 function test_timeout_grace() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=10 --stdout=$OUT --stderr=$ERR /bin/bash -c \
-    'trap "echo -n "before"; sleep 1; echo "after"; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
+  $process_wrapper --timeout=1 --kill_delay=10 --stdout=$OUT --stderr=$ERR /bin/sh -c \
+    'trap "echo before; sleep 1; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
     &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  assert_stdout "beforeafter"
+  assert_stdout 'before
+after'
 }
 
 # Tests that process_wrapper sends a SIGTERM to a process on timeout, but gives
@@ -95,7 +96,7 @@ function test_timeout_grace() {
 # trap takes longer than the grace period, thus only printing "before".
 function test_timeout_kill() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/bash -c \
+  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
     'trap "echo before; sleep 10; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
     &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14

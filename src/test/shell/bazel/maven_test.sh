@@ -58,7 +58,7 @@ function test_maven_jar() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$fileserver_port/',
+    repository = 'http://127.0.0.1:$fileserver_port/',
     sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -76,7 +76,7 @@ function test_maven_jar_no_sha1() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$fileserver_port/',
+    repository = 'http://127.0.0.1:$fileserver_port/',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -93,7 +93,7 @@ function test_maven_jar_404() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://127.0.0.1:$nc_port/',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -113,7 +113,7 @@ function test_maven_jar_mismatched_sha1() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$fileserver_port/',
+    repository = 'http://127.0.0.1:$fileserver_port/',
     sha1 = '$wrong_sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -128,7 +128,7 @@ function test_default_repository() {
   cat > WORKSPACE <<EOF
 maven_server(
     name = "default",
-    url = "http://localhost:$fileserver_port/",
+    url = "http://127.0.0.1:$fileserver_port/",
 )
 
 maven_jar(
@@ -146,7 +146,7 @@ function test_settings() {
   cat > WORKSPACE <<EOF
 maven_server(
     name = "x",
-    url = "http://localhost:$fileserver_port/",
+    url = "http://127.0.0.1:$fileserver_port/",
     settings_file = "settings.xml",
 )
 maven_jar(
@@ -191,7 +191,7 @@ function test_maven_server_dep() {
   cat > WORKSPACE <<EOF
 maven_server(
     name = "x",
-    url = "http://localhost:12345/",
+    url = "http://127.0.0.1:12345/",
 )
 EOF
 
@@ -216,7 +216,7 @@ function test_auth() {
   cat > WORKSPACE <<EOF
 maven_server(
     name = "x",
-    url = "http://localhost:$fileserver_port/",
+    url = "http://127.0.0.1:$fileserver_port/",
     settings_file = "settings.xml",
 )
 maven_jar(
@@ -227,7 +227,7 @@ maven_jar(
 
 maven_server(
     name = "y",
-    url = "http://localhost:$fileserver_port/",
+    url = "http://127.0.0.1:$fileserver_port/",
     settings_file = "settings.xml",
 )
 maven_jar(

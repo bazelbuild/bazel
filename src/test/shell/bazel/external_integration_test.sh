@@ -104,7 +104,7 @@ filegroup(
 EOF
     what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
     cat > fox/male <<EOF
-#!/bin/bash
+#!/bin/sh
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
@@ -125,7 +125,7 @@ EOF
     cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/$repo2_name',
+    url = 'http://127.0.0.1:$nc_port/$repo2_name',
     sha256 = '$sha256'
 )
 EOF
@@ -139,7 +139,7 @@ sh_binary(
 EOF
 
     cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 ../endangered/fox/male
 EOF
     chmod +x zoo/female.sh
@@ -183,7 +183,7 @@ function test_http_archive_zip() {
   cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh',
+    url = 'http://127.0.0.1:$nc_port/bleh',
     sha256 = '$sha256',
     type = 'zip',
 )
@@ -219,7 +219,7 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat fox/male
 EOF
   chmod +x zoo/female.sh
@@ -244,7 +244,7 @@ function test_http_archive_mismatched_sha256() {
   cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
+    url = 'http://127.0.0.1:$nc_port/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
 )
 EOF
@@ -258,7 +258,7 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat fox/male
 EOF
   chmod +x zoo/female.sh
@@ -318,7 +318,7 @@ function test_jar_download() {
   serve_jar
 
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar')
+http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar')
 EOF
 
   mkdir -p zoo
@@ -350,7 +350,7 @@ function test_http_to_https_redirect() {
   http_response=$TEST_TMPDIR/http_response
   cat > $http_response <<EOF
 HTTP/1.0 301 Moved Permantently
-Location: https://localhost:123456789/bad-port-shouldnt-work
+Location: https://127.0.0.1:123456789/bad-port-shouldnt-work
 EOF
   nc_port=$(pick_random_unused_tcp_port) || exit 1
   nc_l $nc_port < $http_response &
@@ -360,7 +360,7 @@ EOF
   cat > WORKSPACE <<EOF
 http_file(
     name = 'toto',
-    url = 'http://localhost:$nc_port/toto',
+    url = 'http://127.0.0.1:$nc_port/toto',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
@@ -378,7 +378,7 @@ function test_http_404() {
   cat > WORKSPACE <<EOF
 http_file(
     name = 'toto',
-    url = 'http://localhost:$nc_port/toto',
+    url = 'http://127.0.0.1:$nc_port/toto',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
@@ -391,7 +391,7 @@ EOF
 function test_http_download() {
   local test_file=$TEST_TMPDIR/toto
   cat > $test_file <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "Tra-la!"
 EOF
   local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
@@ -399,7 +399,7 @@ EOF
   cd ${WORKSPACE_DIR}
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://localhost:$nc_port/toto',
+http_file(name = 'toto', url = 'http://127.0.0.1:$nc_port/toto',
     sha256 = '$sha256', executable = True)
 EOF
 
@@ -413,7 +413,7 @@ sh_binary(
 EOF
 
   cat > test/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "symlink:"
 ls -l ../toto/file
 echo "dest:"
@@ -434,10 +434,10 @@ function test_http_redirect() {
   local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
   serve_file $test_file
   cd ${WORKSPACE_DIR}
-  serve_redirect "http://localhost:$nc_port/toto"
+  serve_redirect "http://127.0.0.1:$nc_port/toto"
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://localhost:$redirect_port/toto',
+http_file(name = 'toto', url = 'http://127.0.0.1:$redirect_port/toto',
     sha256 = '$sha256')
 EOF
 
@@ -451,7 +451,7 @@ sh_binary(
 EOF
 
   cat > test/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../toto/file/toto
 EOF
 
@@ -471,7 +471,7 @@ function test_empty_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -569,7 +569,7 @@ EOF
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
+    url = 'http://127.0.0.1:$nc_port/repo.zip',
     sha256 = '$sha256',
     ${build_file_attr},
     ${workspace_file_attr}
@@ -586,7 +586,7 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../endangered/fox/male
 EOF
   chmod +x zoo/female.sh
@@ -604,7 +604,7 @@ function test_fetch() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://127.0.0.1:$nc_port/',
     sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -642,7 +642,7 @@ function test_prefix_stripping_tar_gz() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
     build_file = "x.BUILD",
@@ -671,7 +671,7 @@ function test_prefix_stripping_zip() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.zip",
+    url = "http://127.0.0.1:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
     build_file = "x.BUILD",
@@ -709,7 +709,7 @@ EOF
   cat > WORKSPACE <<EOF
 http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.zip",
+    url = "http://127.0.0.1:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
 )
@@ -728,7 +728,7 @@ function test_moving_build_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -764,7 +764,7 @@ function test_changing_build_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -834,7 +834,7 @@ EOF
   cat > remote_ws <<EOF
 http_archive(
     name = "repo",
-    url = "http://localhost:$fileserver_port/repo.zip",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
 )
 EOF
   external_dir=$(bazel info output_base)/external

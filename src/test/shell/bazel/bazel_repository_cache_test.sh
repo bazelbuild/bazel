@@ -142,7 +142,7 @@ filegroup(
 EOF
     what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
     cat > fox/male <<EOF
-#!/bin/bash
+#!/bin/sh
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
@@ -180,7 +180,7 @@ sh_binary(
 EOF
 
     cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 ../endangered/fox/male
 EOF
     chmod +x zoo/female.sh

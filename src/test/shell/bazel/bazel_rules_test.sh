@@ -63,7 +63,7 @@ function test_extra_action() {
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
   cat > mypkg/echoer.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 if [[ ! -e \$0.runfiles/__main__/mypkg/runfile ]]; then
   echo "Runfile not found" >&2
   exit 1
@@ -275,7 +275,7 @@ sh_binary(
 EOF
 
   cat > package/in.sh << EOF
-#!/bin/bash
+#!/bin/sh
 echo "Hi"
 EOF
   chmod +x package/in.sh

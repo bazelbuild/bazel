@@ -31,7 +31,7 @@ function set_up_jobcount() {
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
-#!/bin/bash
+#!/bin/sh
 # hard link
 z=\$(mktemp -u ${tmp}/tmp.XXXXXXXX)
 ln ${tmp}/counter \${z}
@@ -41,7 +41,7 @@ sleep 1
 nlink=\$(ls -l ${tmp}/counter | awk '{print \$2}')
 
 # 4 links = 3 jobs + ${tmp}/counter
-if [[ "\$nlink" -gt 4 ]] ; then
+if [ "\$nlink" -gt 4 ] ; then
   echo found "\$nlink" hard links to file, want 4 max.
   exit 1
 fi
@@ -84,7 +84,7 @@ function test_3_local_jobs() {
 function DISABLED_test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
   chmod +x foo/bar_test.sh
@@ -123,7 +123,7 @@ workspace(name = "bar")
 EOF
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
 echo "ws: $TEST_WORKSPACE"
@@ -254,8 +254,8 @@ function test_runs_per_test_detects_flakes() {
     # This file holds the number of the next run
     echo 1 > "${COUNTER_DIR}/$i"
     cat <<EOF > test$i.sh
-#!/bin/bash
-i=\$(< "${COUNTER_DIR}/$i")
+#!/bin/sh
+i=\$(cat "${COUNTER_DIR}/$i")
 
 # increment the hidden state
 echo \$((i + 1)) > "${COUNTER_DIR}/$i"
