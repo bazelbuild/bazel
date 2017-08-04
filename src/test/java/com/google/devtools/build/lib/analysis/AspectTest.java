@@ -800,7 +800,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectApplyingtToFiles() throws Exception {
+  public void aspectApplyingToFiles() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(
         ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
@@ -818,4 +818,24 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(provider.getLabel())
         .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
+
+  @Test
+  public void aspectApplyingToSourceFilesIgnored() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
+        ImmutableList.<RuleDefinition>of());
+    pkg(
+        "a",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
+    );
+    scratch.file("a/x.java", "");
+    AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
+        ImmutableList.of(aspectApplyingToFiles.getName()),
+        "//a:x.java");
+    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    assertThat(aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class))
+        .isNull();
+  }
+
 }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  *  A node in the build dependency graph, identified by a Label.
@@ -60,6 +61,7 @@ public interface Target {
    * If this is a Rule, returns itself; it this is an OutputFile, returns its
    * generating rule; if this is an input file, returns null.
    */
+  @Nullable
   Rule getAssociatedRule();
 
   /**

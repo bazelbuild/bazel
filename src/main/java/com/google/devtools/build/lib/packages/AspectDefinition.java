@@ -159,9 +159,10 @@ public final class AspectDefinition {
   }
 
   /**
-   * Returns whether this aspect applies to files.
+   * Returns whether this aspect applies to (output) files.
    *
-   * Currently only supported for top-level aspects and targets.
+   * Currently only supported for top-level aspects and targets, and
+   * only for output files.
    */
   public boolean applyToFiles() {
     return applyToFiles;
@@ -459,7 +460,8 @@ public final class AspectDefinition {
      * Sets whether this aspect should apply to files.
      *
      * Default is <code>false</code>.
-     * Currently only supported for top-level aspects and targets.
+     * Currently only supported for top-level aspects and targets, and only for
+     * output files.
      */
     public Builder applyToFiles(boolean propagateOverGeneratedFiles) {
       this.applyToFiles = propagateOverGeneratedFiles;
