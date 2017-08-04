@@ -31,16 +31,19 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function test_XmlOutputExercises() {
   cd $TEST_TMPDIR
+  EXT_REGEX_FLAG="-E"
+  # This test sometimes runs with an old version of sed that has -r but not -E.
+  sed "$EXT_REGEX_FLAG" "" /dev/null 2> /dev/null || EXT_REGEX_FLAG="-r"
 
   $TESTBED --jvm_flag=${SUITE_FLAG} || true  # Test failures
 
   # Remove timestamps and test runtime from the XML files as they will always differ and cause a
   # mismatch.
-  sed -i.bak -E "s/(time[^=]*)='[^']*/\1='/g" $XML_OUTPUT_FILE \
+  sed -i.bak "$EXT_REGEX_FLAG" "s/(time[^=]*)='[^']*/\1='/g" $XML_OUTPUT_FILE \
     || fail "sed to remove timestamps failed"
 
   # Removes the stacktrace from the XML files, it can vary between JDK versions.
-  sed -i.bak -E '/\w*at [a-zA-Z0-9\$\.]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
+  sed -i.bak "$EXT_REGEX_FLAG" '/\w*at [a-zA-Z0-9\$\.]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
       "${XML_OUTPUT_FILE}" || fail "sed to remove stacktraces failed"
 
   diff -wu $XML_GOLDEN_OUTPUT_FILE $XML_OUTPUT_FILE \
