@@ -83,59 +83,20 @@ class LauncherTest(test_base.TestBase):
       self.assertEqual(stdout[2], 'runfiles_manifest_only=')
       self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
 
-  def testShBinaryLauncher(self):
-    self.ScratchFile('WORKSPACE')
-    self.ScratchFile(
-        'foo/BUILD',
-        [
-            # On Linux/MacOS, all sh_binary rules generate an output file with
-            # the same name as the rule, and this is a symlink to the file in
-            # `srcs`. (Bazel allows only one file in `sh_binary.srcs`.)
-            # On Windows, if the srcs's extension is one of ".exe", ".cmd", or
-            # ".bat", then Bazel requires the rule's name has the same
-            # extension, and the output file will be a copy of the source file.
-            'sh_binary(',
-            '  name = "bin1.sh",',
-            '  srcs = ["foo.sh"],',
-            '  data = ["//bar:bar.txt"],',
-            ')',
-            'sh_binary(',
-            '  name = "bin2.cmd",',  # name's extension matches that of srcs[0]
-            '  srcs = ["foo.cmd"],',
-            '  data = ["//bar:bar.txt"],',
-            ')',
-            'sh_binary(',
-            '  name = "bin3.bat",',  # name's extension doesn't match srcs[0]'s
-            '  srcs = ["foo.cmd"],',
-            '  data = ["//bar:bar.txt"],',
-            ')',
-        ])
-    foo_sh = self.ScratchFile('foo/foo.sh', [
-        '#!/bin/bash',
-        'echo hello shell',
-        'echo runfiles_manifest_only=${RUNFILES_MANIFEST_ONLY:-}',
-        'echo runfiles_manifest_file=${RUNFILES_MANIFEST_FILE:-}',
-    ])
-    foo_cmd = self.ScratchFile('foo/foo.cmd', ['@echo hello batch'])
-    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
-    self.ScratchFile('bar/bar.txt', ['hello'])
-    os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-    os.chmod(foo_cmd, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    bazel_bin = stdout[0]
-
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin1.sh'])
+  def _buildShBinaryTargets(self, bazel_bin, launcher_flag, bin1_suffix):
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin1.sh'] +
+                                         launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
-    bin1 = os.path.join(bazel_bin, 'foo', 'bin1.sh.exe'
+    bin1 = os.path.join(bazel_bin, 'foo', 'bin1.sh.%s' % bin1_suffix
                         if self.IsWindows() else 'bin1.sh')
+
     self.assertTrue(os.path.exists(bin1))
     self.assertTrue(
         os.path.isdir(os.path.join(bazel_bin, 'foo/bin1.sh.runfiles')))
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin2.cmd'])
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin2.cmd'] +
+                                         launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
     bin2 = os.path.join(bazel_bin, 'foo/bin2.cmd')
@@ -143,7 +104,8 @@ class LauncherTest(test_base.TestBase):
     self.assertTrue(
         os.path.isdir(os.path.join(bazel_bin, 'foo/bin2.cmd.runfiles')))
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin3.bat'])
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin3.bat'] +
+                                         launcher_flag)
     if self.IsWindows():
       self.AssertExitCode(exit_code, 1, stderr)
       self.assertIn('target name extension should match source file extension.',
@@ -205,6 +167,52 @@ class LauncherTest(test_base.TestBase):
       self.AssertExitCode(exit_code, 0, stderr)
       self.assertEqual(stdout[0], 'hello batch')
 
+  def testShBinaryLauncher(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            # On Linux/MacOS, all sh_binary rules generate an output file with
+            # the same name as the rule, and this is a symlink to the file in
+            # `srcs`. (Bazel allows only one file in `sh_binary.srcs`.)
+            # On Windows, if the srcs's extension is one of ".exe", ".cmd", or
+            # ".bat", then Bazel requires the rule's name has the same
+            # extension, and the output file will be a copy of the source file.
+            'sh_binary(',
+            '  name = "bin1.sh",',
+            '  srcs = ["foo.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+            'sh_binary(',
+            '  name = "bin2.cmd",',  # name's extension matches that of srcs[0]
+            '  srcs = ["foo.cmd"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+            'sh_binary(',
+            '  name = "bin3.bat",',  # name's extension doesn't match srcs[0]'s
+            '  srcs = ["foo.cmd"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ])
+    foo_sh = self.ScratchFile('foo/foo.sh', [
+        '#!/bin/bash',
+        'echo hello shell',
+        'echo runfiles_manifest_only=${RUNFILES_MANIFEST_ONLY:-}',
+        'echo runfiles_manifest_file=${RUNFILES_MANIFEST_FILE:-}',
+    ])
+    foo_cmd = self.ScratchFile('foo/foo.cmd', ['@echo hello batch'])
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+    os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+    os.chmod(foo_cmd, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], 'cmd')
+    self._buildShBinaryTargets(bazel_bin, [], 'exe')
+
   def testShBinaryArgumentPassing(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
@@ -230,7 +238,8 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--windows_exe_launcher', '//foo:bin'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     bin1 = os.path.join(bazel_bin, 'foo', 'bin.exe'

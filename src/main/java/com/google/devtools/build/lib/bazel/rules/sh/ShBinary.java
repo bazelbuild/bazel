@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -29,6 +28,9 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -43,6 +45,8 @@ import java.nio.ByteOrder;
  * Implementation for the sh_binary rule.
  */
 public class ShBinary implements RuleConfiguredTargetFactory {
+  private static final Template STUB_SCRIPT_WINDOWS =
+      Template.forResource(ShBinary.class, "sh_stub_template_windows.txt");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
@@ -114,21 +118,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         || artifact.getExtension().equals("bat");
   }
 
-  private static Artifact launcherForWindows(
-      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile)
+  private static Artifact createWindowsExeLauncher(RuleContext ruleContext, Artifact mainFile)
       throws RuleErrorException {
-    if (isWindowsExecutable(mainFile)) {
-      // If the extensions don't match, we should always respect mainFile's extension.
-      if (mainFile.getExtension().equals(primaryOutput.getExtension())) {
-        return primaryOutput;
-      } else {
-        ruleContext.ruleError(
-            "Source file is a Windows executable file,"
-                + " target name extension should match source file extension");
-        throw new RuleErrorException();
-      }
-    }
-
     // The launcher file consists of a base launcher binary and the launch information appended to
     // the binary. The length of launch info is a signed 64-bit integer written at the end of
     // the binary in little endian.
@@ -170,7 +161,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             launchInfoFile,
             ByteSource.wrap(launchInfo.toByteArray()),
             /*makeExecutable=*/ false));
-    String path = ruleContext.getConfiguration().getActionEnvironment().getFixedEnv().get("PATH");
+
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(launcher)
@@ -184,10 +175,47 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                     + " "
                     + bashLauncher.getExecPathString().replace('/', '\\')
                     + " > nul\"")
-            .setEnvironment(ImmutableMap.of("PATH", path))
+            .useDefaultShellEnvironment()
             .setMnemonic("BuildBashLauncher")
             .build(ruleContext));
 
     return bashLauncher;
+  }
+
+  private static Artifact launcherForWindows(
+      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile)
+      throws RuleErrorException {
+    if (isWindowsExecutable(mainFile)) {
+      if (mainFile.getExtension().equals(primaryOutput.getExtension())) {
+        return primaryOutput;
+      } else {
+        // If the extensions don't match, we should always respect mainFile's extension.
+        ruleContext.ruleError(
+            "Source file is a Windows executable file,"
+                + " target name extension should match source file extension");
+        throw new RuleErrorException();
+      }
+    }
+
+    if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      return createWindowsExeLauncher(ruleContext, mainFile);
+    }
+
+    Artifact wrapper =
+        ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
+    ruleContext.registerAction(
+        new TemplateExpansionAction(
+            ruleContext.getActionOwner(),
+            wrapper,
+            STUB_SCRIPT_WINDOWS,
+            ImmutableList.of(
+                Substitution.of(
+                    "%bash_exe_path%",
+                    ruleContext
+                        .getFragment(BazelConfiguration.class)
+                        .getShellExecutable()
+                        .getPathString())),
+            true));
+    return wrapper;
   }
 }
