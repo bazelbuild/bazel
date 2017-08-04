@@ -195,7 +195,8 @@ def _find_env_vars(repository_ctx, vc_path):
                       "@echo off\n" +
                       "call \"" + vcvarsall + "\" amd64 > NUL \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  env = _add_system_root(repository_ctx, repository_ctx.os.environ)
+  env = _add_system_root(repository_ctx,
+                         {"PATH": "", "INCLUDE": "", "LIB": ""})
   envs = execute(repository_ctx, ["./get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
