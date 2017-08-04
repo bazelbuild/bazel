@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.android.dex.ClassDef;
 import com.android.dex.Dex;
+import com.android.dx.command.dexer.DxContext;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
@@ -259,7 +260,7 @@ public class DexFileMergerTest {
     options.outputZip =
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), "libtests.dex.zip");
     options.maxThreads = 1;
-    DexBuilder.buildDexArchive(options, new Dexing.DexingOptions());
+    DexBuilder.buildDexArchive(options, new Dexing(new DxContext(), new Dexing.DexingOptions()));
     return options.outputZip;
   }
 
