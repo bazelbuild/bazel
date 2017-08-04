@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
-import com.android.dx.command.DxConsole;
+import com.android.dx.command.dexer.DxContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -188,9 +188,10 @@ class DexFileMerger {
         DexFileAggregator out = createDexFileAggregator(options)) {
       checkForUnprocessedClasses(zip);
       if (!options.verbose) {
-        // com.android.dx.merge.DexMerger prints tons of debug information to System.out that we
-        // silence here unless it was explicitly requested.
-        System.setOut(DxConsole.noop);
+        // com.android.dx.merge.DexMerger prints status information to System.out that we silence
+        // here unless it was explicitly requested.  (It also prints debug info to DxContext.out,
+        // which we populate accordingly below.)
+        System.setOut(Dexing.nullout);
       }
 
       if (classesInMainDex == null) {
@@ -262,6 +263,7 @@ class DexFileMerger {
 
   private static DexFileAggregator createDexFileAggregator(Options options) throws IOException {
     return new DexFileAggregator(
+        new DxContext(options.verbose ? System.out : ByteStreams.nullOutputStream(), System.err),
         new DexFileArchive(
             new ZipOutputStream(
                 new BufferedOutputStream(Files.newOutputStream(options.outputArchive)))),
