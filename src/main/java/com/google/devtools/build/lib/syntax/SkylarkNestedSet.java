@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -120,14 +119,14 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   private SkylarkNestedSet(Order order, SkylarkType contentType, Object item, Location loc,
       @Nullable SkylarkNestedSet left) throws EvalException {
 
-    ArrayList<Object> items = new ArrayList<>();
-    ArrayList<NestedSet> transitiveItems = new ArrayList<>();
+    ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<NestedSet> transitiveItemsBuilder = ImmutableList.builder();
     if (left != null) {
       if (left.items == null) { // SkylarkSet created from native NestedSet
-        transitiveItems.add(left.set);
+        transitiveItemsBuilder.add(left.set);
       } else { // Preserving the left-to-right addition order.
-        items.addAll(left.items);
-        transitiveItems.addAll(left.transitiveItems);
+        itemsBuilder.addAll(left.items);
+        transitiveItemsBuilder.addAll(left.transitiveItems);
       }
     }
     // Adding the item
@@ -135,14 +134,14 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
         contentType = getTypeAfterInsert(contentType, nestedSet.contentType, loc);
-        transitiveItems.add(nestedSet.set);
+        transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof SkylarkList) {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
         contentType = getTypeAfterInsert(contentType, SkylarkType.of(object.getClass()), loc);
         checkImmutable(object, loc);
-        items.add(object);
+        itemsBuilder.add(object);
       }
     } else {
       throw new EvalException(
@@ -151,12 +150,14 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               "cannot union value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
     }
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
+    this.items = itemsBuilder.build();
+    this.transitiveItems = transitiveItemsBuilder.build();
 
     // Initializing the real nested set
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    builder.addAll(items);
+    builder.addAll(this.items);
     try {
-      for (NestedSet<?> nestedSet : transitiveItems) {
+      for (NestedSet<?> nestedSet : this.transitiveItems) {
         builder.addTransitive(nestedSet);
       }
     } catch (IllegalArgumentException e) {
@@ -164,8 +165,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       throw new EvalException(loc, e.getMessage());
     }
     this.set = builder.build();
-    this.items = ImmutableList.copyOf(items);
-    this.transitiveItems = ImmutableList.copyOf(transitiveItems);
   }
 
   /**
