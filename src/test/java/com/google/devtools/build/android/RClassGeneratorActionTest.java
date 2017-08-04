@@ -19,7 +19,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -111,20 +110,16 @@ public class RClassGeneratorActionTest {
 
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-            "--primaryRTxt",
-            binarySymbols.toString(),
-            "--primaryManifest",
-            binaryManifest.toString(),
-            "--libraries",
-            libFooSymbols
-                + File.pathSeparator
-                + libFooManifest
-                + ","
-                + libBarSymbols
-                + File.pathSeparator
-                + libBarManifest,
-            "--classJarOutput",
-            jarPath.toString())
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--library",
+                libBarSymbols + "," + libBarManifest,
+                "--classJarOutput",
+                jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
@@ -171,14 +166,10 @@ public class RClassGeneratorActionTest {
 
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-                "--libraries",
-                libFooSymbols
-                    + File.pathSeparator
-                    + libFooManifest
-                    + ","
-                    + libBarSymbols
-                    + File.pathSeparator
-                    + libBarManifest,
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--library",
+                libBarSymbols + "," + libBarManifest,
                 "--classJarOutput",
                 jarPath.toString())
             .toArray(new String[0]));
@@ -281,15 +272,16 @@ public class RClassGeneratorActionTest {
     Path jarPath = tempDir.resolve("app_resources.jar");
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-            "--primaryRTxt",
-            binarySymbols.toString(),
-            "--primaryManifest",
-            binaryManifest.toString(),
-            "--packageForR", "com.custom.er",
-            "--libraries",
-            libFooSymbols + File.pathSeparator + libFooManifest,
-            "--classJarOutput",
-            jarPath.toString())
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--packageForR",
+                "com.custom.er",
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--classJarOutput",
+                jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();

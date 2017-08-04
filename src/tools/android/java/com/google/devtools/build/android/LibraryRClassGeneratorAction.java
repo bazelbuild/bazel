@@ -105,7 +105,7 @@ public class LibraryRClassGeneratorAction {
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
-    options.symbols = PathListConverter.concatLists(options.symbols, options.deprecatedSymbols);
+    options.symbols = Converters.concatLists(options.symbols, options.deprecatedSymbols);
     logger.fine(
         String.format("Option parsing finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     try (ScopedTemporaryDirectory scopedTmp =

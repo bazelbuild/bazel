@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.File;
 import java.lang.reflect.ParameterizedType;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -177,10 +176,36 @@ public final class Converters {
     }
   }
 
+  /** Converter for a single {@link DependencySymbolFileProvider}. */
+  public static class DependencySymbolFileProviderConverter
+      implements Converter<DependencySymbolFileProvider> {
+
+    @Override
+    public DependencySymbolFileProvider convert(String input) throws OptionsParsingException {
+      try {
+        return DependencySymbolFileProvider.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return String.format(
+          "a dependency android data in the format: %s[%s]",
+          DependencySymbolFileProvider.commandlineFormat("1"),
+          DependencySymbolFileProvider.commandlineFormat("2"));
+    }
+  }
+
   /**
    * Converter for a list of {@link DependencySymbolFileProvider}. Relies on
    * {@code DependencySymbolFileProvider#valueOf(String)} to perform conversion and validation.
+   *
+   * @deprecated use multi-value flags and {@link DependencySymbolFileProviderConverter} instead.
    */
+  @Deprecated
   public static class DependencySymbolFileProviderListConverter
       implements Converter<List<DependencySymbolFileProvider>> {
 
@@ -288,19 +313,22 @@ public final class Converters {
     }
   }
 
+  public static <T> List<T> concatLists(
+      @Nullable List<? extends T> a, @Nullable List<? extends T> b) {
+    @SuppressWarnings("unchecked") List<T> la = (List<T>) a;
+    @SuppressWarnings("unchecked") List<T> lb = (List<T>) b;
+    if (la == null || la.isEmpty()) {
+      return (lb == null || lb.isEmpty()) ? ImmutableList.of() : lb;
+    }
+    return (lb == null || lb.isEmpty()) ? la : ImmutableList.copyOf(Iterables.concat(la, lb));
+  }
+
   /**
    * Validating converter for a list of Paths.
    * A Path is considered valid if it resolves to a file.
    */
   @Deprecated
   public static class PathListConverter implements Converter<List<Path>> {
-
-    public static List<Path> concatLists(@Nullable List<Path> a, @Nullable List<Path> b) {
-      if (a == null || a.isEmpty()) {
-        return (b == null || b.isEmpty()) ? ImmutableList.of() : b;
-      }
-      return (b == null || b.isEmpty()) ? a : ImmutableList.copyOf(Iterables.concat(a, b));
-    }
 
     private final PathConverter baseConverter;
 
@@ -315,7 +343,7 @@ public final class Converters {
     @Override
     public List<Path> convert(String input) throws OptionsParsingException {
       List<Path> list = new ArrayList<>();
-      for (String piece : input.split(File.pathSeparator)) {
+      for (String piece : input.split(":")) {
         if (!piece.isEmpty()) {
           list.add(baseConverter.convert(piece));
         }

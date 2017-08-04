@@ -1810,7 +1810,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(compilerAction.getMnemonic()).isEqualTo("RClassGenerator");
     List<String> args = compilerAction.getArguments();
     assertThat(args)
-        .containsAllOf("--primaryRTxt", "--primaryManifest", "--libraries", "--classJarOutput");
+        .containsAllOf("--primaryRTxt", "--primaryManifest", "--library", "--classJarOutput");
   }
 
   @Test
@@ -1853,7 +1853,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(compilerAction.getMnemonic()).isEqualTo("RClassGenerator");
     List<String> args = compilerAction.getArguments();
     assertThat(args)
-        .containsAllOf("--primaryRTxt", "--primaryManifest", "--libraries", "--classJarOutput",
+        .containsAllOf("--primaryRTxt", "--primaryManifest", "--library", "--classJarOutput",
             "--packageForR", "com.binary.custom");
   }
 

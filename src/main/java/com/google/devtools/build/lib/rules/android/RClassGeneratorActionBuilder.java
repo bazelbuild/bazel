@@ -100,9 +100,9 @@ public class RClassGeneratorActionBuilder {
     if (dependencies != null) {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
       Iterable<ResourceContainer> depResources = dependencies.getResources();
-      if (depResources.iterator().hasNext()) {
-        builder.addJoinStrings(
-            "--libraries", ",", Iterables.transform(depResources, chooseDepsToArg(version)));
+      if (!Iterables.isEmpty(depResources)) {
+        builder.addBeforeEach(
+            "--library", Iterables.transform(depResources, chooseDepsToArg(version)));
         inputs.addTransitive(
             NestedSetBuilder.wrap(
                 Order.NAIVE_LINK_ORDER,
@@ -159,7 +159,7 @@ public class RClassGeneratorActionBuilder {
       public String apply(ResourceContainer container) {
         Artifact rTxt = chooseRTxt(container, version);
         return (rTxt != null ? rTxt.getExecPath() : "")
-            + ":"
+            + ","
             + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
       }
     };
