@@ -52,12 +52,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final SandboxOptions sandboxOptions;
   private final ImmutableSet<Path> inaccessiblePaths;
 
-  public AbstractSandboxSpawnRunner(
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      SandboxOptions sandboxOptions) {
+  public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase) {
     this.sandboxBase = sandboxBase;
-    this.sandboxOptions = sandboxOptions;
+    this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getDirectories().getFileSystem());
   }
@@ -222,6 +219,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   protected ImmutableSet<Path> getInaccessiblePaths() {
     return inaccessiblePaths;
+  }
+
+  protected SandboxOptions getSandboxOptions() {
+    return sandboxOptions;
   }
 
   protected abstract String getName();

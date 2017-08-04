@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -43,14 +42,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
   ProcessWrapperSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
       Path sandboxBase,
       String productName,
       int timeoutGraceSeconds) {
-    super(
-        cmdEnv,
-        sandboxBase,
-        buildRequest.getOptions(SandboxOptions.class));
+    super(cmdEnv, sandboxBase);
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
     this.timeoutGraceSeconds = timeoutGraceSeconds;

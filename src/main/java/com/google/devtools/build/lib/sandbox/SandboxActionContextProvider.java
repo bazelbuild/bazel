@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnResult;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 
 /**
@@ -43,39 +43,42 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     this.contexts = contexts;
   }
 
-  public static SandboxActionContextProvider create(
-      CommandEnvironment cmdEnv, BuildRequest buildRequest, Path sandboxBase) throws IOException {
+  public static SandboxActionContextProvider create(CommandEnvironment cmdEnv, Path sandboxBase)
+      throws IOException {
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
+    OptionsProvider options = cmdEnv.getOptions();
     int timeoutGraceSeconds =
-        buildRequest.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
-    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
+        options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
+    boolean verboseFailures = options.getOptions(ExecutionOptions.class).verboseFailures;
     String productName = cmdEnv.getRuntime().getProductName();
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      SpawnRunner spawnRunner = withFallback(
-          cmdEnv,
-          new ProcessWrapperSandboxedSpawnRunner(
-              cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              new ProcessWrapperSandboxedSpawnRunner(
+                  cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
       contexts.add(new ProcessWrapperSandboxedStrategy(verboseFailures, spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on Linux.
     if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      SpawnRunner spawnRunner = withFallback(
-          cmdEnv,
-          LinuxSandboxedStrategy.create(cmdEnv, buildRequest, sandboxBase, timeoutGraceSeconds));
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv, LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutGraceSeconds));
       contexts.add(new LinuxSandboxedStrategy(verboseFailures, spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on macOS.
     if (DarwinSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      SpawnRunner spawnRunner = withFallback(
-          cmdEnv,
-          new DarwinSandboxedSpawnRunner(
-              cmdEnv, buildRequest, sandboxBase, productName, timeoutGraceSeconds));
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              new DarwinSandboxedSpawnRunner(
+                  cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
       contexts.add(new DarwinSandboxedStrategy(verboseFailures, spawnRunner));
     }
 

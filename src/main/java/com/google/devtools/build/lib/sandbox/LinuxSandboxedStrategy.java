@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -42,7 +41,6 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
 
   static LinuxSandboxedSpawnRunner create(
       CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
       Path sandboxBase,
       int timeoutGraceSeconds)
           throws IOException {
@@ -60,7 +58,6 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
 
     return new LinuxSandboxedSpawnRunner(
         cmdEnv,
-        buildRequest,
         sandboxBase,
         inaccessibleHelperFile,
         inaccessibleHelperDir,

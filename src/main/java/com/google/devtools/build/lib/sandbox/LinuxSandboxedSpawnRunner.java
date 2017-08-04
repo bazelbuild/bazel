@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
@@ -86,7 +85,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
-  private final SandboxOptions sandboxOptions;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean allowNetwork;
@@ -97,16 +95,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
-      BuildRequest buildRequest,
       Path sandboxBase,
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       int timeoutGraceSeconds) {
-    super(
-        cmdEnv,
-        sandboxBase,
-        buildRequest.getOptions(SandboxOptions.class));
-    this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
+    super(cmdEnv, sandboxBase);
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
@@ -157,7 +150,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     List<String> commandLineArgs = new ArrayList<>();
     commandLineArgs.add(linuxSandbox.getPathString());
 
-    if (sandboxOptions.sandboxDebug) {
+    if (getSandboxOptions().sandboxDebug) {
       commandLineArgs.add("-D");
     }
 
@@ -199,12 +192,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineArgs.add("-N");
     }
 
-    if (sandboxOptions.sandboxFakeHostname) {
+    if (getSandboxOptions().sandboxFakeHostname) {
       // Use a fake hostname ("localhost") inside the sandbox.
       commandLineArgs.add("-H");
     }
 
-    if (sandboxOptions.sandboxFakeUsername) {
+    if (getSandboxOptions().sandboxFakeUsername) {
       // Use a fake username ("nobody") inside the sandbox.
       commandLineArgs.add("-U");
     }
@@ -234,7 +227,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private ImmutableSet<Path> getTmpfsPaths() {
     ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
-    for (String tmpfsPath : sandboxOptions.sandboxTmpfsPath) {
+    for (String tmpfsPath : getSandboxOptions().sandboxTmpfsPath) {
       tmpfsPaths.add(blazeDirs.getFileSystem().getPath(tmpfsPath));
     }
     return tmpfsPaths.build();
@@ -251,7 +244,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       bindMounts.put(blazeDirs.getOutputBase(), blazeDirs.getOutputBase());
     }
     for (ImmutableMap.Entry<String, String> additionalMountPath :
-        sandboxOptions.sandboxAdditionalMounts) {
+        getSandboxOptions().sandboxAdditionalMounts) {
       try {
         final Path mountTarget = blazeDirs.getFileSystem().getPath(additionalMountPath.getValue());
         // If source path is relative, treat it as a relative path inside the execution root
