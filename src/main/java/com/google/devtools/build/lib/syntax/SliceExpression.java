@@ -88,9 +88,8 @@ public final class SliceExpression extends Expression {
     Location loc = getLocation();
 
     if (objValue instanceof SkylarkList) {
-      SkylarkList<?> list = (SkylarkList<?>) objValue;
-      Object slice = list.getSlice(startValue, endValue, stepValue, loc);
-      return SkylarkType.convertToSkylark(slice, env);
+      return ((SkylarkList<?>) objValue).getSlice(
+          startValue, endValue, stepValue, loc, env.mutability());
     } else if (objValue instanceof String) {
       String string = (String) objValue;
       List<Integer> indices = EvalUtils.getSliceIndices(startValue, endValue, stepValue,

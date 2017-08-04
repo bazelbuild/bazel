@@ -18,12 +18,13 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
-
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -79,24 +80,74 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
   }
 
   /**
-   * Base class for a {@link SkylarkMutable} that is also a {@link Collection}.
+   * Base class for a {@link SkylarkMutable} that implements a Java Collections Framework interface.
+   * All of the interface's accessors should be supported, while its mutating methods must be
+   * disallowed.
    *
-   * <p>The mutating methods from {@code Collection} are not supported.
+   * <p>Think of this as similar to {@link Collections#unmodifiableList}, etc., except that it's an
+   * extendable class rather than a method.
+   *
+   * <p>A subclass implements a specific data structure interface, say {@link List}, and refines the
+   * return type of {@link #getContentsUnsafe} to be that interface. The subclass implements all of
+   * the interface's accessors such that they defer to the result of {@code getContentsUnsafe}. The
+   * subclass implements final versions of all the interface's mutating methods such that they
+   * are marked {@code @Deprecated} and throw {@link UnsupportedOperationException}.
+   *
+   * <p>A concrete subclass may provide alternative mutating methods that take in a {@link
+   * Mutability} and validate that the mutation is allowed using {@link #checkMutable}. This
+   * validation must occur <em>before</em> the mutation, not after, in order to ensure that a frozen
+   * value cannot be mutated. (I.e., the fact that the check throws {@link EvalException} does not
+   * excuse us from illegally mutating a frozen value, since {@code EvalException} is not a fatal
+   * error.)
+   *
+   * <p>Subclasses need not overwrite the default methods added to some data structures in Java 8.
+   * since these are defined in terms of the non-default methods.
    */
-  abstract static class MutableCollection<E> extends SkylarkMutable implements Collection<E> {
-
-    protected MutableCollection() {}
+  abstract static class BaseMutableWrapper extends SkylarkMutable {
 
     /**
-     * The underlying contents is a (usually) mutable data structure.
-     * Read access is forwarded to these contents.
-     * This object must not be modified outside an {@link Environment}
-     * with a correct matching {@link Mutability},
-     * which should be checked beforehand using {@link #checkMutable}.
-     * it need not be an instance of {@link com.google.common.collect.ImmutableCollection}.
+     * The underlying contents, to which read access is forwarded. This object must not be modified
+     * without first calling {@link #checkMutable}.
      */
+    protected abstract Object getContentsUnsafe();
+
+    @Override
+    public boolean equals(Object o) {
+      return getContentsUnsafe().equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+      return getContentsUnsafe().hashCode();
+    }
+  }
+
+  /** Base class for a {@link SkylarkMutable} that is also a {@link Collection}. */
+  abstract static class MutableCollection<E> extends BaseMutableWrapper implements Collection<E> {
+
+    @Override
     protected abstract Collection<E> getContentsUnsafe();
 
+    // Reading methods of Collection, in alphabetic order.
+
+    @Override
+    public boolean contains(@Nullable Object object) {
+      return getContentsUnsafe().contains(object);
+    }
+
+    @Override
+    public boolean containsAll(Collection<?> collection) {
+      return getContentsUnsafe().containsAll(collection);
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return getContentsUnsafe().isEmpty();
+    }
+
+    // TODO(bazel-team): Is exposing this a mutability violation? Same for listIterator() and
+    // subList() below, as well as the entrySet(), keySet(), and values() map methods. Could address
+    // by returning views over a Collections.unmodifiableCollection(), etc.
     @Override
     public Iterator<E> iterator() {
       return getContentsUnsafe().iterator();
@@ -108,31 +159,16 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
 
     @Override
-    public final Object[] toArray() {
+    public Object[] toArray() {
       return getContentsUnsafe().toArray();
     }
 
     @Override
-    public final <T> T[] toArray(T[] other) {
+    public <T> T[] toArray(T[] other) {
       return getContentsUnsafe().toArray(other);
     }
 
-    @Override
-    public boolean isEmpty() {
-      return getContentsUnsafe().isEmpty();
-    }
-
-    @Override
-    public final boolean contains(@Nullable Object object) {
-      return getContentsUnsafe().contains(object);
-    }
-
-    @Override
-    public final boolean containsAll(Collection<?> collection) {
-      return getContentsUnsafe().containsAll(collection);
-    }
-
-    // Disable all mutation interfaces without a mutation context.
+    // (Disallowed) writing methods of Collection, in alphabetic order.
 
     @Deprecated
     @Override
@@ -143,6 +179,12 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     @Deprecated
     @Override
     public final boolean addAll(Collection<? extends E> collection) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Deprecated
+    @Override
+    public final void clear() {
       throw new UnsupportedOperationException();
     }
 
@@ -163,45 +205,80 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     public final boolean retainAll(Collection<?> collection) {
       throw new UnsupportedOperationException();
     }
+  }
+
+  /** Base class for a {@link SkylarkMutable} that is also a {@link List}. */
+  abstract static class BaseMutableList<E> extends MutableCollection<E> implements List<E> {
+
+    @Override
+    protected abstract List<E> getContentsUnsafe();
+
+    // Reading methods of List, in alphabetic order.
+
+    @Override
+    public E get(int i) {
+      return getContentsUnsafe().get(i);
+    }
+
+    @Override
+    public int indexOf(Object element) {
+      return getContentsUnsafe().indexOf(element);
+    }
+
+    @Override
+    public int lastIndexOf(Object element) {
+      return getContentsUnsafe().lastIndexOf(element);
+    }
+
+    @Override
+    public ListIterator<E> listIterator() {
+      return getContentsUnsafe().listIterator();
+    }
+
+    @Override
+    public ListIterator<E> listIterator(int index) {
+      return getContentsUnsafe().listIterator(index);
+    }
+
+    @Override
+    public List<E> subList(int fromIndex, int toIndex) {
+      return getContentsUnsafe().subList(fromIndex, toIndex);
+    }
+
+    // (Disallowed) writing methods of List, in alphabetic order.
 
     @Deprecated
     @Override
-    public final void clear() {
+    public final void add(int index, E element) {
       throw new UnsupportedOperationException();
     }
 
+    @Deprecated
     @Override
-    public boolean equals(Object o) {
-      return getContentsUnsafe().equals(o);
+    public final boolean addAll(int index, Collection<? extends E> elements) {
+      throw new UnsupportedOperationException();
     }
 
+    @Deprecated
     @Override
-    public int hashCode() {
-      return getContentsUnsafe().hashCode();
+    public final E remove(int index) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Deprecated
+    @Override
+    public final E set(int index, E element) {
+      throw new UnsupportedOperationException();
     }
   }
 
-  /**
-   * Base class for a {@link SkylarkMutable} that is also a {@link Map}.
-   *
-   * <p>The mutating methods from {@code Map} are not supported.
-   */
-  abstract static class MutableMap<K, V> extends SkylarkMutable implements Map<K, V> {
+  /** Base class for a {@link SkylarkMutable} that is also a {@link Map}. */
+  abstract static class MutableMap<K, V> extends BaseMutableWrapper implements Map<K, V> {
 
-    /**
-     * The underlying contents is a (usually) mutable data structure.
-     * Read access is forwarded to these contents.
-     * This object must not be modified outside an {@link Environment}
-     * with a correct matching {@link Mutability},
-     * which should be checked beforehand using {@link #checkMutable}.
-     */
+    @Override
     protected abstract Map<K, V> getContentsUnsafe();
 
-    // A SkylarkDict forwards all read-only access to the contents.
-    @Override
-    public final V get(Object key) {
-      return getContentsUnsafe().get(key);
-    }
+    // Reading methods of Map, in alphabetic order.
 
     @Override
     public boolean containsKey(Object key) {
@@ -214,8 +291,18 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
 
     @Override
-      public Set<Map.Entry<K, V>> entrySet() {
+    public Set<Map.Entry<K, V>> entrySet() {
       return getContentsUnsafe().entrySet();
+    }
+
+    @Override
+    public V get(Object key) {
+      return getContentsUnsafe().get(key);
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return getContentsUnsafe().isEmpty();
     }
 
     @Override
@@ -224,21 +311,22 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     }
 
     @Override
-    public Collection<V> values() {
-      return getContentsUnsafe().values();
-    }
-
-    @Override
     public int size() {
       return getContentsUnsafe().size();
     }
 
     @Override
-    public boolean isEmpty() {
-      return getContentsUnsafe().isEmpty();
+    public Collection<V> values() {
+      return getContentsUnsafe().values();
     }
 
-    // Disable all mutation interfaces without a mutation context.
+    // (Disallowed) writing methods of Map, in alphabetic order.
+
+    @Deprecated
+    @Override
+    public final void clear() {
+      throw new UnsupportedOperationException();
+    }
 
     @Deprecated
     @Override
@@ -256,22 +344,6 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
     @Override
     public final V remove(Object key) {
       throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    @Override
-    public final void clear() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      return getContentsUnsafe().equals(o);
-    }
-
-    @Override
-    public int hashCode() {
-      return getContentsUnsafe().hashCode();
     }
   }
 }

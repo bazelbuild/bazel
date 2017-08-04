@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -291,17 +290,17 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof Tuple) && (rval instanceof Tuple)) {
-      return Tuple.copyOf(Iterables.concat((Tuple) lval, (Tuple) rval));
+      return Tuple.concat((Tuple<?>) lval, (Tuple<?>) rval);
     }
 
     if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
       if (isAugmented && env.getSemantics().incompatibleListPlusEqualsInplace) {
         @SuppressWarnings("unchecked")
         MutableList<Object> list = (MutableList) lval;
-        list.addAll((MutableList<?>) rval, location, env);
+        list.addAll((MutableList<?>) rval, location, env.mutability());
         return list;
       } else {
-        return MutableList.concat((MutableList<?>) lval, (MutableList<?>) rval, env);
+        return MutableList.concat((MutableList<?>) lval, (MutableList<?>) rval, env.mutability());
       }
     }
 
@@ -381,8 +380,8 @@ public final class BinaryOperatorExpression extends Expression {
         return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));
       } else if (otherFactor instanceof MutableList) {
         // Similar to Python, a factor < 1 leads to an empty string.
-        return MutableList.duplicate(
-            (MutableList<?>) otherFactor, Math.max(0, number.intValue()), env);
+        return MutableList.repeat(
+            (MutableList<?>) otherFactor, Math.max(0, number.intValue()), env.mutability());
       }
     }
     throw typeException(lval, rval, Operator.MULT, location);

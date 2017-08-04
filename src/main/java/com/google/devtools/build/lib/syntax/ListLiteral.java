@@ -105,7 +105,7 @@ public final class ListLiteral extends Expression {
       }
       result.add(element.eval(env));
     }
-    return isTuple() ? Tuple.copyOf(result) : new MutableList<>(result, env);
+    return isTuple() ? Tuple.copyOf(result) : MutableList.copyOf(env, result);
   }
 
   @Override

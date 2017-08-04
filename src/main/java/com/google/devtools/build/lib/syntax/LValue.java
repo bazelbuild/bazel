@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Collection;
@@ -119,9 +120,10 @@ public final class LValue extends ASTNode {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
       dict.put(key, value, loc, env);
-    } else if (object instanceof SkylarkList) {
-      SkylarkList<Object> list = (SkylarkList<Object>) object;
-      list.set(key, value, loc, env);
+    } else if (object instanceof MutableList) {
+      MutableList<Object> list = (MutableList<Object>) object;
+      int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
+      list.set(index, value, loc, env.mutability());
     } else {
       throw new EvalException(
           loc,
