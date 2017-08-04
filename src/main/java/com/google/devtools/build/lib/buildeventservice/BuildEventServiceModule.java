@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -184,7 +185,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Nullable
   private BuildEventTransport tryCreateBesTransport(T besOptions, AuthAndTLSOptions authTlsOptions,
       String buildRequestId, String invocationId, ModuleEnvironment moduleEnvironment, Clock clock,
-      PathConverter pathConverter, EventHandler commandLineReporter) {
+      PathConverter pathConverter, EventHandler commandLineReporter) throws IOException {
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
       return null;
@@ -222,7 +223,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   protected abstract Class<T> optionsClass();
 
   protected abstract BuildEventServiceClient createBesClient(T besOptions,
-      AuthAndTLSOptions authAndTLSOptions);
+      AuthAndTLSOptions authAndTLSOptions) throws IOException;
 
   protected abstract Set<String> whitelistedCommands();
 }

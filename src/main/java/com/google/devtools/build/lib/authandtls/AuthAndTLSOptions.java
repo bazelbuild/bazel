@@ -39,7 +39,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   @Option(
     name = "auth_scope",
-    defaultValue = "null",
+    defaultValue = "https://www.googleapis.com/auth/cloud-build-service",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
