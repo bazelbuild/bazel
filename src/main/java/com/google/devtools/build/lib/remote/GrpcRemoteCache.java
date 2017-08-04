@@ -49,6 +49,7 @@ import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -69,7 +70,7 @@ import java.util.concurrent.TimeUnit;
 @ThreadSafe
 public class GrpcRemoteCache implements RemoteActionCache {
   private final RemoteOptions options;
-  private final ChannelOptions channelOptions;
+  private final CallCredentials credentials;
   private final Channel channel;
   private final Retrier retrier;
 
@@ -79,32 +80,32 @@ public class GrpcRemoteCache implements RemoteActionCache {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   @VisibleForTesting
-  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options,
+  public GrpcRemoteCache(Channel channel, CallCredentials credentials, RemoteOptions options,
       Retrier retrier) {
     this.options = options;
-    this.channelOptions = channelOptions;
+    this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
 
-    uploader = new ByteStreamUploader(options.remoteInstanceName, channel,
-        channelOptions.getCallCredentials(), options.remoteTimeout, retrier, retryScheduler);
+    uploader = new ByteStreamUploader(options.remoteInstanceName, channel, credentials,
+        options.remoteTimeout, retrier, retryScheduler);
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
     return ContentAddressableStorageGrpc.newBlockingStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials())
+        .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
   private ByteStreamBlockingStub bsBlockingStub() {
     return ByteStreamGrpc.newBlockingStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials())
+        .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
   private ActionCacheBlockingStub acBlockingStub() {
     return ActionCacheGrpc.newBlockingStub(channel)
-        .withCallCredentials(channelOptions.getCallCredentials())
+        .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 

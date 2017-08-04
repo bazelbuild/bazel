@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import java.io.IOException;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -97,23 +100,19 @@ public final class RemoteModule extends BlazeModule {
     }
 
     try {
-      ChannelOptions channelOpts = ChannelOptions.create(authAndTlsOptions);
-
       boolean restCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
 
       Retrier retrier = new Retrier(remoteOptions);
+      CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
       final RemoteActionCache cache;
       if (restCache) {
         cache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-      } else if (grpcCache) {
-        cache = new GrpcRemoteCache(GrpcUtils.createChannel(remoteOptions.remoteCache, channelOpts),
-            channelOpts, remoteOptions, retrier);
-      } else if (remoteOptions.remoteExecutor != null) {
+      } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
-        cache =
-            new GrpcRemoteCache(GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOpts),
-                channelOpts, remoteOptions, retrier);
+        String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
+        Channel ch = GrpcUtils.newChannel(target, authAndTlsOptions);
+        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier);
       } else {
         cache = null;
       }
@@ -121,8 +120,8 @@ public final class RemoteModule extends BlazeModule {
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
         executor = new GrpcRemoteExecutor(
-            GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOpts),
-            channelOpts.getCallCredentials(),
+            GrpcUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
+            creds,
             remoteOptions.remoteTimeout,
             retrier);
       } else {

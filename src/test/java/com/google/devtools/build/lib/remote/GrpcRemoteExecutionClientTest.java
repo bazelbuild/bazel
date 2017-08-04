@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -67,6 +68,7 @@ import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -216,10 +218,10 @@ public class GrpcRemoteExecutionClientTest {
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
-    ChannelOptions defaultOpts =
-        ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class));
+    CallCredentials creds =
+        GrpcUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, defaultOpts, options, retrier);
+        new GrpcRemoteCache(channel, creds, options, retrier);
     client = new RemoteSpawnRunner(execRoot, options, null, true, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
