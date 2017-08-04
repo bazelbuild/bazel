@@ -352,6 +352,11 @@ toolchain {
     }
   }
 
+  # This feature indicates strip is not supported, building stripped binary will just result a copy of orignial binary
+  feature {
+    name: 'no_stripping'
+  }
+
   action_config {
     config_name: 'c-compile'
     action_name: 'c-compile'
@@ -441,6 +446,7 @@ toolchain {
     implies: 'linker_param_file'
     implies: 'msvc_env'
     implies: 'use_linker'
+    implies: 'no_stripping'
   }
 
   action_config {
@@ -459,6 +465,7 @@ toolchain {
     implies: 'linker_param_file'
     implies: 'msvc_env'
     implies: 'use_linker'
+    implies: 'no_stripping'
   }
 
   action_config {

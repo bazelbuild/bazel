@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -614,6 +615,16 @@ public class CppHelper {
       Artifact input,
       Artifact output,
       FeatureConfiguration featureConfiguration) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
+      context.registerAction(
+          new SymlinkAction(
+              context.getActionOwner(),
+              input,
+              output,
+              "Symlinking original binary as stripped binary"));
+      return;
+    }
+
     if (!featureConfiguration.actionIsConfigured(CppCompileAction.STRIP_ACTION_NAME)) {
       context.ruleError("Expected action_config for 'strip' to be configured.");
       return;
