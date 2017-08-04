@@ -100,6 +100,13 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         .containsExactlyElementsIn(
             new ImmutableList.Builder<String>()
                 .add("tools/osx/crosstool/ios/" + WRAPPED_CLANG)
+                .add("-arch armv7")
+                .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
+                .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
+                .add("-fobjc-link-runtime")
+                .add("-ObjC")
+                .add("-filelist " + execPathEndingWith(action.getInputs(), "bin-linker.objlist"))
+                .add("-o " + Iterables.getOnlyElement(Artifact.toExecPaths(action.getOutputs())))
                 .add("-F" + AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
                 .add("-F" + frameworkDir(platform))
                 .add("-isysroot")
@@ -109,13 +116,6 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
                 .add("-target", "armv7-apple-ios")
                 .add("-miphoneos-version-min=" + DEFAULT_IOS_SDK_VERSION)
                 .addAll(automaticSdkFrameworks())
-                .add("-arch armv7")
-                .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
-                .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
-                .add("-fobjc-link-runtime")
-                .add("-ObjC")
-                .add("-filelist " + execPathEndingWith(action.getInputs(), "bin-linker.objlist"))
-                .add("-o " + Iterables.getOnlyElement(Artifact.toExecPaths(action.getOutputs())))
                 .build())
         .inOrder();
   }

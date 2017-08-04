@@ -869,23 +869,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -1029,24 +1015,7 @@ toolchain {
     }
   }
   feature {
-    name: "copts"
-    flag_set {
-      action: "assemble"
-      action: "preprocess-assemble"
-      action: "c-compile"
-      action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
-      action: "c++-module-compile"
-      action: "c++-module-codegen"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
-      }
-      expand_if_all_available: "copts"
-    }
+    name: "cpp_linker_flags"
   }
   feature {
     name: "apply_implicit_frameworks"
@@ -1066,6 +1035,32 @@ toolchain {
       flag_group {
         flag: "-framework Cocoa"
       }
+    }
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
+    name: "copts"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{copts}"
+        iterate_over: "copts"
+      }
+      expand_if_all_available: "copts"
     }
   }
   action_config {
@@ -2370,23 +2365,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -2531,6 +2512,39 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fexceptions"
+        flag: "-fasm-blocks"
+        flag: "-fobjc-abi-version=2"
+        flag: "-fobjc-legacy-dispatch"
+      }
+    }
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -2548,30 +2562,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
-    }
-  }
-  feature {
-    name: "apply_simulator_compiler_flags"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fexceptions"
-        flag: "-fasm-blocks"
-        flag: "-fobjc-abi-version=2"
-        flag: "-fobjc-legacy-dispatch"
-      }
     }
   }
   action_config {
@@ -3880,23 +3870,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -4041,6 +4017,39 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fexceptions"
+        flag: "-fasm-blocks"
+        flag: "-fobjc-abi-version=2"
+        flag: "-fobjc-legacy-dispatch"
+      }
+    }
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -4058,30 +4067,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
-    }
-  }
-  feature {
-    name: "apply_simulator_compiler_flags"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fexceptions"
-        flag: "-fasm-blocks"
-        flag: "-fobjc-abi-version=2"
-        flag: "-fobjc-legacy-dispatch"
-      }
     }
   }
   action_config {
@@ -5389,23 +5374,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -5550,23 +5521,17 @@ toolchain {
     }
   }
   feature {
-    name: "copts"
+    name: "cpp_linker_flags"
     flag_set {
-      action: "assemble"
-      action: "preprocess-assemble"
-      action: "c-compile"
-      action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
-      action: "c++-module-compile"
-      action: "c++-module-codegen"
-      action: "objc-compile"
-      action: "objc++-compile"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "-lc++"
+        flag: "-undefined"
+        flag: "dynamic_lookup"
+        flag: "-target"
+        flag: "x86_64-apple-tvos"
       }
-      expand_if_all_available: "copts"
     }
   }
   feature {
@@ -5579,6 +5544,9 @@ toolchain {
         flag: "-framework UIKit"
       }
     }
+  }
+  feature {
+    name: "link_cocoa"
   }
   feature {
     name: "apply_simulator_compiler_flags"
@@ -5609,17 +5577,23 @@ toolchain {
     }
   }
   feature {
-    name: "cpp_linker_flags"
+    name: "copts"
     flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
       flag_group {
-        flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
-        flag: "-target"
-        flag: "x86_64-apple-tvos"
+        flag: "%{copts}"
+        iterate_over: "copts"
       }
+      expand_if_all_available: "copts"
     }
   }
   action_config {
@@ -6935,23 +6909,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -7096,6 +7056,39 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fexceptions"
+        flag: "-fasm-blocks"
+        flag: "-fobjc-abi-version=2"
+        flag: "-fobjc-legacy-dispatch"
+      }
+    }
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -7113,30 +7106,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
-    }
-  }
-  feature {
-    name: "apply_simulator_compiler_flags"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fexceptions"
-        flag: "-fasm-blocks"
-        flag: "-fobjc-abi-version=2"
-        flag: "-fobjc-legacy-dispatch"
-      }
     }
   }
   action_config {
@@ -8443,23 +8412,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -8604,6 +8559,29 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -8621,17 +8599,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
     }
   }
   action_config {
@@ -9938,23 +9905,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -10099,6 +10052,29 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -10116,17 +10092,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
     }
   }
   action_config {
@@ -11432,23 +11397,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -11593,23 +11544,17 @@ toolchain {
     }
   }
   feature {
-    name: "copts"
+    name: "cpp_linker_flags"
     flag_set {
-      action: "assemble"
-      action: "preprocess-assemble"
-      action: "c-compile"
-      action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
-      action: "c++-module-compile"
-      action: "c++-module-codegen"
-      action: "objc-compile"
-      action: "objc++-compile"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "-lc++"
+        flag: "-undefined"
+        flag: "dynamic_lookup"
+        flag: "-target"
+        flag: "arm64-apple-tvos"
       }
-      expand_if_all_available: "copts"
     }
   }
   feature {
@@ -11622,6 +11567,12 @@ toolchain {
         flag: "-framework UIKit"
       }
     }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
   }
   feature {
     name: "unfiltered_cxx_flags"
@@ -11639,17 +11590,23 @@ toolchain {
     }
   }
   feature {
-    name: "cpp_linker_flags"
+    name: "copts"
     flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
       flag_group {
-        flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
-        flag: "-target"
-        flag: "arm64-apple-tvos"
+        flag: "%{copts}"
+        iterate_over: "copts"
       }
+      expand_if_all_available: "copts"
     }
   }
   action_config {
@@ -12963,23 +12920,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -13124,6 +13067,29 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -13141,17 +13107,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
     }
   }
   action_config {
@@ -14462,23 +14417,9 @@ toolchain {
   }
   feature {
     name: "bitcode_embedded"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode"
-      }
-    }
   }
   feature {
     name: "bitcode_embedded_markers"
-    flag_set {
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fembed-bitcode-marker"
-      }
-    }
   }
   feature {
     name: "objc_arc"
@@ -14623,6 +14564,29 @@ toolchain {
     }
   }
   feature {
+    name: "cpp_linker_flags"
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+        flag: "-framework UIKit"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
     name: "copts"
     flag_set {
       action: "assemble"
@@ -14640,17 +14604,6 @@ toolchain {
         iterate_over: "copts"
       }
       expand_if_all_available: "copts"
-    }
-  }
-  feature {
-    name: "apply_implicit_frameworks"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-framework Foundation"
-        flag: "-framework UIKit"
-      }
     }
   }
   action_config {
