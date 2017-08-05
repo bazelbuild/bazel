@@ -114,7 +114,7 @@ cc_binary(
 ```
 
 In our example, the `hello-world` target instantiates Bazel's built-in
-[`cc_binary` rule](docs/be/c-cpp.html#cc_binary). The rule tells Bazel to build
+[`cc_binary` rule](be/c-cpp.html#cc_binary). The rule tells Bazel to build
 a self-contained executable binary from the `hello-world.cc` source file with no
 dependencies.
 
