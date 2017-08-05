@@ -29,8 +29,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
@@ -86,19 +88,24 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(filesToBuild.build())
-        .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
-        .addOutputGroup(
-            OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .addProvider(dependencyArgsProviders)
-        .addProvider(sourceJarsProvider)
-        .addProvider(javaRunfilesProvider)
-        .addProvider(JavaRuleOutputJarsProvider.EMPTY)
-        .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
-        .addNativeDeclaredProvider(javaProvider)
-        .build();
+    RuleConfiguredTargetBuilder result =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .setFilesToBuild(filesToBuild.build())
+            .addSkylarkTransitiveInfo(
+                JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+            .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+            .addOutputGroup(
+                OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
+            .addProvider(dependencyArgsProviders)
+            .addProvider(sourceJarsProvider)
+            .addProvider(javaRunfilesProvider)
+            .addProvider(JavaRuleOutputJarsProvider.EMPTY)
+            .addNativeDeclaredProvider(javaProvider);
+
+    if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {
+      result.addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()));
+    }
+
+    return result.build();
   }
 }

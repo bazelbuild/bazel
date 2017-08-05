@@ -163,6 +163,7 @@ public final class JavaConfiguration extends Fragment {
   private final Label javaToolchain;
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
+  private final boolean jplPropagateCcLinkParamsStore;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean legacyBazelJavaTest;
@@ -194,6 +195,7 @@ public final class JavaConfiguration extends Fragment {
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
+    this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -413,5 +415,9 @@ public final class JavaConfiguration extends Fragment {
 
   public boolean strictDepsJavaProtos() {
     return strictDepsJavaProtos;
+  }
+
+  public boolean jplPropagateCcLinkParamsStore() {
+    return jplPropagateCcLinkParamsStore;
   }
 }

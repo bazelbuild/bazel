@@ -30,6 +30,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -493,6 +494,17 @@ public class JavaOptions extends FragmentOptions {
   )
   public OneVersionEnforcementLevel enforceOneVersion;
 
+  @Option(
+    name = "jplPropagateCcLinkParamsStore",
+    defaultValue = "false",
+    category = "rollout",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE."
+  )
+  public boolean jplPropagateCcLinkParamsStore;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();
@@ -517,6 +529,8 @@ public class JavaOptions extends FragmentOptions {
     host.strictJavaDeps = strictJavaDeps;
 
     host.enforceOneVersion = enforceOneVersion;
+
+    host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
     return host;
   }
