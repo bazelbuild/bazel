@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
@@ -241,5 +244,43 @@ public class SkylarkListTest extends EvaluationTestCase {
     assertThat(eval("() == ()")).isEqualTo(true);
     assertThat(eval("() == (1,)")).isEqualTo(false);
     assertThat(eval("(1) == (1,)")).isEqualTo(false);
+  }
+
+  @Test
+  public void testMutatorsCheckMutability() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    mutability.freeze();
+
+    try {
+      list.add(4, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+    try {
+      list.add(0, 4, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+    try {
+      list.addAll(ImmutableList.of(4, 5, 6), null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+    try {
+      list.remove(0, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+    try {
+      list.set(0, 10, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
   }
 }

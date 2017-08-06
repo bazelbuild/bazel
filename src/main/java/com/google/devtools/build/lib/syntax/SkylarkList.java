@@ -51,26 +51,6 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   public abstract ImmutableList<E> getImmutableList();
 
   /**
-   * Returns a List object with the current underlying contents of this SkylarkList.
-   * This object must not be mutated, but need not be an {@link ImmutableList}.
-   * Indeed it can sometimes be a {@link GlobList}.
-   */
-  // TODO(bazel-team): move GlobList out of Skylark, into an extension.
-  // TODO(bazel-team): Remove this function, prefer getImmutableList()? Looks like a possible source
-  // of mutability bugs.
-  public abstract List<E> getContents();
-
-  // For subList, use the immutable getContents() rather than getContentsUnsafe,
-  // to prevent subsequent mutation. To get a mutable SkylarkList,
-  // use a method that takes a Mutability into account.
-  @Override
-  public List<E> subList(int fromIndex, int toIndex) {
-    // TODO(bazel-team): remove this, use the version in BaseMutableList instead, fix that version
-    // to make a copy if that's what's needed here.
-    return getContents().subList(fromIndex, toIndex);
-  }
-
-  /**
    * Retrieve an entry from a SkylarkList.
    *
    * @param key the index
@@ -241,6 +221,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     // TODO(bazel-team): make data structures *and binary operators* extensible
     // (via e.g. interface classes for each binary operator) so that GlobList
     // can be implemented outside of the core of Skylark.
+    // TODO(bazel-team): move GlobList out of Skylark, into an extension.
     @Nullable private GlobList<E> globList;
 
     private final Mutability mutability;
@@ -355,19 +336,6 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     @Override
     public ImmutableList<E> getImmutableList() {
       return ImmutableList.copyOf(contents);
-    }
-
-    /**
-     * Returns the {@link GlobList} if there is one, otherwise an {@link ImmutableList} copy of the
-     * regular contents.
-     */
-    @Override
-    @SuppressWarnings("unchecked")
-    public List<E> getContents() {
-      if (globList != null) {
-        return globList;
-      }
-      return getImmutableList();
     }
 
     @Override
@@ -594,11 +562,6 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     @Override
     public ImmutableList<E> getImmutableList() {
-      return contents;
-    }
-
-    @Override
-    public List<E> getContents() {
       return contents;
     }
 
