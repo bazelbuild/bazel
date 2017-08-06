@@ -469,6 +469,23 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("-4 * [1, 2]", MutableList.empty());
   }
 
+  @Test
+  public void testTupleMultiply() throws Exception {
+    newTest()
+        .testStatement("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
+        .testStatement("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
+        .testStatement("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
+        .testStatement("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
+        .testStatement("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
+        .testStatement("(    ) * 10", Tuple.empty())
+        .testStatement("(1, 2) * 0", Tuple.empty())
+        .testStatement("(1, 2) * -4", Tuple.empty())
+        .testStatement(" 2 * (1, 2)", Tuple.of(1, 2, 1, 2))
+        .testStatement("10 * ()", Tuple.empty())
+        .testStatement(" 0 * (1, 2)", Tuple.empty())
+        .testStatement("-4 * (1, 2)", Tuple.empty());
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void testSelectorListConcatenation() throws Exception {

@@ -373,15 +373,14 @@ public final class BinaryOperatorExpression extends Expression {
         if (env.getSemantics().incompatibleCheckedArithmetic) {
           return Math.multiplyExact(number, (Integer) otherFactor);
         } else {
-          return number.intValue() * ((Integer) otherFactor).intValue();
+          return number * ((Integer) otherFactor);
         }
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
-        return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));
-      } else if (otherFactor instanceof MutableList) {
+        return Strings.repeat((String) otherFactor, Math.max(0, number));
+      } else if (otherFactor instanceof SkylarkList) {
         // Similar to Python, a factor < 1 leads to an empty string.
-        return MutableList.repeat(
-            (MutableList<?>) otherFactor, Math.max(0, number.intValue()), env.mutability());
+        return ((SkylarkList<?>) otherFactor).repeat(number, env.mutability());
       }
     }
     throw typeException(lval, rval, Operator.MULT, location);

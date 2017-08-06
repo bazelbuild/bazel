@@ -75,7 +75,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * Constructs an {@link ImmutableList} containing the items in a slice of the given list.
+   * Constructs an {@link ImmutableList} containing the items in a slice of the given {@code
+   * SkylarkList}.
    *
    * @see EvalUtils#getSliceIndices
    * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
@@ -94,12 +95,39 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   /**
    * Constructs a version of this {@code SkylarkList} containing just the items in a slice.
    *
+   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
+   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
+   *
    * @see EvalUtils#getSliceIndices
    * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
    */
   public abstract SkylarkList<E> getSlice(
       Object start, Object end, Object step, Location loc, Mutability mutability)
       throws EvalException;
+
+  /**
+   * Constructs an {@link ImmutableList} containing the items in a repetition of the given {@code
+   * SkylarkList}.
+   *
+   * <p>A repetition is produced by concatenating the list with itself {@code times - 1} many times.
+   * If {@code times} is 1, the new list's contents are the same as the original list. If {@code
+   * times} is <= 0, an empty list is returned.
+   */
+  public static <T> ImmutableList<T> repeatContents(SkylarkList<? extends T> list, int times) {
+    ImmutableList.Builder<T> builder = ImmutableList.builder();
+    for (int i = 0; i < times; i++) {
+      builder.addAll(list);
+    }
+    return builder.build();
+  }
+
+  /**
+   * Constructs a repetition of this {@code SkylarkList}.
+   *
+   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
+   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
+   */
+  public abstract SkylarkList<E> repeat(int times, Mutability mutability);
 
   @Override
   public void repr(SkylarkPrinter printer) {
@@ -362,6 +390,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
             left.size() + right.size(),
             mutability);
       } else {
+        // Preserve glob criteria.
         return new MutableList<>(
             GlobList.concat(
                 left.getGlobListOrContentsUnsafe(),
@@ -370,38 +399,25 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       }
     }
 
-    /**
-     * Creates a new {@code MutableList} by concatenating {@code list} with itself {@code times - 1}
-     * many times. If {@code times} is 1, the new list's contents are the same as {@code list}. If
-     * {@code times} is <= 0, an empty list is returned. {@code mutability} will be used for the
-     * resulting list; if it is null, the list will be immutable.
-     */
-    public static <T> MutableList<T> repeat(
-        MutableList<? extends T> list, int times, Mutability mutability) {
-      if (times <= 0) {
-        return new MutableList<>(ImmutableList.of(), mutability);
-      }
-
-      if (list.getGlobList() == null) {
-        Iterable<? extends T> iterable = list;
-        for (int i = 1; i < times; i++) {
-          iterable = Iterables.concat(iterable, list);
-        }
-        return new MutableList<>(iterable, list.size() * times, mutability);
+    @Override
+    public MutableList<E> repeat(int times, Mutability mutability) {
+      if (getGlobList() == null) {
+        return new MutableList<>(repeatContents(this, times), mutability);
       } else {
-        List<? extends T> globs = list.getGlobListOrContentsUnsafe();
-        List<? extends T> original = globs;
-        for (int i = 1; i < times; i++) {
-          globs = GlobList.concat(globs, original);
+        if (times <= 0) {
+          return new MutableList<>(ImmutableList.of(), mutability);
+        } else {
+          // Preserve glob criteria.
+          List<? extends E> globs = getGlobListOrContentsUnsafe();
+          List<? extends E> original = globs;
+          for (int i = 1; i < times; i++) {
+            globs = GlobList.concat(globs, original);
+          }
+          return new MutableList<>(globs, mutability);
         }
-        return new MutableList<>(globs, mutability);
       }
     }
 
-    /**
-     * Constructs a sublist using slicing, in the given {@link Mutability}. If {@code mutability}
-     * is null, the resulting list is immutable.
-     */
     @Override
     public MutableList<E> getSlice(
         Object start, Object end, Object step, Location loc, Mutability mutability)
@@ -580,16 +596,16 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
           .build());
     }
 
-    /**
-     * Constructs a subtuple using slicing.
-     *
-     * <p>{@code mutability} is ignored, since all tuples are immutable.
-     */
     @Override
     public Tuple<E> getSlice(
         Object start, Object end, Object step, Location loc, Mutability mutability)
         throws EvalException {
       return copyOf(getSliceContents(this, start, end, step, loc));
+    }
+
+    @Override
+    public Tuple<E> repeat(int times, Mutability mutability) {
+      return copyOf(repeatContents(this, times));
     }
   }
 }
