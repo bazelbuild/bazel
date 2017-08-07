@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  *
  * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
  * analyzed rule. For more information about how analysis works, see {@link
- * com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**

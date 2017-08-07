@@ -18,7 +18,7 @@ package com.google.devtools.build.lib.analysis;
  * Contains rolled-up data about the transitive closure of a configured target.
  *
  * For more information about how analysis works, see
- * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  * TransitiveInfoProviders need to be serializable, and for that reason they must conform to
  * the following restrictions:
  *
@@ -57,7 +57,7 @@ package com.google.devtools.build.lib.analysis;
  * implementation of NestedSet you pick.
  *
  * @see TransitiveInfoCollection
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public interface TransitiveInfoProvider {
 

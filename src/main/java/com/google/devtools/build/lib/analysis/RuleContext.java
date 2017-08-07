@@ -109,7 +109,7 @@ import javax.annotation.Nullable;
  * are not persisted that check the name of this class, so update those tests if you change this
  * class's name.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {

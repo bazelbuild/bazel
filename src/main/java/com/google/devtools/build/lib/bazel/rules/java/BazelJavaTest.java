@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaBinary;
 
 /**

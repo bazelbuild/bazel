@@ -95,7 +95,7 @@ package com.google.devtools.build.lib.packages;
  *  See also {@link com.google.devtools.build.lib.skyframe.AspectFunction} for details
  *  on Skyframe treatment of Aspects.
  *
- *  @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ *  @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  *  @see com.google.devtools.build.lib.skyframe.AspectFunction
  */
 public interface AspectClass {

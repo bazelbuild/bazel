@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
  * <p>For more information about aspects, see {@link
  * com.google.devtools.build.lib.packages.AspectClass}.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable

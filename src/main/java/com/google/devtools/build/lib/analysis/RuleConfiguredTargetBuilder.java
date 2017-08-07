@@ -52,9 +52,9 @@ import java.util.TreeMap;
  *
  * <p>This is used to tell Bazel which {@link TransitiveInfoProvider}s are produced by the analysis
  * of a configured target. For more information about analysis, see
- * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;

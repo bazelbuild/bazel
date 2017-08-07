@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
  * Implementation of the {@code cc_toolchain_alias} rule.
