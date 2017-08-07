@@ -138,7 +138,6 @@ class TransientBytes {
                 inflater->total_out() - old_total_out, out_bytes);
     }
     inflater->reset();
-    return;
   }
 
   // Writes the contents bytes to the given buffer in an optimal way, i.e., the
