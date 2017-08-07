@@ -17,6 +17,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -203,7 +204,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
       List<Label> visibilityLabels = visitTargetVisibility(target);
-      HashSet<Label> result = new HashSet<>(visibilityLabels.size() + 1);
+      HashSet<Label> result = Sets.newHashSetWithExpectedSize(visibilityLabels.size() + 1);
       result.add(rule.getLabel());
       result.addAll(visibilityLabels);
       return result;
@@ -212,7 +213,8 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     } else if (target instanceof Rule) {
       List<Label> visibilityLabels = visitTargetVisibility(target);
       Collection<Label> ruleLabels = visitRule(target);
-      HashSet<Label> result = new HashSet<>(visibilityLabels.size() + ruleLabels.size());
+      HashSet<Label> result =
+          Sets.newHashSetWithExpectedSize(visibilityLabels.size() + ruleLabels.size());
       result.addAll(visibilityLabels);
       result.addAll(ruleLabels);
       return result;
