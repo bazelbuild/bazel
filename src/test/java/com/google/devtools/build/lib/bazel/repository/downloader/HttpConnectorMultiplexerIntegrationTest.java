@@ -203,7 +203,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server3 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       for (final ServerSocket server : asList(server1, server2, server3)) {
-        executor.submit(
+        Future<?> unused = executor.submit(
             new Callable<Object>() {
               @Override
               public Object call() throws Exception {
