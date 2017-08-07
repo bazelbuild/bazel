@@ -199,6 +199,6 @@ public abstract class Parameter<V, T> extends Argument {
 
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
-    visitor.visit(this);
+    visitor.visit((Parameter<Expression, Expression>) this);
   }
 }

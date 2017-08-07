@@ -39,8 +39,10 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(@SuppressWarnings("unused") Parameter<?, ?> node) {
-    // leaf node (we need the function for overrides)
+  public void visit(Parameter<Expression, Expression> node) {
+    if (node.getDefaultValue() != null) {
+      visit(node.getDefaultValue());
+    }
   }
 
   public void visit(BuildFileAST node) {
@@ -122,7 +124,11 @@ public class SyntaxTreeVisitor {
 
   public void visit(FunctionDefStatement node) {
     visit(node.getIdentifier());
-    visitAll(node.getParameters());
+    // Do not use visitAll for the parameters, because we would lose the type information.
+    // Inside the AST, we know that Parameters are using Expressions.
+    for (Parameter<Expression, Expression> param : node.getParameters()) {
+      visit(param);
+    }
     visitAll(node.getStatements());
   }
 

@@ -301,6 +301,11 @@ public class BuildFileAST extends ASTNode {
         HashCode.fromBytes(file.getDigest()).toString(), eventHandler);
   }
 
+  public static BuildFileAST parseSkylarkFile(ParserInputSource input, EventHandler eventHandler) {
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, SKYLARK);
+    return create(ImmutableList.<Statement>of(), result, /*contentHashCode=*/ null, eventHandler);
+  }
+
   /**
    * Parse the specified non-build Skylark file but avoid the validation of the imports, returning
    * its AST. All errors during scanning or parsing will be reported to the reporter.
