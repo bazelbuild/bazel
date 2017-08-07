@@ -76,7 +76,8 @@ class LauncherTest(test_base.TestBase):
     if self.IsWindows():
       self.assertRegexpMatches(stdout[1], r'java_runfiles=.*foo\\foo.runfiles')
       self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
+      self.assertRegexpMatches(
+          stdout[3], r'^runfiles_manifest_file=[a-zA-Z]:[/\\].*MANIFEST$')
     else:
       self.assertRegexpMatches(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
       self.assertEqual(stdout[2], 'runfiles_manifest_only=')
@@ -150,7 +151,9 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'hello shell')
     if self.IsWindows():
       self.assertEqual(stdout[1], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(stdout[2], r'^runfiles_manifest_file.*MANIFEST$')
+      self.assertRegexpMatches(stdout[2],
+                               (r'^runfiles_manifest_file='
+                                r'[a-zA-Z]:/.*/foo/bin1.sh.runfiles/MANIFEST$'))
     else:
       # TODO(laszlocsomor): Find out whether the runfiles-related envvars should
       # be set on Linux (e.g. $RUNFILES, $RUNFILES_MANIFEST_FILE). Currently

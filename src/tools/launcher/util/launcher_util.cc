@@ -68,7 +68,9 @@ void PrintError(const char* format, ...) {
 }
 
 bool DoesFilePathExist(const char* path) {
-  DWORD dwAttrib = GetFileAttributes(path);
+  // TODO(laszlocsomor): convert `path` to (const wchar_t*), add longpath-prefix
+  // and use GetFileAttributesW.
+  DWORD dwAttrib = GetFileAttributesA(path);
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));

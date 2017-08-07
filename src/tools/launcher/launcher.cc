@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <windows.h>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -47,8 +48,12 @@ string BinaryLauncherBase::FindManifestFile(const char* argv0) {
   // Get the name of the binary
   string binary = GetBinaryPathWithoutExtension(argv0);
 
+  // The path will be set as the RUNFILES_MANIFEST_FILE envvar and used by the
+  // shell script, so let's convert backslashes to forward slashes.
+  std::replace(binary.begin(), binary.end(), '\\', '/');
+
   // Try to find <path to binary>.runfiles/MANIFEST
-  string manifest_file = binary + ".runfiles\\MANIFEST";
+  string manifest_file = binary + ".runfiles/MANIFEST";
   if (DoesFilePathExist(manifest_file.c_str())) {
     return manifest_file;
   }
@@ -64,6 +69,9 @@ string BinaryLauncherBase::FindManifestFile(const char* argv0) {
 
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
                                            const string& manifest_path) {
+  // TODO(laszlocsomor): prefix manifest_path with the longpath prefix.
+  // std::ifstream supports long paths, but only if they are in the correct
+  // format, e.g. "\\\\?\\c:\\imagine\\some\\very\\long\\path.txt".
   ifstream manifest_file(manifest_path.c_str());
 
   if (!manifest_file) {
