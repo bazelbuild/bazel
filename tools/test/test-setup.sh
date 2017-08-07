@@ -141,10 +141,12 @@ if [[ -z "$no_echo" ]]; then
 fi
 
 function encode_output_file {
-  # Replace invalid XML characters and invalid sequence in CDATA
-  # cf. https://stackoverflow.com/a/7774512/4717701
-  perl -CSDA -pe's/[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]+/?/g;' "$1" \
-    | sed 's|]]>|]]>]]<![CDATA[>|g'
+  if [ -f "$1" ]; then
+    # Replace invalid XML characters and invalid sequence in CDATA
+    # cf. https://stackoverflow.com/a/7774512/4717701
+    perl -CSDA -pe's/[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]+/?/g;' "$1" \
+      | sed 's|]]>|]]>]]<![CDATA[>|g'
+  fi
 }
 
 function write_xml_output_file {
