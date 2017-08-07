@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # pylint: disable=g-bad-file-header
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -113,6 +114,10 @@ class OldSdkException(Exception):
   """Raised when the SDK on the target device is older than the app allows."""
 
 
+class EnvvarError(Exception):
+  """Raised when a required environment variable is not set."""
+
+
 hostpath = os.path
 targetpath = posixpath
 
@@ -142,6 +147,14 @@ class Adb(object):
     env = {}
     if self._user_home_dir:
       env["HOME"] = self._user_home_dir
+
+    # On Windows, adb requires the SystemRoot environment variable.
+    if Adb._IsHostOsWindows():
+      value = os.getenv("SYSTEMROOT")
+      if not value:
+        raise EnvvarError(("The %SYSTEMROOT% environment variable must "
+                           "be set or Adb won't work"))
+      env["SYSTEMROOT"] = value
 
     adb = subprocess.Popen(
         args,
@@ -293,6 +306,10 @@ class Adb(object):
   def _Shell(self, cmd):
     """Invoke 'adb shell'."""
     return self._Exec(["shell", cmd])
+
+  @staticmethod
+  def _IsHostOsWindows():
+    return os.name == "nt"
 
 
 ManifestEntry = collections.namedtuple(
