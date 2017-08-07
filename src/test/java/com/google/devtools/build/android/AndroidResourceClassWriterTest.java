@@ -86,11 +86,11 @@ public class AndroidResourceClassWriterTest {
             "package com.carroll.lewis;",
             "public final class R {",
             "public static final class id {",
-            "public static int AdiosButton = 0x7f030000;",
-            "public static int HelloView = 0x7f030001;",
+            "public static int AdiosButton = 0x7f020000;",
+            "public static int HelloView = 0x7f020001;",
             "}",
             "public static final class layout {",
-            "public static int some_layout = 0x7f020000;",
+            "public static int some_layout = 0x7f030000;",
             "}",
             "}"
         );
@@ -99,17 +99,17 @@ public class AndroidResourceClassWriterTest {
         .withClass("com.carroll.lewis.R$id")
         .classContentsIsEqualTo(
             ImmutableMap.of(
-                "AdiosButton", 0x7f030000,
-                "HelloView", 0x7f030001),
-            ImmutableMap.<String, List<Integer>>of(),
+                "AdiosButton", 0x7f020000,
+                "HelloView", 0x7f020001),
+            ImmutableMap.of(),
             false
         );
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$layout")
         .classContentsIsEqualTo(
-            ImmutableMap.of("some_layout", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
+            ImmutableMap.of("some_layout", 0x7f030000),
+            ImmutableMap.of(),
             false
         );
   }
