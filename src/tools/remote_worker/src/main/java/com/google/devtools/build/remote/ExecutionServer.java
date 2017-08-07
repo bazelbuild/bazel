@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,6 +50,7 @@ import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -70,6 +72,8 @@ import java.util.logging.Logger;
 /** A basic implementation of an {@link ExecutionImplBase} service. */
 final class ExecutionServer extends ExecutionImplBase {
   private static final Logger logger = Logger.getLogger(ExecutionServer.class.getName());
+
+  private final Object lock = new Object();
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
@@ -200,41 +204,41 @@ final class ExecutionServer extends ExecutionImplBase {
             execRoot.getPathString());
     long startTime = System.currentTimeMillis();
     CommandResult cmdResult = null;
-    // Linux does not provide a safe API for a multi-threaded program to fork a subprocess. Consider
-    // the case where two threads both write an executable file and then try to execute it. It can
-    // happen that the first thread writes its executable file, with the file descriptor still
-    // being open when the second thread forks, with the fork inheriting a copy of the file
-    // descriptor. Then the first thread closes the original file descriptor, and proceeds to
-    // execute the file. At that point Linux sees an open file descriptor to the file and returns
-    // ETXTBSY (Text file busy) as an error. This race is inherent in the fork / exec duality, with
-    // fork always inheriting a copy of the file descriptor table; if there was a way to fork
-    // without copying the entire file descriptor table (e.g., only copy specific entries), we could
-    // avoid this race.
-    //
-    // I was able to reproduce this problem reliably by running significantly more threads than
-    // there are CPU cores on my workstation - the more threads the more likely it happens.
-    //
-    // As a workaround, we retry up to two times before we let the exception propagate.
-    int attempt = 0;
-    while (true) {
+
+    FutureCommandResult futureCmdResult = null;
+    synchronized (lock) {
+      // Linux does not provide a safe API for a multi-threaded program to fork a subprocess.
+      // Consider the case where two threads both write an executable file and then try to execute
+      // it. It can happen that the first thread writes its executable file, with the file
+      // descriptor still being open when the second thread forks, with the fork inheriting a copy
+      // of the file descriptor. Then the first thread closes the original file descriptor, and
+      // proceeds to execute the file. At that point Linux sees an open file descriptor to the file
+      // and returns ETXTBSY (Text file busy) as an error. This race is inherent in the fork / exec
+      // duality, with fork always inheriting a copy of the file descriptor table; if there was a
+      // way to fork without copying the entire file descriptor table (e.g., only copy specific
+      // entries), we could avoid this race.
+      //
+      // I was able to reproduce this problem reliably by running significantly more threads than
+      // there are CPU cores on my workstation - the more threads the more likely it happens.
+      //
+      // As a workaround, we put a synchronized block around the fork.
       try {
-        cmdResult =
-            cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdoutBuffer, stderrBuffer, true);
+        futureCmdResult = cmd
+            .executeAsynchronously(new ByteArrayInputStream(new byte[0]), Command.NO_OBSERVER,
+                stdoutBuffer, stderrBuffer, true, false);
+      } catch (CommandException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      }
+    }
+
+    if (futureCmdResult != null) {
+      try {
+        cmdResult = futureCmdResult.get();
       } catch (AbnormalTerminationException e) {
         cmdResult = e.getResult();
-      } catch (CommandException e) {
-        // As of this writing, the cause can only be an IOException from the underlying library.
-        IOException cause = (IOException) e.getCause();
-        if ((attempt++ < 3) && cause.getMessage().endsWith("Text file busy")) {
-          // We wait a bit to give the other forks some time to close their open file descriptors.
-          Thread.sleep(10);
-          continue;
-        } else {
-          throw cause;
-        }
       }
-      break;
     }
+
     long timeoutMillis =
         action.hasTimeout()
             ? Durations.toMillis(action.getTimeout())
