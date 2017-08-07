@@ -106,7 +106,7 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping,
   for entry_class in entry_classes.split(','):
     if entry_class not in header_mapping:
       raise Exception(entry_class +
-                      'is not in the transitive Java deps of included ' +
+                      ' is not in the transitive Java deps of included ' +
                       'j2objc_library rules.')
     transpiled_entry_files.append(header_mapping[entry_class])
 
