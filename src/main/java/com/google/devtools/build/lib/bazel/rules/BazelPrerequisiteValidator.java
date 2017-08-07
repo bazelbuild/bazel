@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */

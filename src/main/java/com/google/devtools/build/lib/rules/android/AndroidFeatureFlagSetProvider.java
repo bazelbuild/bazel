@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import java.util.Map;

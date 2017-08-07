@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**

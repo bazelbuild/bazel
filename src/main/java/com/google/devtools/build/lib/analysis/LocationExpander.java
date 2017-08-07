@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
