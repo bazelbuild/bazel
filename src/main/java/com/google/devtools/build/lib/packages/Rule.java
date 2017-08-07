@@ -473,13 +473,29 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    */
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
       throws LabelSyntaxException, InterruptedException {
+    populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ true);
+  }
+
+  void populateOutputFilesUnchecked(EventHandler eventHandler, Package.Builder pkgBuilder)
+      throws InterruptedException {
+    try {
+      populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ false);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  void populateOutputFilesInternal(
+      EventHandler eventHandler, Package.Builder pkgBuilder, boolean performChecks)
+      throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
     ImmutableList.Builder<OutputFile> outputFilesBuilder = ImmutableList.builder();
     ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder =
         ImmutableListMultimap.builder();
-    populateImplicitOutputFiles(eventHandler, pkgBuilder, outputFilesBuilder);
-    populateExplicitOutputFiles(eventHandler, outputFilesBuilder, outputFileMapBuilder);
+    populateImplicitOutputFiles(eventHandler, pkgBuilder, outputFilesBuilder, performChecks);
+    populateExplicitOutputFiles(
+        eventHandler, outputFilesBuilder, outputFileMapBuilder, performChecks);
     outputFiles = outputFilesBuilder.build();
     outputFileMap = outputFileMapBuilder.build();
   }
@@ -488,7 +504,8 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   private void populateExplicitOutputFiles(
       EventHandler eventHandler,
       ImmutableList.Builder<OutputFile> outputFilesBuilder,
-      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder)
+      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
+      boolean performChecks)
       throws LabelSyntaxException {
     NonconfigurableAttributeMapper nonConfigurableAttributes =
         NonconfigurableAttributeMapper.of(this);
@@ -499,11 +516,22 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
         Label outputLabel = nonConfigurableAttributes.get(name, BuildType.OUTPUT);
         if (outputLabel != null) {
           addLabelOutput(
-              attribute, outputLabel, eventHandler, outputFilesBuilder, outputFileMapBuilder);
+              attribute,
+              outputLabel,
+              eventHandler,
+              outputFilesBuilder,
+              outputFileMapBuilder,
+              performChecks);
         }
       } else if (type == BuildType.OUTPUT_LIST) {
         for (Label label : nonConfigurableAttributes.get(name, BuildType.OUTPUT_LIST)) {
-          addLabelOutput(attribute, label, eventHandler, outputFilesBuilder, outputFileMapBuilder);
+          addLabelOutput(
+              attribute,
+              label,
+              eventHandler,
+              outputFilesBuilder,
+              outputFileMapBuilder,
+              performChecks);
         }
       }
     }
@@ -516,23 +544,31 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   private void populateImplicitOutputFiles(
       EventHandler eventHandler,
       Package.Builder pkgBuilder,
-      ImmutableList.Builder<OutputFile> outputFilesBuilder)
+      ImmutableList.Builder<OutputFile> outputFilesBuilder,
+      boolean performChecks)
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
       for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
-        try {
-          addOutputFile(pkgBuilder.createLabel(out), eventHandler, outputFilesBuilder);
-        } catch (LabelSyntaxException e) {
-          reportError(
-              "illegal output file name '"
-                  + out
-                  + "' in rule "
-                  + getLabel()
-                  + " due to: "
-                  + e.getMessage(),
-              eventHandler);
+        Label label;
+        if (performChecks) {
+          try {
+            label = pkgBuilder.createLabel(out);
+          } catch (LabelSyntaxException e) {
+            reportError(
+                "illegal output file name '"
+                    + out
+                    + "' in rule "
+                    + getLabel()
+                    + " due to: "
+                    + e.getMessage(),
+                eventHandler);
+            continue;
+          }
+        } else {
+          label = Label.createUnvalidated(pkgBuilder.getPackageIdentifier(), out);
         }
+        addOutputFile(label, eventHandler, outputFilesBuilder);
       }
     } catch (EvalException e) {
       reportError(String.format("In rule %s: %s", getLabel(), e.print()), eventHandler);
@@ -544,16 +580,19 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       Label label,
       EventHandler eventHandler,
       ImmutableList.Builder<OutputFile> outputFilesBuilder,
-      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder)
+      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
+      boolean performChecks)
       throws LabelSyntaxException {
-    if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
-      throw new IllegalStateException("Label for attribute " + attribute
-          + " should refer to '" + pkg.getName()
-          + "' but instead refers to '" + label.getPackageFragment()
-          + "' (label '" + label.getName() + "')");
-    }
-    if (label.getName().equals(".")) {
-      throw new LabelSyntaxException("output file name can't be equal '.'");
+    if (performChecks) {
+      if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
+        throw new IllegalStateException("Label for attribute " + attribute
+            + " should refer to '" + pkg.getName()
+            + "' but instead refers to '" + label.getPackageFragment()
+            + "' (label '" + label.getName() + "')");
+      }
+      if (label.getName().equals(".")) {
+        throw new LabelSyntaxException("output file name can't be equal '.'");
+      }
     }
     OutputFile outputFile = addOutputFile(label, eventHandler, outputFilesBuilder);
     outputFileMapBuilder.put(attribute.getName(), outputFile);

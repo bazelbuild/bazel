@@ -1498,7 +1498,7 @@ public class RuleClass {
       Location location,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction)
-      throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
+      throws InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(
         ruleLabel,
         this,
@@ -1506,7 +1506,7 @@ public class RuleClass {
         attributeContainer,
         implicitOutputsFunction);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
-    rule.populateOutputFiles(NullEventHandler.INSTANCE, pkgBuilder);
+    rule.populateOutputFilesUnchecked(NullEventHandler.INSTANCE, pkgBuilder);
     return rule;
   }
 
