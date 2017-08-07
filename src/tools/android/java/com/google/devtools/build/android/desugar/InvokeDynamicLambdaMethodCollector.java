@@ -25,13 +25,27 @@ import org.objectweb.asm.Opcodes;
  * <p>Note that this class only collects lambda methods. If the invokedynamic is used for other
  * purposes, the methods used in the instruction are NOT collected.
  */
-public class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
+class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
 
-  private final ImmutableSet.Builder<MethodInfo> lambdaMethodsUsedInInvokeDyanmic =
+  private final ImmutableSet.Builder<MethodInfo> lambdaMethodsUsedInInvokeDynamic =
       ImmutableSet.builder();
+  private boolean needOuterClassRewrite = false;
 
   public InvokeDynamicLambdaMethodCollector() {
     super(Opcodes.ASM5);
+  }
+
+  /**
+   * Returns whether the visited class is declared in the scope of a lambda.  In that case
+   * {@link LambdaDesugaring} will want to rewrite the EnclosingMethod attribute of the class.
+   */
+  public boolean needOuterClassRewrite() {
+    return needOuterClassRewrite;
+  }
+
+  /** Returns methods referenced in invokedynamic instructions that use LambdaMetafactory. */
+  public ImmutableSet<MethodInfo> getLambdaMethodsUsedInInvokeDynamics() {
+    return lambdaMethodsUsedInInvokeDynamic.build();
   }
 
   @Override
@@ -39,6 +53,12 @@ public class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
       int access, String name, String desc, String signature, String[] exceptions) {
     MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
     return new LambdaMethodCollector(mv);
+  }
+
+  @Override
+  public void visitOuterClass(String owner, String name, String desc) {
+    needOuterClassRewrite = needOuterClassRewrite || (name != null && name.startsWith("lambda$"));
+    super.visitOuterClass(owner, name, desc);
   }
 
   private class LambdaMethodCollector extends MethodVisitor {
@@ -54,13 +74,9 @@ public class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
         return;
       }
       Handle handle = (Handle) bsmArgs[1];
-      lambdaMethodsUsedInInvokeDyanmic.add(
+      lambdaMethodsUsedInInvokeDynamic.add(
           MethodInfo.create(handle.getOwner(), handle.getName(), handle.getDesc()));
       super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
-  }
-
-  public ImmutableSet<MethodInfo> getLambdaMethodsUsedInInvokeDyanmic() {
-    return lambdaMethodsUsedInInvokeDyanmic.build();
   }
 }

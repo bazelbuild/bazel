@@ -387,9 +387,6 @@ class Desugar {
         // any danger of accidentally uncompressed resources ending up in an .apk.
         if (filename.endsWith(".class")) {
           ClassReader reader = rewriter.reader(content);
-          InvokeDynamicLambdaMethodCollector lambdaMethodCollector =
-              new InvokeDynamicLambdaMethodCollector();
-          reader.accept(lambdaMethodCollector, ClassReader.SKIP_DEBUG);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
               createClassVisitorsForClassesInInputs(
@@ -398,10 +395,14 @@ class Desugar {
                   bootclasspathReader,
                   interfaceLambdaMethodCollector,
                   writer,
-                  lambdaMethodCollector.getLambdaMethodsUsedInInvokeDyanmic());
-          reader.accept(visitor, 0);
-
-          outputFileProvider.write(filename, writer.toByteArray());
+                  reader);
+          if (writer == visitor) {
+            // Just copy the input if there are no rewritings
+            outputFileProvider.write(filename, reader.b);
+          } else {
+            reader.accept(visitor, 0);
+            outputFileProvider.write(filename, writer.toByteArray());
+          }
         } else {
           outputFileProvider.copyFrom(filename, inputFiles);
         }
@@ -435,6 +436,11 @@ class Desugar {
     for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
       try (InputStream bytecode = Files.newInputStream(lambdaClass.getKey())) {
         ClassReader reader = rewriter.reader(bytecode);
+        InvokeDynamicLambdaMethodCollector collector = new InvokeDynamicLambdaMethodCollector();
+        reader.accept(collector, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        ImmutableSet<MethodInfo> lambdaMethods = collector.getLambdaMethodsUsedInInvokeDynamics();
+        checkState(lambdaMethods.isEmpty(),
+            "Didn't expect to find lambda methods but found %s", lambdaMethods);
         UnprefixingClassWriter writer =
             rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
         ClassVisitor visitor =
@@ -536,7 +542,7 @@ class Desugar {
       ClassReaderFactory bootclasspathReader,
       Builder<String> interfaceLambdaMethodCollector,
       UnprefixingClassWriter writer,
-      ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDynamic) {
+      ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
     if (!allowTryWithResources) {
       visitor =
@@ -558,14 +564,23 @@ class Desugar {
           visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
         }
       }
-      visitor =
-          new LambdaDesugaring(
-              visitor,
-              loader,
-              lambdas,
-              interfaceLambdaMethodCollector,
-              lambdaMethodsUsedInInvokeDynamic,
-              allowDefaultMethods);
+      // LambdaDesugaring is relatively expensive, so check first whether we need it.  Additionally,
+      // we need to collect lambda methods referenced by invokedynamic instructions up-front anyway.
+      // TODO(kmb): Scan constant pool instead of visiting the class to find bootstrap methods etc.
+      InvokeDynamicLambdaMethodCollector collector = new InvokeDynamicLambdaMethodCollector();
+      input.accept(collector, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+      ImmutableSet<MethodInfo> methodsUsedInInvokeDynamics =
+          collector.getLambdaMethodsUsedInInvokeDynamics();
+      if (!methodsUsedInInvokeDynamics.isEmpty() || collector.needOuterClassRewrite()) {
+        visitor =
+            new LambdaDesugaring(
+                visitor,
+                loader,
+                lambdas,
+                interfaceLambdaMethodCollector,
+                methodsUsedInInvokeDynamics,
+                allowDefaultMethods);
+      }
     }
     return visitor;
   }
