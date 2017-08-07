@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTe
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
+import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -1462,10 +1462,10 @@ public class RuleClass {
    * {@link CannotPrecomputeDefaultsException}. All other errors are reported on {@code
    * eventHandler}.
    */
-  Rule createRule(
+  <T> Rule createRule(
       Package.Builder pkgBuilder,
       Label ruleLabel,
-      AttributeValuesMap attributeValues,
+      AttributeValues<T> attributeValues,
       EventHandler eventHandler,
       @Nullable FuncallExpression ast,
       Location location,
@@ -1491,10 +1491,10 @@ public class RuleClass {
    *
    * <p>Don't call this function unless you know what you're doing.
    */
-  Rule createRuleUnchecked(
+  <T> Rule createRuleUnchecked(
       Package.Builder pkgBuilder,
       Label ruleLabel,
-      AttributeValuesMap attributeValues,
+      AttributeValues<T> attributeValues,
       Location location,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction)
@@ -1517,10 +1517,10 @@ public class RuleClass {
    *
    * <p>Errors are reported on {@code eventHandler}.
    */
-  private void populateRuleAttributeValues(
+  private <T> void populateRuleAttributeValues(
       Rule rule,
       Package.Builder pkgBuilder,
-      AttributeValuesMap attributeValues,
+      AttributeValues<T> attributeValues,
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
@@ -1541,11 +1541,12 @@ public class RuleClass {
    * value for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported
    * on {@code eventHandler}.
    */
-  private BitSet populateDefinedRuleAttributeValues(
-      Rule rule, AttributeValuesMap attributeValues, EventHandler eventHandler) {
+  private <T> BitSet populateDefinedRuleAttributeValues(
+      Rule rule, AttributeValues<T> attributeValues, EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
-    for (String attributeName : attributeValues.getAttributeNames()) {
-      Object attributeValue = attributeValues.getAttributeValue(attributeName);
+    for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
+      String attributeName = attributeValues.getName(attributeAccessor);
+      Object attributeValue = attributeValues.getValue(attributeAccessor);
       // Ignore all None values.
       if (attributeValue == Runtime.NONE) {
         continue;
@@ -1575,7 +1576,7 @@ public class RuleClass {
         nativeAttributeValue = attributeValue;
       }
 
-      boolean explicit = attributeValues.isAttributeExplicitlySpecified(attributeName);
+      boolean explicit = attributeValues.isExplicitlySpecified(attributeAccessor);
       setRuleAttributeValue(rule, eventHandler, attr, nativeAttributeValue, explicit);
       definedAttrIndices.set(attrIndex);
     }
