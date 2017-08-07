@@ -19,15 +19,18 @@
 
 OUT=$1
 GENDIR=$2
-STRIP_PREFIX=$3
 
-shift 3
+shift 2
 
+# The Bazel and Google-internal locations of the bootclasspath entries are
+# unfortunately subtly different. The "local_jdk" rewrite is for Bazel, and
+# the "third_party" rewrite is for Google.
+# TODO(ulfjack): Find a way to unify this.
 BOOTCLASSPATH=$(echo "$*" | \
   tr " " "\n" | \
   sed "s|^${GENDIR}/||" | \
-  sed "s|external/||" | \
-  sed "s|^|${STRIP_PREFIX}|" | \
+  sed "s|^.*local_jdk|local_jdk|" | \
+  sed "s|^third_party|${PWD##*/}/third_party|" | \
   tr "\n" ":" | \
   sed "s/:$//"
 )
