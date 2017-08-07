@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -54,7 +53,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -302,17 +300,12 @@ public final class CppLinkAction extends AbstractAction
       executeFake();
     } else {
       try {
-        // Collect input files
-        List<ActionInput> allInputs = new ArrayList<>();
-        Artifact.addExpandedArtifacts(
-            getMandatoryInputs(), allInputs, actionExecutionContext.getArtifactExpander());
-
         Spawn spawn = new SimpleSpawn(
             this,
             ImmutableList.copyOf(getCommandLine()),
             getEnvironment(),
             getExecutionInfo(),
-            ImmutableList.copyOf(allInputs),
+            ImmutableList.copyOf(getMandatoryInputs()),
             getOutputs().asList(),
             estimateResourceConsumptionLocal());
         actionExecutionContext.getSpawnActionContext(getMnemonic())
