@@ -245,7 +245,7 @@ class InterfaceDesugaring extends ClassVisitor {
   }
 
   /**
-   * Interface field scanner to get the field of the current interface that is written in the
+   * Interface field scanner to get the first field of the current interface that is written in the
    * initializer.
    */
   private class InterfaceFieldWriteCollector extends MethodVisitor {
@@ -257,12 +257,10 @@ class InterfaceDesugaring extends ClassVisitor {
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
       if (interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit == null
-          && opcode == Opcodes.PUTSTATIC) {
-        checkState(
-            owner.equals(internalName),
-            "Expect only the fields in this interface to be initialized. owner=%s, expected=%s",
-            owner,
-            internalName);
+          && opcode == Opcodes.PUTSTATIC
+          && owner.equals(internalName)) {
+        // It is possible that an interface initializer can sets fields of other classes.
+        // (b/64290760), so we test whether the owner is the same as the internalName.
         interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit =
             FieldInfo.create(owner, name, desc);
       }
@@ -285,6 +283,7 @@ class InterfaceDesugaring extends ClassVisitor {
      * do (b/62623509).
      */
     @Nullable private final String interfaceName;
+
     private final ClassReaderFactory bootclasspath;
 
     public InterfaceInvocationRewriter(
