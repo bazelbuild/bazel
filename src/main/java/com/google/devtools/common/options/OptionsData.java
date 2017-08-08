@@ -125,8 +125,7 @@ final class OptionsData extends IsolatedOptionsData {
     IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
 
     // All that's left is to compute expansions.
-    ImmutableMap.Builder<Field, ExpansionData> expansionDataBuilder =
-        ImmutableMap.<Field, ExpansionData>builder();
+    ImmutableMap.Builder<Field, ExpansionData> expansionDataBuilder = ImmutableMap.builder();
     for (Map.Entry<String, Field> entry : isolatedData.getAllNamedFields()) {
       Field field = entry.getValue();
       Option annotation = field.getAnnotation(Option.class);
@@ -154,7 +153,7 @@ final class OptionsData extends IsolatedOptionsData {
           throw new AssertionError(e);
         }
 
-        ImmutableList<String> staticExpansion = null;
+        ImmutableList<String> staticExpansion;
         try {
           staticExpansion = instance.getExpansion(new ExpansionContext(isolatedData, field, null));
           Preconditions.checkState(

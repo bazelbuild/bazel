@@ -88,7 +88,7 @@ public final class ConverterTester {
    * @see EqualsTester#addEqualityGroup
    */
   public ConverterTester addEqualityGroup(String... inputs) {
-    ImmutableList.Builder<WrappedItem> wrapped = new ImmutableList.Builder<>();
+    ImmutableList.Builder<WrappedItem> wrapped = ImmutableList.builder();
     ImmutableList<String> inputList = ImmutableList.copyOf(inputs);
     inputLists.add(inputList);
     for (String input : inputList) {

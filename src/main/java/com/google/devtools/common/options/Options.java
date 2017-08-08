@@ -52,8 +52,7 @@ public class Options<O extends OptionsBase> {
     OptionsParser parser = OptionsParser.newOptionsParser(optionsClass);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args));
     List<String> remainingArgs = parser.getResidue();
-    return new Options<O>(parser.getOptions(optionsClass),
-                          remainingArgs.toArray(new String[0]));
+    return new Options<>(parser.getOptions(optionsClass), remainingArgs.toArray(new String[0]));
   }
 
   /**

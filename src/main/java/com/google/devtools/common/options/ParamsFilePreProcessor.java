@@ -152,11 +152,7 @@ public class ParamsFilePreProcessor implements ArgsPreProcessor {
       }
 
       // check to see if the current position is escaped
-      if (lastChar == '\\') {
-        escaped = true;
-      } else {
-        escaped = false;
-      }
+      escaped = (lastChar == '\\');
 
       if (!escaped && current == '\'') {
         singleQuoteStart = singleQuoteStart == -1 ? readerPosition : -1;

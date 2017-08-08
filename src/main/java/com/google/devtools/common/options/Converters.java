@@ -275,9 +275,7 @@ public final class Converters {
 
     @Override
     public List<String> convert(String input) {
-      return input.equals("")
-          ? ImmutableList.<String>of()
-          : ImmutableList.copyOf(splitter.split(input));
+      return input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
     }
 
     @Override
@@ -311,9 +309,7 @@ public final class Converters {
       try {
         int level = Integer.parseInt(input);
         return LEVELS[level];
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
-      } catch (ArrayIndexOutOfBoundsException e) {
+      } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
         throw new OptionsParsingException("Not a log level: " + input);
       }
     }
