@@ -7,9 +7,10 @@ title: Compile Bazel from Source
 
 ## <a name="unix"></a> On Linux or macOS
 
-1. Ensure that you have OpenJDK 8 installed on your system.
+1. Ensure that you have OpenJDK 8 and python installed on your system.
    For a system based on debian packages (e.g. Debian, Ubuntu), install
-   OpenJDK 8 by running the command `sudo apt-get install openjdk-8-jdk`.
+   OpenJDK 8 and python by running the command `sudo apt-get install
+   openjdk-8-jdk python`.
 
 2. The standard way of compiling a release version of Bazel from source is to
    use a distribution archive. Download `bazel-<VERSION>-dist.zip` from the
