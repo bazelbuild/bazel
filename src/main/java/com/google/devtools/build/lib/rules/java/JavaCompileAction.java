@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteExecPathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -482,7 +483,7 @@ public final class JavaCompileAction extends SpawnAction {
     private Artifact outputDepsProto;
     private Collection<Artifact> additionalOutputs;
     private Artifact paramFile;
-    private Artifact metadata;
+    private Artifact fileWithPathsForCoverage;
     private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
@@ -576,7 +577,6 @@ public final class JavaCompileAction extends SpawnAction {
           .addAll(
               new ArrayList<>(Collections2.filter(Arrays.asList(
                   outputJar,
-                  metadata,
                   gensrcOutputJar,
                   manifestProtoOutput,
                   outputDepsProto), Predicates.notNull())));
@@ -599,6 +599,11 @@ public final class JavaCompileAction extends SpawnAction {
               semantics.getJavaBuilderMainClass(),
               pathSeparator);
 
+      if (fileWithPathsForCoverage != null) {
+        analysisEnvironment.registerAction(
+            new LazyWriteExecPathsFileAction(owner, fileWithPathsForCoverage, sourceFiles));
+      }
+
       // The actual params-file-based command line executed for a compile action.
       CommandLine javaBuilderCommandLine = CustomCommandLine.builder()
           .add(spawnCommandLineBase)
@@ -613,7 +618,7 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(instrumentationJars)
               .build();
 
-      NestedSet<Artifact> inputs =
+      NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(classpathEntries)
               .addTransitive(compileTimeDependencyArtifacts)
@@ -625,8 +630,12 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(sourcePathEntries)
               .addAll(extdirInputs)
               .add(paramFile)
-              .addTransitive(tools)
-              .build();
+              .addTransitive(tools);
+      if (fileWithPathsForCoverage != null) {
+        inputsBuilder.add(fileWithPathsForCoverage);
+      }
+
+      NestedSet<Artifact> inputs = inputsBuilder.build();
 
       return new JavaCompileAction(
           owner,
@@ -745,9 +754,9 @@ public final class JavaCompileAction extends SpawnAction {
           }
         }
       }
-      if (metadata != null) {
+      if (fileWithPathsForCoverage != null) {
         result.add("--post_processor");
-        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, fileWithPathsForCoverage);
         result.addPath(
             configuration
                 .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
@@ -857,8 +866,8 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder setMetadata(Artifact metadata) {
-      this.metadata = metadata;
+    public Builder setFileWithPathsForCoverage(Artifact fileWithExecPathsForCoverage) {
+      this.fileWithPathsForCoverage = fileWithExecPathsForCoverage;
       return this;
     }
 
@@ -1004,3 +1013,5 @@ public final class JavaCompileAction extends SpawnAction {
     }
   }
 }
+
+

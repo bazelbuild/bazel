@@ -78,7 +78,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
     attributesBuilder.addClassPathResources(
         ruleContext.getPrerequisiteArtifacts("classpath_resources", Mode.TARGET).list());
-
     // Add Java8 timezone resource data
     addTimezoneResourceForJavaBinaries(ruleContext, attributesBuilder);
 
@@ -147,8 +146,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    Artifact instrumentationMetadata =
-        helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     Artifact executableForRunfiles = null;
@@ -158,14 +155,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       filesBuilder.add(classJar).add(executableForRunfiles);
 
       if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-        mainClass =
-            semantics.addCoverageSupport(
-                helper,
-                attributesBuilder,
-                executableForRunfiles,
-                instrumentationMetadata,
-                javaArtifactsBuilder,
-                mainClass);
+        mainClass = semantics.addCoverageSupport(helper, executableForRunfiles);
       }
     } else {
       filesBuilder.add(classJar);
@@ -216,8 +206,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
-    helper.createCompileAction(
-        classJar, manifestProtoOutput, genSourceJar, outputDepsProto, instrumentationMetadata);
+    helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, outputDepsProto);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     common.setClassPathFragment(
@@ -246,6 +235,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               jvmFlags,
               executableForRunfiles,
               mainClass,
+              originalMainClass,
               JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
@@ -490,13 +480,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
     semantics.addDependenciesForRunfiles(ruleContext, builder);
-
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      Artifact instrumentedJar = javaArtifacts.getInstrumentedJar();
-      if (instrumentedJar != null) {
-        builder.addArtifact(instrumentedJar);
-      }
-    }
 
     builder.addArtifacts((Iterable<Artifact>) common.getRuntimeClasspath());
 

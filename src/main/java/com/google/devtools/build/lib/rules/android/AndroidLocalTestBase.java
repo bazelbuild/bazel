@@ -125,8 +125,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaCompilationHelper helper =
         getJavaCompilationHelperWithDependencies(ruleContext, javaSemantics, javaCommon,
             attributesBuilder);
-    Artifact instrumentationMetadata =
-        helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
     Artifact executable = ruleContext.createOutputArtifact(); // the artifact for the rule itself
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().add(classJar).add(executable);
@@ -146,7 +144,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaSemantics,
             helper,
             executable,
-            instrumentationMetadata,
+            null,
             javaArtifactsBuilder,
             attributesBuilder);
 
@@ -170,11 +168,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
     javaRuleOutputJarsProviderBuilder.setJdeps(outputDepsProtoArtifact);
     helper.createCompileAction(
-        classJar,
-        manifestProtoOutput,
-        genSourceJar,
-        outputDepsProtoArtifact,
-        instrumentationMetadata);
+        classJar, manifestProtoOutput, genSourceJar, outputDepsProtoArtifact);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
@@ -187,6 +181,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         getJvmFlags(ruleContext, testClass),
         executable,
         mainClass,
+        "com.google.testing.junit.runner.GoogleTestRunner",
         JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
 
     Artifact deployJar =
@@ -413,13 +408,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
     builder.addTransitiveArtifacts(transitiveAarArtifacts);
-
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      Artifact instrumentedJar = javaCommon.getJavaCompilationArtifacts().getInstrumentedJar();
-      if (instrumentedJar != null) {
-        builder.addArtifact(instrumentedJar);
-      }
-    }
 
     builder.addArtifacts(javaCommon.getRuntimeClasspath());
 
