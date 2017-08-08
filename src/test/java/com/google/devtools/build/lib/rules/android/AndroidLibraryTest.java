@@ -1527,4 +1527,27 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     assertThat(linkAction).isNull();
   }
+
+  @Test
+  public void testUseManifestFromResourceApk() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_library(",
+        "  name = 'a', ",
+        "  srcs = ['A.java'],",
+        "  manifest = 'a/AndroidManifest.xml',",
+        "  resource_files = [ 'res/values/a.xml' ]",
+        ")");
+    useConfiguration("--experimental_use_manifest_from_resource_apk");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/a:a");
+
+    AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider
+        .getAar()
+        .getManifest()
+        .getPath()
+        .toString()).contains("processed_manifest");
+  }
 }

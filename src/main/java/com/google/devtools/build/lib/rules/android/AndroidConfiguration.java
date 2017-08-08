@@ -687,6 +687,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean throwOnResourceConflict;
 
+    @Option(
+        name = "experimental_use_manifest_from_resource_apk",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Android library rule will use the AppManifest from the resource APK"
+            + " in the AAR file."
+    )
+    public boolean useManifestFromResourceApk;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
@@ -765,6 +775,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean generateRobolectricRClass;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
+  private final boolean useManifestFromResourceApk;
 
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -801,6 +812,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.generateRobolectricRClass = options.generateRobolectricRClass;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
+    this.useManifestFromResourceApk = options.useManifestFromResourceApk;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -927,6 +939,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
+  }
+
+  boolean useManifestFromResourceApk() {
+    return useManifestFromResourceApk;
   }
 
   @Override
