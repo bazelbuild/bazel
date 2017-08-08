@@ -1,22 +1,176 @@
 ---
 layout: documentation
-title: Tutorial - Build an Android App
+title: Build Tutorial - Android
 ---
 
-# Tutorial - Build an Android App
+Introduction to Bazel: Build an Android App
+==========
 
-The sample Android app in this tutorial is a very simple application that makes
-an HTTP connection to the [backend server](backend-server.md) and displays the
-resulting response.
+In this tutorial, you will learn how to build a simple Android app. You'll do
+the following:
 
-Here, you'll do the following:
+*   [Set up your environment](#set-up-your-environment)
+    *   [Install Bazel](#install-bazel)
+    *   [Install Android Studio](#install-android-studio)
+    *   [Get the sample project](#get-the-sample-project)
+*   [Set up a workspace](#set-up-a-workspace)
+    *   [Create a WORKSPACE file](#create-a-workspace-file)
+    *   [Update the WORKSPACE file](#update-the-workspace-file)
+*   [Review the source files](#review-the-source-files)
+*   [Create a BUILD file](#create-a-build-file)
+    *   [Add an android_library rule](#add-an-android_library-rule)
+    *   [Add an android_binary rule](#add_an-android_binary-rule)
+*   [Build the app](#build-the-app)
+*   [Find the build outputs](#find-the-build-outputs)
+*   [Run the app](#run-the-app)
+*   [Review  your work](#review-your-work)
 
-*   Review the source files for the app
-*   Update the `WORKSPACE` file
-*   Create a `BUILD` file
-*   Run the build
-*   Find the build outputs
-*   Run the app
+## Set up your environment
+
+To get started, install Bazel and Android Studio, and get the sample project.
+
+### Install Bazel
+
+Follow the [installation instructions](../install.md) to install Bazel and
+its dependencies.
+
+### Install Android Studio
+
+Download and install Android Studio as described in [Install Android Studio](https://developer.android.com/sdk/index.html).
+
+The installer does not automatically set the `ANDROID_HOME` variable.
+Set it to the location of the Android SDK, which defaults to `$HOME/Android/Sdk/`
+.
+
+For example:
+
+`export ANDROID_HOME=$HOME/Android/Sdk/`
+
+For convenience, add the above statement to your `~/.bashrc` file.
+
+### Get the sample project
+
+You also need to get the sample project for the tutorial from GitHub. The repo
+has two branches: `source-only` and `master`. The `source-only` branch contains
+the source files for the project only. You'll use the files in this branch in
+this tutorial. The `master` branch contains both the source files and completed
+Bazel `WORKSPACE` and `BUILD` files. You can use the files in this branch to
+check your work when you've completed the tutorial steps.
+
+Enter the following at the command line to get the files in the `source-only`
+branch:
+
+```bash
+cd $HOME
+git clone -b source-only https://github.com/bazelbuild/examples
+```
+
+The `git clone` command creates a directory named `$HOME/examples/`. This
+directory contains several sample projects for Bazel. The project files for this
+tutorial are in `$HOME/examples/tutorial/android`.
+
+## Set up a workspace
+
+A [workspace](../build-ref.html#workspaces) is a directory that contains the
+source files for one or more software projects, as well as a `WORKSPACE` file
+and `BUILD` files that contain the instructions that Bazel uses to build
+the software. The workspace may also contain symbolic links to output
+directories.
+
+A workspace directory can be located anywhere on your filesystem and is denoted
+by the presence of the `WORKSPACE` file at its root. In this tutorial, your
+workspace directory is `$HOME/examples/tutorial/`, which contains the sample
+project files you cloned from the GitHub repo in the previous step.
+
+Note that Bazel itself doesn't make any requirements about how you organize
+source files in your workspace. The sample source files in this tutorial are
+organized according to conventions for the target platform.
+
+For your convenience, set the `$WORKSPACE` environment variable now to refer to
+your workspace directory. At the command line, enter:
+
+```bash
+export WORKSPACE=$HOME/examples/tutorial
+```
+
+### Create a WORKSPACE file
+
+Every workspace must have a text file named `WORKSPACE` located in the top-level
+workspace directory. This file may be empty or it may contain references
+to [external dependencies](../external.html) required to build the
+software.
+
+For now, you'll create an empty `WORKSPACE` file, which simply serves to
+identify the workspace directory. In later steps, you'll update the file to add
+external dependency information.
+
+Enter the following at the command line:
+
+```bash
+touch $WORKSPACE/WORKSPACE
+```
+This creates the empty `WORKSPACE` file.
+
+### Update the WORKSPACE file
+
+Bazel needs to run the Android SDK
+[build tools](https://developer.android.com/tools/revisions/build-tools.html)
+and uses the SDK libraries to build the app. This means that you need to add
+some information to your `WORKSPACE` file so that Bazel knows where to find
+them.  Note that this step is not required when you build for other platforms.
+For example, Bazel automatically detects the location of Java, C++ and
+Objective-C compilers from settings in your environment.
+
+Add the following lines to your `WORKSPACE` file:
+
+```python
+android_sdk_repository(
+    name = "androidsdk",
+    # Replace with your installed Android SDK API level
+    api_level = 25
+)
+```
+
+This will use the Android SDK referenced by the `ANDROID_HOME` environment
+variable, and automatically detect the latest build tools version installed
+within that location.
+
+Alternatively, you can explicitly specify the location of the Android
+SDK and build tools version to use by including the `path` and
+`build_tools_version` attributes:
+
+```python
+android_sdk_repository(
+    name = "androidsdk",
+    path = "/path/to/Android/sdk",
+    api_level = 25,
+    build_tools_version = "25.0.1"
+)
+```
+
+**Optional:** This is not required by this tutorial, but if you want to compile
+native code into your Android app, you also need to download the
+[Android NDK](https://developer.android.com/ndk/downloads/index.html) and
+tell Bazel where to find it by adding the following rule to your `WORKSPACE`
+file:
+
+```python
+android_ndk_repository(
+    name = "androidndk",
+    # Replace with the Android NDK API level
+    api_level = 23
+)
+```
+
+`api_level` is the version of the Android API the SDK and the NDK target
+(for example, 23 for Android 6.0 and 25 for Android 7.1). It's not necessary to
+set the API levels to the same value for the SDK and NDK.
+[This web page](https://developer.android.com/ndk/guides/stable_apis.html)
+contains a map from Android releases to NDK-supported API levels.
+
+Similar to `android_sdk_repository`, the path to the Android NDK is inferred
+from the `ANDROID_NDK_HOME` environment variable by default. The path can also
+be explicitly specified with a `path` attribute on `android_ndk_repository`.
 
 ## Review the source files
 
@@ -52,67 +206,6 @@ Note that you're just looking at these files now to become familiar with the
 structure of the app. You don't have to edit any of the source files to complete
 this tutorial.
 
-## Update the WORKSPACE file
-
-Bazel needs to run the Android SDK
-[build tools](https://developer.android.com/tools/revisions/build-tools.html)
-and uses the SDK libraries to build the app. This means that you need to add
-some information to your `WORKSPACE` file so that Bazel knows where to find
-them.  Note that this step is not required when you build for other platforms.
-For example, Bazel automatically detects the location of Java, C++ and
-Objective-C compilers from settings in your environment.
-
-Add the following lines to your `WORKSPACE` file:
-
-```python
-android_sdk_repository(
-    name = "androidsdk",
-    # Replace with your installed Android SDK API level
-    api_level = 25
-)
-```
-
-This will use the Android SDK specified referenced by the `ANDROID_HOME`
-environment variable, and automatically detect the latest build tools
-version installed within that location.
-
-Alternatively, you can explicitly specify the location of the Android
-SDK and build tools version to use by including the `path` and
-`build_tools_version` attributes:
-
-```python
-android_sdk_repository(
-    name = "androidsdk",
-    path = "/path/to/Android/sdk",
-    api_level = 25,
-    build_tools_version = "25.0.1"
-)
-```
-
-**Optional:** This is not required by this tutorial, but if you want to compile
-native code into your Android app, you also need to download the
-[Android NDK](https://developer.android.com/ndk/downloads/index.html) and
-tell Bazel where to find it by adding the following rule to your `WORKSPACE`
-file:
-
-```python
-android_ndk_repository(
-    name = "androidndk",
-    # Replace with the Android NDK API level
-    api_level = 21
-)
-```
-
-`api_level` is the version of the Android API the SDK and the NDK target
-(for example, 19 for Android K and 21 for Android L). It's not necessary to set
-the API levels to the same value for the SDK and NDK.
-[This web page](https://developer.android.com/ndk/guides/stable_apis.html)
-contains a map from Android releases to NDK-supported API levels.
-
-Similar to `android_sdk_repository`, the path to the Android NDK is inferred from
-the `ANDROID_NDK_HOME` environment variable by default. The path can also be
-explicitly specified with a `path` attribute on `android_ndk_repository`.
-
 ## Create a BUILD file
 
 A [`BUILD` file](../build-ref.html#BUILD_files) is a text file that describes
@@ -121,7 +214,7 @@ software libraries or executables -- and their dependencies. These dependencies
 may be source files in your workspace or other build outputs. `BUILD` files are
 written in the Bazel *build language*.
 
-`BUILD` files are part of concept in Bazel known as the *package hierarchy*.
+`BUILD` files are part of a concept in Bazel known as the *package hierarchy*.
 The package hierarchy is a logical structure that overlays the directory
 structure in your workspace. Each [package](../build-ref.html#packages) is a
 directory (and its subdirectories) that contains a related set of source files
@@ -201,7 +294,7 @@ Now, save and close the file. You can compare your `BUILD` file to the
 [completed example](https://github.com/bazelbuild/examples/blob/master/tutorial/android/BUILD)
 in the `master` branch of the GitHub repo.
 
-## Run the build
+## Build the app
 
 You use the
 [`bazel`](../bazel-user-manual.html) command-line tool to run builds, execute
@@ -228,7 +321,7 @@ build the target that follows. The target is specified as the name of a build
 rule inside a `BUILD` file, with along with the package path relative to
 your workspace directory. Note that you can sometimes omit the package path
 or target name, depending on your current working directory at the command
-line and the name of the target. See [Labels](../build-ref.html#labels) in
+line and the name of the target. See [Labels](../build-ref.html#labels) in the
 *Bazel Concepts and Terminology* page for more information about target labels
 and paths.
 
@@ -269,6 +362,10 @@ ls $WORKSPACE/bazel-bin/android
 
 ## Run the app
 
+**NOTE:** The app launches standalone but requires a backend server in order to
+produce output. See the README file in the sample project directory to find out
+how to build the backend server.
+
 You can now deploy the app to a connected Android device or emulator from the
 command line using the
 [`bazel mobile-install`](../bazel-user-manual.html#mobile-install)
@@ -291,7 +388,26 @@ Note that the `mobile-install` subcommand also supports the
 flag that can be used to deploy only those parts of the app that have changed
 since the last deployment.
 
-## What's next
+## Review your work
 
-Now that you've built a sample app for Android, it's time to do the same for
-the [iOS app](ios-app.md).
+In this tutorial, you used Bazel to build an Android app. To accomplish that,
+you:
+
+*   Set up your environment by installing Bazel and Android Studio, and
+    downloading the sample project
+*   Set up a Bazel [workspace](workspace.md) that contained the source code
+    for the app and a `WORKSPACE` file that identifies the top level of the
+    workspace directory
+*   Updated the `WORKSPACE` file to contain references to the required
+    external dependencies
+*   Created a `BUILD` file
+*   Ran Bazel to build the app
+*   Deployed and ran the app on an Android emulator and device
+
+The built app is located in the `$WORKSPACE/bazel-bin` directory.
+
+Note that completed `WORKSPACE` and `BUILD` files for this tutorial are located
+in the
+[master branch](https://github.com/bazelbuild/examples/tree/master/tutorial)
+of the GitHub repo. You can compare your work to the completed files for
+additional help or troubleshooting.
