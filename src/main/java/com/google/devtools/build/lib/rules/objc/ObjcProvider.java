@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -747,6 +748,19 @@ public final class ObjcProvider extends Info {
         Map<Key<?>, NestedSetBuilder<?>> set) {
       maybeAddEmptyBuilder(set, key);
       set.get(key).addTransitive(toAdd);
+    }
+
+    /**
+     * Convenience method to add a modulemap to this ObjcProvider.
+     */
+    public Builder addModuleMap(CppModuleMap moduleMap) {
+      Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
+      if (umbrellaHeader.isPresent()) {
+        add(UMBRELLA_HEADER, umbrellaHeader.get());
+      }
+      add(MODULE_MAP, moduleMap.getArtifact());
+      add(TOP_LEVEL_MODULE_MAP, moduleMap);
+      return this;
     }
 
     /**
