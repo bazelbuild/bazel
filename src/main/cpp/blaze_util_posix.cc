@@ -23,11 +23,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/resource.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <cassert>
@@ -648,8 +649,8 @@ bool KillServerProcess(int pid, const string& output_base) {
 }
 
 void TrySleep(unsigned int milliseconds) {
-  unsigned int seconds_part = milliseconds / 1000;
-  unsigned int nanoseconds_part = (milliseconds % 1000) * 1000 * 1000;
+  time_t seconds_part = (time_t)(milliseconds / 1000);
+  long nanoseconds_part = ((long)(milliseconds % 1000)) * 1000 * 1000;
   struct timespec sleeptime = {seconds_part, nanoseconds_part};
   nanosleep(&sleeptime, NULL);
 }
