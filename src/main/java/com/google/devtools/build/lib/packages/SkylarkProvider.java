@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  * Declared provider defined in Skylark.
  *
  * <p>This is a result of calling {@code provider()} function from Skylark ({@link
- * com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions#provider}).
+ * com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions#provider}).
  */
 public class SkylarkProvider extends Provider implements SkylarkExportable {
 
