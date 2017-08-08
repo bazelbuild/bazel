@@ -44,6 +44,58 @@ import java.util.logging.Logger;
  * building the android_binary.
  */
 class PlaceholderIdFieldInitializerBuilder {
+  /**
+   * Determine the TT portion of the resource ID (PPTTEEEE) that aapt would have assigned. This not
+   * at all alphabetical. It depends on the order in which the types are processed, and whether or
+   * not previous types are present (compact). See the code in aapt Resource.cpp:buildResources().
+   * There are several seemingly arbitrary and different processing orders in the function, but the
+   * ordering is determined specifically by the portion at: <a
+   * href="https://android.googlesource.com/platform/frameworks/base.git/+/marshmallow-release/tools/aapt/Resource.cpp#1254">
+   * Resource.cpp:buildResources() </a>
+   *
+   * <p>where it does:
+   *
+   * <pre>
+   *   if (drawables != NULL) { ... }
+   *   if (mipmaps != NULL) { ... }
+   *   if (layouts != NULL) { ... }
+   * </pre>
+   *
+   * Numbering starts at 1 instead of 0, and ResourceType.ATTR comes before the rest.
+   * ResourceType.STYLEABLE doesn't actually need a resource ID, so that is skipped. We encode the
+   * ordering in the following list.
+   */
+  private static final ImmutableList<ResourceType> AAPT_TYPE_ORDERING =
+      ImmutableList.of(
+          ResourceType.DRAWABLE,
+          ResourceType.MIPMAP,
+          ResourceType.LAYOUT,
+          ResourceType.ANIM,
+          ResourceType.ANIMATOR,
+          ResourceType.TRANSITION,
+          ResourceType.INTERPOLATOR,
+          ResourceType.XML,
+          ResourceType.RAW,
+          // Begin VALUES portion
+          // Technically, aapt just assigns according to declaration order in the source value.xml
+          // files so it isn't really deterministic. However, the Gradle merger sorts the values.xml
+          // file before invoking aapt, so assume that is also done.
+          ResourceType.ARRAY,
+          ResourceType.BOOL,
+          ResourceType.COLOR,
+          ResourceType.DIMEN,
+          ResourceType.FRACTION,
+          ResourceType.ID,
+          ResourceType.INTEGER,
+          ResourceType.PLURALS,
+          ResourceType.STRING,
+          ResourceType.STYLE,
+          // End VALUES portion
+          // Technically, file-based COLOR resources come next. If we care about complete
+          // equivalence we should separate the file-based resources from value-based resources so
+          // that we can number them the same way.
+          ResourceType.MENU);
+
   private static final int APP_PACKAGE_MASK = 0x7f000000;
   private static final int ATTR_TYPE_ID = 1;
   private static final Logger logger =
@@ -318,12 +370,7 @@ class PlaceholderIdFieldInitializerBuilder {
     allocatedTypeIds.put(ResourceType.ATTR, ATTR_TYPE_ID);
     // The rest are packed after that.
     int nextTypeId = nextFreeId(ATTR_TYPE_ID + 1, reservedTypeSlots);
-    for (ResourceType t : ResourceType.values()) {
-      if (t == ResourceType.ATTR || t == ResourceType.STYLEABLE) {
-        // Styleable and Attr resources are handled specially
-        continue;
-      }
-
+    for (ResourceType t : AAPT_TYPE_ORDERING) {
       if (innerClasses.containsKey(t) && !allocatedTypeIds.containsKey(t)) {
         allocatedTypeIds.put(t, nextTypeId);
         nextTypeId = nextFreeId(nextTypeId + 1, reservedTypeSlots);
