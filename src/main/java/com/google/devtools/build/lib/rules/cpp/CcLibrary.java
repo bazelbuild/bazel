@@ -86,9 +86,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext context)
       throws RuleErrorException, InterruptedException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
-    LinkTargetType linkType = getStaticLinkType(context);
+    LinkTargetType staticLinkType = getStaticLinkType(context);
     boolean linkStatic = context.attributes().get("linkstatic", Type.BOOLEAN);
-    init(semantics, context, builder, linkType,
+    init(semantics, context, builder, staticLinkType,
         /*neverLink =*/ false,
         linkStatic,
         /*collectLinkstamp =*/ true,
@@ -100,7 +100,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppSemantics semantics,
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder targetBuilder,
-      LinkTargetType linkType,
+      LinkTargetType staticLinkType,
       boolean neverLink,
       boolean linkStatic,
       boolean collectLinkstamp,
@@ -132,7 +132,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             // between Bazel and Blaze.
             .setGenerateLinkActionsIfEmpty(
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
-            .setLinkType(linkType)
+            .setLinkType(staticLinkType)
             .setNeverLink(neverLink)
             .addPrecompiledFiles(precompiledFiles);
 
