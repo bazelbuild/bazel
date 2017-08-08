@@ -46,6 +46,7 @@ import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -401,9 +402,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     }
   }
 
-  public void setupEnvVariables(Map<String, String> env, int timeoutInSeconds) {
+  public void setupEnvVariables(Map<String, String> env, Duration timeout) {
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
-    env.put("TEST_TIMEOUT", Integer.toString(timeoutInSeconds));
+    env.put("TEST_TIMEOUT", Long.toString(timeout.getSeconds()));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
     env.put(
         "TEST_BINARY",

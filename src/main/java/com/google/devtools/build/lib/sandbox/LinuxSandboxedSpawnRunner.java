@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -118,10 +118,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    int timeoutSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(policy.getTimeoutMillis());
+    Duration timeout = policy.getTimeout();
     List<String> arguments = computeCommandLine(
         spawn,
-        timeoutSeconds,
+        timeout,
         linuxSandbox,
         writableDirs,
         getTmpfsPaths(),
@@ -136,12 +136,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         SandboxHelpers.getInputFiles(spawn, policy, execRoot),
         outputs,
         writableDirs);
-    return runSpawn(spawn, sandbox, policy, execRoot, timeoutSeconds);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout);
   }
 
   private List<String> computeCommandLine(
       Spawn spawn,
-      int timeoutSeconds,
+      Duration timeout,
       Path linuxSandbox,
       Set<Path> writableDirs,
       Set<Path> tmpfsPaths,
@@ -155,9 +155,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     // Kill the process after a timeout.
-    if (timeoutSeconds != -1) {
+    if (!timeout.isZero()) {
       commandLineArgs.add("-T");
-      commandLineArgs.add(Integer.toString(timeoutSeconds));
+      commandLineArgs.add(Long.toString(timeout.getSeconds()));
     }
 
     if (timeoutGraceSeconds != -1) {

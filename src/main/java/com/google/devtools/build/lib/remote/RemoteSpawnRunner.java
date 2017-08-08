@@ -40,9 +40,9 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
-import com.google.protobuf.Duration;
 import io.grpc.Status.Code;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -102,7 +102,7 @@ class RemoteSpawnRunner implements SpawnRunner {
             spawn.getOutputFiles(),
             Digests.computeDigest(command),
             repository.getMerkleDigest(inputRoot),
-            Spawns.getTimeoutSeconds(spawn));
+            policy.getTimeout());
 
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = Digests.computeActionKey(action);
@@ -179,7 +179,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
-      long timeoutSeconds) {
+      Duration timeout) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -193,8 +193,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (platform != null) {
       action.setPlatform(platform);
     }
-    if (timeoutSeconds > 0) {
-      action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    if (!timeout.isZero()) {
+      action.setTimeout(com.google.protobuf.Duration.newBuilder().setSeconds(timeout.getSeconds()));
     }
     return action.build();
   }

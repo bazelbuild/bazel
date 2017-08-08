@@ -112,7 +112,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     // This key is only understood by StandaloneSpawnStrategy.
-    executionInfo.put("timeout", "" + getTimeout(action));
+    executionInfo.put("timeout", "" + getTimeout(action).getSeconds());
     executionInfo.putAll(action.getTestProperties().getExecutionInfo());
 
     ResourceSet localResourceUsage =

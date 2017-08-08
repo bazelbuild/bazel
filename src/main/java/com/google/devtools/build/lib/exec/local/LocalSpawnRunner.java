@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -236,14 +237,13 @@ public final class LocalSpawnRunner implements SpawnRunner {
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
 
-      int timeoutSeconds = (int) (policy.getTimeoutMillis() / 1000);
       Command cmd;
       OutputStream stdOut = ByteStreams.nullOutputStream();
       OutputStream stdErr = ByteStreams.nullOutputStream();
       if (useProcessWrapper) {
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(processWrapper);
-        cmdLine.add("--timeout=" + timeoutSeconds);
+        cmdLine.add("--timeout=" + policy.getTimeout().getSeconds());
         cmdLine.add("--kill_delay=" + localExecutionOptions.localSigkillGraceSeconds);
         cmdLine.add("--stdout=" + getPathOrDevNull(outErr.getOutputPath()));
         cmdLine.add("--stderr=" + getPathOrDevNull(outErr.getErrorPath()));
@@ -259,7 +259,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
             spawn.getArguments().toArray(new String[0]),
             localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName),
             execRoot.getPathFile(),
-            policy.getTimeoutMillis());
+            // TODO(ulfjack): Command throws if timeouts are unsupported and timeout >= 0. For
+            // consistency, we should change it to not throw (and not enforce a timeout) if
+            // timeout <= 0 instead.
+            policy.getTimeout().isZero() ? -1 : policy.getTimeout().toMillis());
       }
 
       long startTime = System.currentTimeMillis();
@@ -289,9 +292,9 @@ public final class LocalSpawnRunner implements SpawnRunner {
       }
       setState(State.SUCCESS);
 
-      long wallTime = System.currentTimeMillis() - startTime;
+      long wallTimeMillis = System.currentTimeMillis() - startTime;
       boolean wasTimeout = result.getTerminationStatus().timedout()
-          || (useProcessWrapper && wasTimeout(timeoutSeconds, wallTime));
+          || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTimeMillis));
       Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
       int exitCode = status == Status.TIMEOUT
           ? POSIX_TIMEOUT_EXIT_CODE
@@ -300,7 +303,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
           .setStatus(status)
           .setExitCode(exitCode)
           .setExecutorHostname(hostName)
-          .setWallTimeMillis(wallTime)
+          .setWallTimeMillis(wallTimeMillis)
           .build();
     }
 
@@ -308,8 +311,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       return path == null ? "/dev/null" : path.getPathString();
     }
 
-    private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
-      return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
+    private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
+      return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
     }
   }
 

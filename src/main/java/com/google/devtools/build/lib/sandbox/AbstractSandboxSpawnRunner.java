@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
@@ -81,12 +82,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SandboxedSpawn sandbox,
       SpawnExecutionPolicy policy,
       Path execRoot,
-      int timeoutSeconds)
+      Duration timeout)
           throws ExecException, IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
-      SpawnResult result = run(sandbox, outErr, timeoutSeconds);
+      SpawnResult result = run(sandbox, outErr, timeout);
   
       policy.lockOutputFiles();
   
@@ -120,7 +121,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
-  private final SpawnResult run(SandboxedSpawn sandbox, OutErr outErr, int timeoutSeconds)
+  private final SpawnResult run(SandboxedSpawn sandbox, OutErr outErr, Duration timeout)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
@@ -157,7 +158,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     long wallTime = System.currentTimeMillis() - startTime;
-    boolean wasTimeout = wasTimeout(timeoutSeconds, wallTime);
+    boolean wasTimeout = wasTimeout(timeout, wallTime);
     Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
     int exitCode = status == Status.TIMEOUT
         ? POSIX_TIMEOUT_EXIT_CODE
@@ -169,8 +170,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
-    return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
+  private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
+    return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
   }
 
   /**

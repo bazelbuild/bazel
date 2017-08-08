@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -203,7 +204,7 @@ public class ExecutionOptions extends OptionsBase {
             + "moderate, long and eternal (in that order). In either form, a value of -1 tells "
             + "blaze to use its default timeouts for that category."
   )
-  public Map<TestTimeout, Integer> testTimeout;
+  public Map<TestTimeout, Duration> testTimeout;
 
   @Option(
     name = "resource_autosense",

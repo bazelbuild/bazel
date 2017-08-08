@@ -49,6 +49,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
 import org.junit.Before;
@@ -107,8 +108,8 @@ public class CachedLocalSpawnRunnerTest {
         }
 
         @Override
-        public long getTimeoutMillis() {
-          return 0;
+        public Duration getTimeout() {
+          return Duration.ZERO;
         }
 
         @Override

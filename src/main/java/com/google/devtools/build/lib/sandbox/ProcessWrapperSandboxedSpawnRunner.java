@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -62,10 +62,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    int timeoutSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(policy.getTimeoutMillis());
+    Duration timeout = policy.getTimeout();
     List<String> arguments =
         ProcessWrapperRunner.getCommandLine(
-            processWrapper, spawn.getArguments(), timeoutSeconds, timeoutGraceSeconds);
+            processWrapper, spawn.getArguments(), timeout, timeoutGraceSeconds);
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
 
@@ -77,7 +77,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         SandboxHelpers.getInputFiles(spawn, policy, execRoot),
         SandboxHelpers.getOutputFiles(spawn),
         getWritableDirs(sandboxExecRoot, spawn.getEnvironment()));
-    return runSpawn(spawn, sandbox, policy, execRoot, timeoutSeconds);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout);
   }
 
   @Override

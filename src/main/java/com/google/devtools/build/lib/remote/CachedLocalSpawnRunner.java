@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnResult;
@@ -33,11 +32,11 @@ import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Platform;
-import com.google.protobuf.Duration;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -97,7 +96,7 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
               spawn.getOutputFiles(),
               Digests.computeDigest(command),
               repository.getMerkleDigest(inputRoot),
-              Spawns.getTimeoutSeconds(spawn));
+              policy.getTimeout());
 
       // Look up action cache, and reuse the action output if it is found.
       actionKey = Digests.computeActionKey(action);
@@ -135,7 +134,7 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
-      long timeoutSeconds) {
+      Duration timeout) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -149,8 +148,8 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
     if (platform != null) {
       action.setPlatform(platform);
     }
-    if (timeoutSeconds > 0) {
-      action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    if (!timeout.isZero()) {
+      action.setTimeout(com.google.protobuf.Duration.newBuilder().setSeconds(timeout.getSeconds()));
     }
     return action.build();
   }

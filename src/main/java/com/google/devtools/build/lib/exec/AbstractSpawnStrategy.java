@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -69,7 +69,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     if (actionExecutionContext.reportsSubcommands()) {
       actionExecutionContext.reportSubcommand(spawn);
     }
-    final int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
+    final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
       private final int id = execCount.incrementAndGet();
 
@@ -104,8 +104,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       }
 
       @Override
-      public long getTimeoutMillis() {
-        return TimeUnit.SECONDS.toMillis(timeoutSeconds);
+      public Duration getTimeout() {
+        return timeout;
       }
 
       @Override

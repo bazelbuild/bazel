@@ -77,6 +77,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
@@ -138,8 +139,8 @@ public class GrpcRemoteExecutionClientTest {
         }
 
         @Override
-        public long getTimeoutMillis() {
-          return 0;
+        public Duration getTimeout() {
+          return Duration.ZERO;
         }
 
         @Override

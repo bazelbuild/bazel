@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
@@ -173,8 +174,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public long getTimeoutMillis() {
-      return timeoutMillis;
+    public Duration getTimeout() {
+      return Duration.ofMillis(timeoutMillis);
     }
 
     @Override
