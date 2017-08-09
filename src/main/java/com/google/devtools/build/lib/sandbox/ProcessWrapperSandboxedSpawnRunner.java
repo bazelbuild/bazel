@@ -49,8 +49,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       int timeoutGraceSeconds) {
     super(
         cmdEnv,
-        sandboxBase,
-        buildRequest.getOptions(SandboxOptions.class));
+        sandboxBase);
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
     this.timeoutGraceSeconds = timeoutGraceSeconds;

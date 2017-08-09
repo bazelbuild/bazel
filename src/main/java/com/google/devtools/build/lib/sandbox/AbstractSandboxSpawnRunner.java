@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
@@ -50,14 +51,15 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private final Path sandboxBase;
   private final SandboxOptions sandboxOptions;
+  private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
 
   public AbstractSandboxSpawnRunner(
       CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      SandboxOptions sandboxOptions) {
+      Path sandboxBase) {
     this.sandboxBase = sandboxBase;
-    this.sandboxOptions = sandboxOptions;
+    this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
+    this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getDirectories().getFileSystem());
   }
@@ -105,12 +107,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         if (sandboxOptions.sandboxDebug) {
           message =
               CommandFailureUtils.describeCommandFailure(
-                  true, sandbox.getArguments(), sandbox.getEnvironment(), null);
+                  true, sandbox.getArguments(), sandbox.getEnvironment(), execRoot.getPathString());
         } else {
           message =
               CommandFailureUtils.describeCommandFailure(
-                  false, originalSpawn.getArguments(), originalSpawn.getEnvironment(), null)
-                  + SANDBOX_DEBUG_SUGGESTION;
+                  verboseFailures,
+                  originalSpawn.getArguments(),
+                  originalSpawn.getEnvironment(),
+                  execRoot.getPathString()) + SANDBOX_DEBUG_SUGGESTION;
         }
         throw new SpawnExecException(
             message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);

@@ -104,8 +104,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       int timeoutGraceSeconds) {
     super(
         cmdEnv,
-        sandboxBase,
-        buildRequest.getOptions(SandboxOptions.class));
+        sandboxBase);
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();

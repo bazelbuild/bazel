@@ -110,8 +110,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     super(
         cmdEnv,
-        sandboxBase,
-        buildRequest.getOptions(SandboxOptions.class));
+        sandboxBase);
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.productName = productName;
