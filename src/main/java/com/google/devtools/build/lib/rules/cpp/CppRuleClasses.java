@@ -177,6 +177,8 @@ public class CppRuleClasses {
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
+  /** A string constant for the copts feature. */
+  public static final String COPTS = "copts";
 
   /**
    * A string constant for the parse_headers feature.
