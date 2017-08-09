@@ -37,6 +37,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testLegacyConstructor() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=false");
     eval("s = set([1, 2, 3], order='postorder')");
     SkylarkNestedSet s = get("s");
     assertThat(s.getOrder().getSkylarkName()).isEqualTo("postorder");
@@ -93,8 +94,18 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testDeprecatedOrder() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=false");
     eval("s = depset(['a', 'b'], order='compile')");
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
+
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
+    try {
+      eval("s = depset(['a', 'b'], order='compile')");
+      fail("Should have not accepted a deprecated order name");
+    } catch (Exception e) {
+      assertThat(e).hasMessageThat().contains(
+          "Order name 'compile' is deprecated, use 'postorder' instead");
+    }
   }
 
   @Test
@@ -257,9 +268,9 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testTransitiveOrdering() throws Exception {
     eval(
         "def func():",
-        "  sa = depset(['a'], order='compile')",
-        "  sb = depset(['b'], order='compile')",
-        "  sc = depset(['c'], order='compile') + sa",
+        "  sa = depset(['a'], order='postorder')",
+        "  sb = depset(['b'], order='postorder')",
+        "  sc = depset(['c'], order='postorder') + sa",
         "  return depset() + sb + sc",
         "s = func()");
     // The iterator lists the Transitive sets first
