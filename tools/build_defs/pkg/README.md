@@ -27,7 +27,7 @@ pkg_tar(
     name = "bazel-bin",
     strip_prefix = "/src",
     package_dir = "/usr/bin",
-    files = ["//src:bazel"],
+    srcs = ["//src:bazel"],
     mode = "0755",
 )
 
@@ -35,7 +35,7 @@ pkg_tar(
     name = "bazel-tools",
     strip_prefix = "/",
     package_dir = "/usr/share/lib/bazel/tools",
-    files = ["//tools:package-srcs"],
+    srcs = ["//tools:package-srcs"],
     mode = "0644",
     modes = {"tools/build_defs/docker/build_test.sh": "0755"},
 )
@@ -89,7 +89,7 @@ Here, the Debian package is built from three `pkg_tar` targets:
 ## pkg_tar
 
 ```python
-pkg_tar(name, extension, strip_prefix, package_dir, files,
+pkg_tar(name, extension, strip_prefix, package_dir, srcs,
 mode, modes, deps, symlinks)
 ```
 
@@ -157,7 +157,7 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
-      <td><code>files</code></td>
+      <td><code>srcs</code></td>
       <td>
         <code>List of files, optional</code>
         <p>File to add to the layer.</p>

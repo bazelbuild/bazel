@@ -39,8 +39,8 @@ filegroup(
     name = "workspace-file",
     srcs = [":WORKSPACE"],
     visibility = [
-        "//src/test/shell/bazel:__subpackages__",
         "//src/test/docker:__pkg__",
+        "//src/test/shell/bazel:__subpackages__",
     ],
 )
 
@@ -62,7 +62,7 @@ load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "bazel-srcs",
-    files = [":srcs"],
+    srcs = [":srcs"],
     strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
