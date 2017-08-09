@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.graph;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingLong;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -266,17 +266,9 @@ public final class Digraph<T> implements Cloneable {
     return that;
   }
 
-  /**
-   * Returns a deterministic immutable view of the nodes of this graph.
-   */
+  /** Returns a deterministic immutable copy of the nodes of this graph. */
   public Collection<Node<T>> getNodes(final Comparator<? super T> comparator) {
-    Ordering<Node<T>> ordering = new Ordering<Node<T>>() {
-      @Override
-      public int compare(Node<T> o1, Node<T> o2) {
-        return comparator.compare(o1.getLabel(), o2.getLabel());
-      }
-    };
-    return ordering.immutableSortedCopy(nodes.values());
+    return ImmutableList.sortedCopyOf(comparing(Node::getLabel, comparator), nodes.values());
   }
 
   /**
@@ -385,8 +377,7 @@ public final class Digraph<T> implements Cloneable {
     if (label == null) {
       throw new NullPointerException();
     }
-    Node<T> n = nodes.computeIfAbsent(label, k -> new Node<T>(k, nextHashCode++));
-    return n;
+    return nodes.computeIfAbsent(label, k -> new Node<>(k, nextHashCode++));
   }
 
   /******************************************************************
@@ -463,13 +454,8 @@ public final class Digraph<T> implements Cloneable {
    */
   public Collection<Set<Node<T>>> getStronglyConnectedComponents() {
     final List<Set<Node<T>>> sccs = new ArrayList<>();
-    NodeSetReceiver<T> r = new NodeSetReceiver<T>() {
-      @Override
-      public void accept(Set<Node<T>> scc) {
-        sccs.add(scc);
-      }
-    };
-    SccVisitor<T> v = new SccVisitor<T>();
+    NodeSetReceiver<T> r = sccs::add;
+    SccVisitor<T> v = new SccVisitor<>();
     for (Node<T> node : nodes.values()) {
       v.visit(r, node);
     }
@@ -598,7 +584,7 @@ public final class Digraph<T> implements Cloneable {
    * list.
    */
   public static <X> List<X> getPathToTreeNode(Map<X, X> tree, X node) {
-    List<X> path = new ArrayList<X>();
+    List<X> path = new ArrayList<>();
     while (node != null) {
       path.add(node);
       node = tree.get(node); // get parent
@@ -641,8 +627,8 @@ public final class Digraph<T> implements Cloneable {
    * @return The nodes of the graph, in a topological order
    */
   public List<Node<T>> getTopologicalOrder(Comparator<? super T> edgeOrder) {
-    CollectingVisitor<T> visitor = new CollectingVisitor<T>();
-    DFS<T> visitation = new DFS<T>(DFS.Order.POSTORDER, edgeOrder, false);
+    CollectingVisitor<T> visitor = new CollectingVisitor<>();
+    DFS<T> visitation = new DFS<>(DFS.Order.POSTORDER, edgeOrder, false);
     visitor.beginVisit();
     for (Node<T> node : getNodes(edgeOrder)) {
       visitation.visit(node, visitor);
@@ -658,7 +644,7 @@ public final class Digraph<T> implements Cloneable {
    * Returns the nodes of an acyclic graph in post-order.
    */
   public List<Node<T>> getPostorder() {
-    CollectingVisitor<T> collectingVisitor = new CollectingVisitor<T>();
+    CollectingVisitor<T> collectingVisitor = new CollectingVisitor<>();
     visitPostorder(collectingVisitor);
     return collectingVisitor.getVisitedNodes();
   }
@@ -679,7 +665,7 @@ public final class Digraph<T> implements Cloneable {
     // This method is intentionally not static, to permit future expansion.
     DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, false);
     for (Node<T> n : startNodes) {
-      dfs.visit(n, new AbstractGraphVisitor<T>());
+      dfs.visit(n, new AbstractGraphVisitor<>());
     }
     return dfs.getMarked();
   }
@@ -700,7 +686,7 @@ public final class Digraph<T> implements Cloneable {
     // This method is intentionally not static, to permit future expansion.
     DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, true);
     for (Node<T> n : startNodes) {
-      dfs.visit(n, new AbstractGraphVisitor<T>());
+      dfs.visit(n, new AbstractGraphVisitor<>());
     }
     return dfs.getMarked();
   }
@@ -873,6 +859,7 @@ public final class Digraph<T> implements Cloneable {
     }
   }
 
+  @FunctionalInterface
   private interface NodeSetReceiver<T> {
     void accept(Set<Node<T>> nodes);
   }
@@ -1025,7 +1012,7 @@ public final class Digraph<T> implements Cloneable {
                               DFS.Order order,
                               boolean transpose,
                               Iterable<Node<T>> startNodes) {
-    DFS<T> visitation = new DFS<T>(order, transpose);
+    DFS<T> visitation = new DFS<>(order, transpose);
     visitor.beginVisit();
     for (Node<T> node: startNodes) {
       visitation.visit(node, visitor);
@@ -1045,12 +1032,9 @@ public final class Digraph<T> implements Cloneable {
    */
   private static <T> Collection<Node<T>> maybeOrderCollection(
       Collection<Node<T>> unordered, @Nullable final Comparator<? super T> comparator) {
-    if (comparator == null) {
-      return unordered;
-    }
-    List<Node<T>> result = new ArrayList<>(unordered);
-    Collections.sort(result, makeNodeComparator(comparator));
-    return result;
+    return comparator == null
+        ? unordered
+        : ImmutableList.sortedCopyOf(makeNodeComparator(comparator), unordered);
   }
 
   private void visitNodesBeforeEdges(

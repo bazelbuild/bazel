@@ -14,9 +14,12 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
 import java.lang.reflect.Constructor;
@@ -25,8 +28,6 @@ import java.nio.file.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -133,7 +134,7 @@ public class OptionsParser implements OptionsProvider {
    */
   static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
       throws ConstructionException {
-    return getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
+    return getOptionsDataInternal(ImmutableList.of(optionsClass));
   }
 
   /**
@@ -157,8 +158,7 @@ public class OptionsParser implements OptionsProvider {
   public static OptionsParser newOptionsParser(
       Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
       throws ConstructionException {
-    return newOptionsParser(
-        getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
+    return newOptionsParser(getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
   }
 
   /**
@@ -212,8 +212,7 @@ public class OptionsParser implements OptionsProvider {
   public void parseAndExitUponError(OptionPriority priority, String source, String[] args) {
     for (String arg : args) {
       if (arg.equals("--help")) {
-        System.out.println(describeOptions(Collections.<String, String>emptyMap(),
-                                           HelpVerbosity.LONG));
+        System.out.println(describeOptions(ImmutableMap.of(), HelpVerbosity.LONG));
         System.exit(0);
       }
     }
@@ -540,7 +539,7 @@ public class OptionsParser implements OptionsProvider {
       for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
         allFields.addAll(data.getFieldsForClass(optionsClass));
       }
-      Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
+      allFields.sort(OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
@@ -583,7 +582,7 @@ public class OptionsParser implements OptionsProvider {
       for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
         allFields.addAll(data.getFieldsForClass(optionsClass));
       }
-      Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
+      allFields.sort(OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
@@ -621,26 +620,17 @@ public class OptionsParser implements OptionsProvider {
     OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
 
-    // List all options
-    List<Field> allFields = new ArrayList<>();
-    for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
-      allFields.addAll(data.getFieldsForClass(optionsClass));
-    }
-    // Sort field for deterministic ordering
-    Collections.sort(allFields, new Comparator<Field>() {
-      @Override
-      public int compare(Field f1, Field f2) {
-        String name1 = f1.getAnnotation(Option.class).name();
-        String name2 = f2.getAnnotation(Option.class).name();
-        return name1.compareTo(name2);
-      }
-    });
-    for (Field optionField : allFields) {
-      Option option = optionField.getAnnotation(Option.class);
-      if (option.documentationCategory() != OptionDocumentationCategory.UNDOCUMENTED) {
-        OptionsUsage.getCompletion(optionField, desc);
-      }
-    }
+    data.getOptionsClasses()
+        // List all options
+        .stream()
+        .flatMap(optionsClass -> data.getFieldsForClass(optionsClass).stream())
+        // Sort field for deterministic ordering
+        .sorted(comparing(optionField -> optionField.getAnnotation(Option.class).name()))
+        .filter(
+            optionField ->
+                optionField.getAnnotation(Option.class).documentationCategory()
+                    != OptionDocumentationCategory.UNDOCUMENTED)
+        .forEach(optionField -> OptionsUsage.getCompletion(optionField, desc));
 
     return desc.toString();
   }
@@ -744,8 +734,7 @@ public class OptionsParser implements OptionsProvider {
    */
   public OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
-    OptionValueDescription clearedValue = impl.clearValue(optionName);
-    return clearedValue;
+    return impl.clearValue(optionName);
   }
 
   @Override

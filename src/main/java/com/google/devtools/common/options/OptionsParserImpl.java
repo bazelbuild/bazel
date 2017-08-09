@@ -14,15 +14,15 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toCollection;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
@@ -31,8 +31,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -121,74 +119,50 @@ class OptionsParserImpl {
    * Implements {@link OptionsParser#asListOfUnparsedOptions()}.
    */
   List<UnparsedOptionValueDescription> asListOfUnparsedOptions() {
-    List<UnparsedOptionValueDescription> result = Lists.newArrayList(unparsedValues);
-    // It is vital that this sort is stable so that options on the same priority are not reordered.
-    Collections.sort(result, new Comparator<UnparsedOptionValueDescription>() {
-      @Override
-      public int compare(UnparsedOptionValueDescription o1,
-          UnparsedOptionValueDescription o2) {
-        return o1.getPriority().compareTo(o2.getPriority());
-      }
-    });
-    return result;
+    return unparsedValues
+        .stream()
+        // It is vital that this sort is stable so that options on the same priority are not
+        // reordered.
+        .sorted(comparing(UnparsedOptionValueDescription::getPriority))
+        .collect(toCollection(ArrayList::new));
   }
 
   /**
    * Implements {@link OptionsParser#asListOfExplicitOptions()}.
    */
   List<UnparsedOptionValueDescription> asListOfExplicitOptions() {
-    List<UnparsedOptionValueDescription> result = Lists.newArrayList(Iterables.filter(
-      unparsedValues,
-      new Predicate<UnparsedOptionValueDescription>() {
-        @Override
-        public boolean apply(UnparsedOptionValueDescription input) {
-          return input.isExplicit();
-        }
-    }));
-    // It is vital that this sort is stable so that options on the same priority are not reordered.
-    Collections.sort(result, new Comparator<UnparsedOptionValueDescription>() {
-      @Override
-      public int compare(UnparsedOptionValueDescription o1,
-          UnparsedOptionValueDescription o2) {
-        return o1.getPriority().compareTo(o2.getPriority());
-      }
-    });
-    return result;
+    return unparsedValues
+        .stream()
+        .filter(UnparsedOptionValueDescription::isExplicit)
+        // It is vital that this sort is stable so that options on the same priority are not
+        // reordered.
+        .sorted(comparing(UnparsedOptionValueDescription::getPriority))
+        .collect(toCollection(ArrayList::new));
   }
 
   /**
    * Implements {@link OptionsParser#canonicalize}.
    */
   List<String> asCanonicalizedList() {
-
-    List<UnparsedOptionValueDescription> processed = Lists.newArrayList(
-        canonicalizeValues.values());
-    // Sort implicit requirement options to the end, keeping their existing order, and sort the
-    // other options alphabetically.
-    Collections.sort(processed, new Comparator<UnparsedOptionValueDescription>() {
-      @Override
-      public int compare(UnparsedOptionValueDescription o1, UnparsedOptionValueDescription o2) {
-        if (o1.isImplicitRequirement()) {
-          return o2.isImplicitRequirement() ? 0 : 1;
-        }
-        if (o2.isImplicitRequirement()) {
-          return -1;
-        }
-        return o1.getName().compareTo(o2.getName());
-      }
-    });
-
-    List<String> result = new ArrayList<>();
-    for (UnparsedOptionValueDescription value : processed) {
-
-      // Ignore expansion options.
-      if (value.isExpansion()) {
-        continue;
-      }
-
-      result.add("--" + value.getName() + "=" + value.getUnparsedValue());
-    }
-    return result;
+    return canonicalizeValues
+        .values()
+        .stream()
+        // Sort implicit requirement options to the end, keeping their existing order, and sort
+        // the other options alphabetically.
+        .sorted(
+            (v1, v2) -> {
+              if (v1.isImplicitRequirement()) {
+                return v2.isImplicitRequirement() ? 0 : 1;
+              }
+              if (v2.isImplicitRequirement()) {
+                return -1;
+              }
+              return v1.getName().compareTo(v2.getName());
+            })
+        // Ignore expansion options.
+        .filter(value -> !value.isExpansion())
+        .map(value -> "--" + value.getName() + "=" + value.getUnparsedValue())
+        .collect(toCollection(ArrayList::new));
   }
 
   /**

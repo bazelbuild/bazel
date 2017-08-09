@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 import com.google.common.collect.ImmutableSet;
 
 /** Cache mapping a command to the names of all commands it inherits from, including itself. */
+@FunctionalInterface
 public interface CommandNameCache {
   /** Class that exists only to expose a static instance variable that can be set and retrieved. */
   class CommandNameCacheInstance implements CommandNameCache {
