@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
@@ -156,12 +157,18 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * Casts a {@code List<?>} to a {@code List<T>} after checking its contents.
+   * Casts a {@code List<?>} to an unmodifiable {@code List<T>}, after checking that its contents
+   * all have type {@code type}.
    *
-   * @param list the List to cast
-   * @param type the expected class of elements
+   * <p>The returned list may or may not be a view that is affected by updates to the original list.
+   *
+   * @param list the original list to cast
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
+  // We could have used bounded generics to ensure that only downcasts are possible (i.e. cast
+  // List<S> to List<T extends S>), but this would be less convenient for some callers, and it would
+  // disallow casting an empty list to any type.
   @SuppressWarnings("unchecked")
   public static <T> List<T> castList(List<?> list, Class<T> type, @Nullable String description)
       throws EvalException {
@@ -169,16 +176,18 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     for (Object value : list) {
       SkylarkType.checkType(value, type, desc);
     }
-    return (List<T>) list;
+    return Collections.unmodifiableList((List<T>) list);
   }
 
   /**
-   * If {@code obj} is a {@code SkylarkList}, casts it to a {@code List<T>} after checking its
-   * contents. If {@code obj} is {@code None} or null, treats it as an empty list. For all other
-   * values, throws an {@link EvalException}.
+   * If {@code obj} is a {@code SkylarkList}, casts it to an unmodifiable {@code List<T>} after
+   * checking that each element has type {@code type}. If {@code obj} is {@code None} or null,
+   * treats it as an empty list. For all other values, throws an {@link EvalException}.
    *
-   * @param obj the Object to cast. null and None are treated as an empty list.
-   * @param type the expected class of elements
+   * <p>The returned list may or may not be a view that is affected by updates to the original list.
+   *
+   * @param obj the object to cast. null and None are treated as an empty list.
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
   public static <T> List<T> castSkylarkListOrNoneToList(
@@ -196,9 +205,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * Casts this list as a List of {@code T}, checking that each element has type {@code T}.
+   * Casts this list as an unmodifiable {@code List<T>}, after checking that each element has
+   * type {@code type}.
    *
-   * @param type the expected class of elements
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
   public <T> List<T> getContents(Class<T> type, @Nullable String description)
