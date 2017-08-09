@@ -1358,7 +1358,7 @@ public class MethodLibrary {
             throws EvalException {
           Object value = self.get(key);
           if (value != null) {
-            self.remove(key, loc, env);
+            self.remove(key, loc, env.mutability());
             return value;
           }
           if (defaultValue != Runtime.UNBOUND) {
@@ -1392,9 +1392,9 @@ public class MethodLibrary {
           if (self.isEmpty()) {
             throw new EvalException(loc, "popitem(): dictionary is empty");
           }
-          Object key = self.firstKey();
+          Object key = self.keySet().iterator().next();
           Object value = self.get(key);
-          self.remove(key, loc, env);
+          self.remove(key, loc, env.mutability());
           return Tuple.of(key, value);
         }
       };
@@ -1415,7 +1415,7 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(SkylarkDict<Object, Object> self,
             Location loc, Environment env)
             throws EvalException {
-          self.clear(loc, env);
+          self.clear(loc, env.mutability());
           return Runtime.NONE;
         }
       };
@@ -1480,7 +1480,7 @@ public class MethodLibrary {
             Location loc,
             Environment env)
             throws EvalException {
-          self.putAll(other, loc, env);
+          self.putAll(other, loc, env.mutability());
           return Runtime.NONE;
         }
       };
