@@ -56,6 +56,7 @@ function test_fetch_test() {
   expect_log '^started'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+  expect_log 'uuid: "'
   expect_log '^fetch'
   # on second attempt, the fetched file should already be cached.
   bazel shutdown
@@ -67,6 +68,7 @@ function test_fetch_test() {
   expect_log '^started'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+  expect_log 'uuid: "'
   expect_not_log '^fetch'
 }
 

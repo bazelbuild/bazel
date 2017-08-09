@@ -112,7 +112,13 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     env.getReporter()
-        .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true, true));
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                true,
+                true,
+                env.getCommandId().toString()));
 
     // 2. Evaluate expression:
     try {

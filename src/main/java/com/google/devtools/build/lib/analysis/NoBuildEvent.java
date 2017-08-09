@@ -25,21 +25,27 @@ import java.util.Collection;
 
 /** This event raised to indicate that no build will be happening for the given command. */
 public final class NoBuildEvent implements BuildEvent {
+  private final String id;
   private final String command;
   private final Long startTimeMillis;
   private final boolean separateFinishedEvent;
   private final boolean showProgress;
 
   public NoBuildEvent(
-      String command, Long startTimeMillis, boolean separateFinishedEvent, boolean showProgress) {
+      String command,
+      Long startTimeMillis,
+      boolean separateFinishedEvent,
+      boolean showProgress,
+      String id) {
     this.command = command;
     this.startTimeMillis = startTimeMillis;
     this.separateFinishedEvent = separateFinishedEvent;
     this.showProgress = showProgress;
+    this.id = id;
   }
 
   public NoBuildEvent(String command, Long startTimeMillis, boolean separateFinishedEvent) {
-    this(command, startTimeMillis, separateFinishedEvent, false);
+    this(command, startTimeMillis, separateFinishedEvent, false, null);
   }
 
   public NoBuildEvent() {
@@ -70,6 +76,9 @@ public final class NoBuildEvent implements BuildEvent {
     }
     if (startTimeMillis != null) {
       started.setStartTimeMillis(startTimeMillis);
+    }
+    if (id != null) {
+      started.setUuid(id);
     }
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
   }
