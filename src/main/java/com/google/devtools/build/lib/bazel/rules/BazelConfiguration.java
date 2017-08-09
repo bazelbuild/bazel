@@ -133,6 +133,18 @@ public class BazelConfiguration extends Fragment {
       // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
       builder.put("PATH", pathOrDefault(os, System.getenv("PATH"), getShellExecutable()));
 
+      // TODO(laszlocsomor): Remove setting TMP/TEMP here, and set a meaningful value just before
+      // executing the action.
+      // Setting TMP=null, TEMP=null has the effect of copying the client's TMP/TEMP to the action's
+      // environment. This is a short-term workaround to get temp-requiring actions working on
+      // Windows. Its detrimental effect is that the client's TMP/TEMP becomes part of the actions's
+      // key. Yet, we need this for now to build Android programs, because the Android BusyBox is
+      // written in Java and tries to create temp directories using
+      // java.nio.file.Files.createTempDirectory, which needs TMP or TEMP (or USERPROFILE) on
+      // Windows, otherwise they return c:\windows which is non-writable.
+      builder.put("TMP", null);
+      builder.put("TEMP", null);
+
       String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
       if (ldLibraryPath != null) {
         builder.put("LD_LIBRARY_PATH", ldLibraryPath);

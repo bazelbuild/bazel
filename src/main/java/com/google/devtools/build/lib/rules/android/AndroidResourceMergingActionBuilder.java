@@ -201,6 +201,7 @@ public class AndroidResourceMergingActionBuilder {
     // Create the spawn action.
     ruleContext.registerAction(
         spawnActionBuilder
+            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())

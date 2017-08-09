@@ -141,6 +141,7 @@ public class AarGeneratorBuilder {
 
     ruleContext.registerAction(
         this.builder
+            .useDefaultShellEnvironment()
             .addInputs(ImmutableList.<Artifact>copyOf(ins))
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
             .setCommandLine(CommandLine.of(args))
