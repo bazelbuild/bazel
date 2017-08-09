@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Extensions - Overview
+title: Extensions - Backward compatibility
 ---
 # Backward compatibility
 
