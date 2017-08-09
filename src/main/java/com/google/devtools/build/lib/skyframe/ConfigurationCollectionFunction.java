@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -42,7 +40,10 @@ import javax.annotation.Nullable;
 
 /**
  * A builder for {@link ConfigurationCollectionValue} instances.
+ *
+ * @deprecated only used by static configurations, which are now permanently disabled
  */
+@Deprecated
 public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
@@ -57,33 +58,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException,
       ConfigurationCollectionFunctionException {
-    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env
-        .getValue(WorkspaceNameValue.key());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-    ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
-    Preconditions.checkState(collectionKey.getBuildOptions()
-        .get(BuildConfiguration.Options.class).useDynamicConfigurations
-            == BuildConfiguration.Options.DynamicConfigsMode.OFF,
-        "configuration collections don't need to be Skyframe-loaded for dynamic configurations");
-
-    try {
-      BuildConfigurationCollection result = getConfigurations(env,
-          new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider),
-          collectionKey.getBuildOptions(), collectionKey.getMultiCpu(),
-          workspaceNameValue.getName());
-
-      // BuildConfigurationCollection can be created, but dependencies to some files might be
-      // missing. In that case we need to build configurationCollection again.
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      return new ConfigurationCollectionValue(result);
-    } catch (InvalidConfigurationException e) {
-      throw new ConfigurationCollectionFunctionException(e);
-    }
+    throw new IllegalStateException("Dynamic configurations don't call this function and static "
+        + "configurations have been removed");
   }
 
   /** Create the build configurations with the given options. */

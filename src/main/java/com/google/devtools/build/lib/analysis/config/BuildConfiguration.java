@@ -986,17 +986,6 @@ public final class BuildConfiguration implements BuildEvent {
       ON,
       /** Use dynamic configurations, always including all fragments known to Blaze. */
       NOTRIM,
-      /**
-       * Same as NOTRIM.
-       *
-       * <p>This used to disable dynamic configurations (while the feature was still being
-       * developed). But now all builds use dynamic configurations. This value will be removed
-       * once we know no one is setting it.
-       *
-       * @deprecated use {@link #NOTRIM} instead
-       */
-      @Deprecated
-      OFF
     }
 
     /**
@@ -1005,12 +994,6 @@ public final class BuildConfiguration implements BuildEvent {
     public static class DynamicConfigsConverter extends EnumConverter<DynamicConfigsMode> {
       public DynamicConfigsConverter() {
         super(DynamicConfigsMode.class, "dynamic configurations mode");
-      }
-
-      @Override
-      public DynamicConfigsMode convert(String input) throws OptionsParsingException {
-        DynamicConfigsMode userSetValue = super.convert(input);
-        return userSetValue == DynamicConfigsMode.OFF ? DynamicConfigsMode.NOTRIM : userSetValue;
       }
     }
 
@@ -2530,8 +2513,10 @@ public final class BuildConfiguration implements BuildEvent {
    * configurations (e.g. predefined in {@link
    * com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory}).
    */
+  @Deprecated
   public boolean useDynamicConfigurations() {
-    return options.useDynamicConfigurations != Options.DynamicConfigsMode.OFF;
+    // TODO(gregce): remove this interface, which is now redundant.
+    return true;
   }
 
   /**

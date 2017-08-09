@@ -180,7 +180,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
   private List<String> configurationArgs;
-  private DynamicConfigsMode dynamicConfigsMode = DynamicConfigsMode.OFF;
+  private DynamicConfigsMode dynamicConfigsMode = DynamicConfigsMode.NOTRIM;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -442,13 +442,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(String... args) throws Exception {
     String[] actualArgs;
-    if (dynamicConfigsMode != DynamicConfigsMode.OFF) {
-      actualArgs = Arrays.copyOf(args, args.length + 1);
-      actualArgs[args.length] = "--experimental_dynamic_configs="
-          + dynamicConfigsMode.toString().toLowerCase();
-    } else {
-      actualArgs = args;
-    }
+    actualArgs = Arrays.copyOf(args, args.length + 1);
+    actualArgs[args.length] = "--experimental_dynamic_configs="
+        + dynamicConfigsMode.toString().toLowerCase();
     masterConfig = createConfigurations(actualArgs);
     targetConfig = getTargetConfiguration();
     configurationArgs = Arrays.asList(actualArgs);
