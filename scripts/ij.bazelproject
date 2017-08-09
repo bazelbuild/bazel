@@ -17,6 +17,5 @@ targets:
   //src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner
   //src/java_tools/junitrunner/javatests/...
   //src/java_tools/singlejar:SingleJar
-  //src/java_tools/singlejar:tests
   //src/test/...
   //src/tools/remote_worker
