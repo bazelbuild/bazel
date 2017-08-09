@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.LazyString;
@@ -49,6 +50,10 @@ import javax.annotation.Nullable;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
 public class ProtoCompileActionBuilder {
+  @VisibleForTesting
+  public static final String STRICT_DEPS_FLAG_TEMPLATE =
+      "--direct_dependencies_violation_msg=" + StrictProtoDepsViolationMessage.MESSAGE;
+
   private static final String MNEMONIC = "GenProto";
   private static final ResourceSet GENPROTO_RESOURCE_SET =
       ResourceSet.createWithRamCpuIo(100, .1, .0);
@@ -291,10 +296,8 @@ public class ProtoCompileActionBuilder {
       Preconditions.checkArgument(langPluginParameter1 != null);
       // We pass a separate langPluginName as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
-      result.add(
-          String.format(
-              "--plugin=protoc-gen-%s=%s",
-              langPrefix, langPluginTarget.getExecutable().getExecPathString()));
+      result.addFormat(
+          "--plugin=protoc-gen-%s=%s", langPrefix, langPluginTarget.getExecutable().getExecPath());
       result.add(new LazyLangPluginFlag(langPrefix, langPluginParameter1));
     }
 
@@ -311,8 +314,7 @@ public class ProtoCompileActionBuilder {
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
       // here should have a literal %s in it.
-      result.add(
-          createStrictProtoDepsViolationErrorMessage(ruleContext.getLabel().getCanonicalForm()));
+      result.addFormat(STRICT_DEPS_FLAG_TEMPLATE, ruleContext.getLabel());
     }
 
     for (Artifact src : supportData.getDirectProtoSources()) {
@@ -409,7 +411,7 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
-            ruleContext.getLabel().getCanonicalForm(),
+            ruleContext.getLabel(),
             ImmutableList.of(output),
             "Descriptor Set",
             allowServices);
@@ -451,7 +453,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       NestedSet<Artifact> protosInDirectDeps,
-      String ruleLabel,
+      Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
       boolean allowServices) {
@@ -478,7 +480,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
-      String ruleLabel,
+      Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
       boolean allowServices) {
@@ -549,7 +551,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
-      String ruleLabel,
+      Label ruleLabel,
       boolean allowServices,
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
@@ -578,11 +580,9 @@ public class ProtoCompileActionBuilder {
                   String.format("PLUGIN_%s_out", invocation.name))));
 
       if (toolchain.pluginExecutable() != null) {
-        cmdLine.add(
-            String.format(
-                "--plugin=protoc-gen-%s=%s",
-                String.format("PLUGIN_%s", invocation.name),
-                toolchain.pluginExecutable().getExecutable().getExecPathString()));
+        cmdLine.addFormat(
+            "--plugin=protoc-gen-PLUGIN_%s=%s",
+            invocation.name, toolchain.pluginExecutable().getExecutable().getExecPath());
       }
     }
 
@@ -592,7 +592,7 @@ public class ProtoCompileActionBuilder {
     cmdLine.add(new ProtoCommandLineArgv(protosInDirectDeps, transitiveSources));
 
     if (protosInDirectDeps != null) {
-      cmdLine.add(createStrictProtoDepsViolationErrorMessage(ruleLabel));
+      cmdLine.addFormat(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
     }
 
     for (Artifact src : protosToCompile) {
@@ -604,14 +604,6 @@ public class ProtoCompileActionBuilder {
     }
 
     return cmdLine.build();
-  }
-
-  @SuppressWarnings("FormatString") // Errorprone complains that there's no '%s' in the format
-  // string, but it's actually in MESSAGE.
-  @VisibleForTesting
-  public static String createStrictProtoDepsViolationErrorMessage(String ruleLabel) {
-    return "--direct_dependencies_violation_msg="
-        + String.format(StrictProtoDepsViolationMessage.MESSAGE, ruleLabel);
   }
 
   /**

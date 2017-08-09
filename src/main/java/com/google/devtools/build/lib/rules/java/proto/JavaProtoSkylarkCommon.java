@@ -85,7 +85,7 @@ public class JavaProtoSkylarkCommon {
         supportData.getDirectProtoSources(),
         supportData.getTransitiveImports(),
         supportData.getProtosInDirectDeps(),
-        skylarkRuleContext.getLabel().getCanonicalForm(),
+        skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
         true /* allowServices */);
