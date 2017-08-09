@@ -17,8 +17,8 @@ if ($mode -eq "release") {
 } elseif ($mode -eq "rc") {
   $tvVersion = "$($version)-rc$($rc)"
   $tvFilename = "bazel-$($version)rc$($rc)-windows-x86_64.zip"
-  $tvUri = "https://release.bazel.build/$($version)/rc$($rc)/$($tvFilename)"
-  $tvReleaseNotesUri = "https://release.bazel.build/$($version)/rc$($rc)/index.html"
+  $tvUri = "https://releases.bazel.build/$($version)/rc$($rc)/$($tvFilename)"
+  $tvReleaseNotesUri = "https://releases.bazel.build/$($version)/rc$($rc)/index.html"
 } elseif ($mode -eq "local") {
   $tvVersion = $version
   $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
