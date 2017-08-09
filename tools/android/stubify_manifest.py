@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -147,7 +148,7 @@ def main():
     with file(FLAGS.output_manifest, "w") as output_xml:
       output_xml.write(new_manifest)
 
-    with file(FLAGS.output_datafile, "w") as output_file:
+    with file(FLAGS.output_datafile, "wb") as output_file:
       output_file.write("\n".join([old_application, app_package]))
 
   elif FLAGS.mode == "instant_run":
