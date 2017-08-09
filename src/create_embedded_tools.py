@@ -14,6 +14,7 @@
 # limitations under the License.
 """Creates the embedded_tools.zip that is part of the Bazel binary."""
 
+import contextlib
 import fnmatch
 import os
 import os.path
@@ -132,7 +133,8 @@ def copy_jdk_into_archive(output_zip, archive_file, input_file):
           # Ignore directories, hard links, special files, ...
           pass
   elif archive_file.endswith('.zip'):
-    with zipfile.ZipFile(input_file, 'r') as jdk_zip:
+    # Adding contextlib.closing to be python 2.6 (for centos 6.7) compatible
+    with contextlib.closing(zipfile.ZipFile(input_file, 'r')) as jdk_zip:
       for jdk_zipinfo in jdk_zip.infolist():
         # Rename the first folder to 'jdk', because Bazel looks for a
         # bundled JDK in the embedded tools using that folder name.
@@ -151,7 +153,9 @@ def main():
   input_files = get_input_files(sys.argv[2])
 
   # Copy all the input_files into output_zip.
-  with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as output_zip:
+  # Adding contextlib.closing to be python 2.6 (for centos 6.7) compatible
+  with contextlib.closing(
+      zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED)) as output_zip:
     zipinfo = zipfile.ZipInfo('WORKSPACE', (1980, 1, 1, 0, 0, 0))
     zipinfo.external_attr = 0o644 << 16
     output_zip.writestr(zipinfo, 'workspace(name = "bazel_tools")\n')
