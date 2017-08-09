@@ -37,6 +37,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/featurecontrol:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
@@ -589,7 +590,10 @@ java_library(
     srcs = glob([
         "packages/util/*.java",
     ]),
-    resources = ["packages/util/MOCK_ANDROID_CROSSTOOL"],
+    resources = [
+        "packages/util/MOCK_ANDROID_CROSSTOOL",
+        "packages/util/MOCK_OSX_CROSSTOOL",
+    ],
     deps = [
         ":foundations_testutil",
         ":testutil",
