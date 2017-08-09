@@ -1161,7 +1161,7 @@ public abstract class CompilationSupport {
   }
 
   private static CommandLine symbolStripCommandLine(
-      Iterable<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
+      ImmutableList<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
         .add(STRIP)
         .add(extraFlags)
@@ -1180,7 +1180,7 @@ public abstract class CompilationSupport {
    * subject to the given {@link StrippingType}.
    */
   protected void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
-    final Iterable<String> stripArgs;
+    final ImmutableList<String> stripArgs;
     if (isTestRule) {
       // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
       // to strip off all symbols in XCTest bundle.
@@ -1394,8 +1394,7 @@ public abstract class CompilationSupport {
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
       cmdLine.addJoinPaths(
-          ":",
-          Lists.newArrayList(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
+          ":", ImmutableList.of(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
       builder.addInput(info.sourceFile).addOutput(info.headersListFile);
     }
     ruleContext.registerAction(

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -72,10 +74,10 @@ public class LibraryRGeneratorActionBuilder {
         FluentIterable.from(deps).append(resourceContainer);
 
     if (!symbolProviders.isEmpty()) {
-      builder.addExecPaths("--symbols", symbolProviders.transform(c -> c.getSymbols()));
-      inputs.addTransitive(
-          NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER, symbolProviders.transform(ResourceContainer::getSymbols)));
+      ImmutableList<Artifact> symbols =
+          symbolProviders.stream().map(ResourceContainer::getSymbols).collect(toImmutableList());
+      builder.addExecPaths("--symbols", symbols);
+      inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbols));
     }
 
     builder.addExecPath("--classJarOutput", rJavaClassJar);

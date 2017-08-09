@@ -17,21 +17,22 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,8 +45,267 @@ import javax.annotation.Nullable;
 @Immutable
 public final class CustomCommandLine extends CommandLine {
 
-  private abstract static class ArgvFragment {
+  private interface ArgvFragment {
+    /**
+     * Expands this fragment into the passed command line vector.
+     *
+     * @param arguments The command line's argument vector.
+     * @param argi The index of the next available argument.
+     * @param builder The command line builder to which we should add arguments.
+     * @return The index of the next argument, after the ArgvFragment has consumed its args.
+     *   If the ArgvFragment doesn't have any args, it should return {@code argi} unmodified.
+     */
+    int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder);
+  }
+
+  /**
+   * Helper base class for an ArgvFragment that doesn't use the input argument vector.
+   *
+   * <p>This can be used for any ArgvFragments that self-contain all the necessary state.
+   */
+  private abstract static class StandardArgvFragment implements ArgvFragment {
+    @Override
+    public final int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      eval(builder);
+      return argi; // Doesn't consume any arguments, so return argi unmodified
+    }
+
     abstract void eval(ImmutableList.Builder<String> builder);
+  }
+
+  // TODO(bazel-team): CustomArgv and CustomMultiArgv is  going to be difficult to expose
+  // in Skylark. Maybe we can get rid of them by refactoring JavaCompileAction. It also
+  // raises immutability / serialization issues.
+  /** Custom Java code producing a String argument. Usage of this class is discouraged. */
+  public abstract static class CustomArgv extends StandardArgvFragment {
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.add(argv());
+    }
+
+    public abstract String argv();
+  }
+
+  /**
+   * Custom Java code producing a List of String arguments.
+   *
+   * <p>Usage of this class is discouraged. Please see {@link CustomArgv}.
+   */
+  public abstract static class CustomMultiArgv extends StandardArgvFragment {
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.addAll(argv());
+    }
+
+    public abstract Iterable<String> argv();
+  }
+
+  /**
+   * An ArgvFragment that expands a collection of objects in a user-specified way.
+   *
+   * <p>To construct one, use {@link VectorArg#of} with your collection of objects,
+   * and configure the returned object depending on how you want the expansion to
+   * take place. Finally, pass it to {@link CustomCommandLine.Builder#add(VectorArg.Builder}.
+   */
+  public static final class VectorArg implements ArgvFragment {
+    private static Interner<VectorArg> interner = BlazeInterners.newStrongInterner();
+
+    private final boolean hasMapEach;
+    private final boolean hasFormatEach;
+    private final boolean hasBeforeEach;
+    private final boolean hasJoinWith;
+
+    private VectorArg(
+        boolean hasMapEach, boolean hasFormatEach, boolean hasBeforeEach, boolean hasJoinWith) {
+      this.hasMapEach = hasMapEach;
+      this.hasFormatEach = hasFormatEach;
+      this.hasBeforeEach = hasBeforeEach;
+      this.hasJoinWith = hasJoinWith;
+    }
+
+    private static void push(List<Object> arguments, Builder argv) {
+      VectorArg vectorArg =
+          new VectorArg(
+              argv.mapFn != null,
+              argv.formatEach != null,
+              argv.beforeEach != null,
+              argv.joinWith != null);
+      vectorArg = interner.intern(vectorArg);
+      arguments.add(vectorArg);
+      arguments.add(argv.values);
+      if (vectorArg.hasMapEach) {
+        arguments.add(argv.mapFn);
+      }
+      if (vectorArg.hasFormatEach) {
+        arguments.add(argv.formatEach);
+      }
+      if (vectorArg.hasBeforeEach) {
+        arguments.add(argv.beforeEach);
+      }
+      if (vectorArg.hasJoinWith) {
+        arguments.add(argv.joinWith);
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      Iterable<Object> values = (Iterable<Object>) arguments.get(argi++);
+      List<Object> mutatedValues = Lists.newArrayList(values);
+      int count = mutatedValues.size();
+      if (hasMapEach) {
+        Function<Object, Object> mapFn = (Function<Object, Object>) arguments.get(argi++);
+        for (int i = 0; i < count; ++i) {
+          mutatedValues.set(i, mapFn.apply(mutatedValues.get(i)));
+        }
+      }
+      for (int i = 0; i < count; ++i) {
+        mutatedValues.set(i, valueToString(mutatedValues.get(i)));
+      }
+      if (hasFormatEach) {
+        String formatStr = (String) arguments.get(argi++);
+        for (int i = 0; i < count; ++i) {
+          mutatedValues.set(i, String.format(formatStr, mutatedValues.get(i)));
+        }
+      }
+      if (hasBeforeEach) {
+        String beforeEach = (String) arguments.get(argi++);
+        for (int i = 0; i < count; ++i) {
+          builder.add(beforeEach);
+          builder.add((String) mutatedValues.get(i));
+        }
+      } else if (hasJoinWith) {
+        String joinWith = (String) arguments.get(argi++);
+        builder.add(Joiner.on(joinWith).join(mutatedValues));
+      } else {
+        for (int i = 0; i < count; ++i) {
+          builder.add((String) mutatedValues.get(i));
+        }
+      }
+      return argi;
+    }
+
+    public static Builder of(@Nullable ImmutableCollection<?> values) {
+      return new Builder(values);
+    }
+
+    public static Builder of(@Nullable NestedSet<?> values) {
+      return new Builder(values);
+    }
+
+    /** Builder for a VectorArg */
+    public static class Builder {
+      @Nullable private final Iterable<?> values;
+      private final boolean isEmpty;
+      private String formatEach;
+      private String beforeEach;
+      private Function<?, String> mapFn;
+      private String joinWith;
+
+      private Builder(@Nullable ImmutableCollection<?> values) {
+        this(values, values == null || values.isEmpty());
+      }
+
+      private Builder(@Nullable NestedSet<?> values) {
+        this(values, values == null || values.isEmpty());
+      }
+
+      private Builder(@Nullable Iterable<?> values, boolean isEmpty) {
+        this.values = values;
+        this.isEmpty = isEmpty;
+      }
+
+      /** Each argument is formatted via {@link String#format}. */
+      public Builder formatEach(String formatEach) {
+        Preconditions.checkNotNull(formatEach);
+        this.formatEach = formatEach;
+        return this;
+      }
+
+      /** Each argument is prepended by the beforeEach param. */
+      public Builder beforeEach(String beforeEach) {
+        Preconditions.checkNotNull(beforeEach);
+        this.beforeEach = beforeEach;
+        return this;
+      }
+
+      /** Each argument is mapped using the supplied map function */
+      public <T> Builder mapEach(Function<T, String> mapFn) {
+        Preconditions.checkNotNull(mapFn);
+        this.mapFn = mapFn;
+        return this;
+      }
+
+      /** Once all arguments have been evaluated, they are joined with this delimiter */
+      public Builder joinWith(String delimiter) {
+        Preconditions.checkNotNull(delimiter);
+        this.joinWith = delimiter;
+        return this;
+      }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      VectorArg vectorArg = (VectorArg) o;
+      return hasMapEach == vectorArg.hasMapEach
+          && hasFormatEach == vectorArg.hasFormatEach
+          && hasBeforeEach == vectorArg.hasBeforeEach
+          && hasJoinWith == vectorArg.hasJoinWith;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(hasMapEach, hasFormatEach, hasBeforeEach, hasJoinWith);
+    }
+  }
+
+  private static class FormatArg implements ArgvFragment {
+    private static final FormatArg INSTANCE = new FormatArg();
+
+    private static void push(List<Object> arguments, String formatStr, Object... args) {
+      arguments.add(INSTANCE);
+      arguments.add(args.length);
+      arguments.add(formatStr);
+      Collections.addAll(arguments, args);
+    }
+
+    @Override
+    public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      int argCount = (Integer) arguments.get(argi++);
+      String formatStr = (String) arguments.get(argi++);
+      Object[] args = new Object[argCount];
+      for (int i = 0; i < argCount; ++i) {
+        args[i] = valueToString(arguments.get(argi++));
+      }
+      builder.add(String.format(formatStr, args));
+      return argi;
+    }
+  }
+
+  private static class PrefixArg implements ArgvFragment {
+    private static final PrefixArg INSTANCE = new PrefixArg();
+
+    private static void push(List<Object> arguments, String before, Object arg) {
+      arguments.add(INSTANCE);
+      arguments.add(before);
+      arguments.add(arg);
+    }
+
+    @Override
+    public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
+      String before = (String) arguments.get(argi++);
+      Object arg = arguments.get(argi++);
+      builder.add(before + valueToString(arg));
+      return argi;
+    }
   }
 
   /**
@@ -68,16 +328,15 @@ public final class CustomCommandLine extends CommandLine {
   }
 
   /**
-   * A command line argument that can expand enclosed TreeArtifacts into a list of child
-   * {@link TreeFileArtifact}s at execution time before argument evaluation.
+   * A command line argument that can expand enclosed TreeArtifacts into a list of child {@link
+   * TreeFileArtifact}s at execution time before argument evaluation.
    *
    * <p>The main difference between this class and {@link TreeFileArtifactArgvFragment} is that
    * {@link TreeFileArtifactArgvFragment} is used in {@link SpawnActionTemplate} to substitutes a
    * TreeArtifact with *one* of its child TreeFileArtifacts, while this class expands a TreeArtifact
    * into *all* of its child TreeFileArtifacts.
-   *
    */
-  private abstract static class TreeArtifactExpansionArgvFragment extends ArgvFragment {
+  private abstract static class TreeArtifactExpansionArgvFragment extends StandardArgvFragment {
     /**
      * Evaluates this argument fragment into an argument string and adds it into {@code builder}.
      * The enclosed TreeArtifact will be expanded using {@code artifactExpander}.
@@ -101,30 +360,6 @@ public final class CustomCommandLine extends CommandLine {
     @Override
     void eval(ImmutableList.Builder<String> builder) {
       builder.add(describe());
-    }
-  }
-
-  // It's better to avoid anonymous classes if we want to serialize command lines
-  private static final class JoinExecPathsArg extends ArgvFragment {
-
-    private final String arg;
-    private final String delimiter;
-    private final Iterable<Artifact> artifacts;
-
-    private JoinExecPathsArg(String arg, String delimiter, Iterable<Artifact> artifacts) {
-      this.arg = arg;
-      this.delimiter = delimiter;
-      this.artifacts = CollectionUtils.makeImmutable(artifacts);
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      Iterator<Artifact> it = artifacts.iterator();
-      if (!it.hasNext()) {
-        return;
-      }
-      builder.add(arg);
-      builder.add(Artifact.joinExecPaths(delimiter, artifacts));
     }
   }
 
@@ -188,38 +423,6 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  private static final class PathWithTemplateArg extends ArgvFragment {
-
-    private final String template;
-    private final PathFragment[] paths;
-
-    private PathWithTemplateArg(String template, PathFragment... paths) {
-      this.template = template;
-      this.paths = paths;
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      // PathFragment.toString() uses getPathString()
-      builder.add(String.format(template, (Object[]) paths));
-    }
-  }
-
-  private static final class ParamFileArgument extends ArgvFragment {
-    private final String paramFilePrefix;
-    private final PathFragment path;
-
-    private ParamFileArgument(String paramFilePrefix, PathFragment path) {
-      this.paramFilePrefix = paramFilePrefix;
-      this.path = path;
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(paramFilePrefix + path);
-    }
-  }
-
   /**
    * An argument object that evaluates to a formatted string for {@link TreeFileArtifact} exec
    * paths, enclosing the associated string format template and {@link TreeFileArtifact}s.
@@ -238,201 +441,13 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     @Override
-    ArgvFragment substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap) {
+    Object substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap) {
       Artifact treeFileArtifact = substitutionMap.get(placeHolderTreeArtifact);
       Preconditions.checkNotNull(treeFileArtifact, "Artifact to substitute: %s",
           placeHolderTreeArtifact);
-
-      return new PathWithTemplateArg(template, treeFileArtifact.getExecPath());
+      return String.format(template, treeFileArtifact.getExecPath());
     }
   }
-
-  // TODO(bazel-team): CustomArgv and CustomMultiArgv is  going to be difficult to expose
-  // in Skylark. Maybe we can get rid of them by refactoring JavaCompileAction. It also
-  // raises immutability / serialization issues.
-  /**
-   * Custom Java code producing a String argument. Usage of this class is discouraged.
-   */
-  public abstract static class CustomArgv extends ArgvFragment {
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(argv());
-    }
-
-    public abstract String argv();
-  }
-
-  /**
-   * Custom Java code producing a List of String arguments. Usage of this class is discouraged.
-   */
-  public abstract static class CustomMultiArgv extends ArgvFragment {
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.addAll(argv());
-    }
-
-    public abstract Iterable<String> argv();
-  }
-
-  private static final class JoinPathsArg extends ArgvFragment {
-
-    private final String delimiter;
-    private final Iterable<PathFragment> paths;
-
-    private JoinPathsArg(String delimiter, Iterable<PathFragment> paths) {
-      this.delimiter = delimiter;
-      this.paths = CollectionUtils.makeImmutable(paths);
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(Joiner.on(delimiter).join(paths));
-    }
-  }
-
-  private static final class JoinStringsArg extends ArgvFragment {
-
-    private final String arg;
-    private final String delimiter;
-    private final Iterable<String> strings;
-
-    private JoinStringsArg(String arg, String delimiter, Iterable<String> strings) {
-      this.arg = arg;
-      this.delimiter = delimiter;
-      this.strings = CollectionUtils.makeImmutable(strings);
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      Iterator<String> parts = strings.iterator();
-      if (!parts.hasNext()) {
-        return;
-      }
-      builder.add(this.arg);
-      StringBuilder arg = new StringBuilder();
-      arg.append(parts.next());
-      while (parts.hasNext()) {
-        arg.append(delimiter);
-        arg.append(parts.next());
-      }
-      builder.add(arg.toString());
-    }
-  }
-
-  private static final class JoinValuesTransformed<T> extends ArgvFragment {
-
-    private final String arg;
-    private final String delimiter;
-    private final Iterable<T> values;
-    private final Function<T, String> toString;
-
-    private JoinValuesTransformed(
-        String arg, String delimiter, Iterable<T> values, Function<T, String> toString) {
-      this.arg = arg;
-      this.delimiter = delimiter;
-      this.values = CollectionUtils.makeImmutable(values);
-      this.toString = toString;
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      Iterator<T> parts = values.iterator();
-      if (!parts.hasNext()) {
-        return;
-      }
-      builder.add(this.arg);
-      StringBuilder arg = new StringBuilder();
-      arg.append(toString.apply(parts.next()));
-      while (parts.hasNext()) {
-        arg.append(delimiter);
-        arg.append(toString.apply(parts.next()));
-      }
-      builder.add(arg.toString());
-    }
-  }
-
-  /**
-   * Arguments that intersperse strings between the items in a sequence. There are two forms of
-   * interspersing, and either may be used by this implementation:
-   * <ul>
-   *   <li>before each - a string is added before each item in a sequence. e.g.
-   *       {@code -f foo -f bar -f baz}
-   *   <li>format each - a format string is used to format each item in a sequence. e.g.
-   *       {@code -I/foo -I/bar -I/baz} for the format {@code "-I%s"}
-   * </ul>
-   *
-   * <p>This class could be used both with both the "before" and "format" features at the same
-   * time, but this is probably more confusion than it is worth. If you need this functionality,
-   * consider using "before" only but storing the strings pre-formatted in a {@link NestedSet}.
-   */
-  private static final class InterspersingArgs extends ArgvFragment {
-    @Nullable private final String arg;
-    private final Iterable<?> sequence;
-    @Nullable private final String beforeEach;
-    @Nullable private final String formatEach;
-
-    /**
-     * Do not call from outside this class because this does not guarantee that {@code sequence} is
-     * immutable.
-     */
-    private InterspersingArgs(
-        @Nullable String arg,
-        Iterable<?> sequence,
-        @Nullable String beforeEach,
-        @Nullable String formatEach) {
-      this.arg = arg;
-      this.sequence = sequence;
-      this.beforeEach = beforeEach;
-      this.formatEach = formatEach;
-    }
-
-    static InterspersingArgs fromStrings(
-        @Nullable String arg,
-        Iterable<?> sequence,
-        @Nullable String beforeEach,
-        @Nullable String formatEach) {
-      return new InterspersingArgs(
-          arg, CollectionUtils.makeImmutable(sequence), beforeEach, formatEach);
-    }
-
-    static InterspersingArgs fromExecPaths(
-        @Nullable String arg,
-        Iterable<Artifact> sequence,
-        @Nullable String beforeEach,
-        @Nullable String formatEach) {
-      return new InterspersingArgs(
-          arg,
-          Artifact.toExecPaths(CollectionUtils.makeImmutable(sequence)),
-          beforeEach,
-          formatEach);
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      Iterator<?> it = sequence.iterator();
-      if (arg != null && it.hasNext()) {
-        builder.add(arg);
-      }
-      while (it.hasNext()) {
-        Object item = it.next();
-        if (item == null) {
-          continue;
-        }
-
-        if (beforeEach != null) {
-          builder.add(beforeEach);
-        }
-        String arg = item.toString();
-        if (formatEach != null) {
-          arg = String.format(formatEach, arg);
-        }
-        builder.add(arg);
-      }
-    }
-  }
-
 
   /**
    * An argument object that evaluates to the exec path of a {@link TreeFileArtifact}, enclosing
@@ -476,61 +491,126 @@ public final class CustomCommandLine extends CommandLine {
     // toString() results.
     private final List<Object> arguments = new ArrayList<>();
 
-    public Builder add(@Nullable CharSequence arg) {
+    /**
+     * Adds a value to the argument list.
+     *
+     * <p>At expansion time, the object is turned into a string by calling {@link Object#toString},
+     * unless it is an {@link Artifact}, in which case the exec path is used.
+     */
+    public Builder add(@Nullable Object value) {
+      if (value != null) {
+        arguments.add(value);
+      }
+      return this;
+    }
+
+    /** Adds the arg and the passed value if the value is non-null. */
+    public Builder add(String arg, @Nullable Object value) {
+      Preconditions.checkNotNull(arg);
+      if (value != null) {
+        arguments.add(arg);
+        add(value);
+      }
+      return this;
+    }
+
+    /** Adds the string representation of the passed values. */
+    public Builder add(@Nullable ImmutableCollection<?> values) {
+      if (values != null) {
+        arguments.add(values);
+      }
+      return this;
+    }
+
+    /** Adds the string representation of the passed values. */
+    public Builder add(@Nullable NestedSet<?> values) {
+      if (values != null) {
+        arguments.add(values);
+      }
+      return this;
+    }
+
+    /**
+     * Adds the arg followed by the string representation of the passed values.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder add(String arg, @Nullable ImmutableCollection<?> values) {
+      Preconditions.checkNotNull(arg);
+      if (values != null && !values.isEmpty()) {
+        arguments.add(arg);
+        add(values);
+      }
+      return this;
+    }
+
+    /**
+     * Adds the arg followed by the string representation of the passed values.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder add(String arg, @Nullable NestedSet<?> values) {
+      Preconditions.checkNotNull(arg);
+      if (values != null && !values.isEmpty()) {
+        arguments.add(arg);
+        add(values);
+      }
+      return this;
+    }
+
+    /**
+     * Adds the expansion of the passed vector arg.
+     *
+     * <p>Please see {@link VectorArg} for more information.
+     */
+    public Builder add(VectorArg.Builder vectorArg) {
+      if (!vectorArg.isEmpty) {
+        VectorArg.push(arguments, vectorArg);
+      }
+      return this;
+    }
+
+    /**
+     * Adds the arg followed by the expansion of the vector arg.
+     *
+     * <p>Please see {@link VectorArg} for more information.
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder add(String arg, VectorArg.Builder vectorArg) {
+      Preconditions.checkNotNull(arg);
+      if (!vectorArg.isEmpty) {
+        arguments.add(arg);
+        add(vectorArg);
+      }
+      return this;
+    }
+
+    public Builder add(@Nullable CustomArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(@Nullable Label arg) {
+    public Builder add(@Nullable CustomMultiArgv arg) {
       if (arg != null) {
         arguments.add(arg);
       }
       return this;
     }
 
-    public Builder add(String arg, @Nullable Iterable<String> args) {
-      Preconditions.checkNotNull(arg);
-      if (args != null) {
-        arguments.add(
-            InterspersingArgs.fromStrings(arg, args, /*beforeEach=*/ null, /*formatEach=*/ null));
-      }
+    /** Calls {@link String#format} at command line expansion time. */
+    public Builder addFormat(String formatStr, Object... args) {
+      Preconditions.checkNotNull(formatStr);
+      FormatArg.push(arguments, formatStr, args);
       return this;
     }
 
-    public Builder add(@Nullable Iterable<String> args) {
-      if (args != null) {
-        arguments.add(
-            InterspersingArgs.fromStrings(null, args, /*beforeEach=*/ null, /*formatEach=*/ null));
-      }
-      return this;
-    }
-
-    public Builder addExecPath(String arg, @Nullable Artifact artifact) {
-      Preconditions.checkNotNull(arg);
-      if (artifact != null) {
-        arguments.add(arg);
-        arguments.add(artifact.getExecPath());
-      }
-      return this;
-    }
-
-    public Builder addExecPaths(String arg, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(arg);
-      if (artifacts != null) {
-        arguments.add(
-            InterspersingArgs.fromExecPaths(
-                arg, artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
-      }
-      return this;
-    }
-
-    public Builder addExecPaths(@Nullable Iterable<Artifact> artifacts) {
-      if (artifacts != null) {
-        arguments.add(
-            InterspersingArgs.fromExecPaths(
-                null, artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
+    /** Cancatenates the passed prefix string and the object's string representation. */
+    public Builder addWithPrefix(String prefix, @Nullable Object arg) {
+      Preconditions.checkNotNull(prefix);
+      if (arg != null) {
+        PrefixArg.push(arguments, prefix, arg);
       }
       return this;
     }
@@ -568,77 +648,6 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder addJoinStrings(
-        String arg, String delimiter, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(arg);
-      Preconditions.checkNotNull(delimiter);
-      if (strings != null) {
-        arguments.add(new JoinStringsArg(arg, delimiter, strings));
-      }
-      return this;
-    }
-
-    /**
-     * Adds a list of values transformed by a function and delimited by a string.
-     *
-     * <p>Prefer this to transforming nested sets yourself as it is more memory-efficient. By using
-     * this class, expansion of the nested set is deferred until action execution instead of
-     * retained on the heap.
-     *
-     * @param arg The argument
-     * @param delimiter A delimiter string placed in between each transformed value
-     * @param values The values to expand into a list
-     * @param toString A function that transforms a value into a string
-     */
-    public <T> Builder addJoinValues(
-        String arg, String delimiter, @Nullable Iterable<T> values, Function<T, String> toString) {
-      Preconditions.checkNotNull(arg);
-      Preconditions.checkNotNull(delimiter);
-      Preconditions.checkNotNull(toString);
-      if (values != null) {
-        arguments.add(new JoinValuesTransformed<>(arg, delimiter, values, toString));
-      }
-      return this;
-    }
-
-    public Builder addJoinExecPaths(
-        String arg, String delimiter, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(arg);
-      Preconditions.checkNotNull(delimiter);
-      if (artifacts != null) {
-        arguments.add(new JoinExecPathsArg(arg, delimiter, artifacts));
-      }
-      return this;
-    }
-
-    public Builder addPath(@Nullable PathFragment path) {
-      if (path != null) {
-        arguments.add(path);
-      }
-      return this;
-    }
-
-    public Builder addPaths(String template, @Nullable PathFragment... path) {
-      Preconditions.checkNotNull(template);
-      if (path != null) {
-        arguments.add(new PathWithTemplateArg(template, path));
-      }
-      return this;
-    }
-
-    /**
-     * Adds a param file as an argument.
-     *
-     * @param paramFilePrefix The character that denotes a param file, commonly '@'
-     * @param paramFile The param file artifact
-     */
-    public Builder addParamFile(String paramFilePrefix, @Nullable Artifact paramFile) {
-      Preconditions.checkNotNull(paramFilePrefix);
-      Preconditions.checkNotNull(paramFile);
-      arguments.add(new ParamFileArgument(paramFilePrefix, paramFile.getExecPath()));
-      return this;
-    }
-
     /**
      * Adds a formatted string containing the exec path of a placeholder TreeArtifact. When the
      * command line is used in an action template, the placeholder will be replaced by the exec path
@@ -655,14 +664,6 @@ public final class CustomCommandLine extends CommandLine {
       Preconditions.checkNotNull(template);
       if (treeArtifact != null) {
         arguments.add(new TreeFileArtifactExecPathWithTemplateArg(template, treeArtifact));
-      }
-      return this;
-    }
-
-    public Builder addJoinPaths(String delimiter, @Nullable Iterable<PathFragment> paths) {
-      Preconditions.checkNotNull(delimiter);
-      if (paths != null && !Iterables.isEmpty(paths)) {
-        arguments.add(new JoinPathsArg(delimiter, paths));
       }
       return this;
     }
@@ -693,51 +694,132 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder addBeforeEachPath(String repeated, @Nullable Iterable<PathFragment> paths) {
-      Preconditions.checkNotNull(repeated);
-      if (paths != null) {
-        arguments.add(InterspersingArgs.fromStrings(null, paths, repeated, /*formatEach=*/ null));
-      }
-      return this;
+    @Deprecated
+    public Builder addPath(PathFragment pathFragment) {
+      return add(pathFragment);
     }
 
-    public Builder addBeforeEach(String repeated, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(repeated);
-      if (strings != null) {
-        arguments.add(InterspersingArgs.fromStrings(null, strings, repeated, /*formatEach=*/ null));
-      }
-      return this;
+    @Deprecated
+    public Builder addExecPath(String arg, @Nullable Artifact artifact) {
+      return add(arg, artifact);
     }
 
-    public Builder addBeforeEachExecPath(String repeated, @Nullable Iterable<Artifact> artifacts) {
-      Preconditions.checkNotNull(repeated);
-      if (artifacts != null) {
-        arguments.add(
-            InterspersingArgs.fromExecPaths(null, artifacts, repeated, /*formatEach=*/ null));
-      }
-      return this;
+    @Deprecated
+    public Builder addExecPaths(@Nullable ImmutableCollection<Artifact> artifacts) {
+      return add(artifacts);
     }
 
-    public Builder addFormatEach(String format, @Nullable Iterable<String> strings) {
-      Preconditions.checkNotNull(format);
-      if (strings != null) {
-        arguments.add(InterspersingArgs.fromStrings(null, strings, /*beforeEach=*/ null, format));
-      }
-      return this;
+    @Deprecated
+    public Builder addExecPaths(@Nullable NestedSet<Artifact> artifacts) {
+      return add(artifacts);
     }
 
-    public Builder add(@Nullable CustomArgv arg) {
-      if (arg != null) {
-        arguments.add(arg);
-      }
-      return this;
+    @Deprecated
+    public Builder addExecPaths(String arg, @Nullable ImmutableCollection<Artifact> artifacts) {
+      return add(arg, artifacts);
     }
 
-    public Builder add(@Nullable CustomMultiArgv arg) {
-      if (arg != null) {
-        arguments.add(arg);
-      }
-      return this;
+    @Deprecated
+    public Builder addExecPaths(String arg, @Nullable NestedSet<Artifact> artifacts) {
+      return add(arg, artifacts);
+    }
+
+    @Deprecated
+    public Builder addJoinExecPaths(
+        String arg, String delimiter, @Nullable ImmutableCollection<?> values) {
+      return add(arg, VectorArg.of(values).joinWith(delimiter));
+    }
+
+    @Deprecated
+    public Builder addJoinExecPaths(String arg, String delimiter, @Nullable NestedSet<?> values) {
+      return add(arg, VectorArg.of(values).joinWith(delimiter));
+    }
+
+    @Deprecated
+    public Builder addPaths(String formatStr, PathFragment path) {
+      Preconditions.checkNotNull(path);
+      return addFormat(formatStr, path);
+    }
+
+    @Deprecated
+    public Builder addPaths(String formatStr, PathFragment path0, PathFragment path1) {
+      Preconditions.checkNotNull(path0);
+      Preconditions.checkNotNull(path1);
+      return addFormat(formatStr, path0, path1);
+    }
+
+    @Deprecated
+    public Builder addBeforeEachExecPath(
+        String beforeEach, @Nullable ImmutableCollection<Artifact> values) {
+      return add(VectorArg.of(values).beforeEach(beforeEach));
+    }
+
+    @Deprecated
+    public Builder addBeforeEachExecPath(String beforeEach, @Nullable NestedSet<Artifact> values) {
+      return add(VectorArg.of(values).beforeEach(beforeEach));
+    }
+
+    @Deprecated
+    public Builder addJoinPaths(
+        String delimiter, @Nullable ImmutableCollection<PathFragment> pathFragments) {
+      return add(VectorArg.of(pathFragments).joinWith(delimiter));
+    }
+
+    public Builder addBeforeEach(String beforeEach, @Nullable ImmutableCollection<?> values) {
+      return add(VectorArg.of(values).beforeEach(beforeEach));
+    }
+
+    @Deprecated
+    public Builder addBeforeEachPath(
+        String beforeEach, @Nullable ImmutableCollection<PathFragment> values) {
+      return add(VectorArg.of(values).beforeEach(beforeEach));
+    }
+
+    @Deprecated
+    public Builder addBeforeEachPath(String beforeEach, @Nullable NestedSet<PathFragment> values) {
+      return add(VectorArg.of(values).beforeEach(beforeEach));
+    }
+
+    @Deprecated
+    public <T> Builder addJoinValues(
+        String arg,
+        String join,
+        @Nullable ImmutableCollection<?> values,
+        Function<T, String> mapFn) {
+      return add(arg, VectorArg.of(values).joinWith(join).mapEach(mapFn));
+    }
+
+    @Deprecated
+    public <T> Builder addJoinValues(
+        String arg, String join, @Nullable NestedSet<?> values, Function<T, String> mapFn) {
+      return add(arg, VectorArg.of(values).joinWith(join).mapEach(mapFn));
+    }
+
+    @Deprecated
+    public Builder addFormatEach(String formatStr, @Nullable ImmutableCollection<?> values) {
+      return add(VectorArg.of(values).formatEach(formatStr));
+    }
+
+    @Deprecated
+    public Builder addFormatEach(String formatStr, @Nullable NestedSet<?> values) {
+      return add(VectorArg.of(values).formatEach(formatStr));
+    }
+
+    @Deprecated
+    public Builder addJoinStrings(
+        String arg, String delimiter, @Nullable ImmutableCollection<?> values) {
+      return add(arg, VectorArg.of(values).joinWith(delimiter));
+    }
+
+    /**
+     * Adds a param file as an argument.
+     *
+     * @param paramFilePrefix The character that denotes a param file, commonly '@'
+     * @param paramFile The param file artifact
+     */
+    @Deprecated
+    public Builder addParamFile(String paramFilePrefix, @Nullable Artifact paramFile) {
+      return addWithPrefix(paramFilePrefix, paramFile);
     }
 
     public CustomCommandLine build() {
@@ -751,13 +833,12 @@ public final class CustomCommandLine extends CommandLine {
 
   private final ImmutableList<Object> arguments;
 
-
   /**
-   * A map between enclosed TreeArtifacts and their associated {@link TreeFileArtifacts} for
+   * A map between enclosed TreeArtifacts and their associated {@link TreeFileArtifact}s for
    * substitution.
    *
-   * <p> This map is used to support TreeArtifact substitutions in
-   * {@link TreeFileArtifactArgvFragment}s.
+   * <p>This map is used to support TreeArtifact substitutions in {@link
+   * TreeFileArtifactArgvFragment}s.
    */
   private final Map<Artifact, TreeFileArtifact> substitutionMap;
 
@@ -799,22 +880,32 @@ public final class CustomCommandLine extends CommandLine {
 
   private Iterable<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (Object arg : arguments) {
+    int count = arguments.size();
+    for (int i = 0; i < count; ) {
+      Object arg = arguments.get(i++);
       Object substitutedArg = substituteTreeFileArtifactArgvFragment(arg);
-      if (substitutedArg instanceof ArgvFragment) {
+      if (substitutedArg instanceof Iterable) {
+        evalSimpleVectorArg((Iterable<?>) substitutedArg, builder);
+      } else if (substitutedArg instanceof ArgvFragment) {
         if (artifactExpander != null
             && substitutedArg instanceof TreeArtifactExpansionArgvFragment) {
           TreeArtifactExpansionArgvFragment expansionArg =
               (TreeArtifactExpansionArgvFragment) substitutedArg;
           expansionArg.eval(builder, artifactExpander);
         } else {
-          ((ArgvFragment) substitutedArg).eval(builder);
+          i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder);
         }
       } else {
-        builder.add(substitutedArg.toString());
+        builder.add(valueToString(substitutedArg));
       }
     }
     return builder.build();
+  }
+
+  private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
+    for (Object value : arg) {
+      builder.add(valueToString(value));
+    }
   }
 
   /**
@@ -831,5 +922,11 @@ public final class CustomCommandLine extends CommandLine {
     } else {
       return arg;
     }
+  }
+
+  private static String valueToString(Object value) {
+    return value instanceof Artifact
+        ? ((Artifact) value).getExecPath().getPathString()
+        : value.toString();
   }
 }

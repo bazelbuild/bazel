@@ -2143,7 +2143,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private void checkRegistersStoryboardCompileActions(
-      ConfiguredTarget target, DottedVersion minimumOsVersion, List<String> targetDevices) {
+      ConfiguredTarget target,
+      DottedVersion minimumOsVersion,
+      ImmutableList<String> targetDevices) {
     Artifact storyboardZip = getBinArtifact("x/1.storyboard.zip", target);
     CommandAction compileAction = (CommandAction) getGeneratingAction(storyboardZip);
     assertThat(compileAction.getInputs()).containsExactly(

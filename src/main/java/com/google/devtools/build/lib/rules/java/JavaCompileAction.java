@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -432,7 +431,7 @@ public final class JavaCompileAction extends SpawnAction {
               .addJoinExecPaths(
                   "-cp",
                   pathDelimiter,
-                  Iterables.concat(instrumentationJars, ImmutableList.of(javaBuilderJar)))
+                  ImmutableList.builder().addAll(instrumentationJars).add(javaBuilderJar).build())
               .add(javaBuilderMainClass);
         } else {
           // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
@@ -701,19 +700,19 @@ public final class JavaCompileAction extends SpawnAction {
         result.addExecPaths("--processorpath", processorPath);
       }
       if (!processorNames.isEmpty()) {
-        result.add("--processors", processorNames);
+        result.add("--processors", ImmutableList.copyOf(processorNames));
       }
       if (!processorFlags.isEmpty()) {
-        result.add("--javacopts", processorFlags);
+        result.add("--javacopts", ImmutableList.copyOf(processorFlags));
       }
       if (!sourceJars.isEmpty()) {
-        result.addExecPaths("--source_jars", sourceJars);
+        result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
       }
       if (!sourceFiles.isEmpty()) {
         result.addExecPaths("--sources", sourceFiles);
       }
       if (!javacOpts.isEmpty()) {
-        result.add("--javacopts", javacOpts);
+        result.add("--javacopts", ImmutableList.copyOf(javacOpts));
       }
       if (ruleKind != null) {
         result.add("--rule_kind");
@@ -723,11 +722,11 @@ public final class JavaCompileAction extends SpawnAction {
         result.add("--target_label");
         if (targetLabel.getPackageIdentifier().getRepository().isDefault()
             || targetLabel.getPackageIdentifier().getRepository().isMain()) {
-          result.add(targetLabel.toString());
+          result.add(targetLabel);
         } else {
           // @-prefixed strings will be assumed to be filenames and expanded by
           // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-          result.add("@" + targetLabel);
+          result.addWithPrefix("@", targetLabel);
         }
       }
       if (testOnly) {

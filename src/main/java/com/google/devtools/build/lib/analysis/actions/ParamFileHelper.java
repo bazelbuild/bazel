@@ -88,7 +88,7 @@ public final class ParamFileHelper {
    * @param parameterFile the output parameter file artifact
    */
   public static CommandLine createWithParamsFile(
-      List<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
+      ImmutableList<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
     return CustomCommandLine.builder()
         .add(executableArgs)
         .addParamFile(paramFileInfo.getFlag(), parameterFile)

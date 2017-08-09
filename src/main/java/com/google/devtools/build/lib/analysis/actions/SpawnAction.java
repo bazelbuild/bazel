@@ -637,7 +637,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         @Nullable ActionEnvironment configEnv,
         @Nullable PathFragment defaultShellExecutable,
         @Nullable Artifact paramsFile) {
-      List<String> argv = buildExecutableArgs(defaultShellExecutable);
+      ImmutableList<String> argv = buildExecutableArgs(defaultShellExecutable);
       Iterable<String> arguments = argumentsBuilder.build();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
@@ -717,7 +717,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           extraActionInfoSupplier);
     }
 
-    private List<String> buildExecutableArgs(@Nullable PathFragment defaultShellExecutable) {
+    private ImmutableList<String> buildExecutableArgs(
+        @Nullable PathFragment defaultShellExecutable) {
       if (isShellCommand && executable == null) {
         Preconditions.checkNotNull(defaultShellExecutable);
         executable = defaultShellExecutable;

@@ -461,7 +461,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         j2objcSourceJarTranslatedHeaderFiles(ruleContext));
   }
 
-  private static List<String> sourceJarFlags(RuleContext ruleContext) {
+  private static ImmutableList<String> sourceJarFlags(RuleContext ruleContext) {
     return ImmutableList.of(
         "--output_gen_source_dir",
         j2ObjcSourceJarTranslatedSourceFiles(ruleContext).getExecPathString(),
@@ -492,14 +492,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
     if (!Iterables.isEmpty(sourceJars)) {
       sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
-      argBuilder.addJoinExecPaths("--src_jars", ",", sourceJars);
+      argBuilder.addJoinExecPaths("--src_jars", ",", ImmutableList.copyOf(sourceJars));
       argBuilder.add(sourceJarFlags(ruleContext));
     }
 
     Iterable<String> translationFlags = ruleContext
         .getFragment(J2ObjcConfiguration.class)
         .getTranslationFlags();
-    argBuilder.add(translationFlags);
+    argBuilder.add(ImmutableList.copyOf(translationFlags));
 
     NestedSet<Artifact> depsHeaderMappingFiles =
         depJ2ObjcMappingFileProvider.getHeaderMappingFiles();
@@ -541,7 +541,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       argBuilder.addJoinExecPaths("-classpath", ":", compileTimeJars);
     }
 
-    argBuilder.addExecPaths(sources);
+    argBuilder.addExecPaths(ImmutableList.copyOf(sources));
 
     Artifact paramFile = j2ObjcOutputParamFile(ruleContext);
     ruleContext.registerAction(new ParameterFileWriteAction(
@@ -584,10 +584,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (experimentalJ2ObjcHeaderMap) {
       CustomCommandLine.Builder headerMapCommandLine = CustomCommandLine.builder();
       if (!Iterables.isEmpty(sources)) {
-        headerMapCommandLine.addJoinExecPaths("--source_files", ",", sources);
+        headerMapCommandLine.addJoinExecPaths("--source_files", ",", ImmutableList.copyOf(sources));
       }
       if (!Iterables.isEmpty(sourceJars)) {
-        headerMapCommandLine.addJoinExecPaths("--source_jars", ",", sourceJars);
+        headerMapCommandLine.addJoinExecPaths(
+            "--source_jars", ",", ImmutableList.copyOf(sourceJars));
       }
       headerMapCommandLine.addExecPath("--output_mapping_file", outputHeaderMappingFile);
       ruleContext.registerAction(new SpawnAction.Builder()

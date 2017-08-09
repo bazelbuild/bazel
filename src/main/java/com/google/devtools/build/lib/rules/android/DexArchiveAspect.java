@@ -422,11 +422,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Artifact createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
       Artifact jar, Set<String> incrementalDexopts, Artifact dexArchive) {
     // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
-    CustomCommandLine args = new CustomCommandLine.Builder()
-        .addExecPath("--input_jar", jar)
-        .addExecPath("--output_zip", dexArchive)
-        .add(incrementalDexopts)
-        .build();
+    CustomCommandLine args =
+        new CustomCommandLine.Builder()
+            .addExecPath("--input_jar", jar)
+            .addExecPath("--output_zip", dexArchive)
+            .add(ImmutableList.copyOf(incrementalDexopts))
+            .build();
     Artifact paramFile =
         ruleContext.getDerivedArtifact(
             ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());

@@ -461,13 +461,14 @@ public class AndroidResourcesProcessorBuilder {
       builder.addJoinStrings("--prefilteredResources", ",", filteredResources);
     }
     if (!uncompressedExtensions.isEmpty()) {
-      builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
+      builder.addJoinStrings(
+          "--uncompressedExtensions", ",", ImmutableList.copyOf(uncompressedExtensions));
     }
     if (!crunchPng) {
       builder.add("--useAaptCruncher=no");
     }
     if (!assetsToIgnore.isEmpty()) {
-      builder.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);
+      builder.addJoinStrings("--assetsToIgnore", ",", ImmutableList.copyOf(assetsToIgnore));
     }
     if (debug) {
       builder.add("--debug");

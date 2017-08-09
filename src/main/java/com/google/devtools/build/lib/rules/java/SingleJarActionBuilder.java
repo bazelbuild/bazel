@@ -94,7 +94,7 @@ public final class SingleJarActionBuilder {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
     args.add(SOURCE_JAR_COMMAND_LINE_ARGS);
-    args.addExecPaths("--sources", resourceJars);
+    args.addExecPaths("--sources", ImmutableList.copyOf(resourceJars));
     if (!resources.isEmpty()) {
       args.add("--resources");
       for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {

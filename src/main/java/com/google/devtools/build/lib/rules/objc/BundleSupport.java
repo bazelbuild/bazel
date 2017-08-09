@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR
 
 import com.google.common.base.Optional;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -447,8 +448,8 @@ final class BundleSupport {
     }
 
     return commandLine
-        .add(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
-        .add(extraActoolArgs)
+        .add(ImmutableList.copyOf(PathFragment.safePathStrings(provider.get(XCASSETS_DIR))))
+        .add(ImmutableList.copyOf(extraActoolArgs))
         .build();
   }
 

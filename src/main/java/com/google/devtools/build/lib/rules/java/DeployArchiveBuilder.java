@@ -199,7 +199,9 @@ public class DeployArchiveBuilder {
     }
 
     args.addExecPaths("--classpath_resources", classpathResources);
-    args.addExecPaths("--sources", runtimeClasspath);
+    if (runtimeClasspath != null) {
+      args.addExecPaths("--sources", ImmutableList.copyOf(runtimeClasspath));
+    }
     return args;
   }
 

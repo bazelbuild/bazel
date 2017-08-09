@@ -103,7 +103,8 @@ public class RClassGeneratorActionBuilder {
       Iterable<ResourceContainer> depResources = dependencies.getResources();
       if (!Iterables.isEmpty(depResources)) {
         builder.addBeforeEach(
-            "--library", Iterables.transform(depResources, chooseDepsToArg(version)));
+            "--library",
+            ImmutableList.copyOf(Iterables.transform(depResources, chooseDepsToArg(version))));
         inputs.addTransitive(
             NestedSetBuilder.wrap(
                 Order.NAIVE_LINK_ORDER,

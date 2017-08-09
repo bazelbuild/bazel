@@ -38,7 +38,7 @@ public class ResourceJarActionBuilder {
   private Artifact outputJar;
   private Map<PathFragment, Artifact> resources = ImmutableMap.of();
   private NestedSet<Artifact> resourceJars = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private List<Artifact> classpathResources = ImmutableList.of();
+  private ImmutableList<Artifact> classpathResources = ImmutableList.of();
   private List<Artifact> messages = ImmutableList.of();
   private JavaToolchainProvider javaToolchain;
   private NestedSet<Artifact> javabase;

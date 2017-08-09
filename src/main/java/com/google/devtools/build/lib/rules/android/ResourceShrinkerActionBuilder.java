@@ -170,10 +170,11 @@ public class ResourceShrinkerActionBuilder {
     inputs.add(sdk.getAndroidJar());
 
     if (!uncompressedExtensions.isEmpty()) {
-      commandLine.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
+      commandLine.addJoinStrings(
+          "--uncompressedExtensions", ",", ImmutableList.copyOf(uncompressedExtensions));
     }
     if (!assetsToIgnore.isEmpty()) {
-      commandLine.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);
+      commandLine.addJoinStrings("--assetsToIgnore", ",", ImmutableList.copyOf(assetsToIgnore));
     }
     if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
       commandLine.add("--debug");
@@ -205,13 +206,14 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addExecPath("--primaryManifest", primaryResources.getManifest());
     inputs.add(primaryResources.getManifest());
 
-    List<Artifact> dependencyManifests = getManifests(dependencyResources);
+    ImmutableList<Artifact> dependencyManifests = getManifests(dependencyResources);
     if (!dependencyManifests.isEmpty()) {
       commandLine.addExecPaths("--dependencyManifest", dependencyManifests);
       inputs.addAll(dependencyManifests);
     }
 
-    List<String> resourcePackages = getResourcePackages(primaryResources, dependencyResources);
+    ImmutableList<String> resourcePackages =
+        getResourcePackages(primaryResources, dependencyResources);
     commandLine.addJoinStrings("--resourcePackages", ",", resourcePackages);
 
     commandLine.addExecPath("--shrunkResourceApk", resourceApkOut);
@@ -239,7 +241,7 @@ public class ResourceShrinkerActionBuilder {
     return resourceApkOut;
   }
 
-  private List<Artifact> getManifests(ResourceDependencies resourceDependencies) {
+  private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
     for (ResourceContainer resources : resourceDependencies.getResources()) {
       if (resources.getManifest() != null) {
@@ -249,8 +251,8 @@ public class ResourceShrinkerActionBuilder {
     return manifests.build();
   }
 
-  private List<String> getResourcePackages(ResourceContainer primaryResources,
-      ResourceDependencies resourceDependencies) {
+  private ImmutableList<String> getResourcePackages(
+      ResourceContainer primaryResources, ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
     resourcePackages.add(primaryResources.getJavaPackage());
     for (ResourceContainer resources : resourceDependencies.getResources()) {
