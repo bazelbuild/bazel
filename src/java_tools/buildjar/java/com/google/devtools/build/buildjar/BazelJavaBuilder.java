@@ -71,6 +71,11 @@ public abstract class BazelJavaBuilder {
               .build()
               .writeDelimitedTo(System.out);
           System.out.flush();
+
+          // Hint to the system that now would be a good time to run a gc.  After a compile
+          // completes lots of objects should be available for collection and it should be cheap to
+          // collect them.
+          System.gc();
         }
       } catch (IOException e) {
         e.printStackTrace();
