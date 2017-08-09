@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import java.io.File;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -191,10 +191,9 @@ final class SkylarkExecutionResult {
         for (int i = 0; i < args.size(); i++) {
           argsArray[i] = args.get(i);
         }
-        Command command = new Command(argsArray, envBuilder, directory);
-        CommandResult result = command.execute(
-            new byte[]{}, new TimeoutKillableObserver(timeout),
-            delegator.getOutputStream(), delegator.getErrorStream());
+        Command command = new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout));
+        CommandResult result =
+            command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new SkylarkExecutionResult(
             result.getTerminationStatus().getExitCode(),
             recorder.outAsLatin1(),

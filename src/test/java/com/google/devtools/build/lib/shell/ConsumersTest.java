@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,7 +61,7 @@ public class ConsumersTest {
       outErr.waitForCompletion();
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
+      assertThat(e).hasMessageThat().isEqualTo(SECRET_MESSAGE);
     }
   }
 
@@ -115,7 +114,7 @@ public class ConsumersTest {
     } catch (IOException e) {
       fail();
     } catch (Error e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
+      assertThat(e).hasMessageThat().isEqualTo(SECRET_MESSAGE);
     }
   }
 
@@ -140,30 +139,7 @@ public class ConsumersTest {
       outErr.waitForCompletion();
       fail();
     } catch (RuntimeException e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
+      assertThat(e).hasMessageThat().isEqualTo(SECRET_MESSAGE);
     }
   }
-
-  /**
-   * Basically tests that Consumers#silentClose(InputStream) works properly.
-   */
-  @Test
-  public void testSilentlyDropIOExceptionWhenClosingInputStream() {
-    InputStream in = new ByteArrayInputStream(new byte[]{'a'}){
-      @Override
-      public void close() throws IOException {
-        throw new IOException("Please ignore me!");
-      }
-    };
-    OutErrConsumers outErr = Consumers.createDiscardingConsumers();
-    outErr.registerInputs(in, in, false);
-    try {
-      outErr.waitForCompletion();
-      // yeah!
-    } catch (IOException e) {
-      fail(); // this should not throw an exception, since we're silently
-              // closing the output!
-    }
-  }
-
 }

@@ -18,15 +18,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * <p>{@link KillableObserver} implementation which will kill its observed
- * {@link Killable} if it is still being observed after a given amount
- * of time has elapsed.</p>
+ * {@link KillableObserver} implementation which will kill its observed {@link Killable} if it is
+ * still being observed after a given amount of time has elapsed.
  *
- * <p>Note that this class can only observe one {@link Killable} at a time;
- * multiple instances should be used for concurrent calls to
- * {@link Command#execute(byte[], KillableObserver, boolean)}.</p>
+ * <p>Note that this class can only observe one {@link Killable} at a time; multiple instances
+ * should be used for concurrent calls to {@link Command#execute}.
  */
-public final class TimeoutKillableObserver implements KillableObserver {
+final class TimeoutKillableObserver implements KillableObserver {
 
   private static final Logger log =
       Logger.getLogger(TimeoutKillableObserver.class.getCanonicalName());

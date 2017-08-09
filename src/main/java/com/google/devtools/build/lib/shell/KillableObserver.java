@@ -15,35 +15,24 @@
 package com.google.devtools.build.lib.shell;
 
 /**
- * Implementations of this interface observe, and potentially kill,
- * a {@link Killable} object. This is the mechanism by which "kill"
- * functionality is exposed to callers in the
- * {@link Command#execute(byte[], KillableObserver, boolean)} method.
- * 
+ * Implementations of this interface observe, and potentially kill, a {@link Killable} object.
  */
-public interface KillableObserver {
-
+interface KillableObserver {
   /**
-   * <p>Begin observing the given {@link Killable}. This method must return
-   * promptly; until it returns, {@link Command#execute()} cannot complete.
-   * Implementations may wish to start a new {@link Thread} here to handle
-   * kill logic, and to interrupt or otherwise ask the thread to stop in the
-   * {@link #stopObserving(Killable)} method. See
-   * <a href="http://builder.com.com/5100-6370-5144546.html">
-   * Interrupting Java threads</a> for notes on how to implement this
-   * correctly.</p>
+   * Begin observing the given {@link Killable}. This method must return promptly; until it returns,
+   * {@link Command#execute()} cannot complete. Implementations may wish to start a new
+   * {@link Thread} here to handle kill logic, and to interrupt or otherwise ask the thread to stop
+   * in the {@link #stopObserving(Killable)} method. See
+   * <a href="http://builder.com.com/5100-6370-5144546.html">Interrupting Java threads</a> for notes
+   * on how to implement this correctly.
    *
-   * <p>Implementations may or may not be able to observe more than
-   * one {@link Killable} at a time; see javadoc for details.</p>
+   * <p>Implementations may or may not be able to observe more than one {@link Killable} at a time;
+   * see javadoc for details.
    *
    * @param killable killable to observer
    */
   void startObserving(Killable killable);
 
-  /**
-   * Stop observing the given {@link Killable}, since it is
-   * no longer active.
-   */
+  /** Stop observing the given {@link Killable}, since it is no longer active. */
   void stopObserving(Killable killable);
-
 }

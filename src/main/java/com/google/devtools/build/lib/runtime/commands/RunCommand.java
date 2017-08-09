@@ -322,14 +322,13 @@ public class RunCommand implements BlazeCommand  {
       // actual output of the command being run even if --color=no is specified.
       env.getReporter().switchToAnsiAllowingHandler();
 
-      // The command API is a little strange in that the following statement
-      // will return normally only if the program exits with exit code 0.
-      // If it ends with any other code, we have to catch BadExitStatusException.
-      command.execute(com.google.devtools.build.lib.shell.Command.NO_INPUT,
-          com.google.devtools.build.lib.shell.Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
-          true /* interruptible */).getTerminationStatus().getExitCode();
+      // The command API is a little strange in that the following statement will return normally
+      // only if the program exits with exit code 0. If it ends with any other code, we have to
+      // catch BadExitStatusException.
+      command
+          .execute(outErr.getOutputStream(), outErr.getErrorStream())
+          .getTerminationStatus()
+          .getExitCode();
       return ExitCode.SUCCESS;
     } catch (BadExitStatusException e) {
       String message = "Non-zero return code '"

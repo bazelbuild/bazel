@@ -133,7 +133,8 @@ public class WindowsSubprocess implements Subprocess {
       boolean stderrRedirected, long timeoutMillis) {
     this.commandLine = commandLine;
     this.nativeProcess = nativeProcess;
-    this.timeoutMillis = timeoutMillis;
+    // As per the spec of Command, we should only apply timeouts that are > 0.
+    this.timeoutMillis = timeoutMillis <= 0 ? -1 : timeoutMillis;
     stdoutStream =
         stdoutRedirected ? null : new ProcessInputStream(WindowsProcesses.getStdout(nativeProcess));
     stderrStream =

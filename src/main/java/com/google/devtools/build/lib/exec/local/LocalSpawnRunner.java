@@ -241,6 +241,11 @@ public final class LocalSpawnRunner implements SpawnRunner {
       OutputStream stdOut = ByteStreams.nullOutputStream();
       OutputStream stdErr = ByteStreams.nullOutputStream();
       if (useProcessWrapper) {
+        // If the process wrapper is enabled, we use its timeout feature, which first interrupts the
+        // subprocess and only kills it after a grace period so that the subprocess can output a
+        // stack trace, test log or similar, which is incredibly helpful for debugging. The process
+        // wrapper also supports output file redirection, so we don't need to stream the output
+        // through this process.
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(processWrapper);
         cmdLine.add("--timeout=" + policy.getTimeout().getSeconds());
@@ -259,16 +264,13 @@ public final class LocalSpawnRunner implements SpawnRunner {
             spawn.getArguments().toArray(new String[0]),
             localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName),
             execRoot.getPathFile(),
-            // TODO(ulfjack): Command throws if timeouts are unsupported and timeout >= 0. For
-            // consistency, we should change it to not throw (and not enforce a timeout) if
-            // timeout <= 0 instead.
-            policy.getTimeout().isZero() ? -1 : policy.getTimeout().toMillis());
+            policy.getTimeout());
       }
 
       long startTime = System.currentTimeMillis();
       CommandResult result;
       try {
-        result = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdOut, stdErr, true);
+        result = cmd.execute(stdOut, stdErr);
         if (Thread.currentThread().isInterrupted()) {
           throw new InterruptedException();
         }

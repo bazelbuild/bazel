@@ -15,17 +15,15 @@
 package com.google.devtools.build.lib.shell;
 
 /**
- * Implementations encapsulate a running process that can be killed.
- * In particular, here, it is used to wrap up a {@link Process} object
- * and expose it to a {@link KillableObserver}. It is wrapped in this way
- * so that the actual {@link Process} object can't be altered by
- * a {@link KillableObserver}.
+ * Implementations encapsulate a running process that can be killed. In particular, here, it is used
+ * to wrap up a {@link Process} object and expose it to a {@link KillableObserver}. It is wrapped in
+ * this way so that the actual {@link Process} object can't be altered by a
+ * {@link KillableObserver}.
  */
-public interface Killable {
+interface Killable {
 
   /**
    * Kill this killable instance.
    */
   void kill();
-
 }

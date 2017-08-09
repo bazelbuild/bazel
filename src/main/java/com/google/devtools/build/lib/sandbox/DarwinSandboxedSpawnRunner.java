@@ -73,12 +73,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Command cmd = new Command(args.toArray(new String[0]), env, cwd);
     try {
-      cmd.execute(
-          /* stdin */ new byte[] {},
-          Command.NO_OBSERVER,
-          ByteStreams.nullOutputStream(),
-          ByteStreams.nullOutputStream(),
-          /* killSubprocessOnInterrupt */ true);
+      cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
       return false;
     }

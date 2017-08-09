@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
-import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Action;
@@ -43,18 +42,17 @@ import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.longrunning.Operation;
-import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,7 +80,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
 
   // How long to wait for the uid command.
-  private static final Duration uidTimeout = Durations.fromMicros(30);
+  private static final Duration uidTimeout = Duration.ofMillis(30);
 
   private static final int LOCAL_EXEC_ERROR = -1;
 
@@ -171,8 +169,6 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private ActionResult execute(Action action, Path execRoot)
       throws IOException, InterruptedException, StatusException {
-    ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
-    ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
     com.google.devtools.remoteexecution.v1test.Command command = null;
     try {
       command =
@@ -223,9 +219,7 @@ final class ExecutionServer extends ExecutionImplBase {
       //
       // As a workaround, we put a synchronized block around the fork.
       try {
-        futureCmdResult = cmd
-            .executeAsynchronously(new ByteArrayInputStream(new byte[0]), Command.NO_OBSERVER,
-                stdoutBuffer, stderrBuffer, true, false);
+        futureCmdResult = cmd.executeAsync();
       } catch (CommandException e) {
         Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       }
@@ -266,8 +260,8 @@ final class ExecutionServer extends ExecutionImplBase {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     cache.upload(result, execRoot, outputs);
-    byte[] stdout = stdoutBuffer.toByteArray();
-    byte[] stderr = stderrBuffer.toByteArray();
+    byte[] stdout = cmdResult.getStdout();
+    byte[] stderr = cmdResult.getStderr();
     cache.uploadOutErr(result, stdout, stderr);
     ActionResult finalResult = result.setExitCode(exitCode).build();
     if (exitCode == 0) {
@@ -297,15 +291,12 @@ final class ExecutionServer extends ExecutionImplBase {
   // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
   // output files), so most use cases would work without setting uid.
   private long getUid() {
-    Command cmd = new Command(new String[] {"id", "-u"});
+    Command cmd =
+        new Command(new String[] {"id", "-u"}, /*env=*/null, /*workingDir=*/null, uidTimeout);
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-      cmd.execute(
-          Command.NO_INPUT,
-          new TimeoutKillableObserver(com.google.protobuf.util.Durations.toMicros(uidTimeout)),
-          stdout,
-          stderr);
+      cmd.execute(stdout, stderr);
       return Long.parseLong(stdout.toString().trim());
     } catch (CommandException | NumberFormatException e) {
       logger.log(

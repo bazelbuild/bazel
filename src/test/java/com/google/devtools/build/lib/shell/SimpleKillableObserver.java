@@ -15,33 +15,21 @@
 package com.google.devtools.build.lib.shell;
 
 /**
- * <p>A simple implementation of {@link KillableObserver} which can be told
- * explicitly to kill its {@link Killable} by calling {@link #kill()}. This
- * is the sort of functionality that callers might expect to find available
- * on the {@link Command} class.</p>
+ * A simple implementation of {@link KillableObserver} which can be told explicitly to kill its
+ * {@link Killable} by calling {@link #kill()}. This is the sort of functionality that callers might
+ * expect to find available on the {@link Command} class.</p>
  *
- * <p>Note that this class can only observe one {@link Killable} at a time;
- * multiple instances should be used for concurrent calls to
- * {@link Command#execute(byte[], KillableObserver, boolean)}.</p>
+ * <p>Note that this class can only observe one {@link Killable} at a time; multiple instances
+ * should be used for concurrent calls to {@link Command#execute}.
  */
-public final class SimpleKillableObserver implements KillableObserver {
-
+final class SimpleKillableObserver implements KillableObserver {
   private Killable killable;
 
-  /**
-   * Does nothing except store a reference to the given {@link Killable}.
-   *
-   * @param killable {@link Killable} to kill
-   */
   @Override
   public synchronized void startObserving(final Killable killable) {
     this.killable = killable;
   }
 
-  /**
-   * Forgets reference to {@link Killable} provided to
-   * {@link #startObserving(Killable)}
-   */
   @Override
   public synchronized void stopObserving(final Killable killable) {
     if (!this.killable.equals(killable)) {
@@ -51,9 +39,6 @@ public final class SimpleKillableObserver implements KillableObserver {
     this.killable = null;
   }
 
-  /**
-   * Calls {@link Killable#kill()} on the saved {@link Killable}.
-   */
   public synchronized void kill() {
     if (killable != null) {
       killable.kill();
