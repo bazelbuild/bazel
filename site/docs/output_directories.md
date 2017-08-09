@@ -60,7 +60,7 @@ but "bazel-&lt;workspace-name&gt;" and "bazel-out" are not.
 The directories are laid out as follows:
 
 <pre>
-&lt;workspace-name&gt;/                         <== The workspace directory
+&lt;workspace-name&gt;/                   <== The workspace directory
   bazel-my-project => <...my-project>     <== Symlink to execRoot
   bazel-out => <...bin>                   <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
@@ -90,8 +90,13 @@ The directories are laid out as follows:
       server/                             <== The Bazel server puts all server-related files (such as socket
                                               file, logs, etc) here.
         jvm.out                           <== The debugging output for the server.
-      execroot/
-        &lt;workspace-name&gt;/                 <== Working tree for the Bazel build & root of symlink forest: execRoot
+      execroot/                           <== The working directory for all actions. For special cases such
+                                              as sandboxing and remote execution, the actions run in a
+                                              directory that mimics execroot with implementation details,
+                                              such as where the directories are created, intentionally
+                                              hidden from the action. All actions can access its inputs
+                                              and outputs relative to the execroot directory.
+        &lt;workspace-name&gt;/           <== Working tree for the Bazel build & root of symlink forest: execRoot
           _bin/                           <== Helper tools are linked from or copied to here.
 
           bazel-out/                      <== All actual output of the build is under here: outputPath
@@ -120,7 +125,7 @@ The directories are laid out as follows:
             host/                         <== BuildConfiguration for build host (user's workstation), for
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)
-        &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
+        &lt;packages&gt;/                 <== Packages referenced in the build appear as if under a regular workspace
 </pre>
 
 The layout of the *.runfiles directories is documented in more detail in the places pointed to by RunfilesSupport.
