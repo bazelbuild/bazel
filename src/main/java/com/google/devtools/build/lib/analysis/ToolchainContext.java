@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Contains toolchain-related information needed for a {@link RuleContext}. */
@@ -99,6 +101,14 @@ public class ToolchainContext {
     return resolvedToolchainLabels.getToolchainLabels();
   }
 
+  /** Returns the {@link Label}s from the {@link NestedSet} that refer to toolchain dependencies. */
+  public Set<Label> filterToolchainLabels(Set<Label> labels) {
+    return labels
+        .stream()
+        .filter(label -> resolvedToolchainLabels.isToolchainDependency(label))
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
   /** Tracks the mapping from toolchain type label to the label of the actual resolved toolchain. */
   private static class ResolvedToolchainLabels {
     private final ImmutableBiMap<Label, Label> toolchainLabels;
@@ -117,6 +127,10 @@ public class ToolchainContext {
 
     public ImmutableSet<Label> getToolchainLabels() {
       return toolchainLabels.values();
+    }
+
+    public boolean isToolchainDependency(Label label) {
+      return toolchainLabels.containsValue(label);
     }
   }
 

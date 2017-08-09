@@ -20,6 +20,7 @@ import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -177,7 +178,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       target = pkg.getTarget(lc.getLabel().getName());
     } catch (NoSuchTargetException e) {
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage()));
+          new ConfiguredValueCreationException(e.getMessage(), lc.getLabel()));
     }
     if (pkg.containsErrors()) {
       transitiveLoadingRootCauses.add(lc.getLabel());
@@ -205,6 +206,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
 
+    ToolchainContext toolchainContext = null;
+
     // TODO(janakr): this acquire() call may tie up this thread indefinitely, reducing the
     // parallelism of Skyframe. This is a strict improvement over the prior state of the code, in
     // which we ran with #processors threads, but ideally we would call #tryAcquire here, and if we
@@ -231,7 +234,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      ToolchainContext toolchainContext = null;
       if (target instanceof Rule) {
         Rule rule = ((Rule) target);
         ImmutableList<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
@@ -277,18 +279,42 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return ans;
     } catch (DependencyEvaluationException e) {
       if (e.getCause() instanceof ConfiguredValueCreationException) {
-        throw new ConfiguredTargetFunctionException(
-            (ConfiguredValueCreationException) e.getCause());
+        ConfiguredValueCreationException cvce = (ConfiguredValueCreationException) e.getCause();
+
+        // Check if this is caused by an unresolved toolchain, and report it as such.
+        if (toolchainContext != null) {
+          ImmutableSet.Builder<Label> causes = new ImmutableSet.Builder<Label>();
+          if (cvce.getAnalysisRootCause() != null) {
+            causes.add(cvce.getAnalysisRootCause());
+          }
+          if (!cvce.getRootCauses().isEmpty()) {
+            causes.addAll(cvce.getRootCauses());
+          }
+          Set<Label> toolchainDependencyErrors =
+              toolchainContext.filterToolchainLabels(causes.build());
+          if (!toolchainDependencyErrors.isEmpty()) {
+            env.getListener()
+                .handle(
+                    Event.error(
+                        String.format(
+                            "While resolving toolchains for target %s: %s",
+                            target.getLabel(), e.getCause().getMessage())));
+          }
+        }
+
+        throw new ConfiguredTargetFunctionException(cvce);
       } else if (e.getCause() instanceof InconsistentAspectOrderException) {
         InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
-      } else {
-        // Cast to InvalidConfigurationException as a consistency check. If you add any
-        // DependencyEvaluationException constructors, you may need to change this code, too.
+      } else if (e.getCause() instanceof InvalidConfigurationException) {
         InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
+      } else {
+        // Unknown exception type.
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(e.getMessage(), target.getLabel()));
       }
     } catch (AspectCreationException e) {
       // getAnalysisRootCause may be null if the analysis of the aspect itself failed.
