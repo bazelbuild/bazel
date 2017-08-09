@@ -460,6 +460,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      // TODO(elenairina): Remove this after the next blaze release (after 2017.07.30).
+      env.put("NEW_JAVA_COVERAGE_IMPL", "True");
     }
   }
 
