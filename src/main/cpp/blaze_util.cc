@@ -103,16 +103,30 @@ const char* SearchUnaryOption(const vector<string>& args,
   return GetUnaryOption(args[i].c_str(), NULL, key);
 }
 
-bool SearchNullaryOption(const vector<string>& args, const char *key) {
+static bool SearchNullaryOption(const vector<string>& args,
+                                const char *key,
+                                const bool include_positional_params) {
   for (vector<string>::size_type i = 0; i < args.size(); i++) {
     if (args[i] == "--") {
-      return false;
+      if (!include_positional_params) {
+        return false;
+      }
+      continue;
     }
     if (GetNullaryOption(args[i].c_str(), key)) {
       return true;
     }
   }
   return false;
+}
+
+bool SearchNullaryOption(const vector<string>& args, const char *key) {
+  return SearchNullaryOption(args, key, false);
+}
+
+bool SearchNullaryOptionEverywhere(const vector<string>& args,
+                                   const char *key) {
+  return SearchNullaryOption(args, key, true);
 }
 
 bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
