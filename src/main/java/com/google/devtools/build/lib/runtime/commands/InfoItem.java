@@ -199,7 +199,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(env);
-      return print(env.getRuntime().getWorkspace().getOutputPath());
+      return print(
+          env.getDirectories().getOutputPath(configurationSupplier.get().getMainRepositoryName()));
     }
   }
 

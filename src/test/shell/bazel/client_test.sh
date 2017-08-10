@@ -30,6 +30,6 @@ EOF
   expect_log "^bazel-bin:.*_bazel.*bazel-out.*bin\$"
   expect_log "^bazel-genfiles:.*_bazel.*bazel-out.*genfiles\$"
   expect_log "^bazel-testlogs:.*_bazel.*bazel-out.*testlogs\$"
-  expect_log "^output_path:.*_bazel.*bazel-out\$"
+  expect_log "^output_path:.*/execroot/blerp/bazel-out\$"
   expect_log "^execution_root:.*/execroot/blerp\$"
 }
