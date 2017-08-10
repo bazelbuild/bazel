@@ -591,6 +591,7 @@ java_library(
             "analysis/buildinfo/*.java",
             "analysis/config/*.java",
             "analysis/constraints/*.java",
+            "analysis/extra/*.java",
             "analysis/fileset/*.java",
             "analysis/skylark/*.java",
             "exec/*.java",

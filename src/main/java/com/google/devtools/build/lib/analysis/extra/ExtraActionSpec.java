@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.extra;
+package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +52,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final boolean requiresActionOutput;
   private final Label label;
 
-  ExtraActionSpec(
+  public ExtraActionSpec(
       Iterable<Artifact> resolvedTools,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> resolvedData,

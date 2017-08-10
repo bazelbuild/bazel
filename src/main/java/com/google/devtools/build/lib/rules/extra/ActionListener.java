@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.extra.ExtraActionMapProvider;
+import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.syntax.Type;
