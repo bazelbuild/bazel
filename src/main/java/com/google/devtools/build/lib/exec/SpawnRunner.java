@@ -147,7 +147,7 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    void prefetchInputs(Iterable<ActionInput> inputs) throws IOException;
+    void prefetchInputs() throws IOException;
 
     /**
      * The input file metadata cache for this specific spawn, which can be used to efficiently

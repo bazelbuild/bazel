@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -72,6 +74,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
       private final int id = execCount.incrementAndGet();
+      // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
+      // TODO(ulfjack): Guard against client modification of this map.
+      private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
       @Override
       public int getId() {
@@ -79,8 +84,14 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       }
 
       @Override
-      public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
-        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(inputs);
+      public void prefetchInputs() throws IOException {
+        if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+          // TODO(philwo): Benchmark whether using an ExecutionService to do multiple operations in
+          // parallel speeds up prefetching of inputs.
+          // TODO(philwo): Do we have to expand middleman artifacts here?
+          actionExecutionContext.getActionInputPrefetcher().prefetchFiles(
+              Iterables.filter(getInputMapping().values(), Predicates.notNull()));
+        }
       }
 
       @Override
@@ -115,11 +126,14 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
 
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
-        return spawnInputExpander.getInputMapping(
-            spawn,
-            actionExecutionContext.getArtifactExpander(),
-            actionExecutionContext.getActionInputFileCache(),
-            actionExecutionContext.getContext(FilesetActionContext.class));
+        if (lazyInputMapping == null) {
+          lazyInputMapping = spawnInputExpander.getInputMapping(
+              spawn,
+              actionExecutionContext.getArtifactExpander(),
+              actionExecutionContext.getActionInputFileCache(),
+              actionExecutionContext.getContext(FilesetActionContext.class));
+        }
+        return lazyInputMapping;
       }
 
       @Override

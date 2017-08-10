@@ -22,12 +22,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -145,7 +143,7 @@ public class LocalSpawnRunnerTest {
     private final TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
 
     private long timeoutMillis;
-    private final List<Iterable<ActionInput>> prefetched = new ArrayList<>();
+    private boolean prefetchCalled;
     private boolean lockOutputFilesCalled;
 
     @Override
@@ -154,8 +152,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public void prefetchInputs(Iterable<ActionInput> inputs) throws IOException {
-      prefetched.add(Preconditions.checkNotNull(inputs));
+    public void prefetchInputs() throws IOException {
+      prefetchCalled = true;
     }
 
     @Override
@@ -435,7 +433,7 @@ public class LocalSpawnRunnerTest {
     policy.timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     runner.exec(SIMPLE_SPAWN, policy);
-    assertThat(policy.prefetched).isNotEmpty();
+    assertThat(policy.prefetchCalled).isTrue();
   }
 
   @Test
@@ -455,34 +453,7 @@ public class LocalSpawnRunnerTest {
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hi!")
         .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "").build();
     runner.exec(spawn, policy);
-    assertThat(policy.prefetched).isEmpty();
-  }
-
-  /**
-   * Regression test: the SpawnInputExpander can return null values for empty files, but the
-   * ActionInputPrefetcher expects no null values.
-   */
-  @Test
-  public void checkPrefetchCalledNonNull() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
-    when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
-    SubprocessBuilder.setSubprocessFactory(factory);
-
-    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
-
-    policy.inputMapping.put(PathFragment.create("relative/path"), null);
-    policy.inputMapping.put(
-        PathFragment.create("another/relative/path"), ActionInputHelper.fromPath("/absolute/path"));
-    policy.timeoutMillis = 123 * 1000L;
-    outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    runner.exec(SIMPLE_SPAWN, policy);
-    assertThat(policy.prefetched).hasSize(1);
-    Iterable<ActionInput> prefetched = policy.prefetched.get(0);
-    assertThat(prefetched).doesNotContain(null);
-    assertThat(prefetched).containsExactly(ActionInputHelper.fromPath("/absolute/path"));
+    assertThat(policy.prefetchCalled).isFalse();
   }
 
   @Test

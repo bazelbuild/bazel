@@ -90,10 +90,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
+      policy.prefetchInputs();
+
       SpawnResult result = run(sandbox, outErr, timeout);
-  
+
       policy.lockOutputFiles();
-  
       try {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);

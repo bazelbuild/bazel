@@ -229,7 +229,7 @@ public class ExecutionTool {
         
     this.actionContextProviders = builder.getActionContextProviders();
     for (ActionContextProvider provider : actionContextProviders) {
-      provider.init(fileCache, prefetcher);
+      provider.init(fileCache);
     }
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
