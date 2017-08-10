@@ -216,7 +216,7 @@ targets.
        *  `deps`: You need to determine which external dependencies your
           project needs. For example, if you generated a list of external
           dependencies using the tool `generate_workspace`, the dependencies
-          for java_library are the libraries listed in the
+          for `java_library` are the libraries listed in the
           `generated_java_libraries` macro.
     *  Take a look at the
        [example below of this top-level BUILD file](#guava-example-2) from
