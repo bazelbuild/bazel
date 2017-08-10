@@ -320,8 +320,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     skyframeExecutor.invalidateConfigurationCollection();
-    return skyframeExecutor.createConfigurations(reporter, configurationFactory, buildOptions,
-        ImmutableSet.<String>of(), false);
+    return skyframeExecutor.createConfigurations(reporter, configurationFactory.getFactories(),
+        buildOptions, ImmutableSet.<String>of(), false);
   }
 
   protected Target getTarget(String label)

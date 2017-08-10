@@ -181,7 +181,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
     skyframeExecutor.handleDiffs(reporter);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(reporter,
-        configurationFactory, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
+        configurationFactory.getFactories(), BuildOptions.of(buildOptionClasses, parser), multiCpu,
+        false);
     return collection;
   }
 
