@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.devtools.build.lib.analysis.test.ExecutionInfoProvider;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;

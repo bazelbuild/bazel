@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.test.TestResult;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;

@@ -41,7 +41,7 @@ public interface Spawn {
    * local vs. remote) to the execution subsystem.
    *
    * <p>String tags from {@link
-   * com.google.devtools.build.lib.rules.test.TestTargetProperties#getExecutionInfo()} can be added
+   * com.google.devtools.build.lib.analysis.test.TestTargetProperties#getExecutionInfo()} can be added
    * as keys with arbitrary values to this map too.
    */
   ImmutableMap<String, String> getExecutionInfo();

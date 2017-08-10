@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.test;
+package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TestTimeout;
-
 import java.util.List;
 
 /**
@@ -75,7 +74,8 @@ public final class TestProvider implements TransitiveInfoProvider {
     private final Artifact coverageReportGenerator;
 
     /**
-     * Don't call this directly. Instead use {@link TestActionBuilder}.
+     * Don't call this directly. Instead use
+     * {@link com.google.devtools.build.lib.analysis.test.TestActionBuilder}.
      */
     TestParams(int runs, int shards, TestTimeout timeout, String testRuleClass,
         ImmutableList<Artifact> testStatusArtifacts,

@@ -594,6 +594,7 @@ java_library(
             "analysis/extra/*.java",
             "analysis/fileset/*.java",
             "analysis/skylark/*.java",
+            "analysis/test/*.java",
             "exec/*.java",
             "rules/*.java",
             "rules/extra/*.java",

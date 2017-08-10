@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builde
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
-import com.google.devtools.build.lib.rules.test.TestConfiguration;
 
 /** A set of basic rules - Bazel won't work correctly without these. */
 public final class CoreRules implements RuleSet {
