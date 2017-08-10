@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,12 +93,10 @@ def BuildSplitManifest(main_manifest, override_package, split, hascode):
 
 def main():
   split_manifest = BuildSplitManifest(
-      file(FLAGS.main_manifest).read(),
-      FLAGS.override_package,
-      FLAGS.split,
-      FLAGS.hascode)
+      open(FLAGS.main_manifest, "rb").read(), FLAGS.override_package,
+      FLAGS.split, FLAGS.hascode)
 
-  with file(FLAGS.split_manifest, "w") as output_xml:
+  with open(FLAGS.split_manifest, "wb") as output_xml:
     output_xml.write(split_manifest)
 
 

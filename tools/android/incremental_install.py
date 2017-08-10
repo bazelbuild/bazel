@@ -218,7 +218,7 @@ class Adb(object):
   def PushString(self, contents, remote):
     """Push a given string to a given path on the device in parallel."""
     local = self._CreateLocalFile()
-    with file(local, "w") as f:
+    with open(local, "wb") as f:
       f.write(contents)
     return self.Push(local, remote)
 
@@ -234,7 +234,7 @@ class Adb(object):
     local = self._CreateLocalFile()
     try:
       self._Exec(["pull", remote, local])
-      with file(local) as f:
+      with open(local, "rb") as f:
         return f.read()
     except (AdbError, IOError):
       return None
@@ -336,7 +336,7 @@ def ParseManifest(contents):
 
 def GetAppPackage(stub_datafile):
   """Returns the app package specified in a stub data file."""
-  with file(stub_datafile) as f:
+  with open(stub_datafile, "rb") as f:
     return f.readlines()[1].strip()
 
 
@@ -455,7 +455,7 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
 def Checksum(filename):
   """Compute the SHA-256 checksum of a file."""
   h = hashlib.sha256()
-  with file(filename, "r") as f:
+  with open(filename, "rb") as f:
     while True:
       data = f.read(65536)
       if not data:
@@ -731,7 +731,7 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
       if not apk:
         VerifyInstallTimestamp(adb, app_package)
 
-      with file(hostpath.join(execroot, dexmanifest)) as f:
+      with open(hostpath.join(execroot, dexmanifest), "rb") as f:
         dexmanifest = f.read()
       UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, bool(apk))
       # TODO(ahumesky): UploadDexes waits for all the dexes to be uploaded, and
@@ -756,7 +756,7 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
       logging.info("Starting application %s", app_package)
       adb.StartApp(app_package, start_type)
 
-    with file(output_marker, "w") as _:
+    with open(output_marker, "wb") as _:
       pass
   except DeviceNotFoundError:
     sys.exit("Error: Device not found")
@@ -811,7 +811,7 @@ if __name__ == "__main__":
   FLAGS(sys.argv)
   # process any additional flags in --flagfile
   if FLAGS.flagfile:
-    with open(FLAGS.flagfile) as flagsfile:
+    with open(FLAGS.flagfile, "rb") as flagsfile:
       FLAGS.Reset()
       FLAGS(sys.argv + [line.strip() for line in flagsfile.readlines()])
 
