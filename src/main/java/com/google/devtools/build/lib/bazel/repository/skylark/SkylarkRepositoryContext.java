@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -423,19 +424,32 @@ public class SkylarkRepositoryContext {
           Location.BUILTIN,
           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
+    try {
+      SkylarkPath commandPath = findCommandOnPath(program);
+      if (commandPath != null) {
+        return commandPath;
+      }
+
+      if (!program.endsWith(OsUtils.executableExtension())) {
+        program += OsUtils.executableExtension();
+        return findCommandOnPath(program);
+      }
+    } catch (IOException e) {
+      // IOException when checking executable file means we cannot read the file data so
+      // we cannot execute it, swallow the exception.
+    }
+    return null;
+  }
+
+  private SkylarkPath findCommandOnPath(String program) throws IOException {
     for (String p : getPathEnvironment()) {
       PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
         Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
-        try {
-          if (path.exists() && path.isExecutable()) {
-            return new SkylarkPath(path);
-          }
-        } catch (IOException e) {
-          // IOException when checking executable file means we cannot read the file data so
-          // we cannot executes it, swallow the exception.
+        if (path.exists() && path.isExecutable()) {
+          return new SkylarkPath(path);
         }
       }
     }
