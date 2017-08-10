@@ -114,68 +114,74 @@ public class CppActionConfigs {
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
                 "}",
-                  // Gcc options:
-                  //  -MD turns on .d file output as a side-effect (doesn't imply -E)
-                  //  -MM[D] enables user includes only, not system includes
-                  //  -MF <name> specifies the dotd file name
-                  // Issues:
-                  //  -M[M] alone subverts actual .o output (implies -E)
-                  //  -M[M]D alone breaks some of the .d naming assumptions
-                  // This combination gets user and system includes with specified name:
-                  //  -MD -MF <name>
-                  "feature {",
-                  "  name: 'dependency_file'",
-                  "  flag_set {",
-                  "    action: 'assemble'",
-                  "    action: 'preprocess-assemble'",
-                  "    action: 'c-compile'",
-                  "    action: 'c++-compile'",
-                  "    action: 'c++-module-compile'",
-                  "    action: 'objc-compile'",
-                  "    action: 'objc++-compile'",
-                  "    action: 'c++-header-preprocessing'",
-                  "    action: 'c++-header-parsing'",
-                  "    action: 'clif-match'",
-                  "    expand_if_all_available: 'dependency_file'",
-                  "    flag_group {",
-                  "      flag: '-MD'",
-                  "      flag: '-MF'",
-                  "      flag: '%{dependency_file}'",
-                  "    }",
-                  "  }",
-                  "}",
-                  // GCC and Clang give randomized names to symbols which are defined in
-                  // an anonymous namespace but have external linkage.  To make
-                  // computation of these deterministic, we want to override the
-                  // default seed for the random number generator.  It's safe to use
-                  // any value which differs for all translation units; we use the
-                  // path to the object file.
-                  "feature {",
-                  "  name: 'random_seed'",
-                  "  flag_set {",
-                  "    action: 'c++-compile'",
-                  "    action: 'c++-module-codegen'",
-                  "    action: 'c++-module-compile'",
-                  "    flag_group {",
-                  "      flag: '-frandom-seed=%{output_file}'",
-                  "    }",
-                  "  }",
-                  "}",
-                   "feature {",
-                   "  name: 'pic'",
-                   "  flag_set {",
-                   "    action: 'assemble'",
-                   "    action: 'preprocess-assemble'",
-                   "    action: 'c-compile'",
-                   "    action: 'c++-compile'",
-                   "    action: 'c++-module-codegen'",
-                   "    action: 'c++-module-compile'",
-                   "    expand_if_all_available: 'pic'",
-                   "    flag_group {",
-                   "      flag: '-fPIC'",
-                   "    }",
-                   "  }",
-                   "}",
+                // Gcc options:
+                //  -MD turns on .d file output as a side-effect (doesn't imply -E)
+                //  -MM[D] enables user includes only, not system includes
+                //  -MF <name> specifies the dotd file name
+                // Issues:
+                //  -M[M] alone subverts actual .o output (implies -E)
+                //  -M[M]D alone breaks some of the .d naming assumptions
+                // This combination gets user and system includes with specified name:
+                //  -MD -MF <name>
+                ifTrue(
+                    !features.contains(CppRuleClasses.DEPENDENCY_FILE),
+                    "feature {",
+                    "  name: 'dependency_file'",
+                    "  flag_set {",
+                    "    action: 'assemble'",
+                    "    action: 'preprocess-assemble'",
+                    "    action: 'c-compile'",
+                    "    action: 'c++-compile'",
+                    "    action: 'c++-module-compile'",
+                    "    action: 'objc-compile'",
+                    "    action: 'objc++-compile'",
+                    "    action: 'c++-header-preprocessing'",
+                    "    action: 'c++-header-parsing'",
+                    "    action: 'clif-match'",
+                    "    expand_if_all_available: 'dependency_file'",
+                    "    flag_group {",
+                    "      flag: '-MD'",
+                    "      flag: '-MF'",
+                    "      flag: '%{dependency_file}'",
+                    "    }",
+                    "  }",
+                    "}"),
+                // GCC and Clang give randomized names to symbols which are defined in
+                // an anonymous namespace but have external linkage.  To make
+                // computation of these deterministic, we want to override the
+                // default seed for the random number generator.  It's safe to use
+                // any value which differs for all translation units; we use the
+                // path to the object file.
+                ifTrue(
+                    !features.contains(CppRuleClasses.RANDOM_SEED),
+                    "feature {",
+                    "  name: 'random_seed'",
+                    "  flag_set {",
+                    "    action: 'c++-compile'",
+                    "    action: 'c++-module-codegen'",
+                    "    action: 'c++-module-compile'",
+                    "    flag_group {",
+                    "      flag: '-frandom-seed=%{output_file}'",
+                    "    }",
+                    "  }",
+                    "}"),
+                ifTrue(
+                    !features.contains(CppRuleClasses.PIC),
+                    "feature {",
+                    "  name: 'pic'",
+                    "  flag_set {",
+                    "    action: 'assemble'",
+                    "    action: 'preprocess-assemble'",
+                    "    action: 'c-compile'",
+                    "    action: 'c++-compile'",
+                    "    action: 'c++-module-codegen'",
+                    "    action: 'c++-module-compile'",
+                    "    expand_if_all_available: 'pic'",
+                    "    flag_group {",
+                    "      flag: '-fPIC'",
+                    "    }",
+                    "  }",
+                    "}"),
                 ifTrue(
                     !features.contains(CppRuleClasses.PER_OBJECT_DEBUG_INFO),
                     "feature {",
@@ -192,22 +198,24 @@ public class CppActionConfigs {
                     "    }",
                     "  }",
                     "}"),
-                  "feature {",
-                  "  name: 'preprocessor_defines'",
-                  "  flag_set {",
-                  "    action: 'preprocess-assemble'",
-                  "    action: 'c-compile'",
-                  "    action: 'c++-compile'",
-                  "    action: 'c++-header-parsing'",
-                  "    action: 'c++-header-preprocessing'",
-                  "    action: 'c++-module-compile'",
-                  "    action: 'clif-match'",
-                  "    flag_group {",
-                  "      iterate_over: 'preprocessor_defines'",
-                  "      flag: '-D%{preprocessor_defines}'",
-                  "    }",
-                  "  }",
-                  "}",
+                ifTrue(
+                    !features.contains(CppRuleClasses.PREPROCESSOR_DEFINES),
+                    "feature {",
+                    "  name: 'preprocessor_defines'",
+                    "  flag_set {",
+                    "    action: 'preprocess-assemble'",
+                    "    action: 'c-compile'",
+                    "    action: 'c++-compile'",
+                    "    action: 'c++-header-parsing'",
+                    "    action: 'c++-header-preprocessing'",
+                    "    action: 'c++-module-compile'",
+                    "    action: 'clif-match'",
+                    "    flag_group {",
+                    "      iterate_over: 'preprocessor_defines'",
+                    "      flag: '-D%{preprocessor_defines}'",
+                    "    }",
+                    "  }",
+                    "}"),
                 ifTrue(
                     !features.contains(CppRuleClasses.INCLUDE_PATHS),
                     "feature {",
@@ -516,10 +524,7 @@ public class CppActionConfigs {
                     "    action: 'c++-link-pic-static-library'",
                     "    action: 'c++-link-alwayslink-pic-static-library'",
                     "    flag_group {",
-                    ifLinux(
-                        platform,
-                        "  flag: 'rcsD'",
-                        "  flag: '%{output_execpath}'"),
+                    ifLinux(platform, "  flag: 'rcsD'", "  flag: '%{output_execpath}'"),
                     ifMac(
                         platform,
                         "  flag: '-static'",
