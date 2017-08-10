@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.UUID;
 
