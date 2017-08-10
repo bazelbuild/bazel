@@ -29,12 +29,6 @@ public interface Subprocess extends Closeable {
    */
   interface Factory {
     /**
-     * Whether the factory supports timeouts natively; if it returns false, Command implements
-     * timeouts outside of the factory.
-     */
-    boolean supportsTimeout();
-
-    /**
      * Create a subprocess according to the specified parameters.
      */
     Subprocess create(SubprocessBuilder params) throws IOException;

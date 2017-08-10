@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A subprocess factory that uses {@link java.lang.ProcessBuilder}.
@@ -31,9 +33,12 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
    */
   private static class JavaSubprocess implements Subprocess {
     private final Process process;
+    private final long deadlineMillis;
+    private final AtomicBoolean deadlineExceeded = new AtomicBoolean();
 
-    private JavaSubprocess(Process process) {
+    private JavaSubprocess(Process process, long deadlineMillis) {
       this.process = process;
+      this.deadlineMillis = deadlineMillis;
     }
 
     @Override
@@ -50,6 +55,13 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
     @Override
     public boolean finished() {
       try {
+        if (deadlineMillis > 0
+            && System.currentTimeMillis() > deadlineMillis
+            && deadlineExceeded.compareAndSet(false, true)) {
+          // We use compareAndSet here to avoid calling destroy multiple times. Note that destroy
+          // returns immediately, and we don't want to wait in this method.
+          process.destroy();
+        }
         // this seems to be the only non-blocking call for checking liveness
         process.exitValue();
         return true;
@@ -60,13 +72,28 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
 
     @Override
     public boolean timedout() {
-      // Not supported.
-      return false;
+      return deadlineExceeded.get();
     }
 
     @Override
     public void waitFor() throws InterruptedException {
-      process.waitFor();
+      if (deadlineMillis > 0) {
+        // Careful: I originally used Long.MAX_VALUE if there's no timeout. This is safe with
+        // Process, but not for the UNIXProcess subclass, which has an integer overflow for very
+        // large timeouts. As of this writing, it converts the passed in value to nanos (which
+        // saturates at Long.MAX_VALUE), then adds 999999 to round up (which overflows), converts
+        // back to millis, and then calls Object.wait with a negative timeout, which throws.
+        long waitTimeMillis = deadlineMillis - System.currentTimeMillis();
+        boolean exitedInTime = process.waitFor(waitTimeMillis, TimeUnit.MILLISECONDS);
+        if (!exitedInTime && deadlineExceeded.compareAndSet(false, true)) {
+          process.destroy();
+          // The destroy call returns immediately, so we still need to wait for the actual exit. The
+          // sole caller assumes that waitFor only exits when the process is gone (or throws).
+          process.waitFor();
+        }
+      } else {
+        process.waitFor();
+      }
     }
 
     @Override
@@ -86,7 +113,8 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
 
     @Override
     public void close() {
-      // java.lang.Process doesn't give us a way to clean things up other than #destroy()
+      // java.lang.Process doesn't give us a way to clean things up other than #destroy(), which was
+      // already called by this point.
     }
   }
 
@@ -94,11 +122,6 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
 
   private JavaSubprocessFactory() {
     // We are a singleton
-  }
-
-  @Override
-  public boolean supportsTimeout() {
-    return false;
   }
 
   @Override
@@ -114,7 +137,11 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
     builder.redirectError(getRedirect(params.getStderr(), params.getStderrFile()));
     builder.directory(params.getWorkingDirectory());
 
-    return new JavaSubprocess(builder.start());
+    // Deadline is now + given timeout.
+    long deadlineMillis = params.getTimeoutMillis() > 0
+        ? Math.addExact(System.currentTimeMillis(), params.getTimeoutMillis())
+        : 0;
+    return new JavaSubprocess(builder.start(), deadlineMillis);
   }
 
   /**

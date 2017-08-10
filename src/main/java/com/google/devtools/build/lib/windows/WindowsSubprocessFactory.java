@@ -37,11 +37,6 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
   }
 
   @Override
-  public boolean supportsTimeout() {
-    return true;
-  }
-
-  @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
     List<String> argv = builder.getArgv();
 

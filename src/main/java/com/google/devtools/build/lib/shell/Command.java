@@ -122,17 +122,6 @@ public final class Command {
   public static final boolean KILL_SUBPROCESS_ON_INTERRUPT = true;
   public static final boolean CONTINUE_SUBPROCESS_ON_INTERRUPT = false;
 
-  private static final KillableObserver NO_OBSERVER = new KillableObserver() {
-    @Override
-    public void startObserving(final Killable killable) {
-      // do nothing
-    }
-    @Override
-    public void stopObserving(final Killable killable) {
-      // do nothing
-    }
-  };
-
   private final SubprocessBuilder subprocessBuilder;
 
   /**
@@ -380,24 +369,10 @@ public final class Command {
     // enforced.
     processInput(stdinInput, process);
 
-    final KillableObserver theObserver;
-    if ((subprocessBuilder.getTimeoutMillis() > 0)
-        && !SubprocessBuilder.factory.supportsTimeout()) {
-      theObserver = new TimeoutKillableObserver(subprocessBuilder.getTimeoutMillis());
-    } else {
-      theObserver = NO_OBSERVER;
-    }
-    Killable processKillable = observeProcess(process, theObserver);
-
     return new FutureCommandResult() {
       @Override
       public CommandResult get() throws AbnormalTerminationException {
-        return waitForProcessToComplete(
-            process,
-            theObserver,
-            processKillable,
-            outErrConsumers,
-            killSubprocessOnInterrupt);
+        return waitForProcessToComplete(process, outErrConsumers, killSubprocessOnInterrupt);
       }
 
       @Override
@@ -450,23 +425,12 @@ public final class Command {
     }
   }
 
-  private static Killable observeProcess(Subprocess process, KillableObserver observer) {
-    Killable processKillable = new ProcessKillable(process);
-    observer.startObserving(processKillable);
-    return processKillable;
-  }
-
   private CommandResult waitForProcessToComplete(
-      Subprocess process,
-      KillableObserver observer,
-      Killable processKillable,
-      Consumers.OutErrConsumers outErr,
-      boolean killSubprocessOnInterrupt)
+      Subprocess process, Consumers.OutErrConsumers outErr, boolean killSubprocessOnInterrupt)
           throws AbnormalTerminationException {
     log.finer("Waiting for process...");
 
     TerminationStatus status = waitForProcess(process, killSubprocessOnInterrupt);
-    observer.stopObserving(processKillable);
 
     log.finer(status.toString());
 
@@ -495,9 +459,6 @@ public final class Command {
               noOutputResult, message, ioe);
       }
     } finally {
-      // #close() must be called after the #stopObserving() so that a badly-timed timeout does not
-      // try to destroy a process that is already closed, and after outErr is completed,
-      // so that it has a chance to read the entire output is captured.
       process.close();
     }
 

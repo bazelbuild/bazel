@@ -44,9 +44,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CommandTest {
 
-  private static final long LONG_TIME = 10000;
-  private static final long SHORT_TIME = 250;
-
   // Platform-independent tests ----------------------------------------------
 
   @Before
@@ -285,7 +282,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Should have exited with status " + exit);
       } catch (BadExitStatusException e) {
-        assertThat(e).hasMessage("Process exited with status " + exit);
+        assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + exit);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
@@ -303,7 +300,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Should have exited with status " + expected);
       } catch (BadExitStatusException e) {
-        assertThat(e).hasMessage("Process exited with status " + expected);
+        assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + expected);
         checkCommandElements(e, "/bin/bash", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
@@ -328,7 +325,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Expected signal " + signal);
       } catch (AbnormalTerminationException e) {
-        assertThat(e).hasMessage("Process terminated by signal " + signal);
+        assertThat(e).hasMessageThat().isEqualTo("Process terminated by signal " + signal);
         checkCommandElements(e, killmyself, "" + signal);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertThat(status.success()).isFalse();
@@ -438,86 +435,6 @@ public class CommandTest {
                   .endsWith("also encountered an error while attempting " + "to retrieve output"))
           .isTrue();
     }
-  }
-
-  /**
-   * Helper to test KillableObserver classes.
-   */
-  private static class KillableTester implements Killable {
-    private boolean isKilled = false;
-    private boolean timedOut = false;
-    @Override
-    public synchronized void kill() {
-      isKilled = true;
-      notifyAll();
-    }
-    public synchronized boolean getIsKilled() {
-      return isKilled;
-    }
-    /**
-     * Wait for a specified time or until the {@link #kill()} is called.
-     */
-    public synchronized void sleepUntilKilled(final long timeoutMS) {
-      long nowTime = System.currentTimeMillis();
-      long endTime = nowTime + timeoutMS;
-      while (!isKilled && !timedOut) {
-        long waitTime = endTime - nowTime;
-        if (waitTime <= 0) {
-          // Process has timed out, needs killing.
-          timedOut = true;
-          break;
-        }
-        try {
-          wait(waitTime); // Suffers "spurious wakeup", hence the while() loop.
-          nowTime = System.currentTimeMillis();
-        } catch (InterruptedException exception) {
-          break;
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testTimeOutKillableObserverNoKill() throws Exception {
-    KillableTester killable = new KillableTester();
-    TimeoutKillableObserver observer = new TimeoutKillableObserver(LONG_TIME);
-    observer.startObserving(killable);
-    observer.stopObserving(killable);
-    assertThat(observer.hasTimedOut()).isFalse();
-    assertThat(killable.getIsKilled()).isFalse();
-  }
-
-  @Test
-  public void testTimeOutKillableObserverNoKillWithDelay() throws Exception {
-    KillableTester killable = new KillableTester();
-    TimeoutKillableObserver observer = new TimeoutKillableObserver(LONG_TIME);
-    observer.startObserving(killable);
-    killable.sleepUntilKilled(SHORT_TIME);
-    observer.stopObserving(killable);
-    assertThat(observer.hasTimedOut()).isFalse();
-    assertThat(killable.getIsKilled()).isFalse();
-  }
-
-  @Test
-  public void testTimeOutKillableObserverWithKill() throws Exception {
-    KillableTester killable = new KillableTester();
-    TimeoutKillableObserver observer = new TimeoutKillableObserver(SHORT_TIME);
-    observer.startObserving(killable);
-    killable.sleepUntilKilled(LONG_TIME);
-    observer.stopObserving(killable);
-    assertThat(observer.hasTimedOut()).isTrue();
-    assertThat(killable.getIsKilled()).isTrue();
-  }
-
-  @Test
-  public void testTimeOutKillableObserverWithKillZeroMillis() throws Exception {
-    KillableTester killable = new KillableTester();
-    TimeoutKillableObserver observer = new TimeoutKillableObserver(0);
-    observer.startObserving(killable);
-    killable.sleepUntilKilled(LONG_TIME);
-    observer.stopObserving(killable);
-    assertThat(observer.hasTimedOut()).isTrue();
-    assertThat(killable.getIsKilled()).isTrue();
   }
 
   private static void checkCommandElements(CommandException e,

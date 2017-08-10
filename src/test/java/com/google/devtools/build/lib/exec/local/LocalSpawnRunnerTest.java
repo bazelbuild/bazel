@@ -135,11 +135,6 @@ public class LocalSpawnRunnerTest {
 
   private static final class SubprocessInterceptor implements Subprocess.Factory {
     @Override
-    public boolean supportsTimeout() {
-      return true;
-    }
-
-    @Override
     public Subprocess create(SubprocessBuilder params) throws IOException {
       throw new UnsupportedOperationException();
     }
