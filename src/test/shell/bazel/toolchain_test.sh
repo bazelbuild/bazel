@@ -433,7 +433,7 @@ function test_register_toolchain_error_invalid_target() {
   write_test_rule
   write_toolchains
 
-  cat >> WORKSPACE <<EOF
+  cat > WORKSPACE <<EOF
 register_toolchains('//demo:not_a_target')
 EOF
 
@@ -447,7 +447,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: no such target '//demo:not_a_target': target 'not_a_target' not declared in package 'demo"
+  expect_log "While resolving toolchains for target //demo:use: invalid registered toolchain '//demo:not_a_target': no such target '//demo:not_a_target': target 'not_a_target' not declared in package 'demo'"
 }
 
 function test_register_toolchain_error_target_not_a_toolchain() {
