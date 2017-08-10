@@ -108,6 +108,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         ManifestMergerAction.main(args);
       }
+    },
+    COMPILE_LIBRARY_RESOURCES() {
+      @Override
+      void call(String[] args) throws Exception {
+        CompileLibraryResourcesAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;
@@ -133,7 +139,7 @@ public class ResourceProcessorBusyBox {
       help =
           "The processing tool to execute. "
               + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "
-              + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST."
+              + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES."
     )
     public Tool tool;
   }

@@ -51,7 +51,8 @@ public class AndroidResourceOutputsTest {
 
     try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(output))) {
       AndroidResourceOutputs.ZipBuilderVisitor visitor =
-          new AndroidResourceOutputs.ZipBuilderVisitor(zout, tmp.resolve("foo"), "some/prefix");
+          new AndroidResourceOutputs.ZipBuilderVisitor(
+              AndroidResourceOutputs.ZipBuilder.wrap(zout), tmp.resolve("foo"), "some/prefix");
       Files.walkFileTree(tmp.resolve("foo"), visitor);
       visitor.writeEntries();
     }

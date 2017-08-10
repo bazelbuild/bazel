@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
  * Builder for AAPT command lines, with support for making flags conditional on build tools version
  * and variant type.
  */
-class AaptCommandBuilder {
+public class AaptCommandBuilder {
   private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
   private Revision buildToolsVersion;
   private VariantType variantType;
@@ -37,7 +37,7 @@ class AaptCommandBuilder {
   }
 
   /** Sets the build tools version to be used for {@link #whenVersionIsAtLeast}. */
-  AaptCommandBuilder forBuildToolsVersion(@Nullable Revision buildToolsVersion) {
+  public AaptCommandBuilder forBuildToolsVersion(@Nullable Revision buildToolsVersion) {
     Preconditions.checkState(
         this.buildToolsVersion == null, "A build tools version was already specified.");
     this.buildToolsVersion = buildToolsVersion;
@@ -45,7 +45,7 @@ class AaptCommandBuilder {
   }
 
   /** Sets the variant type to be used for {@link #whenVariantIs}. */
-  AaptCommandBuilder forVariantType(VariantType variantType) {
+  public AaptCommandBuilder forVariantType(VariantType variantType) {
     Preconditions.checkNotNull(variantType);
     Preconditions.checkState(this.variantType == null, "A variant type was already specified.");
     this.variantType = variantType;

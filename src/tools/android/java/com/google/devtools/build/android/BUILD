@@ -34,6 +34,7 @@ java_library(
     srcs = glob([
         "*.java",
         "xml/*.java",
+        "aapt2/*.java",
     ]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",

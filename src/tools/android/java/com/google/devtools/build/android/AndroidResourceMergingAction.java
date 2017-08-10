@@ -265,11 +265,13 @@ public class AndroidResourceMergingAction {
       if (options.resourcesOutput != null) {
         Path resourcesDir =
             AndroidResourceProcessor.processDataBindings(
+                tmp.resolve("res_no_binding"),
                 mergedData.getResourceDir(),
                 options.dataBindingInfoOut,
                 packageType,
                 options.packageForR,
-                options.primaryManifest);
+                options.primaryManifest,
+                true);
 
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
