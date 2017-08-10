@@ -20,4 +20,4 @@
 @rem launcher=${$0%.cmd}
 @set launcher=%~dp0%~n0
 
-@call %python_path% %launcher% %*
+@call "%python_path%" "%launcher%" %*
