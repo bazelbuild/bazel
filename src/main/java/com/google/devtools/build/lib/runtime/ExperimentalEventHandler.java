@@ -339,6 +339,7 @@ public class ExperimentalEventHandler implements EventHandler {
           case FAIL:
           case WARNING:
           case INFO:
+          case DEBUG:
           case SUBCOMMAND:
             boolean incompleteLine;
             if (showProgress && buildRunning) {
@@ -400,6 +401,9 @@ public class ExperimentalEventHandler implements EventHandler {
         break;
       case INFO:
         terminal.setTextColor(Color.GREEN);
+        break;
+      case DEBUG:
+        terminal.setTextColor(Color.YELLOW);
         break;
       case SUBCOMMAND:
         terminal.setTextColor(Color.BLUE);

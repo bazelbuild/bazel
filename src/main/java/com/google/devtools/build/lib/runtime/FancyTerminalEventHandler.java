@@ -201,6 +201,11 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
           // and scroll it.
           warning(event);
           break;
+        case DEBUG:
+          // For debug messages, highlight the word "Debug" in boldface yellow,
+          // and scroll it.
+          debug(event);
+          break;
         case SUBCOMMAND:
           subcmd(event);
           break;
@@ -358,6 +363,18 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     writeTimestampAndLocation(event);
     terminal.writeString(event.getMessage());
     // No period; info messages may end with a URL.
+    crlf();
+  }
+
+  private void debug(Event debug) throws IOException {
+    previousLineErasable = false;
+    if (useColor) {
+      terminal.textYellow();
+    }
+    terminal.writeString("DEBUG: ");
+    terminal.resetTerminal();
+    writeTimestampAndLocation(debug);
+    writeStringWithPotentialPeriod(debug.getMessage());
     crlf();
   }
 

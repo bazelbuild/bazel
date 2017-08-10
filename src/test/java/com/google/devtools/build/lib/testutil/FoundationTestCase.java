@@ -77,7 +77,7 @@ public abstract class FoundationTestCase {
 
   @Before
   public final void initializeLogging() throws Exception {
-    eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
+    eventCollector = new EventCollector(EventKind.ERRORS_WARNINGS_AND_INFO);
     eventBus = new EventBus();
     reporter = new Reporter(eventBus, eventCollector);
     reporter.addHandler(failFastHandler);

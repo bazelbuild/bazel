@@ -74,7 +74,7 @@ genrule(
 EOF
 
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
-  expect_log "bleh."
+  expect_log "bleh"
   expect_log "Tra-la!"  # Invalidation
   cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la!"
@@ -108,7 +108,7 @@ def macro(path):
   native.bind(name='mongoose', actual='@endangered//carnivore:mongoose')
 EOF
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
-  expect_log "blah."
+  expect_log "blah"
   expect_log "Tra-la-la!"  # Invalidation
   cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la-la!"
@@ -179,7 +179,7 @@ EOF
 
   bazel build @endangered//carnivore:mongoose >& $TEST_log \
     || fail "Failed to build"
-  expect_log "bleh."
+  expect_log "bleh"
 }
 
 # Test loading a repository with a load statement in the WORKSPACE file

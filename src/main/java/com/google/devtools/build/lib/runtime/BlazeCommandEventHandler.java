@@ -299,6 +299,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       case TIMEOUT:
       case ERROR:
       case WARNING:
+      case DEBUG:
       case DEPCHECKER:
         prefix = event.getKind() + ": ";
         break;

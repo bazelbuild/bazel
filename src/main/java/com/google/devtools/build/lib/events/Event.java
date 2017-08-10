@@ -156,17 +156,17 @@ public final class Event implements Serializable {
   }
 
   /**
-   * Reports a warning.
-   */
-  public static Event warn(@Nullable Location location, String message) {
-    return new Event(EventKind.WARNING, location, message, null);
-  }
-
-  /**
    * Reports an error.
    */
   public static Event error(@Nullable Location location, String message){
     return new Event(EventKind.ERROR, location, message, null);
+  }
+
+  /**
+   * Reports a warning.
+   */
+  public static Event warn(@Nullable Location location, String message) {
+    return new Event(EventKind.WARNING, location, message, null);
   }
 
   /**
@@ -184,10 +184,10 @@ public final class Event implements Serializable {
   }
 
   /**
-   * Reports a warning.
+   * Reports a debug message.
    */
-  public static Event warn(String message) {
-    return warn(null, message);
+  public static Event debug(@Nullable Location location, String message) {
+    return new Event(EventKind.DEBUG, location, message, null);
   }
 
   /**
@@ -195,6 +195,13 @@ public final class Event implements Serializable {
    */
   public static Event error(String message){
     return error(null, message);
+  }
+
+  /**
+   * Reports a warning.
+   */
+  public static Event warn(String message) {
+    return warn(null, message);
   }
 
   /**
@@ -211,4 +218,10 @@ public final class Event implements Serializable {
     return progress(null, message);
   }
 
+  /**
+   * Reports a debug message.
+   */
+  public static Event debug(String message) {
+    return debug(null, message);
+  }
 }

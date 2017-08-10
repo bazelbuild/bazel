@@ -132,17 +132,24 @@ public class AnsiTerminal {
   }
 
   /**
-   * Makes text print on the terminal in red.
+   * Makes text print on the terminal in green.
    */
   public void textGreen() throws IOException {
     setTextColor(Color.GREEN);
   }
 
   /**
-   * Makes text print on the terminal in red.
+   * Makes text print on the terminal in magenta.
    */
   public void textMagenta() throws IOException {
     setTextColor(Color.MAGENTA);
+  }
+
+  /**
+   * Makes text print on the terminal in yellow.
+   */
+  public void textYellow() throws IOException {
+    setTextColor(Color.YELLOW);
   }
 
   /**

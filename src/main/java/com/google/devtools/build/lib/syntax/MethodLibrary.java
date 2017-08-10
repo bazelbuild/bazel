@@ -2143,7 +2143,7 @@ public class MethodLibrary {
           if (env.getSemantics().internalSkylarkFlagTestCanary) {
             msg += "<== skylark flag test ==>";
           }
-          env.handleEvent(Event.warn(loc, msg));
+          env.handleEvent(Event.debug(loc, msg));
           return Runtime.NONE;
         }
       };

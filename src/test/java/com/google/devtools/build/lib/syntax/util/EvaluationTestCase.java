@@ -242,6 +242,10 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.assertContainsWarning(expectedMessage);
   }
 
+  public Event assertContainsDebug(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsDebug(expectedMessage);
+  }
+
   public EvaluationTestCase clearEvents() {
     eventCollectionApparatus.clear();
     return this;
