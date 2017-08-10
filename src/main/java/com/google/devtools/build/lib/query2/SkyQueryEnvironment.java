@@ -479,7 +479,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public ThreadSafeMutableSet<Target> getFwdDeps(Iterable<Target> targets)
       throws InterruptedException {
-    Map<SkyKey, Target> targetsByKey = new HashMap<>(Iterables.size(targets));
+    Map<SkyKey, Target> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (Target target : targets) {
       targetsByKey.put(TARGET_TO_SKY_KEY.apply(target), target);
     }
