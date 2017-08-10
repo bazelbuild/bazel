@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -369,12 +371,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ImmutableList<Artifact> bootclasspath,
       NestedSet<Artifact> classpath,
       Artifact result) {
-    CustomCommandLine args = new CustomCommandLine.Builder()
-        .addExecPath("--input", jar)
-        .addExecPath("--output", result)
-        .addBeforeEachExecPath("--classpath_entry", classpath)
-        .addBeforeEachExecPath("--bootclasspath_entry", bootclasspath)
-        .build();
+    CustomCommandLine args =
+        new Builder()
+            .add("--input", jar)
+            .add("--output", result)
+            .add(VectorArg.of(classpath).beforeEach("--classpath_entry"))
+            .add(VectorArg.of(bootclasspath).beforeEach("--bootclasspath_entry"))
+            .build();
 
     // Just use params file, since classpaths can get long
     Artifact paramFile =
@@ -423,9 +426,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Artifact jar, Set<String> incrementalDexopts, Artifact dexArchive) {
     // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
     CustomCommandLine args =
-        new CustomCommandLine.Builder()
-            .addExecPath("--input_jar", jar)
-            .addExecPath("--output_zip", dexArchive)
+        new Builder()
+            .add("--input_jar", jar)
+            .add("--output_zip", dexArchive)
             .add(ImmutableList.copyOf(incrementalDexopts))
             .build();
     Artifact paramFile =

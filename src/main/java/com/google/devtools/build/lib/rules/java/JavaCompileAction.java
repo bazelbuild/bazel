@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -424,17 +425,21 @@ public final class JavaCompileAction extends SpawnAction {
         checkNotNull(javaBuilderJar);
 
         CustomCommandLine.Builder builder =
-            CustomCommandLine.builder().addPath(javaExecutable).add(javaBuilderJvmFlags);
+            CustomCommandLine.builder().add(javaExecutable).add(javaBuilderJvmFlags);
         if (!instrumentationJars.isEmpty()) {
           builder
-              .addJoinExecPaths(
+              .add(
                   "-cp",
-                  pathDelimiter,
-                  ImmutableList.builder().addAll(instrumentationJars).add(javaBuilderJar).build())
+                  VectorArg.of(
+                          ImmutableList.builder()
+                              .addAll(instrumentationJars)
+                              .add(javaBuilderJar)
+                              .build())
+                      .joinWith(pathDelimiter))
               .add(javaBuilderMainClass);
         } else {
           // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
-          builder.addExecPath("-jar", javaBuilderJar);
+          builder.add("-jar", javaBuilderJar);
         }
         return builder.build().arguments();
       }
@@ -599,10 +604,11 @@ public final class JavaCompileAction extends SpawnAction {
               pathSeparator);
 
       // The actual params-file-based command line executed for a compile action.
-      CommandLine javaBuilderCommandLine = CustomCommandLine.builder()
-          .add(spawnCommandLineBase)
-          .addPaths("@%s", paramFile.getExecPath())
-          .build();
+      CommandLine javaBuilderCommandLine =
+          CustomCommandLine.builder()
+              .add(spawnCommandLineBase)
+              .addFormatted("@%s", paramFile.getExecPath())
+              .build();
 
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
@@ -658,37 +664,37 @@ public final class JavaCompileAction extends SpawnAction {
 
       CustomCommandLine.Builder result = CustomCommandLine.builder();
 
-      result.add("--classdir").addPath(classDirectory);
-      result.add("--tempdir").addPath(tempDirectory);
+      result.add("--classdir").add(classDirectory);
+      result.add("--tempdir").add(tempDirectory);
       if (outputJar != null) {
-        result.addExecPath("--output", outputJar);
+        result.add("--output", outputJar);
       }
       if (sourceGenDirectory != null) {
-        result.add("--sourcegendir").addPath(sourceGenDirectory);
+        result.add("--sourcegendir").add(sourceGenDirectory);
       }
       if (gensrcOutputJar != null) {
-        result.addExecPath("--generated_sources_output", gensrcOutputJar);
+        result.add("--generated_sources_output", gensrcOutputJar);
       }
       if (manifestProtoOutput != null) {
-        result.addExecPath("--output_manifest_proto", manifestProtoOutput);
+        result.add("--output_manifest_proto", manifestProtoOutput);
       }
       if (compressJar) {
         result.add("--compress_jar");
       }
       if (outputDepsProto != null) {
-        result.addExecPath("--output_deps_proto", outputDepsProto);
+        result.add("--output_deps_proto", outputDepsProto);
       }
       if (!extdirInputs.isEmpty()) {
-        result.addExecPaths("--extclasspath", extdirInputs);
+        result.add("--extclasspath", extdirInputs);
       }
       if (!bootclasspathEntries.isEmpty()) {
-        result.addExecPaths("--bootclasspath", bootclasspathEntries);
+        result.add("--bootclasspath", bootclasspathEntries);
       }
       if (!sourcePathEntries.isEmpty()) {
-        result.addExecPaths("--sourcepath", sourcePathEntries);
+        result.add("--sourcepath", sourcePathEntries);
       }
       if (!processorPath.isEmpty()) {
-        result.addExecPaths("--processorpath", processorPath);
+        result.add("--processorpath", processorPath);
       }
       if (!processorNames.isEmpty()) {
         result.add("--processors", ImmutableList.copyOf(processorNames));
@@ -697,10 +703,10 @@ public final class JavaCompileAction extends SpawnAction {
         result.add("--javacopts", ImmutableList.copyOf(processorFlags));
       }
       if (!sourceJars.isEmpty()) {
-        result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
+        result.add("--source_jars", ImmutableList.copyOf(sourceJars));
       }
       if (!sourceFiles.isEmpty()) {
-        result.addExecPaths("--sources", sourceFiles);
+        result.add("--sources", sourceFiles);
       }
       if (!javacOpts.isEmpty()) {
         result.add("--javacopts", ImmutableList.copyOf(javacOpts));
@@ -725,7 +731,7 @@ public final class JavaCompileAction extends SpawnAction {
       }
 
       if (!classpathEntries.isEmpty()) {
-        result.addExecPaths("--classpath", classpathEntries);
+        result.add("--classpath", classpathEntries);
       }
 
       // strict_java_deps controls whether the mapping from jars to targets is
@@ -740,14 +746,14 @@ public final class JavaCompileAction extends SpawnAction {
           result.add("--reduce_classpath");
 
           if (!compileTimeDependencyArtifacts.isEmpty()) {
-            result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
+            result.add("--deps_artifacts", compileTimeDependencyArtifacts);
           }
         }
       }
       if (metadata != null) {
         result.add("--post_processor");
-        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
-        result.addPath(
+        result.add(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+        result.add(
             configuration
                 .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
                 .getExecPath());

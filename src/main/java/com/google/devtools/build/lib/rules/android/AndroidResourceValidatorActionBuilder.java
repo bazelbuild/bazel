@@ -151,7 +151,7 @@ public class AndroidResourceValidatorActionBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("LINK_STATIC_LIBRARY").add("--");
 
-    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
+    builder.add("--aapt2", sdk.getAapt2().getExecutable());
 
     FluentIterable<Artifact> libraries =
         FluentIterable.from(resourceDeps.getResources()).transform(
@@ -162,10 +162,10 @@ public class AndroidResourceValidatorActionBuilder {
         .add(libraries.join(Joiner.on(context.getConfiguration().getHostPathSeparator())));
     inputs.addAll(libraries);
 
-    builder.addExecPath("--compiled", compiledSymbols);
+    builder.add("--compiled", compiledSymbols);
     inputs.add(compiledSymbols);
 
-    builder.addExecPath("--manifest", primary.getManifest());
+    builder.add("--manifest", primary.getManifest());
     inputs.add(validated.getManifest());
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
@@ -174,13 +174,13 @@ public class AndroidResourceValidatorActionBuilder {
       builder.add("--packageForR").add(customJavaPackage);
     }
 
-    builder.addExecPath("--sourceJarOut", aapt2SourceJarOut);
+    builder.add("--sourceJarOut", aapt2SourceJarOut);
     outs.add(aapt2SourceJarOut);
 
-    builder.addExecPath("--rTxtOut", aapt2RTxtOut);
+    builder.add("--rTxtOut", aapt2RTxtOut);
     outs.add(aapt2RTxtOut);
 
-    builder.addExecPath("--staticLibraryOut", staticLibraryOut);
+    builder.add("--staticLibraryOut", staticLibraryOut);
     outs.add(staticLibraryOut);
 
     ruleContext.registerAction(
@@ -217,21 +217,21 @@ public class AndroidResourceValidatorActionBuilder {
       builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
     }
 
-    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
+    builder.add("--aapt", sdk.getAapt().getExecutable());
 
     ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
 
-    builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
+    builder.add("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
 
-    builder.addExecPath("--androidJar", sdk.getAndroidJar());
+    builder.add("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     Preconditions.checkNotNull(mergedResources);
-    builder.addExecPath("--mergedResources", mergedResources);
+    builder.add("--mergedResources", mergedResources);
     inputs.add(mergedResources);
 
-    builder.addExecPath("--manifest", primary.getManifest());
+    builder.add("--manifest", primary.getManifest());
     inputs.add(primary.getManifest());
 
     if (debug) {
@@ -245,11 +245,11 @@ public class AndroidResourceValidatorActionBuilder {
     }
     List<Artifact> outs = new ArrayList<>();
     Preconditions.checkNotNull(rTxtOut);
-    builder.addExecPath("--rOutput", rTxtOut);
+    builder.add("--rOutput", rTxtOut);
     outs.add(rTxtOut);
 
     Preconditions.checkNotNull(sourceJarOut);
-    builder.addExecPath("--srcJarOutput", sourceJarOut);
+    builder.add("--srcJarOutput", sourceJarOut);
     outs.add(sourceJarOut);
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();

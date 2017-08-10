@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -600,7 +599,7 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Calls {@link String#format} at command line expansion time. */
-    public Builder addFormat(String formatStr, Object... args) {
+    public Builder addFormatted(String formatStr, Object... args) {
       Preconditions.checkNotNull(formatStr);
       FormatArg.push(arguments, formatStr, args);
       return this;
@@ -692,134 +691,6 @@ public final class CustomCommandLine extends CommandLine {
       Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactExecPathsArg(treeArtifact));
       return this;
-    }
-
-    @Deprecated
-    public Builder addPath(PathFragment pathFragment) {
-      return add(pathFragment);
-    }
-
-    @Deprecated
-    public Builder addExecPath(String arg, @Nullable Artifact artifact) {
-      return add(arg, artifact);
-    }
-
-    @Deprecated
-    public Builder addExecPaths(@Nullable ImmutableCollection<Artifact> artifacts) {
-      return add(artifacts);
-    }
-
-    @Deprecated
-    public Builder addExecPaths(@Nullable NestedSet<Artifact> artifacts) {
-      return add(artifacts);
-    }
-
-    @Deprecated
-    public Builder addExecPaths(String arg, @Nullable ImmutableCollection<Artifact> artifacts) {
-      return add(arg, artifacts);
-    }
-
-    @Deprecated
-    public Builder addExecPaths(String arg, @Nullable NestedSet<Artifact> artifacts) {
-      return add(arg, artifacts);
-    }
-
-    @Deprecated
-    public Builder addJoinExecPaths(
-        String arg, String delimiter, @Nullable ImmutableCollection<?> values) {
-      return add(arg, VectorArg.of(values).joinWith(delimiter));
-    }
-
-    @Deprecated
-    public Builder addJoinExecPaths(String arg, String delimiter, @Nullable NestedSet<?> values) {
-      return add(arg, VectorArg.of(values).joinWith(delimiter));
-    }
-
-    @Deprecated
-    public Builder addPaths(String formatStr, PathFragment path) {
-      Preconditions.checkNotNull(path);
-      return addFormat(formatStr, path);
-    }
-
-    @Deprecated
-    public Builder addPaths(String formatStr, PathFragment path0, PathFragment path1) {
-      Preconditions.checkNotNull(path0);
-      Preconditions.checkNotNull(path1);
-      return addFormat(formatStr, path0, path1);
-    }
-
-    @Deprecated
-    public Builder addBeforeEachExecPath(
-        String beforeEach, @Nullable ImmutableCollection<Artifact> values) {
-      return add(VectorArg.of(values).beforeEach(beforeEach));
-    }
-
-    @Deprecated
-    public Builder addBeforeEachExecPath(String beforeEach, @Nullable NestedSet<Artifact> values) {
-      return add(VectorArg.of(values).beforeEach(beforeEach));
-    }
-
-    @Deprecated
-    public Builder addJoinPaths(
-        String delimiter, @Nullable ImmutableCollection<PathFragment> pathFragments) {
-      return add(VectorArg.of(pathFragments).joinWith(delimiter));
-    }
-
-    public Builder addBeforeEach(String beforeEach, @Nullable ImmutableCollection<?> values) {
-      return add(VectorArg.of(values).beforeEach(beforeEach));
-    }
-
-    @Deprecated
-    public Builder addBeforeEachPath(
-        String beforeEach, @Nullable ImmutableCollection<PathFragment> values) {
-      return add(VectorArg.of(values).beforeEach(beforeEach));
-    }
-
-    @Deprecated
-    public Builder addBeforeEachPath(String beforeEach, @Nullable NestedSet<PathFragment> values) {
-      return add(VectorArg.of(values).beforeEach(beforeEach));
-    }
-
-    @Deprecated
-    public <T> Builder addJoinValues(
-        String arg,
-        String join,
-        @Nullable ImmutableCollection<?> values,
-        Function<T, String> mapFn) {
-      return add(arg, VectorArg.of(values).joinWith(join).mapEach(mapFn));
-    }
-
-    @Deprecated
-    public <T> Builder addJoinValues(
-        String arg, String join, @Nullable NestedSet<?> values, Function<T, String> mapFn) {
-      return add(arg, VectorArg.of(values).joinWith(join).mapEach(mapFn));
-    }
-
-    @Deprecated
-    public Builder addFormatEach(String formatStr, @Nullable ImmutableCollection<?> values) {
-      return add(VectorArg.of(values).formatEach(formatStr));
-    }
-
-    @Deprecated
-    public Builder addFormatEach(String formatStr, @Nullable NestedSet<?> values) {
-      return add(VectorArg.of(values).formatEach(formatStr));
-    }
-
-    @Deprecated
-    public Builder addJoinStrings(
-        String arg, String delimiter, @Nullable ImmutableCollection<?> values) {
-      return add(arg, VectorArg.of(values).joinWith(delimiter));
-    }
-
-    /**
-     * Adds a param file as an argument.
-     *
-     * @param paramFilePrefix The character that denotes a param file, commonly '@'
-     * @param paramFile The param file artifact
-     */
-    @Deprecated
-    public Builder addParamFile(String paramFilePrefix, @Nullable Artifact paramFile) {
-      return addWithPrefix(paramFilePrefix, paramFile);
     }
 
     public CustomCommandLine build() {

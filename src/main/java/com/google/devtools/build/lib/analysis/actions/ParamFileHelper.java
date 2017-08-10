@@ -91,7 +91,7 @@ public final class ParamFileHelper {
       ImmutableList<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
     return CustomCommandLine.builder()
         .add(executableArgs)
-        .addParamFile(paramFileInfo.getFlag(), parameterFile)
+        .addWithPrefix(paramFileInfo.getFlag(), parameterFile)
         .build();
   }
 

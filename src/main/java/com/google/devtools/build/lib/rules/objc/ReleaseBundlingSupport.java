@@ -1029,12 +1029,12 @@ public final class ReleaseBundlingSupport {
 
     commandLine
         .add("--output_zip_path")
-        .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
+        .add(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
         .add("--bundle_path")
         .add("Frameworks")
         .add("--platform")
         .add(platform.getLowerCaseNameInPlist())
-        .addExecPath("--scan-executable", combinedArchBinary);
+        .add("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
@@ -1061,12 +1061,12 @@ public final class ReleaseBundlingSupport {
 
     commandLine
         .add("--output_zip_path")
-        .addPath(intermediateArtifacts.swiftSupportZip().getExecPath())
+        .add(intermediateArtifacts.swiftSupportZip().getExecPath())
         .add("--bundle_path")
         .add("SwiftSupport/" + platform.getLowerCaseNameInPlist())
         .add("--platform")
         .add(platform.getLowerCaseNameInPlist())
-        .addExecPath("--scan-executable", combinedArchBinary);
+        .add("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)

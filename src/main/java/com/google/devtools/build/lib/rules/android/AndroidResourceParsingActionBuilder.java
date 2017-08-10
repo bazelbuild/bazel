@@ -140,7 +140,7 @@ public class AndroidResourceParsingActionBuilder {
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
     Preconditions.checkNotNull(output);
-    builder.addExecPath("--output", output);
+    builder.add("--output", output);
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -179,17 +179,17 @@ public class AndroidResourceParsingActionBuilder {
           .add("--")
           .add("--resources")
           .add(resourceDirectories)
-          .addExecPath("--output", compiledSymbols);
+          .add("--output", compiledSymbols);
       outs.add(compiledSymbols);
 
       // The databinding needs to be processed before compilation, so the stripping happens here.
       if (dataBindingInfoZip != null) {
-        flatFileBuilder.addExecPath("--manifest", resourceContainer.getManifest());
+        flatFileBuilder.add("--manifest", resourceContainer.getManifest());
         inputs.add(resourceContainer.getManifest());
         if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
           flatFileBuilder.add("--packagePath").add(resourceContainer.getJavaPackage());
         }
-        builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+        builder.add("--dataBindingInfoOut", dataBindingInfoZip);
         outs.add(dataBindingInfoZip);
       }
       // Create the spawn action.

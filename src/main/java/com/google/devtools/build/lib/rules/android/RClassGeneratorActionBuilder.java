@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -88,11 +89,11 @@ public class RClassGeneratorActionBuilder {
 
     List<Artifact> outs = new ArrayList<>();
     if (primary.getRTxt() != null) {
-      builder.addExecPath("--primaryRTxt", primary.getRTxt());
+      builder.add("--primaryRTxt", primary.getRTxt());
       inputs.add(primary.getRTxt());
     }
     if (primary.getManifest() != null) {
-      builder.addExecPath("--primaryManifest", primary.getManifest());
+      builder.add("--primaryManifest", primary.getManifest());
       inputs.add(primary.getManifest());
     }
     if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
@@ -102,9 +103,11 @@ public class RClassGeneratorActionBuilder {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
       Iterable<ResourceContainer> depResources = dependencies.getResources();
       if (!Iterables.isEmpty(depResources)) {
-        builder.addBeforeEach(
-            "--library",
-            ImmutableList.copyOf(Iterables.transform(depResources, chooseDepsToArg(version))));
+        builder.add(
+            VectorArg.of(
+                    ImmutableList.copyOf(
+                        Iterables.transform(depResources, chooseDepsToArg(version))))
+                .beforeEach("--library"));
         inputs.addTransitive(
             NestedSetBuilder.wrap(
                 Order.NAIVE_LINK_ORDER,
@@ -112,7 +115,7 @@ public class RClassGeneratorActionBuilder {
                     .transformAndConcat(chooseDepsToArtifacts(version))));
       }
     }
-    builder.addExecPath("--classJarOutput", classJarOut);
+    builder.add("--classJarOutput", classJarOut);
     outs.add(classJarOut);
 
     // Create the spawn action.

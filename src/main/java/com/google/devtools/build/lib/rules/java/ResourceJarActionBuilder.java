@@ -104,9 +104,9 @@ public class ResourceJarActionBuilder {
             .add("--normalize")
             .add("--dont_change_compression")
             .add("--exclude_build_data")
-            .addExecPath("--output", outputJar);
+            .add("--output", outputJar);
     if (!resourceJars.isEmpty()) {
-      command.addExecPaths("--sources", resourceJars);
+      command.add("--sources", resourceJars);
     }
     if (!resources.isEmpty() || !messages.isEmpty()) {
       command.add("--resources");
@@ -119,7 +119,7 @@ public class ResourceJarActionBuilder {
       }
     }
     if (!classpathResources.isEmpty()) {
-      command.addExecPaths("--classpath_resources", classpathResources);
+      command.add("--classpath_resources", classpathResources);
     }
     // TODO(b/37444705): remove this logic and always call useParameterFile once the bug is fixed
     // Most resource jar actions are very small and expanding the argument list for
@@ -153,9 +153,9 @@ public class ResourceJarActionBuilder {
       PathFragment resourcePath, Artifact artifact, CustomCommandLine.Builder builder) {
     PathFragment execPath = artifact.getExecPath();
     if (execPath.equals(resourcePath)) {
-      builder.addPaths("%s", resourcePath);
+      builder.addFormatted("%s", resourcePath);
     } else {
-      builder.addPaths("%s:%s", execPath, resourcePath);
+      builder.addFormatted("%s:%s", execPath, resourcePath);
     }
   }
 }

@@ -17,9 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,14 +30,18 @@ public class CustomCommandLineTest extends BuildViewTestCase {
 
   @Test
   public void testAddBeforeEachPath() {
-    CustomCommandLine commandLine = new CustomCommandLine.Builder()
-        .add("foo")
-        .addBeforeEachPath(
-            "-I", ImmutableList.of(PathFragment.create("/path1"), PathFragment.create("/path2")))
-        .add("bar")
-        .addBeforeEachPath("-I", ImmutableList.<PathFragment>of())
-        .add("baz")
-        .build();
+    CustomCommandLine commandLine =
+        new Builder()
+            .add("foo")
+            .add(
+                VectorArg.of(
+                        ImmutableList.of(
+                            PathFragment.create("/path1"), PathFragment.create("/path2")))
+                    .beforeEach("-I"))
+            .add("bar")
+            .add(VectorArg.of(ImmutableList.<PathFragment>of()).beforeEach("-I"))
+            .add("baz")
+            .build();
     assertThat(commandLine.arguments())
         .containsExactly("foo", "-I", "/path1", "-I", "/path2", "bar", "baz")
         .inOrder();
@@ -44,13 +49,16 @@ public class CustomCommandLineTest extends BuildViewTestCase {
 
   @Test
   public void testAddBeforeEach() {
-    CustomCommandLine commandLine = new CustomCommandLine.Builder()
-        .add("foo")
-        .addBeforeEach("-D", ImmutableList.<String>of())
-        .add("bar")
-        .addBeforeEach("-D", ImmutableList.of("DEBUG=42", "ENABLE_QUANTUM", "__OBJC__"))
-        .add("baz")
-        .build();
+    CustomCommandLine commandLine =
+        new Builder()
+            .add("foo")
+            .add(VectorArg.of(ImmutableList.<String>of()).beforeEach("-D"))
+            .add("bar")
+            .add(
+                VectorArg.of(ImmutableList.of("DEBUG=42", "ENABLE_QUANTUM", "__OBJC__"))
+                    .beforeEach("-D"))
+            .add("baz")
+            .build();
     assertThat(commandLine.arguments())
         .containsExactly(
             "foo", "bar", "-D", "DEBUG=42", "-D", "ENABLE_QUANTUM", "-D", "__OBJC__", "baz")
@@ -59,14 +67,18 @@ public class CustomCommandLineTest extends BuildViewTestCase {
 
   @Test
   public void testAddBeforeEachExecPath() throws Exception {
-    CustomCommandLine commandLine = new CustomCommandLine.Builder()
-        .add("foo")
-        .addBeforeEachExecPath("-l",
-            ImmutableList.of(getSourceArtifact("pkg/util.a"), getSourceArtifact("pkg2/extra.a")))
-        .add("bar")
-        .addBeforeEachExecPath("-l", ImmutableList.<Artifact>of())
-        .add("baz")
-        .build();
+    CustomCommandLine commandLine =
+        new Builder()
+            .add("foo")
+            .add(
+                VectorArg.of(
+                        ImmutableList.of(
+                            getSourceArtifact("pkg/util.a"), getSourceArtifact("pkg2/extra.a")))
+                    .beforeEach("-l"))
+            .add("bar")
+            .add(VectorArg.of(ImmutableList.<Artifact>of()).beforeEach("-l"))
+            .add("baz")
+            .build();
     assertThat(commandLine.arguments())
         .containsExactly("foo", "-l", "pkg/util.a", "-l", "pkg2/extra.a", "bar", "baz")
         .inOrder();
@@ -74,13 +86,14 @@ public class CustomCommandLineTest extends BuildViewTestCase {
 
   @Test
   public void testAddFormatEach() {
-    CustomCommandLine commandLine = new CustomCommandLine.Builder()
-        .add("foo")
-        .addFormatEach("-X'%s'", ImmutableList.<String>of())
-        .add("bar")
-        .addFormatEach("-X'%s'", ImmutableList.of("42", "1011"))
-        .add("baz")
-        .build();
+    CustomCommandLine commandLine =
+        new Builder()
+            .add("foo")
+            .add(VectorArg.of(ImmutableList.<String>of()).formatEach("-X'%s'"))
+            .add("bar")
+            .add(VectorArg.of(ImmutableList.of("42", "1011")).formatEach("-X'%s'"))
+            .add("baz")
+            .build();
     assertThat(commandLine.arguments())
         .containsExactly("foo", "bar", "-X'42'", "-X'1011'", "baz")
         .inOrder();

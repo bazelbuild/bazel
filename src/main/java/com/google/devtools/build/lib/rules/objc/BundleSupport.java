@@ -267,8 +267,7 @@ final class BundleSupport {
       Artifact storyboardInput) {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
-            // The next three arguments are positional, i.e. they don't have flags before them.
-            .addPath(zipOutput.getExecPath())
+            .add(zipOutput.getExecPath())
             .add(archiveRoot)
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString())
@@ -279,9 +278,7 @@ final class BundleSupport {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
-    return commandLine
-        .addPath(storyboardInput.getExecPath())
-        .build();
+    return commandLine.add(storyboardInput.getExecPath()).build();
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
@@ -295,17 +292,20 @@ final class BundleSupport {
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              .setCommandLine(CustomCommandLine.builder()
-                  .addPath(outputZip.getExecPath())
-                  .add(datamodel.archiveRootForMomczip())
-                  .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
-                  .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
-                  .add("-MOMC_PLATFORMS")
-                  .add(appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                      .getLowerCaseNameInPlist())
-                  .add("-XD_MOMC_TARGET_VERSION=10.6")
-                  .add(datamodel.getContainer().getSafePathString())
-                  .build())
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .add(outputZip.getExecPath())
+                      .add(datamodel.archiveRootForMomczip())
+                      .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
+                      .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
+                      .add("-MOMC_PLATFORMS")
+                      .add(
+                          appleConfiguration
+                              .getMultiArchPlatform(PlatformType.IOS)
+                              .getLowerCaseNameInPlist())
+                      .add("-XD_MOMC_TARGET_VERSION=10.6")
+                      .add(datamodel.getContainer().getSafePathString())
+                      .build())
               .build(ruleContext));
     }
   }
@@ -336,12 +336,14 @@ final class BundleSupport {
           ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("ConvertStringsPlist")
               .setExecutable(PathFragment.create("/usr/bin/plutil"))
-              .setCommandLine(CustomCommandLine.builder()
-                  .add("-convert").add("binary1")
-                  .addExecPath("-o", bundled)
-                  .add("--")
-                  .addPath(strings.getExecPath())
-                  .build())
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .add("-convert")
+                      .add("binary1")
+                      .add("-o", bundled)
+                      .add("--")
+                      .add(strings.getExecPath())
+                      .build())
               .addInput(strings)
               .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
               .addOutput(bundled)
@@ -434,12 +436,10 @@ final class BundleSupport {
     }
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
-            // The next three arguments are positional, i.e. they don't have flags before them.
-            .addPath(zipOutput.getExecPath())
+            .add(zipOutput.getExecPath())
             .add("--platform")
-            .add(appleConfiguration.getMultiArchPlatform(platformType)
-                .getLowerCaseNameInPlist())
-            .addExecPath("--output-partial-info-plist", partialInfoPlist)
+            .add(appleConfiguration.getMultiArchPlatform(platformType).getLowerCaseNameInPlist())
+            .add("--output-partial-info-plist", partialInfoPlist)
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString());
 

@@ -76,13 +76,13 @@ public class LibraryRGeneratorActionBuilder {
     if (!symbolProviders.isEmpty()) {
       ImmutableList<Artifact> symbols =
           symbolProviders.stream().map(ResourceContainer::getSymbols).collect(toImmutableList());
-      builder.addExecPaths("--symbols", symbols);
+      builder.add("--symbols", symbols);
       inputs.addTransitive(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, symbols));
     }
 
-    builder.addExecPath("--classJarOutput", rJavaClassJar);
+    builder.add("--classJarOutput", rJavaClassJar);
 
-    builder.addExecPath("--androidJar", sdk.getAndroidJar());
+    builder.add("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     // Create the spawn action.

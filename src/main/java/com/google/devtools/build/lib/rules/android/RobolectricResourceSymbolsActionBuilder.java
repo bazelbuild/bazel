@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -81,22 +82,22 @@ public class RobolectricResourceSymbolsActionBuilder {
 
     List<Artifact> inputs = new ArrayList<>();
 
-    builder.addExecPath("--androidJar", sdk.getAndroidJar());
+    builder.add("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     if (!Iterables.isEmpty(dependencies.getResources())) {
-      builder.addJoinValues(
+      builder.add(
           "--data",
-          RESOURCE_CONTAINER_TO_ARG.listSeparator(),
-          dependencies.getResources(),
-          RESOURCE_CONTAINER_TO_ARG);
+          VectorArg.of(dependencies.getResources())
+              .joinWith(RESOURCE_CONTAINER_TO_ARG.listSeparator())
+              .mapEach(RESOURCE_CONTAINER_TO_ARG));
     }
 
     // This flattens the nested set.
     Iterables.addAll(inputs, FluentIterable.from(dependencies.getResources())
         .transformAndConcat(RESOURCE_CONTAINER_TO_ARTIFACTS));
 
-    builder.addExecPath("--classJarOutput", classJarOut);
+    builder.add("--classJarOutput", classJarOut);
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
 
     if (OS.getCurrent() == OS.WINDOWS) {

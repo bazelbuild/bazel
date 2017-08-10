@@ -46,18 +46,20 @@ public class LipoSupport {
   public LipoSupport registerCombineArchitecturesAction(
       NestedSet<Artifact> inputBinaries, Artifact outputBinary, ApplePlatform platform) {
     if (inputBinaries.toList().size() > 1) {
-      ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-              ruleContext.getFragment(AppleConfiguration.class), platform)
-          .setMnemonic("ObjcCombiningArchitectures")
-          .addTransitiveInputs(inputBinaries)
-          .addOutput(outputBinary)
-          .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
-          .setCommandLine(CustomCommandLine.builder()
-              .add(ObjcRuleClasses.LIPO)
-              .addExecPaths("-create", inputBinaries)
-              .addExecPath("-o", outputBinary)
-              .build())
-          .build(ruleContext));
+      ruleContext.registerAction(
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                  ruleContext.getFragment(AppleConfiguration.class), platform)
+              .setMnemonic("ObjcCombiningArchitectures")
+              .addTransitiveInputs(inputBinaries)
+              .addOutput(outputBinary)
+              .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .add(ObjcRuleClasses.LIPO)
+                      .add("-create", inputBinaries)
+                      .add("-o", outputBinary)
+                      .build())
+              .build(ruleContext));
     } else {
       ruleContext.registerAction(new SymlinkAction(
           ruleContext.getActionOwner(),

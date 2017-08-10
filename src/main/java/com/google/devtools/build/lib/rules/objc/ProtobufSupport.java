@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -494,7 +496,7 @@ final class ProtobufSupport {
   }
 
   private CustomCommandLine getGenerationCommandLine(Artifact protoInputsFile) {
-    return new CustomCommandLine.Builder()
+    return new Builder()
         .add("--input-file-list")
         .add(protoInputsFile.getExecPathString())
         .add("--output-dir")
@@ -504,7 +506,7 @@ final class ProtobufSupport {
         .add(getGenfilesPathString())
         .add("--proto-root-dir")
         .add(".")
-        .addBeforeEachExecPath("--config", portableProtoFilters)
+        .add(VectorArg.of(portableProtoFilters).beforeEach("--config"))
         .build();
   }
 

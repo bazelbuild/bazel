@@ -92,13 +92,13 @@ public final class SingleJarActionBuilder {
   private static CommandLine sourceJarCommandLine(Artifact outputJar,
       Map<PathFragment, Artifact> resources, Iterable<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
-    args.addExecPath("--output", outputJar);
+    args.add("--output", outputJar);
     args.add(SOURCE_JAR_COMMAND_LINE_ARGS);
-    args.addExecPaths("--sources", ImmutableList.copyOf(resourceJars));
+    args.add("--sources", ImmutableList.copyOf(resourceJars));
     if (!resources.isEmpty()) {
       args.add("--resources");
       for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
-        args.addPaths("%s:%s", resource.getValue().getExecPath(), resource.getKey());
+        args.addFormatted("%s:%s", resource.getValue().getExecPath(), resource.getKey());
       }
     }
     return args.build();
