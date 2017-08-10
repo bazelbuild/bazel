@@ -72,86 +72,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       actionExecutionContext.reportSubcommand(spawn);
     }
     final Duration timeout = Spawns.getTimeout(spawn);
-    SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
-      private final int id = execCount.incrementAndGet();
-      // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
-      // TODO(ulfjack): Guard against client modification of this map.
-      private SortedMap<PathFragment, ActionInput> lazyInputMapping;
-
-      @Override
-      public int getId() {
-        return id;
-      }
-
-      @Override
-      public void prefetchInputs() throws IOException {
-        if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-          // TODO(philwo): Benchmark whether using an ExecutionService to do multiple operations in
-          // parallel speeds up prefetching of inputs.
-          // TODO(philwo): Do we have to expand middleman artifacts here?
-          actionExecutionContext.getActionInputPrefetcher().prefetchFiles(
-              Iterables.filter(getInputMapping().values(), Predicates.notNull()));
-        }
-      }
-
-      @Override
-      public ActionInputFileCache getActionInputFileCache() {
-        return actionExecutionContext.getActionInputFileCache();
-      }
-
-      @Override
-      public ArtifactExpander getArtifactExpander() {
-        return actionExecutionContext.getArtifactExpander();
-      }
-
-      @Override
-      public void lockOutputFiles() throws InterruptedException {
-        Class<? extends SpawnActionContext> token = AbstractSpawnStrategy.this.getClass();
-        if (writeOutputFiles != null
-            && writeOutputFiles.get() != token
-            && !writeOutputFiles.compareAndSet(null, token)) {
-          throw new InterruptedException();
-        }
-      }
-
-      @Override
-      public Duration getTimeout() {
-        return timeout;
-      }
-
-      @Override
-      public FileOutErr getFileOutErr() {
-        return actionExecutionContext.getFileOutErr();
-      }
-
-      @Override
-      public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
-        if (lazyInputMapping == null) {
-          lazyInputMapping = spawnInputExpander.getInputMapping(
-              spawn,
-              actionExecutionContext.getArtifactExpander(),
-              actionExecutionContext.getActionInputFileCache(),
-              actionExecutionContext.getContext(FilesetActionContext.class));
-        }
-        return lazyInputMapping;
-      }
-
-      @Override
-      public void report(ProgressStatus state, String name) {
-        // TODO(ulfjack): We should report more details to the UI.
-        EventBus eventBus = actionExecutionContext.getEventBus();
-        switch (state) {
-          case EXECUTING:
-            eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), name));
-            break;
-          case SCHEDULING:
-            eventBus.post(ActionStatusMessage.schedulingStrategy(spawn.getResourceOwner()));
-            break;
-          default:
-            break;
-        }
-      }
-    };
+    SpawnExecutionPolicy policy =
+        new SpawnExecutionPolicyImpl(
+            spawn, actionExecutionContext, writeOutputFiles, timeout);
     SpawnResult result;
     try {
       result = spawnRunner.exec(spawn, policy);
@@ -166,6 +89,103 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
               verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
       throw new SpawnExecException(
           message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
+    }
+  }
+
+  private final class SpawnExecutionPolicyImpl implements SpawnExecutionPolicy {
+    private final Spawn spawn;
+    private final ActionExecutionContext actionExecutionContext;
+    private final AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles;
+    private final Duration timeout;
+
+    private final int id = execCount.incrementAndGet();
+    // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
+    // TODO(ulfjack): Guard against client modification of this map.
+    private SortedMap<PathFragment, ActionInput> lazyInputMapping;
+
+    public SpawnExecutionPolicyImpl(
+        Spawn spawn,
+        ActionExecutionContext actionExecutionContext,
+        AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles,
+        Duration timeout) {
+      this.spawn = spawn;
+      this.actionExecutionContext = actionExecutionContext;
+      this.writeOutputFiles = writeOutputFiles;
+      this.timeout = timeout;
+    }
+
+    @Override
+    public int getId() {
+      return id;
+    }
+
+    @Override
+    public void prefetchInputs() throws IOException {
+      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+        // TODO(philwo): Benchmark whether using an ExecutionService to do multiple operations in
+        // parallel speeds up prefetching of inputs.
+        // TODO(philwo): Do we have to expand middleman artifacts here?
+        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(
+            Iterables.filter(getInputMapping().values(), Predicates.notNull()));
+      }
+    }
+
+    @Override
+    public ActionInputFileCache getActionInputFileCache() {
+      return actionExecutionContext.getActionInputFileCache();
+    }
+
+    @Override
+    public ArtifactExpander getArtifactExpander() {
+      return actionExecutionContext.getArtifactExpander();
+    }
+
+    @Override
+    public void lockOutputFiles() throws InterruptedException {
+      Class<? extends SpawnActionContext> token = AbstractSpawnStrategy.this.getClass();
+      if (writeOutputFiles != null
+          && writeOutputFiles.get() != token
+          && !writeOutputFiles.compareAndSet(null, token)) {
+        throw new InterruptedException();
+      }
+    }
+
+    @Override
+    public Duration getTimeout() {
+      return timeout;
+    }
+
+    @Override
+    public FileOutErr getFileOutErr() {
+      return actionExecutionContext.getFileOutErr();
+    }
+
+    @Override
+    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+      if (lazyInputMapping == null) {
+        lazyInputMapping = spawnInputExpander.getInputMapping(
+            spawn,
+            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getActionInputFileCache(),
+            actionExecutionContext.getContext(FilesetActionContext.class));
+      }
+      return lazyInputMapping;
+    }
+
+    @Override
+    public void report(ProgressStatus state, String name) {
+      // TODO(ulfjack): We should report more details to the UI.
+      EventBus eventBus = actionExecutionContext.getEventBus();
+      switch (state) {
+        case EXECUTING:
+          eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), name));
+          break;
+        case SCHEDULING:
+          eventBus.post(ActionStatusMessage.schedulingStrategy(spawn.getResourceOwner()));
+          break;
+        default:
+          break;
+      }
     }
   }
 }
