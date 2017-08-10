@@ -17,17 +17,21 @@
 # Integration testing of the AntXmlResultWriter.
 #
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 
-TESTBED="${PWD}/$1"
-XML_GOLDEN_OUTPUT_FILE="${PWD}/$2"
+# Load the unit-testing framework
+source "$1" || \
+  { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
+
+set +o errexit
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+TESTBED="${PWD}/$2"
+XML_GOLDEN_OUTPUT_FILE="${PWD}/$3"
 XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
-SUITE_PARAMETER="$3"
-SUITE="com.google.testing.junit.runner.testbed.XmlOutputExercises"
-SUITE_FLAG="-D${SUITE_PARAMETER}=${SUITE}"
+SUITE_FLAG="-Dbazel.test_suite=com.google.testing.junit.runner.testbed.XmlOutputExercises"
 
 shift 3
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function test_XmlOutputExercises() {
   cd $TEST_TMPDIR

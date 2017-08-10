@@ -54,23 +54,20 @@ java_test(
 )
 
 # BazelTestRunner integration tests
-sh_library(
-    name = "testenv",
-    srcs = ["testenv.sh"],
-    deps = ["//src/test/shell:bashunit"],
-)
-
 sh_test(
     name = "junit4_testbridge_integration_test",
     size = "medium",
     srcs = ["junit4_testbridge_integration_tests.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
     ],
-    data = [":TestbedBinary"],
-    shard_count = 0,
-    deps = [":testenv"],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
 )
 
 sh_test(
@@ -78,12 +75,15 @@ sh_test(
     size = "medium",
     srcs = ["utf8_test_log_test.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
     ],
-    data = [":TestbedBinary"],
-    shard_count = 0,
-    deps = [":testenv"],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
 )
 
 sh_test(
@@ -91,16 +91,16 @@ sh_test(
     size = "medium",
     srcs = ["antxmlresultwriter_integration_test.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml)",
-        "bazel.test_suite",
     ],
     data = [
         ":TestbedBinary",
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
     ],
-    shard_count = 0,
-    deps = [":testenv"],
 )
 
 sh_test(
@@ -108,15 +108,16 @@ sh_test(
     size = "medium",
     srcs = ["deploy_jar_integration_tests.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(JAVABASE)",
         "$(location :TestbedBinary_deploy.jar)",
     ],
     data = [
         ":TestbedBinary_deploy.jar",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
         "//tools/defaults:jdk",
     ],
-    shard_count = 0,
-    deps = [":testenv"],
 )
 
 filegroup(

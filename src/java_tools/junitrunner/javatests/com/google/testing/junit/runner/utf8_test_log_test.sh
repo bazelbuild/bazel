@@ -17,16 +17,21 @@
 # Test that JUnit3 logs are written with UTF-8 encoding.
 #
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 
-TESTBED="${PWD}/$1"
-SUITE_PARAMETER="$2"
+# Load the unit-testing framework
+source "$1" || \
+  { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
+
+set +o errexit
+
+TESTBED="${PWD}/$2"
+SUITE_PARAMETER="$3"
 SUITE_FLAG="-D${SUITE_PARAMETER}=com.google.testing.junit.runner.testbed.InternationalCharsTest"
 XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
 unset TEST_PREMATURE_EXIT_FILE
 
-shift 2
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
+shift 3
 
 # Usage: expect_log <literal>
 function expect_log() {
