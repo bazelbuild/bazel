@@ -47,7 +47,7 @@ def ExtractEmbeddedJars(aar, singlejar_param_file, output_dir):
 
 
 def main():
-  with zipfile.ZipFile(FLAGS.input_aar, "rb") as aar:
+  with zipfile.ZipFile(FLAGS.input_aar, "r") as aar:
     with open(FLAGS.output_singlejar_param_file, "wb") as singlejar_param_file:
       ExtractEmbeddedJars(aar, singlejar_param_file, FLAGS.output_dir)
 
