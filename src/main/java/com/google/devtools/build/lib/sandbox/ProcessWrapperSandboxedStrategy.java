@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
   contextType = SpawnActionContext.class
 )
 final class ProcessWrapperSandboxedStrategy extends AbstractSpawnStrategy {
-  ProcessWrapperSandboxedStrategy(boolean verboseFailures, SpawnRunner spawnRunner) {
-    super(verboseFailures, spawnRunner);
+  ProcessWrapperSandboxedStrategy(SpawnRunner spawnRunner) {
+    super(spawnRunner);
   }
 
   @Override

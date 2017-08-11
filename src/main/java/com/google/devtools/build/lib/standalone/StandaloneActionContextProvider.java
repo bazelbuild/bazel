@@ -89,7 +89,7 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     return ImmutableList.of(
-        new StandaloneSpawnStrategy(executionOptions.verboseFailures, createLocalRunner(env)),
+        new StandaloneSpawnStrategy(createLocalRunner(env)),
         new DummyIncludeScanningContext(),
         new SpawnGccStrategy(),
         testStrategy,

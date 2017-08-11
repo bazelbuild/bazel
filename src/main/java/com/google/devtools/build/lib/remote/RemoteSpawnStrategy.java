@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
   contextType = SpawnActionContext.class
 )
 final class RemoteSpawnStrategy extends AbstractSpawnStrategy {
-  RemoteSpawnStrategy(SpawnRunner spawnRunner, boolean verboseFailures) {
-    super(verboseFailures, spawnRunner);
+  RemoteSpawnStrategy(SpawnRunner spawnRunner) {
+    super(spawnRunner);
   }
 
   @Override

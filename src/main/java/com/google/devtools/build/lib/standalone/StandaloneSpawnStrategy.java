@@ -23,9 +23,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
  */
 @ExecutionStrategy(name = { "standalone", "local" }, contextType = SpawnActionContext.class)
 public class StandaloneSpawnStrategy extends AbstractSpawnStrategy {
-  public StandaloneSpawnStrategy(
-      boolean verboseFailures, SpawnRunner spawnRunner) {
-    super(verboseFailures, spawnRunner);
+  public StandaloneSpawnStrategy(SpawnRunner spawnRunner) {
+    super(spawnRunner);
   }
 
   @Override

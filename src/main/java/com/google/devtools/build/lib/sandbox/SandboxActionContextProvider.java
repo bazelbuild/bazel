@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
@@ -50,7 +49,6 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     OptionsProvider options = cmdEnv.getOptions();
     int timeoutGraceSeconds =
         options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
-    boolean verboseFailures = options.getOptions(ExecutionOptions.class).verboseFailures;
     String productName = cmdEnv.getRuntime().getProductName();
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
@@ -61,7 +59,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
                   cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
-      contexts.add(new ProcessWrapperSandboxedStrategy(verboseFailures, spawnRunner));
+      contexts.add(new ProcessWrapperSandboxedStrategy(spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on Linux.
@@ -69,7 +67,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv, LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutGraceSeconds));
-      contexts.add(new LinuxSandboxedStrategy(verboseFailures, spawnRunner));
+      contexts.add(new LinuxSandboxedStrategy(spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on macOS.
@@ -79,7 +77,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
               cmdEnv,
               new DarwinSandboxedSpawnRunner(
                   cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
-      contexts.add(new DarwinSandboxedStrategy(verboseFailures, spawnRunner));
+      contexts.add(new DarwinSandboxedStrategy(spawnRunner));
     }
 
     return new SandboxActionContextProvider(contexts.build());

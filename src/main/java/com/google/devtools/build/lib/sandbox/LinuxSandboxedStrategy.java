@@ -30,8 +30,8 @@ import java.io.IOException;
   contextType = SpawnActionContext.class
 )
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
-  LinuxSandboxedStrategy(boolean verboseFailures, SpawnRunner spawnRunner) {
-    super(verboseFailures, spawnRunner);
+  LinuxSandboxedStrategy(SpawnRunner spawnRunner) {
+    super(spawnRunner);
   }
 
   @Override

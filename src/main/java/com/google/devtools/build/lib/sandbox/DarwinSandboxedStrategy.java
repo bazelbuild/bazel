@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
   contextType = SpawnActionContext.class
 )
 final class DarwinSandboxedStrategy extends AbstractSpawnStrategy {
-  DarwinSandboxedStrategy(boolean verboseFailures, SpawnRunner spawnRunner) {
-    super(verboseFailures, spawnRunner);
+  DarwinSandboxedStrategy(SpawnRunner spawnRunner) {
+    super(spawnRunner);
   }
 
   @Override
