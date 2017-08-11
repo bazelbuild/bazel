@@ -242,6 +242,11 @@ public class RemoteSpawnRunnerTest {
     }
 
     @Override
+    public boolean speculating() {
+      return false;
+    }
+
+    @Override
     public ActionInputFileCache getActionInputFileCache() {
       return fakeFileCache;
     }

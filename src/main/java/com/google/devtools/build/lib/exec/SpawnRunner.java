@@ -169,6 +169,12 @@ public interface SpawnRunner {
      */
     void lockOutputFiles() throws InterruptedException;
 
+    /**
+     * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
+     * {@link #lockOutputFiles} may raise {@link InterruptedException}.
+     */
+    boolean speculating();
+
     /** Returns the timeout that should be applied for the given {@link Spawn} instance. */
     Duration getTimeout();
 

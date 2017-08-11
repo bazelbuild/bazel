@@ -1196,6 +1196,29 @@ java_test(
 )
 
 java_test(
+    name = "exec-local-tests",
+    srcs = glob(["exec/local/*.java"]),
+    tags = ["exec"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
     deps = [
@@ -1266,6 +1289,21 @@ java_test(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "worker-tests",
+    srcs = glob(["worker/*Test.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":test_runner",
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/worker",
+        "//third_party:guava-testlib",
         "//third_party:truth",
     ],
 )

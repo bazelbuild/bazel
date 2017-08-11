@@ -143,8 +143,7 @@ public class WorkerModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
-    builder.addActionContextProvider(
-        new WorkerActionContextProvider(env, request, workerPool));
+    builder.addActionContextProvider(new WorkerActionContextProvider(env, workerPool));
     builder.addActionContextConsumer(new WorkerActionContextConsumer());
   }
 

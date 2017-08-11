@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import java.io.IOException;
 import java.nio.charset.Charset;
 
@@ -29,13 +29,12 @@ import java.nio.charset.Charset;
 public class WorkerFilesHash {
 
   public static HashCode getWorkerFilesHash(
-      Iterable<? extends ActionInput> toolFiles, ActionExecutionContext actionExecutionContext)
+      Iterable<? extends ActionInput> toolFiles, ActionInputFileCache actionInputFileCache)
       throws IOException {
     Hasher hasher = Hashing.sha256().newHasher();
     for (ActionInput tool : toolFiles) {
       hasher.putString(tool.getExecPathString(), Charset.defaultCharset());
-      hasher.putBytes(
-          actionExecutionContext.getActionInputFileCache().getMetadata(tool).getDigest());
+      hasher.putBytes(actionInputFileCache.getMetadata(tool).getDigest());
     }
     return hasher.hash();
   }

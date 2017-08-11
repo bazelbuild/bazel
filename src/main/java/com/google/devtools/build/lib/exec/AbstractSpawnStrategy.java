@@ -150,6 +150,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
+    public boolean speculating() {
+      return writeOutputFiles != null;
+    }
+
+    @Override
     public Duration getTimeout() {
       return timeout;
     }

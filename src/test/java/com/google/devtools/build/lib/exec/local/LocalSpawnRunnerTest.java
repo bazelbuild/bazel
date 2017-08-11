@@ -162,6 +162,11 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
+    public boolean speculating() {
+      return false;
+    }
+
+    @Override
     public ActionInputFileCache getActionInputFileCache() {
       return mockFileCache;
     }
@@ -228,6 +233,12 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void vanillaZeroExit() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // TODO(#3536): Make this test work on Windows.
+      // The Command API implicitly absolutizes the path, and we get weird paths on Windows:
+      // T:\execroot\execroot\_bin\process-wrapper
+      return;
+    }
     Subprocess.Factory factory = mock(Subprocess.Factory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
@@ -268,6 +279,12 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void noProcessWrapper() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // TODO(#3536): Make this test work on Windows.
+      // The Command API implicitly absolutizes the path, and we get weird paths on Windows:
+      // T:\execroot\bin\echo
+      return;
+    }
     Subprocess.Factory factory = mock(Subprocess.Factory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
@@ -299,6 +316,12 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void nonZeroExit() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // TODO(#3536): Make this test work on Windows.
+      // The Command API implicitly absolutizes the path, and we get weird paths on Windows:
+      // T:\execroot\execroot\_bin\process-wrapper
+      return;
+    }
     Subprocess.Factory factory = mock(Subprocess.Factory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(3));
@@ -478,6 +501,12 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void useCorrectExtensionOnWindows() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // TODO(#3536): Make this test work on Windows.
+      // The Command API implicitly absolutizes the path, and we get weird paths on Windows:
+      // T:\execroot\execroot\_bin\process-wrapper.exe
+      return;
+    }
     Subprocess.Factory factory = mock(Subprocess.Factory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));

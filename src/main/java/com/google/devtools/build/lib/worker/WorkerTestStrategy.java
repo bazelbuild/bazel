@@ -127,8 +127,9 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     WorkerKey key = null;
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
     try {
-      HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
-          action.getTools(), actionExecutionContext);
+      HashCode workerFilesHash =
+          WorkerFilesHash.getWorkerFilesHash(
+              action.getTools(), actionExecutionContext.getActionInputFileCache());
       key =
           new WorkerKey(
               startupArgs,
