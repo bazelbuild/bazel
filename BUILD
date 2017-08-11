@@ -68,6 +68,13 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+py_binary(
+    name = "combine_distfiles",
+    srcs = ["combine_distfiles.py"],
+    visibility = ["//visibility:private"],
+    deps = ["//src:create_embedded_tools_lib"],
+)
+
 genrule(
     name = "bazel-distfile",
     srcs = [
@@ -75,8 +82,8 @@ genrule(
         "//src:derived_java_srcs",
     ],
     outs = ["bazel-distfile.zip"],
-    cmd = "$(location :combine_distfiles.sh) $@ $(SRCS)",
-    tools = ["combine_distfiles.sh"],
+    cmd = "$(location :combine_distfiles) $@ $(SRCS)",
+    tools = [":combine_distfiles"],
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -88,8 +95,8 @@ genrule(
         "//src:derived_java_srcs",
     ],
     outs = ["bazel-distfile.tar"],
-    cmd = "env USE_TAR=YES $(location :combine_distfiles.sh) $@ $(SRCS)",
-    tools = ["combine_distfiles.sh"],
+    cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",
+    tools = ["combine_distfiles_to_tar.sh"],
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )

@@ -125,6 +125,7 @@ filegroup(
 py_library(
     name = "create_embedded_tools_lib",
     srcs = ["create_embedded_tools_lib.py"],
+    visibility = ["//:__pkg__"],
 )
 
 py_binary(
