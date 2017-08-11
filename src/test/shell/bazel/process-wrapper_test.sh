@@ -64,7 +64,7 @@ function test_signal_death() {
 
 function test_signal_catcher() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
+  $process_wrapper --timeout=1 --kill_delay=10 --stdout=$OUT --stderr=$ERR /bin/sh -c \
     'trap "echo later; exit 0" INT TERM ALRM; sleep 10' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "later"
