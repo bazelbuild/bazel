@@ -486,6 +486,7 @@ x intersect (y union z)</pre>
 <a href="#labels">labels</a><br/>
 <a href="#loadfiles">loadfiles</a><br/>
 <a href="#rdeps">rdeps</a><br/>
+<a href="#siblings">siblings</a><br/>
 <a href="#some">some</a><br/>
 <a href="#path-operators">somepath</a><br/>
 <a href="#tests">tests</a><br/>
@@ -554,6 +555,13 @@ x intersect (y union z)</pre>
   <code>//common</code>.  (These numbers correspond to the ranks shown in the
   <a href='#output-ranked'><code>minrank</code></a> output format.)  If the
   <var>depth</var> parameter is omitted, the search is unbounded.
+</p>
+
+<h3 id="siblings">Dealing with a target's package: siblings</h3>
+<pre>expr ::= siblings(<var>expr</var>)</pre>
+<p>
+  The <code>siblings(<var>x</var>)</code> operator evalutes to the full set of targets that are in
+  the same package as a target in the argument set.
 </p>
 
 <h3 id="some">Arbitrary choice: some</h3>

@@ -691,6 +691,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @ThreadSafe
   @Override
+  public Collection<Target> getSiblingTargetsInPackage(Target target) {
+    return target.getPackage().getTargets().values();
+  }
+
+  @ThreadSafe
+  @Override
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
       QueryExpression owner, String pattern, Callback<Target> callback) {
     TargetPatternKey targetPatternKey;
