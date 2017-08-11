@@ -558,6 +558,7 @@ public class FullyQualifiedName implements DataKey {
     if (!(obj instanceof FullyQualifiedName)) {
       return false;
     }
+
     FullyQualifiedName other = getClass().cast(obj);
     return Objects.equals(pkg, other.pkg)
         && Objects.equals(type, other.type)

@@ -46,6 +46,7 @@ public class AaptCommandBuilderTest {
     NullPointerTester tester = new NullPointerTester().setDefault(Path.class, aapt);
 
     tester.testConstructor(AaptCommandBuilder.class.getConstructor(Path.class));
+    tester.ignore(AaptCommandBuilder.class.getMethod("execute", String.class));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(true));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(false));

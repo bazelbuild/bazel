@@ -17,12 +17,17 @@ import com.android.builder.core.VariantType;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.android.aapt2.CompiledResources;
+import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.File;
 import java.lang.reflect.ParameterizedType;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -33,25 +38,30 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
  * Some convenient converters used by android actions. Note: These are specific to android actions.
  */
 public final class Converters {
-  private static final Converter<String> IDENTITY_CONVERTER = new Converter<String>() {
-    @Override public String convert(String input) {
-      return input;
-    }
+  private static final Converter<String> IDENTITY_CONVERTER =
+      new Converter<String>() {
+        @Override
+        public String convert(String input) {
+          return input;
+        }
 
-    @Override public String getTypeDescription() {
-      return "a string";
-    }
-  };
+        @Override
+        public String getTypeDescription() {
+          return "a string";
+        }
+      };
 
   /**
-   * Converter for {@link UnvalidatedAndroidData}. Relies on
-   * {@code UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
+   * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
+   * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
    */
   public static class UnvalidatedAndroidDataConverter implements Converter<UnvalidatedAndroidData> {
 
@@ -71,9 +81,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Converter for {@link UnvalidatedAndroidDirectories}.
-   */
+  /** Converter for {@link UnvalidatedAndroidDirectories}. */
   public static class UnvalidatedAndroidDirectoriesConverter
       implements Converter<UnvalidatedAndroidDirectories> {
 
@@ -95,8 +103,8 @@ public final class Converters {
   }
 
   /**
-   * Converter for a list of {@link DependencyAndroidData}. Relies on
-   * {@code DependencyAndroidData#valueOf(String)} to perform conversion and validation.
+   * Converter for a list of {@link DependencyAndroidData}. Relies on {@code
+   * DependencyAndroidData#valueOf(String)} to perform conversion and validation.
    */
   public static class DependencyAndroidDataListConverter
       implements Converter<List<DependencyAndroidData>> {
@@ -121,13 +129,12 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a list of dependency android data in the format "
-          + DependencyAndroidData.EXPECTED_FORMAT + "[,...]";
+          + DependencyAndroidData.EXPECTED_FORMAT
+          + "[,...]";
     }
   }
 
-  /**
-   * Converter for a {@link SerializedAndroidData}.
-   */
+  /** Converter for a {@link SerializedAndroidData}. */
   public static class SerializedAndroidDataConverter implements Converter<SerializedAndroidData> {
 
     @Override
@@ -146,9 +153,7 @@ public final class Converters {
     }
   }
 
-  /**
-   * Converter for a list of {@link SerializedAndroidData}.
-   */
+  /** Converter for a list of {@link SerializedAndroidData}. */
   public static class SerializedAndroidDataListConverter
       implements Converter<List<SerializedAndroidData>> {
 
@@ -172,7 +177,8 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a list of preparsed android data in the format "
-          + SerializedAndroidData.EXPECTED_FORMAT + "[&...]";
+          + SerializedAndroidData.EXPECTED_FORMAT
+          + "[&...]";
     }
   }
 
@@ -200,8 +206,8 @@ public final class Converters {
   }
 
   /**
-   * Converter for a list of {@link DependencySymbolFileProvider}. Relies on
-   * {@code DependencySymbolFileProvider#valueOf(String)} to perform conversion and validation.
+   * Converter for a list of {@link DependencySymbolFileProvider}. Relies on {@code
+   * DependencySymbolFileProvider#valueOf(String)} to perform conversion and validation.
    *
    * @deprecated use multi-value flags and {@link DependencySymbolFileProviderConverter} instead.
    */
@@ -228,15 +234,16 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return String.format("a list of dependency android data in the format: %s[%s]",
+      return String.format(
+          "a list of dependency android data in the format: %s[%s]",
           DependencySymbolFileProvider.commandlineFormat("1"),
           DependencySymbolFileProvider.commandlineFormat("2"));
     }
   }
 
   /**
-   * Converter for {@link Revision}. Relies on {@code Revision#parseRevision(String)} to
-   * perform conversion and validation.
+   * Converter for {@link Revision}. Relies on {@code Revision#parseRevision(String)} to perform
+   * conversion and validation.
    */
   public static class RevisionConverter implements Converter<Revision> {
 
@@ -306,8 +313,7 @@ public final class Converters {
   }
 
   /** Converter for {@link ManifestMerger2}.{@link MergeType}. */
-  public static class MergeTypeConverter
-      extends EnumConverter<MergeType> {
+  public static class MergeTypeConverter extends EnumConverter<MergeType> {
     public MergeTypeConverter() {
       super(MergeType.class, "merge type");
     }
@@ -324,8 +330,7 @@ public final class Converters {
   }
 
   /**
-   * Validating converter for a list of Paths.
-   * A Path is considered valid if it resolves to a file.
+   * Validating converter for a list of Paths. A Path is considered valid if it resolves to a file.
    */
   @Deprecated
   public static class PathListConverter implements Converter<List<Path>> {
@@ -389,21 +394,19 @@ public final class Converters {
       for (String entry : input.split(UNESCAPED_COMMA_REGEX)) {
         String[] entryFields = entry.split(UNESCAPED_COLON_REGEX, -1);
         if (entryFields.length < 2) {
-          throw new OptionsParsingException(String.format(
-              "Dictionary entry [%s] does not contain both a key and a value.",
-              entry));
+          throw new OptionsParsingException(
+              String.format(
+                  "Dictionary entry [%s] does not contain both a key and a value.", entry));
         } else if (entryFields.length > 2) {
-          throw new OptionsParsingException(String.format(
-              "Dictionary entry [%s] contains too many fields.",
-              entry));
+          throw new OptionsParsingException(
+              String.format("Dictionary entry [%s] contains too many fields.", entry));
         }
         // Unescape any comma or colon that is not a key or value separator.
         String keyString = unescapeInput(entryFields[0]);
         K key = keyConverter.convert(keyString);
         if (map.containsKey(key)) {
-          throw new OptionsParsingException(String.format(
-              "Dictionary already contains the key [%s].",
-              keyString));
+          throw new OptionsParsingException(
+              String.format("Dictionary already contains the key [%s].", keyString));
         }
         // Unescape any comma or colon that is not a key or value separator.
         String valueString = unescapeInput(entryFields[1]);
@@ -435,7 +438,8 @@ public final class Converters {
     }
     // The way {@link OptionsData} checks for generic types requires convert to have literal type
     // parameters and not argument type parameters.
-    @Override public Map<String, String> convert(String input) throws OptionsParsingException {
+    @Override
+    public Map<String, String> convert(String input) throws OptionsParsingException {
       return super.convert(input);
     }
   }
@@ -452,8 +456,70 @@ public final class Converters {
     }
     // The way {@link OptionsData} checks for generic types requires convert to have literal type
     // parameters and not argument type parameters.
-    @Override public Map<Path, String> convert(String input) throws OptionsParsingException {
+    @Override
+    public Map<Path, String> convert(String input) throws OptionsParsingException {
       return super.convert(input);
+    }
+  }
+
+  /** Converts a list of static library strings into paths. */
+  @Deprecated
+  public static class StaticLibraryListConverter implements Converter<List<StaticLibrary>> {
+    static final Splitter SPLITTER = Splitter.on(File.pathSeparator);
+
+    static final StaticLibraryConverter libraryConverter = new StaticLibraryConverter();
+
+    @Override
+    public List<StaticLibrary> convert(String input) throws OptionsParsingException {
+      final Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      for (String unused : SPLITTER.splitToList(input)) {
+        builder.add(libraryConverter.convert(input));
+      }
+      return builder.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Static resource libraries.";
+    }
+  }
+
+  /** Converts a static library string into path. */
+  public static class StaticLibraryConverter implements Converter<StaticLibrary> {
+    static final Splitter SPLITTER = Splitter.on(File.pathSeparator);
+
+    static final PathConverter pathConverter = new PathConverter(true);
+
+    @Override
+    public StaticLibrary convert(String input) throws OptionsParsingException {
+      return StaticLibrary.from(pathConverter.convert(input));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Static resource library.";
+    }
+  }
+
+  /** Converts a string of resources and manifest into paths. */
+  public static class CompiledResourcesConverter implements Converter<CompiledResources> {
+    static final PathConverter pathConverter = new PathConverter(true);
+    static final Pattern COMPILED_RESOURCE_FORMAT = Pattern.compile("(.+):(.+)");
+
+    @Override
+    public CompiledResources convert(String input) throws OptionsParsingException {
+      final Matcher matched = COMPILED_RESOURCE_FORMAT.matcher(input);
+      if (!matched.find()) {
+        throw new OptionsParsingException("Expected format <resources zip>:<manifest>");
+      }
+      Path resources = pathConverter.convert(matched.group(1));
+      Path manifest = pathConverter.convert(matched.group(2));
+      return CompiledResources.from(resources, manifest);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Compiled resources zip.";
     }
   }
 }

@@ -15,9 +15,14 @@ package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.CharStreams;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +33,7 @@ import javax.annotation.Nullable;
  * and variant type.
  */
 public class AaptCommandBuilder {
+
   private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
   private Revision buildToolsVersion;
   private VariantType variantType;
@@ -60,8 +66,8 @@ public class AaptCommandBuilder {
 
   /**
    * Adds a flag to the builder, along with a string value. The two will be added as different words
-   * in the final command line. If the value is {@code null}, neither the flag nor the value will
-   * be added.
+   * in the final command line. If the value is {@code null}, neither the flag nor the value will be
+   * added.
    */
   public AaptCommandBuilder add(String flag, @Nullable String value) {
     Preconditions.checkNotNull(flag);
@@ -88,13 +94,13 @@ public class AaptCommandBuilder {
   }
 
   /**
-   * Adds a flag to the builder multiple times, once for each value in the given collection.
-   * {@code null} values will be skipped. If the collection is empty, nothing will be added.
-   * The values will be added in the source collection's iteration order.
+   * Adds a flag to the builder multiple times, once for each value in the given collection. {@code
+   * null} values will be skipped. If the collection is empty, nothing will be added. The values
+   * will be added in the source collection's iteration order.
    *
-   * <p>ex. If {@code flag} is {@code "-0"} and {@code values} contains the values
-   * {@code "png"}, {@code null}, and {@code "gif"}, then four words will be added to the final
-   * command line: {@code "-0", "png", "-0", "gif"}.
+   * <p>ex. If {@code flag} is {@code "-0"} and {@code values} contains the values {@code "png"},
+   * {@code null}, and {@code "gif"}, then four words will be added to the final command line:
+   * {@code "-0", "png", "-0", "gif"}.
    */
   public AaptCommandBuilder addRepeated(String flag, Collection<String> values) {
     Preconditions.checkNotNull(flag);
@@ -120,8 +126,8 @@ public class AaptCommandBuilder {
   }
 
   /**
-   * Adds the next flag to the builder only if the build tools version is unspecified or is
-   * greater than or equal to the given version.
+   * Adds the next flag to the builder only if the build tools version is unspecified or is greater
+   * than or equal to the given version.
    */
   public ConditionalAaptCommandBuilder whenVersionIsAtLeast(Revision requiredVersion) {
     Preconditions.checkNotNull(requiredVersion);
@@ -133,9 +139,7 @@ public class AaptCommandBuilder {
     return flags.build();
   }
 
-  /**
-   * Wrapper for potentially adding flags to an AaptCommandBuilder based on a conditional.
-   */
+  /** Wrapper for potentially adding flags to an AaptCommandBuilder based on a conditional. */
   public interface ConditionalAaptCommandBuilder {
     /**
      * Adds a single flag to the builder if the condition was true.
@@ -161,8 +165,8 @@ public class AaptCommandBuilder {
     AaptCommandBuilder thenAdd(String flag, @Nullable Path value);
 
     /**
-     * Adds the values in the collection to the builder, each preceded by the given flag,
-     * if the collection was non-empty and the condition was true.
+     * Adds the values in the collection to the builder, each preceded by the given flag, if the
+     * collection was non-empty and the condition was true.
      *
      * @see AaptCommandBuilder#addRepeated(String,Collection<String>)
      */
@@ -200,9 +204,7 @@ public class AaptCommandBuilder {
     }
   }
 
-  /**
-   * Null implementation of ConditionalAaptCommandBuilder returned when a condition is false.
-   */
+  /** Null implementation of ConditionalAaptCommandBuilder returned when a condition is false. */
   private static class FailedConditionCommandBuilder implements ConditionalAaptCommandBuilder {
     private final AaptCommandBuilder originalCommandBuilder;
 
@@ -235,5 +237,26 @@ public class AaptCommandBuilder {
       return originalCommandBuilder;
     }
   }
-}
 
+  /**
+   * Executes command and returns log.
+   *
+   * @throws IOException when the process cannot execute.
+   */
+  public String execute(String action) throws IOException {
+    StringBuilder processLog = new StringBuilder();
+    final Process process = new ProcessBuilder().command(build()).redirectErrorStream(true).start();
+    processLog.append("Command: ");
+    Joiner.on(" ").appendTo(processLog, build());
+    processLog.append("\n");
+    final InputStreamReader stdout =
+        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8);
+    while (process.isAlive()) {
+      processLog.append(CharStreams.toString(stdout));
+    }
+    if (process.exitValue() != 0) {
+      throw new RuntimeException(String.format("Error during %s:", action) + "\n" + processLog);
+    }
+    return processLog.toString();
+  }
+}
