@@ -11053,7 +11053,7 @@ toolchain {
         flag: "-Xlinker"
         flag: "-bitcode_symbol_map"
         flag: "-Xlinker"
-        flag: "%{bitcode_symbol_map_path}"
+        flag: "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}"
       }
     }
   }
@@ -12718,7 +12718,7 @@ toolchain {
         flag: "-Xlinker"
         flag: "-bitcode_symbol_map"
         flag: "-Xlinker"
-        flag: "%{bitcode_symbol_map_path}"
+        flag: "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}"
       }
     }
   }
@@ -14408,7 +14408,7 @@ toolchain {
         flag: "-Xlinker"
         flag: "-bitcode_symbol_map"
         flag: "-Xlinker"
-        flag: "%{bitcode_symbol_map_path}"
+        flag: "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}"
       }
     }
   }
@@ -16078,7 +16078,7 @@ toolchain {
         flag: "-Xlinker"
         flag: "-bitcode_symbol_map"
         flag: "-Xlinker"
-        flag: "%{bitcode_symbol_map_path}"
+        flag: "BITCODE_TOUCH_SYMBOL_MAP=%{bitcode_symbol_map_path}"
       }
     }
   }
