@@ -124,7 +124,7 @@ public final class CustomCommandLine extends CommandLine {
       this.hasJoinWith = hasJoinWith;
     }
 
-    private static void push(List<Object> arguments, Builder argv) {
+    private static void push(List<Object> arguments, Builder<?> argv) {
       VectorArg vectorArg =
           new VectorArg(
               argv.mapFn != null,
@@ -155,7 +155,7 @@ public final class CustomCommandLine extends CommandLine {
       List<Object> mutatedValues = Lists.newArrayList(values);
       int count = mutatedValues.size();
       if (hasMapEach) {
-        Function<Object, Object> mapFn = (Function<Object, Object>) arguments.get(argi++);
+        Function<Object, String> mapFn = (Function<Object, String>) arguments.get(argi++);
         for (int i = 0; i < count; ++i) {
           mutatedValues.set(i, mapFn.apply(mutatedValues.get(i)));
         }
@@ -186,59 +186,59 @@ public final class CustomCommandLine extends CommandLine {
       return argi;
     }
 
-    public static Builder of(@Nullable ImmutableCollection<?> values) {
-      return new Builder(values);
+    public static <T> Builder<T> of(@Nullable ImmutableCollection<T> values) {
+      return new Builder<>(values);
     }
 
-    public static Builder of(@Nullable NestedSet<?> values) {
-      return new Builder(values);
+    public static <T> Builder<T> of(@Nullable NestedSet<T> values) {
+      return new Builder<>(values);
     }
 
     /** Builder for a VectorArg */
-    public static class Builder {
-      @Nullable private final Iterable<?> values;
+    public static class Builder<T> {
+      @Nullable private final Iterable<T> values;
       private final boolean isEmpty;
       private String formatEach;
       private String beforeEach;
-      private Function<?, String> mapFn;
+      private Function<T, String> mapFn;
       private String joinWith;
 
-      private Builder(@Nullable ImmutableCollection<?> values) {
+      private Builder(@Nullable ImmutableCollection<T> values) {
         this(values, values == null || values.isEmpty());
       }
 
-      private Builder(@Nullable NestedSet<?> values) {
+      private Builder(@Nullable NestedSet<T> values) {
         this(values, values == null || values.isEmpty());
       }
 
-      private Builder(@Nullable Iterable<?> values, boolean isEmpty) {
+      private Builder(@Nullable Iterable<T> values, boolean isEmpty) {
         this.values = values;
         this.isEmpty = isEmpty;
       }
 
       /** Each argument is formatted via {@link String#format}. */
-      public Builder formatEach(String formatEach) {
+      public Builder<T> formatEach(String formatEach) {
         Preconditions.checkNotNull(formatEach);
         this.formatEach = formatEach;
         return this;
       }
 
       /** Each argument is prepended by the beforeEach param. */
-      public Builder beforeEach(String beforeEach) {
+      public Builder<T> beforeEach(String beforeEach) {
         Preconditions.checkNotNull(beforeEach);
         this.beforeEach = beforeEach;
         return this;
       }
 
       /** Each argument is mapped using the supplied map function */
-      public <T> Builder mapEach(Function<T, String> mapFn) {
+      public Builder<T> mapEach(Function<T, String> mapFn) {
         Preconditions.checkNotNull(mapFn);
         this.mapFn = mapFn;
         return this;
       }
 
       /** Once all arguments have been evaluated, they are joined with this delimiter */
-      public Builder joinWith(String delimiter) {
+      public Builder<T> joinWith(String delimiter) {
         Preconditions.checkNotNull(delimiter);
         this.joinWith = delimiter;
         return this;
@@ -504,7 +504,7 @@ public final class CustomCommandLine extends CommandLine {
      *
      * <p>Please see {@link VectorArg} for more information.
      */
-    public Builder add(VectorArg.Builder vectorArg) {
+    public Builder add(VectorArg.Builder<?> vectorArg) {
       if (!vectorArg.isEmpty) {
         VectorArg.push(arguments, vectorArg);
       }
@@ -515,9 +515,10 @@ public final class CustomCommandLine extends CommandLine {
      * Adds the arg followed by the expansion of the vector arg.
      *
      * <p>Please see {@link VectorArg} for more information.
+     *
      * <p>If values is empty, the arg isn't added.
      */
-    public Builder add(String arg, VectorArg.Builder vectorArg) {
+    public Builder add(String arg, VectorArg.Builder<?> vectorArg) {
       Preconditions.checkNotNull(arg);
       if (!vectorArg.isEmpty) {
         arguments.add(arg);
