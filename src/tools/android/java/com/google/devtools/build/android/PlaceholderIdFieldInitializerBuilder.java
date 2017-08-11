@@ -27,6 +27,7 @@ import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.IntArrayFieldInitializer;
 import com.google.devtools.build.android.resources.IntFieldInitializer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -44,6 +45,31 @@ import java.util.logging.Logger;
  * building the android_binary.
  */
 class PlaceholderIdFieldInitializerBuilder {
+
+  private static final ImmutableList<ResourceType> INITIAL_TYPES =
+      ImmutableList.of(
+          ResourceType.DRAWABLE,
+          ResourceType.MIPMAP,
+          ResourceType.LAYOUT,
+          ResourceType.ANIM,
+          ResourceType.ANIMATOR,
+          ResourceType.TRANSITION,
+          ResourceType.INTERPOLATOR,
+          ResourceType.XML,
+          ResourceType.RAW);
+
+  private static final ImmutableSet<ResourceType> SPECIALLY_HANDLED_TYPES =
+      ImmutableSet.<ResourceType>builder()
+          // These types should always be handled first
+          .addAll(INITIAL_TYPES)
+          // The ATTR and STYLEABLE types are handled by completely separate code and should not be
+          // included in the ordered list of types
+          .add(ResourceType.ATTR)
+          .add(ResourceType.STYLEABLE)
+          // The MENU type should always go last
+          .add(ResourceType.MENU)
+          .build();
+
   /**
    * Determine the TT portion of the resource ID (PPTTEEEE) that aapt would have assigned. This not
    * at all alphabetical. It depends on the order in which the types are processed, and whether or
@@ -66,35 +92,22 @@ class PlaceholderIdFieldInitializerBuilder {
    * ordering in the following list.
    */
   private static final ImmutableList<ResourceType> AAPT_TYPE_ORDERING =
-      ImmutableList.of(
-          ResourceType.DRAWABLE,
-          ResourceType.MIPMAP,
-          ResourceType.LAYOUT,
-          ResourceType.ANIM,
-          ResourceType.ANIMATOR,
-          ResourceType.TRANSITION,
-          ResourceType.INTERPOLATOR,
-          ResourceType.XML,
-          ResourceType.RAW,
-          // Begin VALUES portion
+      ImmutableList.<ResourceType>builder()
+          .addAll(INITIAL_TYPES)
+          // The VALUES portion
           // Technically, aapt just assigns according to declaration order in the source value.xml
           // files so it isn't really deterministic. However, the Gradle merger sorts the values.xml
-          // file before invoking aapt, so assume that is also done.
-          ResourceType.ARRAY,
-          ResourceType.BOOL,
-          ResourceType.COLOR,
-          ResourceType.DIMEN,
-          ResourceType.FRACTION,
-          ResourceType.ID,
-          ResourceType.INTEGER,
-          ResourceType.PLURALS,
-          ResourceType.STRING,
-          ResourceType.STYLE,
-          // End VALUES portion
+          // file before invoking aapt, so use the alphabetically sorted values defined in
+          // ResourceType here as well.
+          .addAll(
+              Arrays.stream(ResourceType.values())
+                  .filter((x) -> !SPECIALLY_HANDLED_TYPES.contains(x))
+                  .collect(ImmutableList.toImmutableList()))
           // Technically, file-based COLOR resources come next. If we care about complete
           // equivalence we should separate the file-based resources from value-based resources so
           // that we can number them the same way.
-          ResourceType.MENU);
+          .add(ResourceType.MENU)
+          .build();
 
   private static final int APP_PACKAGE_MASK = 0x7f000000;
   private static final int ATTR_TYPE_ID = 1;
