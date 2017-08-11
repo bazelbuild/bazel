@@ -198,6 +198,27 @@ function test_basic() {
   expect_log 'key: "TARGET_CPU"'
 }
 
+function test_target_information_early() {
+  # Verify that certain information is present in the log as part of
+  # the TargetConfigured event (verifying that it comes at least before
+  # the first TargetCompleted event, which is fine, if we only ask for
+  # a single target).
+  bazel test --build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log '^completed'
+  ed $TEST_log <<'EOF'
+1
+/^completed/+1,$d
+a
+...[cut here]
+.
+w
+q
+EOF
+  expect_log 'target_kind:.*sh'
+  expect_log 'test_size: SMALL'
+}
+
 function test_workspace_status() {
   bazel test --build_event_text_file=$TEST_log \
      --workspace_status_command=sample_workspace_status pkg:true \

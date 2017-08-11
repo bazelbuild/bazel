@@ -146,21 +146,6 @@ public final class TargetCompleteEvent
     return childrenBuilder.build();
   }
 
-  private BuildEventStreamProtos.TestSize bepTestSize(TestSize size) {
-    switch (size) {
-      case SMALL:
-        return BuildEventStreamProtos.TestSize.SMALL;
-      case MEDIUM:
-        return BuildEventStreamProtos.TestSize.MEDIUM;
-      case LARGE:
-        return BuildEventStreamProtos.TestSize.LARGE;
-      case ENORMOUS:
-        return BuildEventStreamProtos.TestSize.ENORMOUS;
-      default:
-        return BuildEventStreamProtos.TestSize.UNKNOWN;
-    }
-  }
-
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     BuildEventStreamProtos.TargetComplete.Builder builder =
@@ -173,7 +158,8 @@ public final class TargetCompleteEvent
 
     if (isTest) {
       builder.setTestSize(
-          bepTestSize(TestSize.getTestSize(target.getTarget().getAssociatedRule())));
+          TargetConfiguredEvent.bepTestSize(
+              TestSize.getTestSize(target.getTarget().getAssociatedRule())));
     }
 
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
