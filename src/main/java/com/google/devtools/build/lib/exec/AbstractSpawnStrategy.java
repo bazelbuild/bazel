@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -28,15 +29,19 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,9 +76,29 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     SpawnExecutionPolicy policy =
         new SpawnExecutionPolicyImpl(
             spawn, actionExecutionContext, writeOutputFiles, timeout);
+    // TODO(ulfjack): Provide a way to disable the cache. We don't want the RemoteSpawnStrategy to
+    // check the cache twice. Right now that can't happen because this is hidden behind an
+    // experimental flag.
+    SpawnCache cache = actionExecutionContext.getContext(SpawnCache.class);
+    // In production, the getContext method guarantees that we never get null back. However, our
+    // integration tests don't set it up correctly, so cache may be null in testing.
+    if (cache == null || !Spawns.mayBeCached(spawn)) {
+      cache = SpawnCache.NO_CACHE;
+    }
     SpawnResult result;
     try {
-      result = spawnRunner.exec(spawn, policy);
+      try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+        if (cacheHandle.hasResult()) {
+          result = Preconditions.checkNotNull(cacheHandle.getResult());
+        } else {
+          // Actual execution.
+          result = spawnRunner.exec(spawn, policy);
+          if (cacheHandle.willStore()) {
+            cacheHandle.store(
+                result, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
+          }
+        }
+      }
     } catch (IOException e) {
       throw new EnvironmentalExecException("Unexpected IO error.", e);
     }
@@ -89,6 +114,19 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       throw new SpawnExecException(
           message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
     }
+  }
+
+  private List<Path> listExistingOutputFiles(Spawn spawn, Path execRoot) {
+    ArrayList<Path> outputFiles = new ArrayList<>();
+    for (ActionInput output : spawn.getOutputFiles()) {
+      Path outputPath = execRoot.getRelative(output.getExecPathString());
+      // TODO(ulfjack): Store the actual list of output files in SpawnResult and use that instead
+      // of statting the files here again.
+      if (outputPath.exists()) {
+        outputFiles.add(outputPath);
+      }
+    }
+    return outputFiles;
   }
 
   private final class SpawnExecutionPolicyImpl implements SpawnExecutionPolicy {

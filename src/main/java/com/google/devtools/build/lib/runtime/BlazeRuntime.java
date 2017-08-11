@@ -964,6 +964,8 @@ public final class BlazeRuntime {
     }
 
     runtimeBuilder.addBlazeModule(new BuiltinCommandModule());
+    // This module needs to be registered before any module providing a SpawnCache implementation.
+    runtimeBuilder.addBlazeModule(new NoSpawnCacheModule());
     runtimeBuilder.addBlazeModule(new CommandLogModule());
     for (BlazeModule blazeModule : blazeModules) {
       runtimeBuilder.addBlazeModule(blazeModule);

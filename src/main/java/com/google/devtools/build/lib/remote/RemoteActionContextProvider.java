@@ -37,8 +37,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final RemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
 
-  private RemoteSpawnRunner spawnRunner;
-
   RemoteActionContextProvider(CommandEnvironment env, @Nullable RemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor) {
     this.env = env;
@@ -52,14 +50,19 @@ final class RemoteActionContextProvider extends ActionContextProvider {
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
 
-    spawnRunner = new RemoteSpawnRunner(
-        env.getExecRoot(),
-        remoteOptions,
-        createFallbackRunner(env),
-        executionOptions.verboseFailures,
-        cache,
-        executor);
-    return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
+    if (remoteOptions.experimentalRemoteSpawnCache) {
+      RemoteSpawnCache spawnCache = new RemoteSpawnCache(env.getExecRoot(), remoteOptions, cache);
+      return ImmutableList.of(spawnCache);
+    } else {
+      RemoteSpawnRunner spawnRunner = new RemoteSpawnRunner(
+          env.getExecRoot(),
+          remoteOptions,
+          createFallbackRunner(env),
+          executionOptions.verboseFailures,
+          cache,
+          executor);
+      return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
+    }
   }
 
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
@@ -79,9 +82,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   @Override
   public void executionPhaseEnding() {
-    if (spawnRunner != null) {
-      spawnRunner.close();
+    if (cache != null) {
+      cache.close();
     }
-    spawnRunner = null;
   }
 }
