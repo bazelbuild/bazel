@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 
 /**
@@ -155,7 +156,7 @@ public class SkylarkRepositoryModule {
     public Object call(
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
-      String ruleClassName = ast.getFunction().getName();
+      String ruleClassName = Preconditions.checkNotNull(ast.getFunctionNameIfPossible());
       try {
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);

@@ -186,24 +186,48 @@ public final class FuncallExpression extends Expression {
     }
   }
 
-  @Nullable private final Expression object;
-
-  private final Identifier function;
+  private final Expression function;
 
   private final List<Argument.Passed> arguments;
 
   private final int numPositionalArgs;
 
-  public FuncallExpression(@Nullable Expression object, Identifier function,
-                           List<Argument.Passed> arguments) {
-    this.object = object;
-    this.function = function;
-    this.arguments = arguments;
+  public FuncallExpression(Expression function, List<Argument.Passed> arguments) {
+    this.function = Preconditions.checkNotNull(function);
+    this.arguments = Preconditions.checkNotNull(arguments);
     this.numPositionalArgs = countPositionalArguments();
   }
 
-  public FuncallExpression(Identifier function, List<Argument.Passed> arguments) {
-    this(null, function, arguments);
+  /** Returns the function that is called. */
+  public Expression getFunction() {
+    return this.function;
+  }
+
+  /**
+   * Returns the name of the called function if it's available in the AST.
+   *
+   * <p>It may not be available in cases like `list[0](arg1, arg2)`.
+   */
+  @Nullable
+  public String getFunctionNameIfPossible() {
+    Identifier ident = getFunctionIdentifierIfPossible();
+    return ident == null ? null : ident.getName();
+  }
+
+  /**
+   * Returns the identifier of the called function if it's available in the AST.
+   *
+   * <p>It may not be available in cases like `list[0](arg1, arg2)`.
+   */
+  @Nullable
+  public Identifier getFunctionIdentifierIfPossible() {
+    if (function instanceof Identifier) {
+      return (Identifier) function;
+    }
+    if (function instanceof DotExpression) {
+      return ((DotExpression) function).getField();
+    }
+    return null;
   }
 
   /**
@@ -217,22 +241,6 @@ public final class FuncallExpression extends Expression {
       }
     }
     return num;
-  }
-
-  /**
-   * Returns the function expression.
-   */
-  public Identifier getFunction() {
-    return function;
-  }
-
-  /**
-   * Returns the object the function called on.
-   * It's null if the function is not called on an object.
-   */
-  @Nullable
-  public Expression getObject() {
-    return object;
   }
 
   /**
@@ -254,10 +262,6 @@ public final class FuncallExpression extends Expression {
 
    @Override
    public void prettyPrint(Appendable buffer) throws IOException {
-     if (object != null) {
-       object.prettyPrint(buffer);
-       buffer.append('.');
-     }
      function.prettyPrint(buffer);
      buffer.append('(');
      String sep = "";
@@ -272,9 +276,6 @@ public final class FuncallExpression extends Expression {
   @Override
   public String toString() {
     Printer.LengthLimitedPrinter printer = new Printer.LengthLimitedPrinter();
-    if (object != null) {
-      printer.append(object.toString()).append(".");
-    }
     printer.append(function.toString());
     printer.printAbbreviatedList(arguments, "(", ", ", ")", null,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
@@ -381,7 +382,8 @@ public final class FuncallExpression extends Expression {
                   getLocation(),
                   String.format(
                       "type '%s' has multiple matches for function %s",
-                      EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs)));
+                      EvalUtils.getDataTypeNameFromClass(objClass),
+                      formatMethod(methodName, args, kwargs)));
             }
           }
         }
@@ -396,14 +398,15 @@ public final class FuncallExpression extends Expression {
         errorMessage =
             String.format(
                 "type '%s' has no method %s",
-                EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs));
+                EvalUtils.getDataTypeNameFromClass(objClass),
+                formatMethod(methodName, args, kwargs));
 
       } else {
         errorMessage =
             String.format(
                 "%s, in method %s of '%s'",
                 argumentListConversionResult.getError(),
-                formatMethod(args, kwargs),
+                formatMethod(methodName, args, kwargs),
                 EvalUtils.getDataTypeNameFromClass(objClass));
       }
       throw new EvalException(getLocation(), errorMessage);
@@ -513,9 +516,9 @@ public final class FuncallExpression extends Expression {
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }
 
-  private String formatMethod(List<Object> args, Map<String, Object> kwargs) {
+  private static String formatMethod(String name, List<Object> args, Map<String, Object> kwargs) {
     StringBuilder sb = new StringBuilder();
-    sb.append(function.getName()).append("(");
+    sb.append(name).append("(");
     boolean first = true;
     for (Object obj : args) {
       if (!first) {
@@ -713,7 +716,7 @@ public final class FuncallExpression extends Expression {
         addKeywordArg(kwargs, arg.getName(), value, duplicates);
       }
     }
-    checkDuplicates(duplicates, function.getName(), getLocation());
+    checkDuplicates(duplicates, function.toString(), getLocation());
   }
 
   @VisibleForTesting
@@ -724,14 +727,20 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return (object != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    if (function instanceof DotExpression) {
+      return invokeObjectMethod(env, (DotExpression) function);
+    }
+    if (function instanceof Identifier) {
+      return invokeGlobalFunction(env);
+    }
+    throw new EvalException(
+        getLocation(), Printer.format("cannot evaluate function '%s'", function));
   }
 
-  /**
-   * Invokes object.function() and returns the result.
-   */
-  private Object invokeObjectMethod(Environment env) throws EvalException, InterruptedException {
-    Object objValue = object.eval(env);
+  /** Invokes object.function() and returns the result. */
+  private Object invokeObjectMethod(Environment env, DotExpression dot)
+      throws EvalException, InterruptedException {
+    Object objValue = dot.getObject().eval(env);
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
     posargs.add(objValue);
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
@@ -739,7 +748,7 @@ public final class FuncallExpression extends Expression {
     Map<String, Object> kwargs = new LinkedHashMap<>();
     evalArguments(posargs, kwargs, env);
     return invokeObjectMethod(
-        function.getName(), posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
+        dot.getField().getName(), posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
   }
 
   /**
@@ -789,11 +798,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    if (object != null) {
-      object.validate(env);
-    } else {
-      function.validate(env);
-    }
+    function.validate(env);
     for (Argument.Passed arg : arguments) {
       arg.getValue().validate(env);
     }

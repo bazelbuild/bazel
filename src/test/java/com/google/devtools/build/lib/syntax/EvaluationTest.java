@@ -694,7 +694,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to keys",
+    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to {\"a\": 1}.keys",
         "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
   }
 
