@@ -578,7 +578,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     labelToTarget.put(from.getLabel(), from);
     while (!toVisit.isEmpty()) {
       Target current = toVisit.removeFirst();
-      if (to.equals(current)) {
+      if (to.getLabel().equals(current.getLabel())) {
         List<Label> labelPath = Digraph.getPathToTreeNode(nodeToParent, to.getLabel());
         ImmutableList.Builder<Target> targetPathBuilder = ImmutableList.builder();
         for (Label label : labelPath) {
