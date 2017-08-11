@@ -485,7 +485,7 @@ public class BazelCppRuleClasses {
           <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
           at is the value of this attribute prepended to their repository-relative path.
 
-          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed beforethis
+          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
           prefix is added.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
