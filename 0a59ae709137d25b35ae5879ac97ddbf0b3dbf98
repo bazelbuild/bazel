@@ -1,0 +1,15 @@
+New features:
+
+  - Do not disable fully dynamic linking with ThinLTO when invoked
+    via LIPO options.
+
+Important changes:
+
+  - Ignore --glibc in the Android transition.
+  - Remove --experimental_android_use_singlejar_for_multidex.
+  - nocopts now also filter copts
+  - The Build Event Service (BES) client now properly supports
+    Google Applicaton Default Credentials.
+  - update dexing tools to Android SDK 26.0.1
+  - Bazel Android support now requires build-tools 26.0.1 or later.
+  - Fix a bug in the remote_worker that would at times make it crash on Linux. See #3356
