@@ -460,6 +460,23 @@ bazel build examples/genrule:works &> ${TEST_log}
 EOF
 }
 
+function test_requires_root() {
+  cat > test.sh <<'EOF'
+#!/bin/sh
+([ $(id -u) = "0" ] && [ $(id -g) = "0" ]) || exit 1
+EOF
+  chmod +x test.sh
+  cat > BUILD <<'EOF'
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  tags = ["requires-fakeroot"],
+)
+EOF
+  bazel test --test_output=errors :test || fail "test did not pass"
+  bazel test --nocache_test_results --sandbox_fake_username --test_output=errors :test || fail "test did not pass"
+}
+
 # Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
 function test_sandbox_proc_self() {
   bazel build examples/genrule:check_proc_works >& $TEST_log || fail "build should have succeeded"

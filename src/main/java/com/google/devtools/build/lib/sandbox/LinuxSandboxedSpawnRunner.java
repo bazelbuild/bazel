@@ -114,14 +114,16 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
-    List<String> arguments = computeCommandLine(
-        spawn,
-        timeout,
-        linuxSandbox,
-        writableDirs,
-        getTmpfsPaths(),
-        getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
-        allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn));
+    List<String> arguments =
+        computeCommandLine(
+            spawn,
+            timeout,
+            linuxSandbox,
+            writableDirs,
+            getTmpfsPaths(),
+            getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
+            allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn),
+            spawn.getExecutionInfo().containsKey("requires-fakeroot"));
 
     SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
         sandboxPath,
@@ -141,7 +143,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Set<Path> writableDirs,
       Set<Path> tmpfsPaths,
       Map<Path, Path> bindMounts,
-      boolean allowNetwork) {
+      boolean allowNetwork,
+      boolean requiresFakeRoot) {
     List<String> commandLineArgs = new ArrayList<>();
     commandLineArgs.add(linuxSandbox.getPathString());
 
@@ -192,7 +195,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineArgs.add("-H");
     }
 
-    if (getSandboxOptions().sandboxFakeUsername) {
+    if (requiresFakeRoot) {
+      // Use fake root.
+      commandLineArgs.add("-R");
+    } else if (getSandboxOptions().sandboxFakeUsername) {
       // Use a fake username ("nobody") inside the sandbox.
       commandLineArgs.add("-U");
     }

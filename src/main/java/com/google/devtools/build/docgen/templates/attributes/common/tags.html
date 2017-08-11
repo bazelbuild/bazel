@@ -33,6 +33,11 @@
     network from inside the sandbox. In this case, only communication
     with localhost is allowed.
   </li>
+
+  <li><code>requires-fakeroot</code> runs the test or action as uid and gid 0 (i.e., the root
+    user). This is only supported on Linux. This tag takes precedence over the
+    <code class='flag'>--sandbox_fake_username</code> command-line option.
+  </li>
 </ul>
 
 <p>
