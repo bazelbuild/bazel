@@ -24,11 +24,11 @@ import java.util.TimeZone;
  *
  * <p>This class is thread-safe and immutable.
  */
-final class TestInterval {
+public final class TestInterval {
   private final long startInstant;
   private final long endInstant;
 
-  TestInterval(long startInstant, long endInstant) {
+  public TestInterval(long startInstant, long endInstant) {
     if (startInstant > endInstant) {
       throw new IllegalArgumentException("Start must be before end");
     }
@@ -36,23 +36,23 @@ final class TestInterval {
     this.endInstant = endInstant;
   }
 
-  long getStartMillis() {
+  public long getStartMillis() {
     return startInstant;
   }
 
-  long getEndMillis() {
+  public long getEndMillis() {
     return endInstant;
   }
 
-  long toDurationMillis() {
+  public long toDurationMillis() {
     return endInstant - startInstant;
   }
 
-  TestInterval withEndMillis(long millis) {
+  public TestInterval withEndMillis(long millis) {
     return new TestInterval(startInstant, millis);
   }
 
-  String startInstantToString() {
+  public String startInstantToString() {
     // Format as ISO8601 string
     return startInstantToString(TimeZone.getDefault());
   }

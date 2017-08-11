@@ -84,7 +84,7 @@ public abstract class TestNode {
    */
   protected abstract TestResult buildResult();
 
-  final TestResult getResult() {
+  public final TestResult getResult() {
     if (result == null) {
       result = buildResult();
     }
