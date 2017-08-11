@@ -122,9 +122,15 @@ filegroup(
     ],
 )
 
+py_library(
+    name = "create_embedded_tools_lib",
+    srcs = ["create_embedded_tools_lib.py"],
+)
+
 py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
+    deps = [":create_embedded_tools_lib"],
 )
 
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary

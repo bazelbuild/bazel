@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -19,10 +20,12 @@ import fnmatch
 import os
 import os.path
 import re
-import stat
 import sys
-import tarfile
 import zipfile
+
+from src.create_embedded_tools_lib import copy_tar_to_zip
+from src.create_embedded_tools_lib import copy_zip_to_zip
+from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
     ('*tools/jdk/BUILD*', lambda x: 'tools/jdk/BUILD'),
@@ -69,14 +72,6 @@ def get_output_path(path):
       return transformer(path).replace('/BUILD.tools', '/BUILD')
 
 
-def is_mode_executable(mode):
-  return mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH) > 0
-
-
-def is_executable(path):
-  return is_mode_executable(os.stat(path)[stat.ST_MODE])
-
-
 def get_input_files(argsfile):
   """Returns a sorted list of tuples (archive_file, input_file).
 
@@ -106,46 +101,17 @@ def get_input_files(argsfile):
 
 
 def copy_jdk_into_archive(output_zip, archive_file, input_file):
+
+  def _replace_dirname(filename):
+    # Rename the first folder to 'jdk', because Bazel looks for a
+    # bundled JDK in the embedded tools using that folder name.
+    return 'jdk/' + '/'.join(filename.split('/')[1:])
+
   # The JDK is special - it's extracted instead of copied.
   if archive_file.endswith('.tar.gz'):
-    with tarfile.open(input_file, 'r', errorlevel=2) as jdk_tar:
-      while True:
-        jdk_tarinfo = jdk_tar.next()
-        if jdk_tarinfo is None:
-          break
-        # Rename the first folder to 'jdk', because Bazel looks for a
-        # bundled JDK in the embedded tools using that folder name.
-        filename = 'jdk/' + '/'.join(jdk_tarinfo.name.split('/')[1:])
-        zipinfo = zipfile.ZipInfo(filename, (1980, 1, 1, 0, 0, 0))
-        if jdk_tarinfo.isreg():
-          if is_mode_executable(jdk_tarinfo.mode):
-            zipinfo.external_attr = 0o755 << 16
-          else:
-            zipinfo.external_attr = 0o644 << 16
-          zipinfo.compress_type = zipfile.ZIP_DEFLATED
-          output_zip.writestr(zipinfo, jdk_tar.extractfile(jdk_tarinfo).read())
-        elif jdk_tarinfo.issym():
-          # 0120000 originally comes from the definition of S_IFLNK and
-          # marks a symbolic link in the Zip file format.
-          zipinfo.external_attr = 0o120000 << 16
-          output_zip.writestr(zipinfo, jdk_tarinfo.linkname)
-        else:
-          # Ignore directories, hard links, special files, ...
-          pass
+    copy_tar_to_zip(output_zip, input_file, _replace_dirname)
   elif archive_file.endswith('.zip'):
-    # Adding contextlib.closing to be python 2.6 (for centos 6.7) compatible
-    with contextlib.closing(zipfile.ZipFile(input_file, 'r')) as jdk_zip:
-      for jdk_zipinfo in jdk_zip.infolist():
-        # Rename the first folder to 'jdk', because Bazel looks for a
-        # bundled JDK in the embedded tools using that folder name.
-        filename = 'jdk/' + '/'.join(jdk_zipinfo.filename.split('/')[1:])
-        zipinfo = zipfile.ZipInfo(filename, (1980, 1, 1, 0, 0, 0))
-        if is_mode_executable(jdk_zipinfo.external_attr >> 16 & 0xFFFF):
-          zipinfo.external_attr = 0o755 << 16
-        else:
-          zipinfo.external_attr = 0o644 << 16
-        zipinfo.compress_type = jdk_zipinfo.compress_type
-        output_zip.writestr(zipinfo, jdk_zip.read(jdk_zipinfo))
+    copy_zip_to_zip(output_zip, input_file, _replace_dirname)
 
 
 def main():
