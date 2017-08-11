@@ -49,8 +49,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -517,8 +515,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private PathFragment executable;
     // executableArgs does not include the executable itself.
     private List<String> executableArgs;
-    private final IterablesChain.Builder<String> argumentsBuilder = IterablesChain.builder();
-    private CommandLine commandLine;
+    private CustomCommandLine.Builder commandLineBuilder = CustomCommandLine.builder();
+    @Nullable private CommandLine commandLine;
 
     private CharSequence progressMessage;
     private ParamFileInfo paramFileInfo = null;
@@ -549,7 +547,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.executableArgs = (other.executableArgs != null)
           ? Lists.newArrayList(other.executableArgs)
           : null;
-      this.argumentsBuilder.add(other.argumentsBuilder.build());
+      this.commandLineBuilder = CustomCommandLine.builder(other.commandLineBuilder);
       this.commandLine = other.commandLine;
       this.progressMessage = other.progressMessage;
       this.paramFileInfo = other.paramFileInfo;
@@ -582,11 +580,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     @VisibleForTesting @CheckReturnValue
     public Action[] build(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration) {
-      Iterable<String> arguments = argumentsBuilder.build();
+      CommandLine commandLine =
+          this.commandLine != null ? this.commandLine : this.commandLineBuilder.build();
       // Check to see if we need to use param file.
       Artifact paramsFile = ParamFileHelper.getParamsFileMaybe(
           buildExecutableArgs(configuration.getShellExecutable()),
-          arguments,
           commandLine,
           paramFileInfo,
           configuration,
@@ -598,13 +596,14 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       if (paramsFile != null) {
         paramFileWriteAction =
             ParamFileHelper.createParameterFileWriteAction(
-                arguments, commandLine, owner, paramsFile, paramFileInfo);
+                commandLine, owner, paramsFile, paramFileInfo);
       }
 
       List<Action> actions = new ArrayList<>(2);
       actions.add(
           buildSpawnAction(
               owner,
+              commandLine,
               configuration.getActionEnvironment(),
               configuration.getShellExecutable(),
               paramsFile));
@@ -634,17 +633,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     SpawnAction buildSpawnAction(
         ActionOwner owner,
+        CommandLine commandLine,
         @Nullable ActionEnvironment configEnv,
         @Nullable PathFragment defaultShellExecutable,
         @Nullable Artifact paramsFile) {
       ImmutableList<String> argv = buildExecutableArgs(defaultShellExecutable);
-      Iterable<String> arguments = argumentsBuilder.build();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
         inputsBuilder.add(paramsFile);
         actualCommandLine = ParamFileHelper.createWithParamsFile(argv, paramFileInfo, paramsFile);
       } else {
-        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine);
+        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, commandLine);
       }
 
       NestedSet<Artifact> tools = toolsBuilder.build();
@@ -1050,7 +1049,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder addArgument(String argument) {
       Preconditions.checkState(commandLine == null);
-      argumentsBuilder.addElement(argument);
+      commandLineBuilder.add(argument);
       return this;
     }
 
@@ -1059,7 +1058,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder addArguments(String... arguments) {
       Preconditions.checkState(commandLine == null);
-      argumentsBuilder.add(ImmutableList.copyOf(arguments));
+      commandLineBuilder.add(ImmutableList.copyOf(arguments));
       return this;
     }
 
@@ -1068,7 +1067,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder addArguments(Iterable<String> arguments) {
       Preconditions.checkState(commandLine == null);
-      argumentsBuilder.add(CollectionUtils.makeImmutable(arguments));
+      if (arguments instanceof NestedSet) {
+        commandLineBuilder.add((NestedSet) arguments);
+      } else {
+        commandLineBuilder.add(ImmutableList.copyOf(arguments));
+      }
       return this;
     }
 
@@ -1079,7 +1082,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addInputArgument(Artifact argument) {
       Preconditions.checkState(commandLine == null);
       addInput(argument);
-      addArgument(argument.getExecPathString());
+      commandLineBuilder.add(argument);
       return this;
     }
 
@@ -1088,8 +1091,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * arguments.
      */
     public Builder addInputArguments(Iterable<Artifact> arguments) {
-      for (Artifact argument : arguments) {
-        addInputArgument(argument);
+      addInputs(arguments);
+      if (arguments instanceof NestedSet) {
+        commandLineBuilder.add((NestedSet) arguments);
+      } else {
+        commandLineBuilder.add(ImmutableList.copyOf(arguments));
       }
       return this;
     }
@@ -1101,7 +1107,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addOutputArgument(Artifact argument) {
       Preconditions.checkState(commandLine == null);
       outputs.add(argument);
-      argumentsBuilder.addElement(argument.getExecPathString());
+      commandLineBuilder.add(argument);
       return this;
     }
 
@@ -1115,7 +1121,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * Objects passed to this method MUST be immutable.
      */
     public Builder setCommandLine(CommandLine commandLine) {
-      Preconditions.checkState(argumentsBuilder.isEmpty());
+      Preconditions.checkState(commandLineBuilder.isEmpty());
       this.commandLine = commandLine;
       return this;
     }

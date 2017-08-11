@@ -40,16 +40,15 @@ public final class ParamFileHelper {
   /**
    * Returns a params file artifact or null for a given command description.
    *
-   *  <p>Returns null if parameter files are not to be used according to paramFileInfo, or if the
+   * <p>Returns null if parameter files are not to be used according to paramFileInfo, or if the
    * command line is short enough that a parameter file is not needed.
    *
    * <p>Make sure to add the returned artifact (if not null) as an input of the corresponding
    * action.
    *
    * @param executableArgs leading arguments that should never be wrapped in a parameter file
-   * @param arguments arguments to the command (in addition to executableArgs), OR
    * @param commandLine a {@link CommandLine} that provides the arguments (in addition to
-   *        executableArgs)
+   *     executableArgs)
    * @param paramFileInfo parameter file information
    * @param configuration the configuration
    * @param analysisEnvironment the analysis environment
@@ -57,8 +56,7 @@ public final class ParamFileHelper {
    */
   static Artifact getParamsFileMaybe(
       List<String> executableArgs,
-      @Nullable Iterable<String> arguments,
-      @Nullable CommandLine commandLine,
+      CommandLine commandLine,
       @Nullable ParamFileInfo paramFileInfo,
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
@@ -67,8 +65,7 @@ public final class ParamFileHelper {
       return null;
     }
     if (!paramFileInfo.always()
-        && getParamFileSize(executableArgs, arguments, commandLine)
-            < configuration.getMinParamFileSize()) {
+        && getParamFileSize(executableArgs, commandLine) < configuration.getMinParamFileSize()) {
       return null;
     }
 
@@ -98,7 +95,6 @@ public final class ParamFileHelper {
   /**
    * Creates an action to write the parameter file.
    *
-   * @param arguments arguments to the command (in addition to executableArgs), OR
    * @param commandLine a {@link CommandLine} that provides the arguments (in addition to
    *     executableArgs)
    * @param owner owner of the action
@@ -106,15 +102,12 @@ public final class ParamFileHelper {
    * @param paramFileInfo parameter file information
    */
   public static ParameterFileWriteAction createParameterFileWriteAction(
-      @Nullable Iterable<String> arguments,
-      @Nullable CommandLine commandLine,
+      CommandLine commandLine,
       ActionOwner owner,
       Artifact parameterFile,
       ParamFileInfo paramFileInfo) {
-    CommandLine paramFileContents = (commandLine != null) ? commandLine : CommandLine.of(arguments);
-
-    return new ParameterFileWriteAction(owner, parameterFile, paramFileContents,
-        paramFileInfo.getFileType(), paramFileInfo.getCharset());
+    return new ParameterFileWriteAction(
+        owner, parameterFile, commandLine, paramFileInfo.getFileType(), paramFileInfo.getCharset());
   }
 
   /**
@@ -123,30 +116,20 @@ public final class ParamFileHelper {
    * <p>Call this if {@link #getParamsFileMaybe} returns null.
    *
    * @param executableArgs leading arguments that should never be wrapped in a parameter file
-   * @param arguments arguments to the command (in addition to executableArgs), OR
    * @param commandLine a {@link CommandLine} that provides the arguments (in addition to
    *     executableArgs)
    */
   public static CommandLine createWithoutParamsFile(
-      List<String> executableArgs, Iterable<String> arguments, CommandLine commandLine) {
-    if (commandLine == null) {
-      Iterable<String> commandArgv = Iterables.concat(executableArgs, arguments);
-      return CommandLine.of(commandArgv);
-    }
-
+      List<String> executableArgs, CommandLine commandLine) {
     if (executableArgs.isEmpty()) {
       return commandLine;
     }
-
     return CommandLine.concat(ImmutableList.copyOf(executableArgs), commandLine);
   }
 
-  /**
-   * Estimates the params file size for the given arguments.
-   */
-  private static int getParamFileSize(
-      List<String> executableArgs, Iterable<String> arguments, CommandLine commandLine) {
-    Iterable<String> actualArguments = (commandLine != null) ? commandLine.arguments() : arguments;
+  /** Estimates the params file size for the given arguments. */
+  private static int getParamFileSize(List<String> executableArgs, CommandLine commandLine) {
+    Iterable<String> actualArguments = commandLine.arguments();
     return getParamFileSize(executableArgs) + getParamFileSize(actualArguments);
   }
 
