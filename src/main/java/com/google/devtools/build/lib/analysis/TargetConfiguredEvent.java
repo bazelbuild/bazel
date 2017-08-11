@@ -22,9 +22,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collection;
 
 /** Event reporting about the configurations associated with a given target */
@@ -88,6 +91,10 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     BuildEventStreamProtos.TargetConfigured.Builder builder =
         BuildEventStreamProtos.TargetConfigured.newBuilder().setTargetKind(target.getTargetKind());
+    Rule rule = target.getAssociatedRule();
+    if (rule != null) {
+      builder.addAllTag(RawAttributeMapper.of(rule).getMergedValues("tags", Type.STRING_LIST));
+    }
     if (TargetUtils.isTestRule(target)) {
       builder.setTestSize(bepTestSize(TestSize.getTestSize(target.getAssociatedRule())));
     }

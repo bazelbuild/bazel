@@ -324,6 +324,10 @@ message TargetConfigured {
 
   // The size of the test, if the target is a test target. Unset otherwise.
   TestSize test_size = 2;
+
+  // List of all tags associated with this target (for all possible
+  // configurations).
+  repeated string tag = 3;
 }
 
 message File {
@@ -414,7 +418,7 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
-  // List of tags associated with this target.
+  // List of tags associated with this configured target.
   repeated string tag = 3;
 }
 

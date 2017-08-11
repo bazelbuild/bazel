@@ -217,6 +217,21 @@ q
 EOF
   expect_log 'target_kind:.*sh'
   expect_log 'test_size: SMALL'
+
+  bazel build --verbose_failures --build_event_text_file=$TEST_log \
+    pkg:output_files_and_tags || fail "bazel build failed"
+  expect_log '^completed'
+  ed $TEST_log <<'EOF'
+1
+/^completed/+1,$d
+a
+...[cut here]
+.
+w
+q
+EOF
+  expect_log 'tag1'
+  expect_log 'tag2'
 }
 
 function test_workspace_status() {
