@@ -19,11 +19,9 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.NullPointerTester;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -230,7 +227,6 @@ public class CustomCommandLineTest {
             .add("foo", VectorArg.of((NestedSet<String>) null))
             .add("foo", VectorArg.of(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER)))
             .addPlaceholderTreeArtifactExecPath("foo", null)
-            .addPlaceholderTreeArtifactFormattedExecPath("foo", null)
             .add((CustomArgv) null)
             .add((CustomMultiArgv) null)
             .build();
@@ -247,12 +243,6 @@ public class CustomCommandLineTest {
     npt.testMethod(obj, clazz.getMethod("add", String.class, Object.class));
     npt.testMethod(
         obj, clazz.getMethod("addPlaceholderTreeArtifactExecPath", String.class, Artifact.class));
-    npt.testMethod(
-        obj,
-        clazz.getMethod(
-            "addPlaceholderTreeArtifactFormattedExecPath", String.class, Artifact.class));
-    npt.testMethod(
-        obj, clazz.getMethod("addJoinExpandedTreeArtifactExecPath", String.class, Artifact.class));
     npt.testMethod(obj, clazz.getMethod("addExpandedTreeArtifactExecPaths", Artifact.class));
 
     npt.setDefault(Iterable.class, ImmutableList.of("foo"));
@@ -261,8 +251,6 @@ public class CustomCommandLineTest {
 
     npt.setDefault(Iterable.class, ImmutableList.of(PathFragment.create("foo")));
     npt.setDefault(Artifact.class, treeArtifact);
-    npt.testMethod(
-        obj, clazz.getMethod("addJoinExpandedTreeArtifactExecPath", String.class, Artifact.class));
     npt.testMethod(obj, clazz.getMethod("addExpandedTreeArtifactExecPaths", Artifact.class));
   }
 
@@ -294,24 +282,6 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testTreeFileArtifactExecPathWithTemplateArgs() {
-    Artifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact1");
-
-    CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
-        .addPlaceholderTreeArtifactFormattedExecPath("path:%s", treeArtifact)
-        .build();
-
-    TreeFileArtifact treeFileArtifact = createTreeFileArtifact(
-        treeArtifact, "children/child1");
-
-    CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
-        ImmutableList.of(treeFileArtifact));
-
-    assertThat(commandLine.arguments()).containsExactly(
-        "path:myArtifact/treeArtifact1/children/child1");
-  }
-
-  @Test
   public void testTreeFileArtifactArgThrowWithoutSubstitution() {
     Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
     Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
@@ -328,39 +298,6 @@ public class CustomCommandLineTest {
       // expected
     }
 
-  }
-
-  @Test
-  public void testJoinExpandedTreeArtifactExecPath() {
-    Artifact treeArtifact = createTreeArtifact("myTreeArtifact");
-
-    CommandLine commandLine = CustomCommandLine.builder()
-        .add("hello")
-        .addJoinExpandedTreeArtifactExecPath(":", treeArtifact)
-        .build();
-
-    assertThat(commandLine.arguments()).containsExactly(
-        "hello",
-        "JoinExpandedTreeArtifactExecPathsArg{ delimiter: :, treeArtifact: myTreeArtifact}");
-
-    final Iterable<TreeFileArtifact> treeFileArtifacts = ImmutableList.of(
-        createTreeFileArtifact(treeArtifact, "children/child1"),
-        createTreeFileArtifact(treeArtifact, "children/child2"));
-
-    ArtifactExpander artifactExpander = new ArtifactExpander() {
-      @Override
-      public void expand(Artifact artifact, Collection<? super Artifact> output) {
-        for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
-          if (treeFileArtifact.getParent().equals(artifact)) {
-            output.add(treeFileArtifact);
-          }
-        }
-      }
-    };
-
-    assertThat(commandLine.arguments(artifactExpander)).containsExactly(
-        "hello",
-        "myTreeArtifact/children/child1:myTreeArtifact/children/child2");
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {

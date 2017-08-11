@@ -97,7 +97,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     assertThat(content.trim())
         .isEqualTo(
             "--flag1\n"
-                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1:"
+                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
                 + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
@@ -140,7 +140,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   private CommandLine createTreeArtifactExpansionCommandLine() {
     return CustomCommandLine.builder()
         .add("--flag1")
-        .addJoinExpandedTreeArtifactExecPath(":", treeArtifact)
+        .addExpandedTreeArtifactExecPaths(treeArtifact)
         .build();
   }
 
