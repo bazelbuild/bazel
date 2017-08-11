@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -212,6 +214,36 @@ public class RemoteSpawnRunnerTest {
         any(ActionKey.class));
     verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
         any(FileOutErr.class));
+  }
+
+  @Test
+  public void dontAcceptFailedCachedAction() throws Exception {
+    // Test that bazel fails if the remote cache serves a failed action.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
+
+    Spawn spawn = new SimpleSpawn(
+        new FakeOwner("foo", "bar"),
+        /*arguments=*/ ImmutableList.of(),
+        /*environment=*/ ImmutableMap.of(),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        ResourceSet.ZERO);
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    RemoteSpawnRunner runner =
+        spy(new RemoteSpawnRunner(execRoot, options, localRunner, true, cache, null));
+
+    try {
+      runner.exec(spawn, policy);
+      fail("Expected exception");
+    } catch (EnvironmentalExecException expected) {
+      // Intentionally left empty.
+    }
   }
 
   // TODO(buchgr): Extract a common class to be used for testing.

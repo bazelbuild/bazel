@@ -118,6 +118,11 @@ class RemoteSpawnRunner implements SpawnRunner {
               ? remoteCache.getCachedActionResult(actionKey)
               : null;
       if (cachedResult != null) {
+        if (cachedResult.getExitCode() != 0) {
+          // The remote cache must never serve a failed action.
+          throw new EnvironmentalExecException("The remote cache is in an invalid state as it"
+              + " served a failed action. Hash of the action: " + actionKey.getDigest());
+        }
         try {
           return downloadRemoteResults(cachedResult, policy.getFileOutErr());
         } catch (CacheNotFoundException e) {
