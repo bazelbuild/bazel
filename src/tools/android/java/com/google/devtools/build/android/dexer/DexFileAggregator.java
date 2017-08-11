@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.dexer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dex.Dex;
@@ -26,13 +27,19 @@ import com.android.dx.merge.CollisionPolicy;
 import com.android.dx.merge.DexMerger;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipEntry;
 
 /**
@@ -59,23 +66,28 @@ class DexFileAggregator implements Closeable {
   private final int wasteThresholdPerDex;
   private final MultidexStrategy multidex;
   private final DxContext context;
-  private DexFileArchive dest;
+  private final ListeningExecutorService executor;
+  private final DexFileArchive dest;
+
   private int nextDexFileIndex = 0;
+  private ListenableFuture<Void> lastWriter = Futures.<Void>immediateFuture(null);
 
   public DexFileAggregator(
       DxContext context,
       DexFileArchive dest,
+      ListeningExecutorService executor,
       MultidexStrategy multidex,
       int maxNumberOfIdxPerDex,
       int wasteThresholdPerDex) {
     this.context = context;
     this.dest = dest;
+    this.executor = executor;
     this.multidex = multidex;
     this.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
     this.wasteThresholdPerDex = wasteThresholdPerDex;
   }
 
-  public DexFileAggregator add(Dex dexFile) throws IOException {
+  public DexFileAggregator add(Dex dexFile) {
     if (multidex.isMultidexAllowed()) {
       // To determine whether currentShard is "full" we track unique field and method signatures,
       // which predicts precisely the number of field and method indices.
@@ -114,13 +126,20 @@ class DexFileAggregator implements Closeable {
       if (!currentShard.isEmpty()) {
         rotateDexFile();
       }
+      // Wait for last shard to be written before closing underlying archive
+      lastWriter.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new AssertionError("Unexpected execution exception", e);
     } finally {
       dest.close();
-      dest = null;
     }
   }
 
-  public void flush() throws IOException {
+  public void flush() {
     checkState(multidex.isMultidexAllowed());
     if (!currentShard.isEmpty()) {
       rotateDexFile();
@@ -131,16 +150,24 @@ class DexFileAggregator implements Closeable {
     return nextDexFileIndex;
   }
 
-  private void rotateDexFile() throws IOException {
+  private void rotateDexFile() {
     writeMergedFile(currentShard.toArray(/* apparently faster than pre-sized array */ new Dex[0]));
     currentShard.clear();
     fieldsInCurrentShard.clear();
     methodsInCurrentShard.clear();
   }
 
-  private void writeMergedFile(Dex... dexes) throws IOException {
-    Dex merged = merge(dexes);
-    dest.addFile(nextArchiveEntry(), merged);
+  private void writeMergedFile(Dex... dexes) {
+    checkArgument(0 < dexes.length);
+    checkState(multidex.isMultidexAllowed() || nextDexFileIndex == 0);
+    String filename = getDexFileName(nextDexFileIndex++);
+    ListenableFuture<Dex> merged =
+        dexes.length == 1
+            ? Futures.immediateFuture(dexes[0])
+            : executor.submit(new RunDexMerger(dexes));
+    lastWriter =
+        Futures.whenAllSucceed(lastWriter, merged)
+            .call(new WriteFile(filename, merged, dest), executor);
   }
 
   private Dex merge(Dex... dexes) throws IOException {
@@ -155,6 +182,9 @@ class DexFileAggregator implements Closeable {
           dexMerger.setCompactWasteThreshold(wasteThresholdPerDex);
           return dexMerger.merge();
         } catch (BufferOverflowException e) {
+          if (dexes.length <= 2) {
+            throw e;
+          }
           // Bug in dx can cause this for ~1500 or more classes
           Dex[] left = Arrays.copyOf(dexes, dexes.length / 2);
           Dex[] right = Arrays.copyOfRange(dexes, left.length, dexes.length);
@@ -169,17 +199,14 @@ class DexFileAggregator implements Closeable {
     }
   }
 
-  private ZipEntry nextArchiveEntry() {
-    checkState(multidex.isMultidexAllowed() || nextDexFileIndex == 0);
-    ZipEntry result = new ZipEntry(getDexFileName(nextDexFileIndex++));
-    result.setTime(0L); // Use simple stable timestamps for deterministic output
-    return result;
-  }
-
   // More or less copied from from com.android.dx.command.dexer.Main
   @VisibleForTesting
   static String getDexFileName(int i) {
     return i == 0 ? DexFormat.DEX_IN_JAR_NAME : DEX_PREFIX + (i + 1) + DEX_EXTENSION;
+  }
+
+  private static String typeName(Dex dex, int typeIndex) {
+    return dex.typeNames().get(typeIndex);
   }
 
   @AutoValue
@@ -220,7 +247,58 @@ class DexFileAggregator implements Closeable {
     abstract String returnType();
   }
 
-  private static String typeName(Dex dex, int typeIndex) {
-    return dex.typeNames().get(typeIndex);
+  private class RunDexMerger implements Callable<Dex> {
+
+    private final Dex[] dexes;
+
+    public RunDexMerger(Dex... dexes) {
+      checkArgument(dexes.length >= 2, "Only got %s dex files to merge", dexes.length);
+      this.dexes = dexes;
+    }
+
+    @Override
+    public Dex call() throws IOException {
+      try {
+        return merge(dexes);
+      } catch (Throwable t) {
+        // Print out exceptions so they don't get swallowed completely
+        t.printStackTrace();
+        Throwables.throwIfInstanceOf(t, IOException.class);
+        Throwables.throwIfUnchecked(t);
+        throw new AssertionError(t);  // shouldn't get here
+      }
+    }
+  }
+
+  private static class WriteFile implements Callable<Void> {
+
+    private final ListenableFuture<Dex> dex;
+    private final String filename;
+    private final DexFileArchive dest;
+
+    public WriteFile(String filename, ListenableFuture<Dex> dex, DexFileArchive dest) {
+      this.filename = filename;
+      this.dex = dex;
+      this.dest = dest;
+    }
+
+    @Override
+    public Void call() throws Exception {
+      try {
+        checkState(dex.isDone());
+        ZipEntry entry = new ZipEntry(filename);
+        entry.setTime(0L); // Use simple stable timestamps for deterministic output
+        dest.addFile(entry, dex.get());
+        return null;
+      } catch (Exception e) {
+        // Print out exceptions so they don't get swallowed completely
+        e.printStackTrace();
+        throw e;
+      } catch (Throwable t) {
+        t.printStackTrace();
+        Throwables.throwIfUnchecked(t);
+        throw new AssertionError(t);  // shouldn't get here
+      }
+    }
   }
 }

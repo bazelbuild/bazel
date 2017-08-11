@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.times;
@@ -60,7 +61,13 @@ public class DexFileAggregatorTest {
   @Test
   public void testClose_emptyWritesNothing() throws Exception {
     DexFileAggregator dexer =
-        new DexFileAggregator(new DxContext(), dest, MultidexStrategy.MINIMAL, DEX_LIMIT, WASTE);
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.MINIMAL,
+            DEX_LIMIT,
+            WASTE);
     dexer.close();
     verify(dest, times(0)).addFile(any(ZipEntry.class), any(Dex.class));
   }
@@ -68,7 +75,8 @@ public class DexFileAggregatorTest {
   @Test
   public void testAddAndClose_singleInputWritesThatInput() throws Exception {
     DexFileAggregator dexer =
-        new DexFileAggregator(new DxContext(), dest, MultidexStrategy.MINIMAL, 0, WASTE);
+        new DexFileAggregator(
+            new DxContext(), dest, newDirectExecutorService(), MultidexStrategy.MINIMAL, 0, WASTE);
     dexer.add(dex);
     dexer.close();
     verify(dest).addFile(any(ZipEntry.class), eq(dex));
@@ -76,8 +84,14 @@ public class DexFileAggregatorTest {
 
   @Test
   public void testMultidex_underLimitWritesOneShard() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(
-        new DxContext(), dest, MultidexStrategy.BEST_EFFORT, DEX_LIMIT, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.BEST_EFFORT,
+            DEX_LIMIT,
+            WASTE);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);
     dexer.add(dex2);
@@ -89,8 +103,14 @@ public class DexFileAggregatorTest {
 
   @Test
   public void testMultidex_overLimitWritesSecondShard() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(new DxContext(), dest,
-        MultidexStrategy.BEST_EFFORT, 2 /* dex has more than 2 methods and fields */, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.BEST_EFFORT,
+            2 /* dex has more than 2 methods and fields */,
+            WASTE);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);   // classFile is already over limit but we take anything in empty shard
     dexer.add(dex2);  // this should start a new shard
@@ -103,8 +123,14 @@ public class DexFileAggregatorTest {
 
   @Test
   public void testMonodex_alwaysWritesSingleShard() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(new DxContext(), dest, MultidexStrategy.OFF,
-        2 /* dex has more than 2 methods and fields */, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.OFF,
+            2 /* dex has more than 2 methods and fields */,
+            WASTE);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);
     dexer.add(dex2);

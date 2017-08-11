@@ -16,6 +16,7 @@ package com.google.devtools.build.android.dexer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
@@ -24,9 +25,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -44,7 +48,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -170,7 +174,10 @@ class DexFileMerger {
 
   @VisibleForTesting
   static void buildMergedDexFiles(Options options) throws IOException {
-    if (!options.multidexMode.isMultidexAllowed()) {
+    ListeningExecutorService executor;
+    if (options.multidexMode.isMultidexAllowed()) {
+      executor = createThreadPool();
+    } else {
       checkArgument(
           options.mainDexListFile == null,
           "--main-dex-list is only supported with multidex enabled, but mode is: %s",
@@ -179,61 +186,68 @@ class DexFileMerger {
           !options.minimalMainDex,
           "--minimal-main-dex is only supported with multidex enabled, but mode is: %s",
           options.multidexMode);
+      // We'll only ever merge and write one dex file, so multi-threading is pointless.
+      executor = MoreExecutors.newDirectExecutorService();
     }
+
     ImmutableSet<String> classesInMainDex = options.mainDexListFile != null
         ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
         : null;
     PrintStream originalStdOut = System.out;
     try (ZipFile zip = new ZipFile(options.inputArchive.toFile());
-        DexFileAggregator out = createDexFileAggregator(options)) {
-      checkForUnprocessedClasses(zip);
+        DexFileAggregator out = createDexFileAggregator(options, executor)) {
+      ArrayList<ZipEntry> dexFiles = filesToProcess(zip);
+
       if (!options.verbose) {
         // com.android.dx.merge.DexMerger prints status information to System.out that we silence
         // here unless it was explicitly requested.  (It also prints debug info to DxContext.out,
         // which we populate accordingly below.)
         System.setOut(Dexing.nullout);
       }
-
       if (classesInMainDex == null) {
-        processDexFiles(zip, out, Predicates.<ZipEntry>alwaysTrue());
+        processDexFiles(zip, dexFiles, out);
       } else {
         // To honor --main_dex_list make two passes:
         // 1. process only the classes listed in the given file
         // 2. process the remaining files
-        Predicate<ZipEntry> classFileFilter = ZipEntryPredicates.classFileFilter(classesInMainDex);
-        processDexFiles(zip, out, classFileFilter);
+        Predicate<ZipEntry> mainDexFilter = ZipEntryPredicates.classFileFilter(classesInMainDex);
+        processDexFiles(zip, Iterables.filter(dexFiles, mainDexFilter), out);
         // Fail if main_dex_list is too big, following dx's example
         checkState(out.getDexFilesWritten() == 0, "Too many classes listed in main dex list file "
             + "%s, main dex capacity exceeded", options.mainDexListFile);
         if (options.minimalMainDex) {
           out.flush(); // Start new .dex file if requested
         }
-        processDexFiles(zip, out, Predicates.not(classFileFilter));
+        processDexFiles(zip, Iterables.filter(dexFiles, Predicates.not(mainDexFilter)), out);
       }
     } finally {
+      // Kill threads in the pool so we don't hang
+      MoreExecutors.shutdownAndAwaitTermination(executor, 1, SECONDS);
       System.setOut(originalStdOut);
     }
-    // Use input's timestamp for output file so the output file is stable.
-    Files.setLastModifiedTime(options.outputArchive,
-        Files.getLastModifiedTime(options.inputArchive));
+  }
+
+  /**
+   * Returns all .dex and .class files in the given zip.  .class files are unexpected but we'll
+   * deal with them later.
+   */
+  private static ArrayList<ZipEntry> filesToProcess(ZipFile zip) {
+    ArrayList<ZipEntry> result = Lists.newArrayList(
+        Iterators.filter(
+            Iterators.forEnumeration(zip.entries()),
+            Predicates.and(
+                Predicates.not(ZipEntryPredicates.isDirectory()),
+                ZipEntryPredicates.suffixes(".dex", ".class"))));
+    Collections.sort(result, ZipEntryComparator.LIKE_DX);
+    return result;
   }
 
   private static void processDexFiles(
-      ZipFile zip, DexFileAggregator out, Predicate<ZipEntry> extraFilter) throws IOException {
-    @SuppressWarnings("unchecked") // Predicates.and uses varargs parameter with generics
-    ArrayList<? extends ZipEntry> filesToProcess =
-        Lists.newArrayList(
-            Iterators.filter(
-                Iterators.forEnumeration(zip.entries()),
-                Predicates.and(
-                    Predicates.not(ZipEntryPredicates.isDirectory()),
-                    ZipEntryPredicates.suffixes(".dex"),
-                    extraFilter)));
-    Collections.sort(filesToProcess, ZipEntryComparator.LIKE_DX);
+      ZipFile zip, Iterable<ZipEntry> filesToProcess, DexFileAggregator out) throws IOException {
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();
       try (InputStream content = zip.getInputStream(entry)) {
-        checkState(filename.endsWith(".dex"), "Shouldn't get here: %s", filename);
+        checkState(filename.endsWith(".dex"), "Input shouldn't contain .class files: %s", filename);
         // We don't want to use the Dex(InputStream) constructor because it closes the stream,
         // which will break the for loop, and it has its own bespoke way of reading the file into
         // a byte buffer before effectively calling Dex(byte[]) anyway.
@@ -242,34 +256,25 @@ class DexFileMerger {
     }
   }
 
-  private static void checkForUnprocessedClasses(ZipFile zip) {
-    Iterator<? extends ZipEntry> classes =
-        Iterators.filter(
-            Iterators.forEnumeration(zip.entries()),
-            Predicates.and(
-                Predicates.not(ZipEntryPredicates.isDirectory()),
-                ZipEntryPredicates.suffixes(".class")));
-    if (classes.hasNext()) {
-      // Hitting this error indicates Jar files not covered by incremental dexing (b/34949364).
-      // Bazel should prevent this error but if you do get this exception, you can use DexBuilder
-      // to convert offending classes first. In Bazel that typically means using java_import or to
-      // make sure Bazel rules use DexBuilder on implicit dependencies.
-      throw new IllegalArgumentException(
-          zip.getName()
-              + " should only contain .dex files but found the following .class files: "
-              + Iterators.toString(classes));
-    }
-  }
-
-  private static DexFileAggregator createDexFileAggregator(Options options) throws IOException {
+  private static DexFileAggregator createDexFileAggregator(
+      Options options, ListeningExecutorService executor) throws IOException {
     return new DexFileAggregator(
         new DxContext(options.verbose ? System.out : ByteStreams.nullOutputStream(), System.err),
         new DexFileArchive(
             new ZipOutputStream(
                 new BufferedOutputStream(Files.newOutputStream(options.outputArchive)))),
+        executor,
         options.multidexMode,
         options.maxNumberOfIdxPerDex,
         options.wasteThresholdPerDex);
+  }
+
+  /**
+   * Creates an unbounded thread pool executor, which is appropriate here since the number of tasks
+   * we will add to the thread pool is at most dozens and some of them perform I/O (ie, may block).
+   */
+  private static ListeningExecutorService createThreadPool() {
+    return MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
   }
 
   /**
@@ -309,7 +314,7 @@ class DexFileMerger {
 
     @Override
     // Copied from com.android.dx.cf.direct.ClassPathOpener
-    public int compare (ZipEntry a, ZipEntry b) {
+    public int compare(ZipEntry a, ZipEntry b) {
       return compareClassNames(a.getName(), b.getName());
     }
   }
