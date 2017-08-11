@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * An instance of a given {@code AspectClass} with loaded definition and parameters.
@@ -29,6 +31,17 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
 
   /** */
   public static final String INJECTING_RULE_KIND_PARAMETER_KEY = "$injecting_rule_kind";
+
+  /**
+   * The aspect definition is a function of the aspect class + its parameters, so we can cache that.
+   *
+   * <p>The native aspects are loaded with blaze and are not stateful. Reference equality works fine
+   * in this case.
+   *
+   * <p>Caching of Skylark aspects is not yet implemented.
+   */
+  private static final Map<NativeAspectClass, Map<AspectParameters, AspectDefinition>>
+      definitionCache = new ConcurrentHashMap<>();
 
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
@@ -45,7 +58,11 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
 
   public static Aspect forNative(
       NativeAspectClass nativeAspectClass, AspectParameters parameters) {
-    return new Aspect(nativeAspectClass, nativeAspectClass.getDefinition(parameters), parameters);
+    AspectDefinition definition =
+        definitionCache
+            .computeIfAbsent(nativeAspectClass, key -> new ConcurrentHashMap<>())
+            .computeIfAbsent(parameters, nativeAspectClass::getDefinition);
+    return new Aspect(nativeAspectClass, definition, parameters);
   }
 
   public static Aspect forNative(NativeAspectClass nativeAspectClass) {
@@ -54,9 +71,9 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
 
   public static Aspect forSkylark(
       SkylarkAspectClass skylarkAspectClass,
-      AspectDefinition definition,
+      AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    return new Aspect(skylarkAspectClass, definition, parameters);
+    return new Aspect(skylarkAspectClass, aspectDefinition, parameters);
   }
 
   /**
