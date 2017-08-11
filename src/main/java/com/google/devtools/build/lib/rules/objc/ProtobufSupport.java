@@ -73,7 +73,6 @@ final class ProtobufSupport {
   private final IntermediateArtifacts intermediateArtifacts;
   private final Set<PathFragment> dylibHandledProtoPaths;
   private final Iterable<ObjcProtoProvider> objcProtoProviders;
-  private final Iterable<ObjcProvider> dependencyObjcProviders;
   private final NestedSet<Artifact> portableProtoFilters;
 
   // Each entry of this map represents a generation action and a compilation action. The input set
@@ -103,15 +102,12 @@ final class ProtobufSupport {
    *     targets in a split configuration
    * @param protoProviders the list of ProtoSourcesProviders that this proto support should process
    * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
-   * @param dependencyObjcProviders the list of extra objc dependencies to add to this support's
-   *     ObjcProvider
    */
   public ProtobufSupport(
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       Iterable<ProtoSourcesProvider> protoProviders,
       Iterable<ObjcProtoProvider> objcProtoProviders,
-      Iterable<ObjcProvider> dependencyObjcProviders,
       NestedSet<Artifact> portableProtoFilters) {
     this(
         ruleContext,
@@ -119,7 +115,6 @@ final class ProtobufSupport {
         NestedSetBuilder.<Artifact>stableOrder().build(),
         protoProviders,
         objcProtoProviders,
-        dependencyObjcProviders,
         portableProtoFilters);
   }
 
@@ -137,8 +132,6 @@ final class ProtobufSupport {
    *     symbols
    * @param protoProviders the list of ProtoSourcesProviders that this proto support should process
    * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
-   * @param dependencyObjcProviders the list of extra objc dependencies to add to this support's
-   *     ObjcProvider
    */
   public ProtobufSupport(
       RuleContext ruleContext,
@@ -146,14 +139,12 @@ final class ProtobufSupport {
       NestedSet<Artifact> dylibHandledProtos,
       Iterable<ProtoSourcesProvider> protoProviders,
       Iterable<ObjcProtoProvider> objcProtoProviders,
-      Iterable<ObjcProvider> dependencyObjcProviders,
       NestedSet<Artifact> portableProtoFilters) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos.toSet());
     this.objcProtoProviders = objcProtoProviders;
-    this.dependencyObjcProviders = dependencyObjcProviders;
     this.portableProtoFilters = portableProtoFilters;
     this.intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
@@ -268,7 +259,12 @@ final class ProtobufSupport {
       return Optional.absent();
     }
 
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    Iterable<PathFragment> includes = ImmutableList.of(getWorkspaceRelativeOutputDir());
+    ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
+
+    if (!isLinkingTarget()) {
+      commonBuilder.setIntermediateArtifacts(intermediateArtifacts).setHasModuleMap();
+    }
 
     int actionId = 0;
     for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
@@ -279,41 +275,17 @@ final class ProtobufSupport {
           getCompilationArtifacts(intermediateArtifacts, inputProtos, outputProtos);
 
       ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
-      if (isLinkingTarget()) {
-        // If ProtobufSupport is being called from a linking target (i.e. apple_binary), we
-        // propagate the generated headers (contained inside common.getObjcProvider()) into the
-        // ObjcProvider, in case the generated headers are used from dependent ios_test targets,
-        // which uses XcTestAppProvider to access those headers.
-        // TODO(b/64152968): Remove conditional when ios_test is gone and only propagate to
-        //     direct dependents.
-        objcProviderBuilder.addTransitiveAndPropagate(common.getObjcProvider());
-      } else {
-        // If ProtobufSupport is being called from a non-linking target (i.e. objc_proto_library),
-        // we propagate the headers only to direct dependents of this target. This avoids over
-        // accumulation of header files when a top-level target depends on many objc_proto_library
-        // targets.
-        objcProviderBuilder.addAsDirectDeps(common.getObjcProvider());
-      }
+      commonBuilder.addDepObjcProviders(ImmutableSet.of(common.getObjcProvider()));
       actionId++;
     }
 
-    // Same as with the headers, we only propagate the includes to direct dependents for non-linking
-    // targets (i.e. objc_proto_library), and we fully propagate the includes for linking targets
-    // in case ios_test dependents need to use the headers.
-    // TODO(b/64152968): Remove conditional when ios_test is gone and only propagate to direct
-    //     dependents.
-    Iterable<PathFragment> includes = ImmutableList.of(getWorkspaceRelativeOutputDir());
     if (isLinkingTarget()) {
-      objcProviderBuilder.addAll(ObjcProvider.INCLUDE, includes);
+      commonBuilder.addIncludes(includes);
     } else {
-      objcProviderBuilder.addAllForDirectDependents(ObjcProvider.INCLUDE, includes);
-      // For non linking targets, also create and propagate this target's module map.
-      objcProviderBuilder.addModuleMap(intermediateArtifacts.moduleMap());
+      commonBuilder.addDirectDependencyIncludes(includes);
     }
 
-    objcProviderBuilder.addTransitiveAndPropagate(dependencyObjcProviders);
-
-    return Optional.of(objcProviderBuilder.build());
+    return Optional.of(commonBuilder.build().getObjcProvider());
   }
 
   private NestedSet<Artifact> getProtobufHeaders() {

@@ -117,7 +117,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                   protosToAvoid,
                   ImmutableList.<ProtoSourcesProvider>of(),
                   objcProtoProviders,
-                  ImmutableList.of(),
                   ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
               .registerGenerationActions()
               .registerCompilationActions();

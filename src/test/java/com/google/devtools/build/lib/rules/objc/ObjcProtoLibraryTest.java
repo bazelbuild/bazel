@@ -820,24 +820,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testProtobufPropagatesHeadersAndIncludesOnlyToDirectDependents() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//package:opl_protobuf");
-    Artifact headerFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pbobjc.h");
-
-    ObjcProvider transitiveProvider = providerForTarget("//package:non_strict_lib");
-    ObjcProvider directProvider = providerForTarget("//package:strict_lib");
-
-    assertThat(directProvider.get(ObjcProvider.INCLUDE).toSet())
-        .contains(headerFile.getExecPath().getParentDirectory().getParentDirectory());
-    assertThat(transitiveProvider.get(ObjcProvider.INCLUDE).toSet())
-        .doesNotContain(headerFile.getExecPath().getParentDirectory().getParentDirectory());
-
-    assertThat(directProvider.get(ObjcProvider.HEADER).toSet()).contains(headerFile);
-    assertThat(transitiveProvider.get(ObjcProvider.HEADER).toSet()).doesNotContain(headerFile);
-  }
-
-  @Test
   public void testCompilationActionInCoverageMode() throws Exception {
     useConfiguration("--collect_code_coverage");
 
