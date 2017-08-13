@@ -580,18 +580,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     filesBuilder.add(zipAlignedApk);
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
-    Iterable<Artifact> dataDeps = ImmutableList.of();
+    ImmutableList<Artifact> dataDeps = ImmutableList.of();
     if (ruleContext.attributes().has("data", BuildType.LABEL_LIST)
         && ruleContext.getAttributeMode("data") == Mode.DATA) {
       dataDeps = ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
     }
 
     Artifact deployInfo = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO);
-    AndroidDeployInfoAction.createDeployInfoAction(ruleContext,
+    AndroidDeployInfoAction.createDeployInfoAction(
+        ruleContext,
         deployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        Iterables.concat(ImmutableList.of(zipAlignedApk), apksUnderTest),
+        ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build(),
         dataDeps);
 
     RuleConfiguredTargetBuilder builder =
