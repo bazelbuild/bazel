@@ -9,7 +9,6 @@ java_library(
     name = "common",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:guava",
     ],
 )

@@ -78,9 +78,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
    *
    * <p>Creates a target, including registering actions, just as {@link #create(RuleContext)} does.
    * The difference between {@link #create(RuleContext)} and this method is that this method does
-   * only what is needed to support tests on the environment besides generate the Xcodeproj file and
-   * build the app and test {@code .ipa}s. The {@link #create(RuleContext)} method delegates to this
-   * method.
+   * only what is needed to support tests on the environment besides build the app and test {@code
+   * .ipa}s. The {@link #create(RuleContext)} method delegates to this method.
    */
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)

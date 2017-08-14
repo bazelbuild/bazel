@@ -300,14 +300,6 @@ public final class IntermediateArtifacts {
   }
 
   /**
-   * Returns the artifact corresponding to the pbxproj control file, which specifies the information
-   * required to generate the Xcode project file.
-   */
-  public Artifact pbxprojControlArtifact() {
-    return appendExtension(".xcodeproj-control");
-  }
-
-  /**
    * The artifact which contains the zipped-up results of compiling the storyboard. This is merged
    * into the final bundle under the {@code .app} or {@code .bundle} directory root.
    */
