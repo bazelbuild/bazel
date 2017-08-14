@@ -20,12 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -136,23 +134,6 @@ public abstract class FunctionSignature implements Serializable {
     public int getArguments() {
       return getAllNamed() + (hasStarArg() ? 1 : 0) + (hasKwArg() ? 1 : 0);
     }
-
-    /**
-     * @return this signature shape converted to a list of classes
-     */
-    public List<Class<?>> toClasses() {
-      List<Class<?>> parameters = new ArrayList<>();
-
-      parameters.addAll(Collections.nCopies(getAllNamed(), Object.class));
-      if (hasStarArg()) {
-        parameters.add(Tuple.class);
-      }
-      if (hasKwArg()) {
-        parameters.add(SkylarkDict.class);
-      }
-
-      return parameters;
-    }
   }
 
   /** Names of a FunctionSignature */
@@ -163,11 +144,6 @@ public abstract class FunctionSignature implements Serializable {
   public static ImmutableList<String> names(List<String> names) {
     return namesInterner.intern(
         names.stream().map(StringCanonicalizer::intern).collect(toImmutableList()));
-  }
-
-  /** Intern a list of names */
-  public static ImmutableList<String> names(String... names) {
-    return names(ImmutableList.copyOf(names));
   }
 
   // Interner
@@ -258,16 +234,6 @@ public abstract class FunctionSignature implements Serializable {
       }
       return new AutoValue_FunctionSignature_WithValues<>(
           signature, convertedDefaultValues, convertedTypes);
-    }
-
-    public static <V, T> WithValues<V, T> create(FunctionSignature signature,
-        @Nullable List<V> defaultValues) {
-      return create(signature, defaultValues, null);
-    }
-
-    public static <V, T> WithValues<V, T> create(FunctionSignature signature,
-        @Nullable V[] defaultValues) {
-      return create(signature, Arrays.asList(defaultValues), null);
     }
 
     public static <V, T> WithValues<V, T> create(FunctionSignature signature) {
