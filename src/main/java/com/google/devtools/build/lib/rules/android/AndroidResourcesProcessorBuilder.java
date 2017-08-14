@@ -397,11 +397,11 @@ public class AndroidResourcesProcessorBuilder {
       List<Artifact> outs, NestedSetBuilder<Artifact> inputs, Builder builder) {
 
     // Add data
-    builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
-      builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
+      builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
     }
 
     builder.add("--annotationJar", sdk.getAnnotationsJar());
@@ -452,10 +452,10 @@ public class AndroidResourcesProcessorBuilder {
       outs.add(apkOut);
     }
     if (resourceFilter.hasConfigurationFilters() && !resourceFilter.isPrefiltering()) {
-      builder.add("--resourceConfigs").add(resourceFilter.getConfigurationFilterString());
+      builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
     if (resourceFilter.hasDensities() && !resourceFilter.isPrefiltering()) {
-      builder.add("--densities").add(resourceFilter.getDensityString());
+      builder.add("--densities", resourceFilter.getDensityString());
     }
     ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
@@ -478,15 +478,15 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     if (versionCode != null) {
-      builder.add("--versionCode").add(versionCode);
+      builder.add("--versionCode", versionCode);
     }
 
     if (versionName != null) {
-      builder.add("--versionName").add(versionName);
+      builder.add("--versionName", versionName);
     }
 
     if (applicationId != null) {
-      builder.add("--applicationId").add(applicationId);
+      builder.add("--applicationId", applicationId);
     }
 
     if (dataBindingInfoZip != null) {
@@ -497,7 +497,7 @@ public class AndroidResourcesProcessorBuilder {
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
-      builder.add("--packageForR").add(customJavaPackage);
+      builder.add("--packageForR", customJavaPackage);
     }
 
     if (featureOf != null) {

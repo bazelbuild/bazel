@@ -67,7 +67,7 @@ public class LibraryRGeneratorActionBuilder {
     builder.add("--tool").add("GENERATE_LIBRARY_R").add("--");
 
     if (!Strings.isNullOrEmpty(javaPackage)) {
-      builder.add("--packageForR").add(javaPackage);
+      builder.add("--packageForR", javaPackage);
     }
 
     FluentIterable<ResourceContainer> symbolProviders =

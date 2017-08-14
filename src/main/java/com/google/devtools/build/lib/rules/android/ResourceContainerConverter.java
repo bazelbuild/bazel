@@ -244,14 +244,14 @@ public class ResourceContainerConverter {
         cmdBuilder.add(
             "--data",
             VectorArg.of(dependencies.getTransitiveResources())
-                .joinWith(toArg.listSeparator())
+                .joinWithDynamicString(toArg.listSeparator())
                 .mapEach(toArg));
       }
       if (!dependencies.getDirectResources().isEmpty()) {
         cmdBuilder.add(
             "--directData",
             VectorArg.of(dependencies.getDirectResources())
-                .joinWith(toArg.listSeparator())
+                .joinWithDynamicString(toArg.listSeparator())
                 .mapEach(toArg));
       }
       // This flattens the nested set. Since each ResourceContainer needs to be transformed into

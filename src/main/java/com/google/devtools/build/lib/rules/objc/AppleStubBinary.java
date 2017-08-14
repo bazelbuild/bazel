@@ -155,7 +155,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     CustomCommandLine copyCommandLine =
         new Builder()
             .add("/bin/cp")
-            .add(resolveXcenvBasedPath(ruleContext, platform))
+            .addDynamicString(resolveXcenvBasedPath(ruleContext, platform))
             .add(ImmutableList.of(outputBinary))
             .build();
 

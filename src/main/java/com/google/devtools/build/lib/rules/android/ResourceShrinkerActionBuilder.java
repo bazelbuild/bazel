@@ -183,7 +183,7 @@ public class ResourceShrinkerActionBuilder {
       commandLine.add("--debug");
     }
     if (resourceFilter.hasConfigurationFilters()) {
-      commandLine.add("--resourceConfigs").add(resourceFilter.getConfigurationFilterString());
+      commandLine.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
 
     checkNotNull(resourceFilesZip);

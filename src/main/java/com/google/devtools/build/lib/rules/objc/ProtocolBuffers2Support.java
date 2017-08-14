@@ -156,18 +156,16 @@ final class ProtocolBuffers2Support {
   private CustomCommandLine getGenerationCommandLine() {
     CustomCommandLine.Builder commandLineBuilder =
         new CustomCommandLine.Builder()
-            .add(attributes.getProtoCompiler().getExecPathString())
+            .add(attributes.getProtoCompiler())
             .add("--input-file-list")
-            .add(getProtoInputsFile().getExecPathString())
+            .add(getProtoInputsFile())
             .add("--output-dir")
-            .add(getWorkspaceRelativeOutputDir().getSafePathString())
+            .addDynamicString(getWorkspaceRelativeOutputDir().getSafePathString())
             .add("--working-dir")
             .add(".");
 
     if (attributes.getOptionsFile().isPresent()) {
-      commandLineBuilder
-          .add("--compiler-options-path")
-          .add(attributes.getOptionsFile().get().getExecPathString());
+      commandLineBuilder.add("--compiler-options-path").add(attributes.getOptionsFile().get());
     }
 
     if (attributes.usesObjcHeaderNames()) {

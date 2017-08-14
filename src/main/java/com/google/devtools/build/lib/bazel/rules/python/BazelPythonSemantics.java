@@ -253,20 +253,20 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment workspaceName = runfilesSupport.getWorkspaceName();
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     inputsBuilder.add(templateMain);
-    argv.add("__main__.py=" + templateMain.getExecPathString());
+    argv.addWithPrefix("__main__.py=", templateMain);
 
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");
-    argv.add(getZipRunfilesPath("__init__.py", workspaceName) + "=");
+    argv.addDynamicString(getZipRunfilesPath("__init__.py", workspaceName) + "=");
     for (String path : runfilesSupport.getRunfiles().getEmptyFilenames()) {
-      argv.add(getZipRunfilesPath(path, workspaceName) + "=");
+      argv.addDynamicString(getZipRunfilesPath(path, workspaceName) + "=");
     }
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
     for (Artifact artifact : runfilesSupport.getRunfilesArtifactsWithoutMiddlemen()) {
       if (!artifact.equals(executable)) {
-        argv.add(
+        argv.addDynamicString(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)
                 + "="
                 + artifact.getExecPathString());

@@ -268,14 +268,13 @@ final class BundleSupport {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .add(zipOutput.getExecPath())
-            .add(archiveRoot)
+            .addDynamicString(archiveRoot)
             .add("--minimum-deployment-target")
-            .add(bundling.getMinimumOsVersion().toString())
-            .add("--module")
-            .add(ruleContext.getLabel().getName());
+            .add(bundling.getMinimumOsVersion())
+            .add("--module", ruleContext.getLabel().getName());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
-      commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+      commandLine.add("--target-device", targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
     return commandLine.add(storyboardInput.getExecPath()).build();
@@ -294,17 +293,18 @@ final class BundleSupport {
               .addInputs(datamodel.getInputs())
               .setCommandLine(
                   CustomCommandLine.builder()
-                      .add(outputZip.getExecPath())
-                      .add(datamodel.archiveRootForMomczip())
-                      .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
-                      .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
+                      .add(outputZip)
+                      .addDynamicString(datamodel.archiveRootForMomczip())
+                      .addDynamicString("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
+                      .addDynamicString(
+                          "-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
                       .add("-MOMC_PLATFORMS")
-                      .add(
+                      .addDynamicString(
                           appleConfiguration
                               .getMultiArchPlatform(PlatformType.IOS)
                               .getLowerCaseNameInPlist())
                       .add("-XD_MOMC_TARGET_VERSION=10.6")
-                      .add(datamodel.getContainer().getSafePathString())
+                      .add(datamodel.getContainer())
                       .build())
               .build(ruleContext));
     }
@@ -437,14 +437,15 @@ final class BundleSupport {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .add(zipOutput.getExecPath())
-            .add("--platform")
-            .add(appleConfiguration.getMultiArchPlatform(platformType).getLowerCaseNameInPlist())
+            .add(
+                "--platform",
+                appleConfiguration.getMultiArchPlatform(platformType).getLowerCaseNameInPlist())
             .add("--output-partial-info-plist", partialInfoPlist)
             .add("--minimum-deployment-target")
-            .add(bundling.getMinimumOsVersion().toString());
+            .add(bundling.getMinimumOsVersion());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
-      commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+      commandLine.add("--target-device", targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
     return commandLine

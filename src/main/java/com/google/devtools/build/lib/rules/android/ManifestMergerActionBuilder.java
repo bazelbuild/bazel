@@ -104,11 +104,10 @@ public class ManifestMergerActionBuilder {
     inputs.add(manifest);
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
-      builder
-          .add("--mergeeManifests")
-          .add(
-              mapToDictionaryString(
-                  mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
+      builder.add(
+          "--mergeeManifests",
+          mapToDictionaryString(
+              mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
       inputs.addAll(mergeeManifests.keySet());
     }
 
@@ -117,11 +116,11 @@ public class ManifestMergerActionBuilder {
     }
 
     if (manifestValues != null && !manifestValues.isEmpty()) {
-      builder.add("--manifestValues").add(mapToDictionaryString(manifestValues));
+      builder.add("--manifestValues", mapToDictionaryString(manifestValues));
     }
 
     if (customPackage != null && !customPackage.isEmpty()) {
-      builder.add("--customPackage").add(customPackage);
+      builder.add("--customPackage", customPackage);
     }
 
     builder.add("--manifestOutput", manifestOutput);

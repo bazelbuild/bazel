@@ -89,7 +89,7 @@ public class RobolectricResourceSymbolsActionBuilder {
       builder.add(
           "--data",
           VectorArg.of(dependencies.getResources())
-              .joinWith(RESOURCE_CONTAINER_TO_ARG.listSeparator())
+              .joinWithDynamicString(RESOURCE_CONTAINER_TO_ARG.listSeparator())
               .mapEach(RESOURCE_CONTAINER_TO_ARG));
     }
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -217,14 +218,14 @@ public final class CustomCommandLine extends CommandLine {
       }
 
       /** Each argument is formatted via {@link String#format}. */
-      public Builder<T> formatEach(String formatEach) {
+      public Builder<T> formatEach(@CompileTimeConstant String formatEach) {
         Preconditions.checkNotNull(formatEach);
         this.formatEach = formatEach;
         return this;
       }
 
       /** Each argument is prepended by the beforeEach param. */
-      public Builder<T> beforeEach(String beforeEach) {
+      public Builder<T> beforeEach(@CompileTimeConstant String beforeEach) {
         Preconditions.checkNotNull(beforeEach);
         this.beforeEach = beforeEach;
         return this;
@@ -238,7 +239,19 @@ public final class CustomCommandLine extends CommandLine {
       }
 
       /** Once all arguments have been evaluated, they are joined with this delimiter */
-      public Builder<T> joinWith(String delimiter) {
+      public Builder<T> joinWith(@CompileTimeConstant String delimiter) {
+        Preconditions.checkNotNull(delimiter);
+        this.joinWith = delimiter;
+        return this;
+      }
+
+      /**
+       * Once all arguments have been evaluated, they are joined with this delimiter
+       *
+       * <p>Prefer use of {@link Builder#joinWith} to this method, as it will be more memory
+       * efficient.
+       */
+      public Builder joinWithDynamicString(String delimiter) {
         Preconditions.checkNotNull(delimiter);
         this.joinWith = delimiter;
         return this;
@@ -445,8 +458,40 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    /**
+     * Adds a constant-value string.
+     *
+     * <p>Prefer this over its dynamic cousin, as using static strings saves memory.
+     */
+    public Builder add(@CompileTimeConstant String value) {
+      if (value != null) {
+        arguments.add(value);
+      }
+      return this;
+    }
+
+    /**
+     * Adds a dynamically calculated string.
+     *
+     * <p>Consider whether using another method could be more efficient. For instance, rather than
+     * calling this method with an Artifact's exec path, just add the artifact itself. It will
+     * lazily get converted to its exec path. Same with labels, path fragments, and many other
+     * objects.
+     *
+     * <p>If you are joining some list into a single argument, consider using {@link VectorArg}.
+     *
+     * <p>If you are formatting a string, consider using {@link Builder#addFormatted(String,
+     * Object...)}.
+     *
+     * <p>There are many other ways you can try to avoid calling this. In general, try to use
+     * constants or objects that are already on the heap elsewhere.
+     */
+    public Builder addDynamicString(@Nullable String value) {
+      return add((Object) value);
+    }
+
     /** Adds the arg and the passed value if the value is non-null. */
-    public Builder add(String arg, @Nullable Object value) {
+    public Builder add(@CompileTimeConstant String arg, @Nullable Object value) {
       Preconditions.checkNotNull(arg);
       if (value != null) {
         arguments.add(arg);
@@ -476,7 +521,7 @@ public final class CustomCommandLine extends CommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
-    public Builder add(String arg, @Nullable ImmutableCollection<?> values) {
+    public Builder add(@CompileTimeConstant String arg, @Nullable ImmutableCollection<?> values) {
       Preconditions.checkNotNull(arg);
       if (values != null && !values.isEmpty()) {
         arguments.add(arg);
@@ -490,7 +535,7 @@ public final class CustomCommandLine extends CommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
-    public Builder add(String arg, @Nullable NestedSet<?> values) {
+    public Builder add(@CompileTimeConstant String arg, @Nullable NestedSet<?> values) {
       Preconditions.checkNotNull(arg);
       if (values != null && !values.isEmpty()) {
         arguments.add(arg);
@@ -518,7 +563,7 @@ public final class CustomCommandLine extends CommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
-    public Builder add(String arg, VectorArg.Builder<?> vectorArg) {
+    public Builder add(@CompileTimeConstant String arg, VectorArg.Builder<?> vectorArg) {
       Preconditions.checkNotNull(arg);
       if (!vectorArg.isEmpty) {
         arguments.add(arg);
@@ -542,14 +587,38 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Calls {@link String#format} at command line expansion time. */
-    public Builder addFormatted(String formatStr, Object... args) {
+    public Builder addFormatted(@CompileTimeConstant String formatStr, Object... args) {
+      Preconditions.checkNotNull(formatStr);
+      FormatArg.push(arguments, formatStr, args);
+      return this;
+    }
+
+    /**
+     * Calls {@link String#format} at command line expansion time.
+     *
+     * <p>Prefer {@link Builder#addFormatted} instead, as it will be more memory efficient.
+     */
+    public Builder addFormattedWithDynamicFormatStr(String formatStr, Object... args) {
       Preconditions.checkNotNull(formatStr);
       FormatArg.push(arguments, formatStr, args);
       return this;
     }
 
     /** Cancatenates the passed prefix string and the object's string representation. */
-    public Builder addWithPrefix(String prefix, @Nullable Object arg) {
+    public Builder addWithPrefix(@CompileTimeConstant String prefix, @Nullable Object arg) {
+      Preconditions.checkNotNull(prefix);
+      if (arg != null) {
+        PrefixArg.push(arguments, prefix, arg);
+      }
+      return this;
+    }
+
+    /**
+     * Cancatenates the passed prefix string and the object's string representation.
+     *
+     * <p>Prefer {@link Builder#addWithPrefix}, as it will be more memory efficient.
+     */
+    public Builder addWithDynamicPrefix(String prefix, @Nullable Object arg) {
       Preconditions.checkNotNull(prefix);
       if (arg != null) {
         PrefixArg.push(arguments, prefix, arg);

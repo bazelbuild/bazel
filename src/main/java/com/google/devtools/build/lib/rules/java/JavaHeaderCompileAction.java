@@ -534,8 +534,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       result.add("--javacopts", javacOpts);
 
       if (ruleKind != null) {
-        result.add("--rule_kind");
-        result.add(ruleKind);
+        result.add("--rule_kind", ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");

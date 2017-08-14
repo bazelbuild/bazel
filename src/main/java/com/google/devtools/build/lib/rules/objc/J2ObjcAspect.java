@@ -479,7 +479,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       J2ObjcSource j2ObjcSource) {
     CustomCommandLine.Builder argBuilder = CustomCommandLine.builder();
     PathFragment javaExecutable = JavaCommon.getHostJavaExecutable(ruleContext);
-    argBuilder.add("--java").add(javaExecutable.getPathString());
+    argBuilder.add("--java", javaExecutable.getPathString());
 
     Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", Mode.HOST);
     argBuilder.add("--j2objc", j2ObjcDeployJar);
@@ -527,7 +527,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     argBuilder.add("--compiled_archive_file_path", compiledLibrary);
 
     Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
-    argBuilder.add("-Xbootclasspath:" + bootclasspathJar.getExecPathString());
+    argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
     Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
     if (deadCodeReport != null) {

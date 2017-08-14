@@ -97,7 +97,7 @@ public class RClassGeneratorActionBuilder {
       inputs.add(primary.getManifest());
     }
     if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
-      builder.add("--packageForR").add(primary.getJavaPackage());
+      builder.add("--packageForR", primary.getJavaPackage());
     }
     if (dependencies != null) {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.

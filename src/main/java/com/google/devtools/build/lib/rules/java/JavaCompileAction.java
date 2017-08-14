@@ -435,8 +435,8 @@ public final class JavaCompileAction extends SpawnAction {
                               .addAll(instrumentationJars)
                               .add(javaBuilderJar)
                               .build())
-                      .joinWith(pathDelimiter))
-              .add(javaBuilderMainClass);
+                      .joinWithDynamicString(pathDelimiter))
+              .addDynamicString(javaBuilderMainClass);
         } else {
           // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
           builder.add("-jar", javaBuilderJar);
@@ -712,8 +712,7 @@ public final class JavaCompileAction extends SpawnAction {
         result.add("--javacopts", ImmutableList.copyOf(javacOpts));
       }
       if (ruleKind != null) {
-        result.add("--rule_kind");
-        result.add(ruleKind);
+        result.add("--rule_kind", ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");
@@ -737,8 +736,7 @@ public final class JavaCompileAction extends SpawnAction {
       // strict_java_deps controls whether the mapping from jars to targets is
       // written out and whether we try to minimize the compile-time classpath.
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result.add("--strict_java_deps");
-        result.add(strictJavaDeps.toString());
+        result.add("--strict_java_deps", strictJavaDeps.toString());
         result.add(new JarsToTargetsArgv(classpathEntries, directJars));
 
         if (configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath()

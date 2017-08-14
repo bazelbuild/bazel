@@ -136,7 +136,7 @@ public class AndroidResourceParsingActionBuilder {
 
     Preconditions.checkNotNull(primary);
     String resourceDirectories = RESOURCE_CONTAINER_TO_ARG.apply(primary);
-    builder.add("--primaryData").add(resourceDirectories);
+    builder.add("--primaryData", resourceDirectories);
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
     Preconditions.checkNotNull(output);
@@ -177,8 +177,7 @@ public class AndroidResourceParsingActionBuilder {
           .add("--tool")
           .add("COMPILE_LIBRARY_RESOURCES")
           .add("--")
-          .add("--resources")
-          .add(resourceDirectories)
+          .add("--resources", resourceDirectories)
           .add("--output", compiledSymbols);
       outs.add(compiledSymbols);
 
@@ -187,7 +186,7 @@ public class AndroidResourceParsingActionBuilder {
         flatFileBuilder.add("--manifest", resourceContainer.getManifest());
         inputs.add(resourceContainer.getManifest());
         if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
-          flatFileBuilder.add("--packagePath").add(resourceContainer.getJavaPackage());
+          flatFileBuilder.add("--packagePath", resourceContainer.getJavaPackage());
         }
         builder.add("--dataBindingInfoOut", dataBindingInfoZip);
         outs.add(dataBindingInfoZip);
