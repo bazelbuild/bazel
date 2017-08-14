@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 
 /**
@@ -36,7 +37,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      CcToolchainProvider provider = dep.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
+      CcToolchainProvider provider =
+          (CcToolchainProvider) dep.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
       if (provider != null) {
         filesToBuild.addTransitive(provider.getCrosstool());
       }

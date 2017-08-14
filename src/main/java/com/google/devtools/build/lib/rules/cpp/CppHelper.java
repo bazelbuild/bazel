@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -319,11 +320,11 @@ public class CppHelper {
   public static CcToolchainProvider getToolchain(RuleContext ruleContext,
       TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
-    if ((dep == null) || (dep.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR) == null)) {
+    if ((dep == null) || (dep.get(ToolchainInfo.SKYLARK_CONSTRUCTOR) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
       return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
     }
-    return dep.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
+    return (CcToolchainProvider) dep.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
   }
 
   /**

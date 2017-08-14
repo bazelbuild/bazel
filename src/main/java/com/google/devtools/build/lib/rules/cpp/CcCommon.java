@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -683,7 +684,8 @@ public final class CcCommon {
    * toolchain.
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
-    CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) toolchain.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, toolchainProvider);
     if (!featureConfiguration.actionIsConfigured(

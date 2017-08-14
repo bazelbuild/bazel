@@ -67,7 +67,7 @@ public class ToolchainInfo extends Info {
         }
       };
 
-  private ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
+  protected ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
     super(
         SKYLARK_CONSTRUCTOR,
         ImmutableMap.<String, Object>builder().putAll(toolchainData).build(),

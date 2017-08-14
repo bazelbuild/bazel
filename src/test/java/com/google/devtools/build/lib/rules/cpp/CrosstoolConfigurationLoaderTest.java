@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.MakeVariableProvider;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -161,7 +162,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private CcToolchainProvider getCcToolchainProvider(CppConfiguration cppConfiguration)
       throws Exception {
-    return getCcToolchainTarget(cppConfiguration).get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
+    return (CcToolchainProvider)
+        getCcToolchainTarget(cppConfiguration).get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
   }
 
   /**
@@ -488,7 +490,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfiguration toolchainA =
         create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
-    CcToolchainProvider ccProviderA = ccToolchainA.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR);
+    CcToolchainProvider ccProviderA =
+        (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
     MakeVariableProvider makeProviderA = ccToolchainA.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR);
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(toolchainA.getHostSystemName()).isEqualTo("host-system-name-A");
