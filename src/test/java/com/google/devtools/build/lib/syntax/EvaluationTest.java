@@ -142,6 +142,12 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testComplexFunctionCall() throws Exception {
+    newTest().setUp("functions = [min, max]", "l = [1,2]")
+        .testEval("(functions[0](l), functions[1](l))", "(1, 2)");
+  }
+
+  @Test
   public void testKeywordArgs() throws Exception {
 
     // This function returns the map of keyword arguments passed to it.

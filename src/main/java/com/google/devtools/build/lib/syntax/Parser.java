@@ -440,17 +440,6 @@ public class Parser {
     return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
   }
 
-  // create a funcall expression
-  private Expression makeFuncallExpression(Expression receiver, Identifier function,
-                                           List<Argument.Passed> args,
-                                           int start, int end) {
-    if (function.getLocation() == null) {
-      function = setLocation(function, start, end);
-    }
-    Expression fun = receiver == null ? function : new DotExpression(receiver, function);
-    return setLocation(new FuncallExpression(fun, args), start, end);
-  }
-
   // arg ::= IDENTIFIER '=' nontupleexpr
   //       | expr
   //       | *args       (only in Skylark mode)
@@ -534,7 +523,7 @@ public class Parser {
   }
 
   // funcall_suffix ::= '(' arg_list? ')'
-  private Expression parseFuncallSuffix(int start, Expression receiver, Identifier function) {
+  private Expression parseFuncallSuffix(int start, Expression function) {
     List<Argument.Passed> args = Collections.emptyList();
     expect(TokenKind.LPAREN);
     int end;
@@ -546,20 +535,15 @@ public class Parser {
       end = token.right;
       expect(TokenKind.RPAREN);
     }
-    return makeFuncallExpression(receiver, function, args, start, end);
+    return setLocation(new FuncallExpression(function, args), start, end);
   }
 
   // selector_suffix ::= '.' IDENTIFIER
-  //                    |'.' IDENTIFIER funcall_suffix
   private Expression parseSelectorSuffix(int start, Expression receiver) {
     expect(TokenKind.DOT);
     if (token.kind == TokenKind.IDENTIFIER) {
       Identifier ident = parseIdent();
-      if (token.kind == TokenKind.LPAREN) {
-        return parseFuncallSuffix(start, receiver, ident);
-      } else {
-        return setLocation(new DotExpression(receiver, ident), start, token.right);
-      }
+      return setLocation(new DotExpression(receiver, ident), start, token.right);
     } else {
       syntaxError(token, "expected identifier after dot");
       int end = syncTo(EXPR_TERMINATOR_SET);
@@ -643,10 +627,7 @@ public class Parser {
 
   //  primary ::= INTEGER
   //            | STRING
-  //            | STRING '.' IDENTIFIER funcall_suffix
   //            | IDENTIFIER
-  //            | IDENTIFIER funcall_suffix
-  //            | IDENTIFIER '.' selector_suffix
   //            | list_expression
   //            | '(' ')'                    // a tuple with zero elements
   //            | '(' expr ')'               // a parenthesized expression
@@ -665,14 +646,7 @@ public class Parser {
       case STRING:
         return parseStringLiteral();
       case IDENTIFIER:
-        {
-          Identifier ident = parseIdent();
-          if (token.kind == TokenKind.LPAREN) { // it's a function application
-            return parseFuncallSuffix(start, null, ident);
-          } else {
-            return ident;
-          }
-        }
+        return parseIdent();
       case LBRACKET: // it's a list
         return parseListMaker();
       case LBRACE: // it's a dictionary
@@ -714,8 +688,7 @@ public class Parser {
     }
   }
 
-  // primary_with_suffix ::= primary selector_suffix*
-  //                       | primary substring_suffix
+  // primary_with_suffix ::= primary (selector_suffix | substring_suffix | funcall_suffix)*
   private Expression parsePrimaryWithSuffix() {
     int start = token.left;
     Expression receiver = parsePrimary();
@@ -724,6 +697,8 @@ public class Parser {
         receiver = parseSelectorSuffix(start, receiver);
       } else if (token.kind == TokenKind.LBRACKET) {
         receiver = parseSubstringSuffix(start, receiver);
+      } else if (token.kind == TokenKind.LPAREN) {
+        receiver = parseFuncallSuffix(start, receiver);
       } else {
         break;
       }
@@ -732,6 +707,8 @@ public class Parser {
   }
 
   // substring_suffix ::= '[' expression? ':' expression?  ':' expression? ']'
+  //                    | '[' expression? ':' expression? ']'
+  //                    | '[' expression ']'
   private Expression parseSubstringSuffix(int start, Expression receiver) {
     Expression startExpr;
 
