@@ -486,25 +486,29 @@ simple_stmt ::= small_stmt (';' small_stmt)* ';'?
 small_stmt ::= expr
              | assign_stmt
 
-assign_stmt ::= IDENTIFIER '=' expr
+assign_stmt ::= IDENTIFIER assign_op expr
+
+assign_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
 
 expr ::= INTEGER
        | STRING+
        | IDENTIFIER
-       | IDENTIFIER '(' arg_list? ')'
+       | expr '(' arg_list? ')'
        | expr '.' IDENTIFIER
-       | expr '.' IDENTIFIER '(' arg_list? ')'
        | '[' expr_list? ']'
-       | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
+       | '[' expr ('for' IDENTIFIER 'in' expr | 'if' expr)+ ']'
        | '(' expr_list? ')'
        | '{' dict_entry_list? '}'
-       | '{' dict_entry ('for' IDENTIFIER 'in' expr)+ '}'
-       | expr '+' expr
-       | expr '-' expr
-       | expr '%' expr
+       | '{' dict_entry ('for' IDENTIFIER 'in' expr | 'if' expr)+ '}'
+       | expr bin_op expr
        | '-' expr
+       | 'not' expr
+       | expr '[' expr? ':' expr? ':' expr? ']'
        | expr '[' expr? ':' expr? ']'
        | expr '[' expr ']'
+
+bin_op ::= '+' | '-' | '*' | '/' | '//' | '%' | '|'
+         | 'and' | 'or' | '==' | '!=' | '&lt;' | '&lt;=' | '&gt;' | '&gt;=' | 'in' | 'not' 'in'
 
 expr_list ::= (expr ',')* expr ','?
 
