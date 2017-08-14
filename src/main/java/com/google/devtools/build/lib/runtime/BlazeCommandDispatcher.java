@@ -65,6 +65,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -261,9 +262,9 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * Executes a single command. Returns the Unix exit status for the Blaze
-   * client process, or throws {@link ShutdownBlazeServerException} to
-   * indicate that a command wants to shutdown the Blaze server.
+   * Executes a single command. Returns the Unix exit status for the Blaze client process, or throws
+   * {@link ShutdownBlazeServerException} to indicate that a command wants to shutdown the Blaze
+   * server.
    */
   int exec(
       InvocationPolicy invocationPolicy,
@@ -271,7 +272,9 @@ public class BlazeCommandDispatcher {
       OutErr outErr,
       LockingMode lockingMode,
       String clientDescription,
-      long firstContactTime) throws ShutdownBlazeServerException, InterruptedException {
+      long firstContactTime,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+      throws ShutdownBlazeServerException, InterruptedException {
     OriginalCommandLineEvent originalCommandLine = new OriginalCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
@@ -327,8 +330,16 @@ public class BlazeCommandDispatcher {
         outErr.printErrLn("Server shut down " + shutdownReason);
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
-      return execExclusively(originalCommandLine, invocationPolicy, args, outErr, firstContactTime,
-          commandName, command, waitTimeInMs);
+      return execExclusively(
+          originalCommandLine,
+          invocationPolicy,
+          args,
+          outErr,
+          firstContactTime,
+          commandName,
+          command,
+          waitTimeInMs,
+          startupOptionsTaggedWithBazelRc);
     } catch (ShutdownBlazeServerException e) {
       shutdownReason = "explicitly by client " + currentClientDescription;
       throw e;
@@ -348,7 +359,8 @@ public class BlazeCommandDispatcher {
       long firstContactTime,
       String commandName,
       BlazeCommand command,
-      long waitTimeInMs)
+      long waitTimeInMs,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
       throws ShutdownBlazeServerException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
@@ -489,6 +501,39 @@ public class BlazeCommandDispatcher {
       }
 
       if (commonOptions.announceRcOptions) {
+        if (startupOptionsTaggedWithBazelRc.isPresent()) {
+          String lastBlazerc = "";
+          List<String> accumulatedStartupOptions = new ArrayList<>();
+          for (Pair<String, String> option : startupOptionsTaggedWithBazelRc.get()) {
+            // Do not include the command line options, marked by the empty string.
+            if (option.getFirst().isEmpty()) {
+              continue;
+            }
+
+            // If we've moved to a new blazerc in the list, print out the info from the last one,
+            // and clear the accumulated list.
+            if (!lastBlazerc.isEmpty() && !option.getFirst().equals(lastBlazerc)) {
+              String logMessage =
+                  String.format(
+                      "Reading 'startup' options from %s: %s",
+                      lastBlazerc, String.join(", ", accumulatedStartupOptions));
+              reporter.handle(Event.info(logMessage));
+              accumulatedStartupOptions = new ArrayList<>();
+            }
+
+            lastBlazerc = option.getFirst();
+            accumulatedStartupOptions.add(option.getSecond());
+          }
+          // Print out the final blazerc-grouped list, if any startup options were provided by
+          // blazerc.
+          if (!lastBlazerc.isEmpty()) {
+            String logMessage =
+                String.format(
+                    "Reading 'startup' options from %s: %s",
+                    lastBlazerc, String.join(", ", accumulatedStartupOptions));
+            reporter.handle(Event.info(logMessage));
+          }
+        }
         for (String note : rcfileNotes) {
           reporter.handle(Event.info(note));
         }
@@ -546,14 +591,21 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * For testing ONLY. Same as {@link #exec}, but automatically
-   * uses the current time.
+   * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
+   * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
    */
   @VisibleForTesting
-  public int exec(List<String> args, LockingMode lockingMode, String clientDescription,
-      OutErr originalOutErr) throws ShutdownBlazeServerException, InterruptedException {
-    return exec(InvocationPolicy.getDefaultInstance(), args, originalOutErr, LockingMode.ERROR_OUT,
-        clientDescription, runtime.getClock().currentTimeMillis());
+  public int exec(
+      List<String> args, LockingMode lockingMode, String clientDescription, OutErr originalOutErr)
+      throws ShutdownBlazeServerException, InterruptedException {
+    return exec(
+        InvocationPolicy.getDefaultInstance(),
+        args,
+        originalOutErr,
+        LockingMode.ERROR_OUT,
+        clientDescription,
+        runtime.getClock().currentTimeMillis(),
+        Optional.empty() /* startupOptionBundles */);
   }
 
   /**
@@ -590,7 +642,7 @@ public class BlazeCommandDispatcher {
     // handler, and later replayed.
     ExitCode earlyExitCode =
         checkCwdInWorkspace(workspace, commandAnnotation, commandName, eventHandler);
-    if (earlyExitCode != ExitCode.SUCCESS) {
+    if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
       return earlyExitCode;
     }
 

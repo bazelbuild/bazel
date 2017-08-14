@@ -110,13 +110,14 @@ function test_bazelrc_option() {
     cp ${bazelrc} ${new_workspace_dir}/.${PRODUCT_NAME}rc
 
     echo "build --cpu=armeabi-v7a" >>.${PRODUCT_NAME}rc    # default bazelrc
-    $PATH_TO_BAZEL_BIN info >/dev/null 2>$TEST_log
+    $PATH_TO_BAZEL_BIN info --announce_rc >/dev/null 2>$TEST_log
     expect_log "Reading.*$(pwd)/.${PRODUCT_NAME}rc:
 .*--cpu=armeabi-v7a"
 
     cp .${PRODUCT_NAME}rc foo
     echo "build --cpu=armeabi-v7a"   >>foo         # non-default bazelrc
-    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info >/dev/null 2>$TEST_log
+    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info --announce_rc >/dev/null \
+      2>$TEST_log
     expect_log "Reading.*$(pwd)/foo:
 .*--cpu=armeabi-v7a"
 }

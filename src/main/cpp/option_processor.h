@@ -28,6 +28,10 @@ namespace blaze {
 
 class WorkspaceLayout;
 
+// Broken down structure of the command line into logical components. The raw
+// arguments should not be referenced after this structure exists. This
+// breakdown should suffice to access the parts of the command line that the
+// client cares about, notably the binary and startup startup options.
 struct CommandLine {
   const std::string path_to_binary;
   const std::vector<std::string> startup_args;
@@ -63,7 +67,7 @@ class OptionProcessor {
   // result.path_to_binary = "output/bazel"
   // result.startup_args = {"--foo", "--bar=42", "--bar=blah"}
   // result.command = "build"
-  // result.command_args = {"--some_flag", "value", ":mytarget"}
+  // result.command_args = {"--myflag", "value", ":mytarget"}
   //
   // Note that result.startup_args is guaranteed to contain only valid
   // startup options (w.r.t. StartupOptions::IsUnary and
@@ -104,6 +108,11 @@ class OptionProcessor {
       const std::string& workspace, std::string* user_blazerc_file,
       std::string* error);
 
+  // Prints a message about the origin of startup options. This should be called
+  // if the server is not started or called, in case the options are related
+  // to the failure. Otherwise, the server will handle any required logging.
+  void PrintStartupOptionsProvenanceMessage() const;
+
  private:
   class RcOption {
    public:
@@ -123,7 +132,7 @@ class OptionProcessor {
     blaze_exit_code::ExitCode Parse(
         const std::string& workspace, const WorkspaceLayout* workspace_layout,
         std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption> >* rcoptions,
+        std::map<std::string, std::vector<RcOption>>* rcoptions,
         std::string* error);
     const std::string& Filename() const { return filename_; }
     const int Index() const { return index_; }
@@ -133,7 +142,7 @@ class OptionProcessor {
         const std::string& workspace, const std::string& filename,
         const int index, const WorkspaceLayout* workspace_layout,
         std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption> >* rcoptions,
+        std::map<std::string, std::vector<RcOption>>* rcoptions,
         std::list<std::string>* import_stack, std::string* error);
 
     std::string filename_;

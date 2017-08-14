@@ -51,6 +51,21 @@ message RunRequest {
   // between batch and server mode, so the parsing logic is only in the Java
   // code.
   string invocation_policy = 5;
+
+  // Startup arguments, in the order they were applied, tagged with where they
+  // came from. These options have already been parsed and already have had
+  // their effect. This information should only be used for logging.
+  repeated StartupOption startup_options = 6;
+}
+
+// Contains the a startup option with its source file. Uses bytes to preserve
+// the way the user inputted the arguments, like the args in RunRequest.
+message StartupOption {
+  // Startup option in --nullaryflag or --unaryflag=value form.
+  bytes option = 1;
+  // Where the option came from, such as an rc file or an empty string for the
+  // command line.
+  bytes source = 2;
 }
 
 // Contains metadata and result data for a command execution.

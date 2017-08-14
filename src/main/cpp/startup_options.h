@@ -61,7 +61,8 @@ class UnaryStartupFlag : public StartupFlag {
   const std::string name_;
 };
 
-// A startup flag parsed from a bazelrc file.
+// A startup flag tagged with its origin, either an rc file or the empty
+// string for the ones specified in the command line.
 // For instance, RcStartupFlag("somepath/.bazelrc", "--foo") is used to
 // represent that the line "startup --foo" was found when parsing
 // "somepath/.bazelrc".
@@ -266,6 +267,10 @@ class StartupOptions {
 
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
+
+  // The startup options as received from the user and rc files, tagged with
+  // their origin. This is populated by ProcessArgs.
+  std::vector<RcStartupFlag> original_startup_options_;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

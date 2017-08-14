@@ -761,6 +761,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
+      globals->option_processor->PrintStartupOptionsProvenanceMessage();
       fprintf(stderr,
               "\nunexpected pipe read status: %s\n"
               "Server presumed dead. Now printing '%s':\n",
@@ -1148,6 +1149,7 @@ static void ParseOptions(int argc, const char *argv[]) {
           args, globals->workspace, globals->cwd, &error);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
+    globals->option_processor->PrintStartupOptionsProvenanceMessage();
     die(parse_exit_code, "%s", error.c_str());
   }
   globals->options = globals->option_processor->GetParsedStartupOptions();
@@ -1622,6 +1624,17 @@ unsigned int GrpcBlazeServer::Communicate() {
   if (globals->options->invocation_policy != NULL &&
       strlen(globals->options->invocation_policy) > 0) {
     request.set_invocation_policy(globals->options->invocation_policy);
+  }
+
+  const StartupOptions *startup_options(
+      globals->option_processor->GetParsedStartupOptions());
+  for (const auto &startup_option :
+       startup_options->original_startup_options_) {
+    command_server::StartupOption *proto_option_field =
+        request.add_startup_options();
+    request.add_startup_options();
+    proto_option_field->set_source(startup_option.source);
+    proto_option_field->set_option(startup_option.value);
   }
 
   grpc::ClientContext context;

@@ -190,9 +190,10 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean announceRcOptions;
 
   /**
-   * These are the actual default overrides. Each value is a pair of (command name, value).
+   * These are the actual default overrides. Each value is a tuple of (bazelrc index, command name,
+   * value). The blazerc index is a number used to find the blazerc in --rc_source's values.
    *
-   * <p>For example: "--default_override=build=--cpu=piii"
+   * <p>For example: "--default_override=rc:build=--cpu=piii"
    */
   @Option(
     name = "default_override",

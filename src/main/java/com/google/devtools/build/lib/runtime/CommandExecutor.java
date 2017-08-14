@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.ServerCommand;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 /**
@@ -44,14 +47,22 @@ public class CommandExecutor implements ServerCommand {
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
-      BlazeCommandDispatcher.LockingMode lockingMode,
+      LockingMode lockingMode,
       String clientDescription,
-      long firstContactTime) throws InterruptedException {
+      long firstContactTime,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+      throws InterruptedException {
     LOG.info(BlazeRuntime.getRequestLogString(args));
 
     try {
-      return dispatcher.exec(invocationPolicy, args, outErr, lockingMode, clientDescription,
-          firstContactTime);
+      return dispatcher.exec(
+          invocationPolicy,
+          args,
+          outErr,
+          lockingMode,
+          clientDescription,
+          firstContactTime,
+          startupOptionsTaggedWithBazelRc);
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       if (e.getCause() != null) {
         StringWriter message = new StringWriter();

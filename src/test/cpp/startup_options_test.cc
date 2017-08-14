@@ -155,4 +155,77 @@ TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
   SuccessfulIsUnaryTest("output_user_root");
 }
 
+TEST_F(StartupOptionsTest, ProcessSpaceSeparatedArgsTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs"),
+      RcStartupFlag("somewhere", "42")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(42, startup_options_->max_idle_secs);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=42",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessEqualsSeparatedArgsTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=36")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(ec, blaze_exit_code::SUCCESS)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(36, startup_options_->max_idle_secs);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=36",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessIncorrectArgValueTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=notANumber")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::BAD_ARGV, ec)
+      << "ProcessArgs failed with the wrong error " << error;
+
+  // Even for a failing args processing step, expect the original value
+  // to be stored.
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=notANumber",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessArgsWithMultipleArgstest) {
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=36"),
+      RcStartupFlag("somewhereElse", "--nowrite_command_log")};
+
+  std::string error;
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(ec, blaze_exit_code::SUCCESS)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(36, startup_options_->max_idle_secs);
+  EXPECT_FALSE(startup_options_->write_command_log);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=36",
+            startup_options_->original_startup_options_[0].value);
+
+  EXPECT_EQ("somewhereElse",
+            startup_options_->original_startup_options_[1].source);
+  EXPECT_EQ("--nowrite_command_log",
+            startup_options_->original_startup_options_[1].value);
+}
+
 }  // namespace blaze

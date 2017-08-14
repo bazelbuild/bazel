@@ -37,12 +37,14 @@ cc_test(
     name = "option_processor_test",
     size = "small",
     srcs = ["option_processor_test.cc"],
+    tags = ["requires_internet"],
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:option_processor",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
         "//third_party:gtest",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 

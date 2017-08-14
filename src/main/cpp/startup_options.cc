@@ -90,7 +90,8 @@ StartupOptions::StartupOptions(const string &product_name,
       invocation_policy(NULL),
       client_debug(false),
       java_logging_formatter(
-          "com.google.devtools.build.lib.util.SingleLineFormatter") {
+          "com.google.devtools.build.lib.util.SingleLineFormatter"),
+      original_startup_options_(std::vector<RcStartupFlag>()) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -381,21 +382,31 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
     std::string *error) {
   std::vector<RcStartupFlag>::size_type i = 0;
   while (i < rcstartup_flags.size()) {
-    bool is_space_separated;
-    const bool is_last_elem = i == rcstartup_flags.size() - 1;
+    bool is_space_separated = false;
+    const std::string next_value =
+        (i == rcstartup_flags.size() - 1) ? "" : rcstartup_flags[i + 1].value;
     const blaze_exit_code::ExitCode process_arg_exit_code =
-        ProcessArg(rcstartup_flags[i].value,
-                   is_last_elem ? "" : rcstartup_flags[i + 1].value,
-                   rcstartup_flags[i].source,
-                   &is_space_separated,
-                   error);
+        ProcessArg(rcstartup_flags[i].value, next_value,
+                   rcstartup_flags[i].source, &is_space_separated, error);
+    // Store the provided option in --flag(=value)? form. Store these before
+    // propagating any error code, since we want to have the correct
+    // information for the output. The fact that the options aren't parseable
+    // doesn't matter for this step.
+    if (is_space_separated) {
+      const std::string combined_value =
+          rcstartup_flags[i].value + "=" + next_value;
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, combined_value));
+      i += 2;
+    } else {
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, rcstartup_flags[i].value));
+      i++;
+    }
+
     if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
       return process_arg_exit_code;
     }
-    if (is_space_separated) {
-      i++;
-    }
-    i++;
   }
   return blaze_exit_code::SUCCESS;
 }

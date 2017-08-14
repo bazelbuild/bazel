@@ -17,10 +17,11 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
-#include "src/main/cpp/workspace_layout.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/workspace_layout.h"
 #include "gtest/gtest.h"
+#include "re2/re2.h"
 
 namespace blaze {
 
@@ -167,8 +168,7 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
             option_processor_->GetExplicitCommandArguments());
 }
 
-
-TEST_F(OptionProcessorTest, CommandLineBlazercTest) {
+TEST_F(OptionProcessorTest, CommandLineBazelrcTest) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
   ASSERT_TRUE(blaze_util::MakeDirectories(
@@ -185,9 +185,25 @@ TEST_F(OptionProcessorTest, CommandLineBlazercTest) {
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))
                 << error;
   ASSERT_EQ(expected_error, error);
+
+  // Check that the startup option option provenance message prints the correct
+  // information for the incorrect flag, and does not print the command-line
+  // provided startup flags.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*mybazelrc: "
+            "--foo\n");
+      },
+      output);
 }
 
-TEST_F(OptionProcessorTest, NoMasterBlazercAndBlazercWorkTogetherCorrectly) {
+TEST_F(OptionProcessorTest, NoMasterBazelrcAndBazelrcWorkTogetherCorrectly) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
   ASSERT_TRUE(blaze_util::MakeDirectories(
@@ -211,6 +227,150 @@ TEST_F(OptionProcessorTest, NoMasterBlazercAndBlazercWorkTogetherCorrectly) {
                 << error;
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  // Check that the startup option option provenance message prints the correct
+  // information for the provided rc, and prints nothing for the master bazelrc.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*mybazelrc: "
+            "--max_idle_secs=123\n");
+      },
+      output);
+}
+
+TEST_F(OptionProcessorTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
+  // Add startup flags to the master bazelrc.
+  const std::string master_rc_path =
+      blaze_util::JoinPath(workspace_, "tools/bazel.rc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(master_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile(
+      "startup --max_idle_secs=42\nstartup --io_nice_level=6", master_rc_path,
+      0755));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
+
+  EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+  EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
+
+  // Check that the startup options get grouped together properly in the output
+  // message.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*tools.*bazel.rc: "
+            "--max_idle_secs=42 --io_nice_level=6\n");
+      },
+      output);
+}
+
+TEST_F(OptionProcessorTest, CustomBazelrcOverridesMasterBazelrc) {
+  // Add startup flags to the master bazelrc.
+  const std::string master_rc_path =
+      blaze_util::JoinPath(workspace_, "tools/bazel.rc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(master_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile(
+      "startup --max_idle_secs=42\nstartup --io_nice_level=6", master_rc_path,
+      0755));
+
+  // Override one of the master bazelrc's flags in the custom bazelrc.
+  const std::string cmdline_rc_path =
+      blaze_util::JoinPath(workspace_, "mybazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(cmdline_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123",
+                                    cmdline_rc_path, 0755));
+  const std::vector<std::string> args = {
+      "bazel", "--bazelrc=" + cmdline_rc_path, "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
+
+  EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+  EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
+
+  // Check that the options are reported in the correct order in the provenance
+  // message.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*tools.*bazel.rc: "
+            "--max_idle_secs=42 --io_nice_level=6\n"
+            "INFO: Reading 'startup' options from .*mybazelrc: "
+            "--max_idle_secs=123\n");
+      },
+      output);
+}
+
+TEST_F(OptionProcessorTest, BazelRcImportsMaintainsFlagOrdering) {
+  // Override one of the master bazelrc's flags in the custom bazelrc.
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile(
+      "startup --max_idle_secs=123\nstartup --io_nice_level=4",
+      imported_rc_path, 0755));
+
+  // Add startup flags the imported bazelrc.
+  const std::string master_rc_path =
+      blaze_util::JoinPath(workspace_, "tools/bazel.rc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(master_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=42\nimport " +
+                                        imported_rc_path +
+                                        "\nstartup --io_nice_level=6",
+                                    master_rc_path, 0755));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
+
+  EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+  EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
+
+  // Check that the options are reported in the correct order in the provenance
+  // message, the imported file between the two master flags
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*tools.*bazel.rc: "
+            "--max_idle_secs=42\n"
+            "INFO: Reading 'startup' options from .*myimportedbazelrc: "
+            "--max_idle_secs=123 --io_nice_level=4\n"
+            "INFO: Reading 'startup' options from .*tools.*bazel.rc: "
+            "--io_nice_level=6\n");
+      },
+      output);
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithEmptyArgs) {

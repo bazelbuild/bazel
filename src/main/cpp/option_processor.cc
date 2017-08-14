@@ -86,7 +86,6 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
   // A '\' at the end of a line continues the line.
   blaze_util::Replace("\\\r\n", "", &contents);
   blaze_util::Replace("\\\n", "", &contents);
-  vector<string> startup_options;
 
   vector<string> lines = blaze_util::Split(contents, '\n');
   for (string& line : lines) {
@@ -153,19 +152,10 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
       words_it++;  // Advance past command.
       for (; words_it != words.end(); words_it++) {
         (*rcoptions)[command].push_back(RcOption(index, *words_it));
-        if (command == "startup") {
-          startup_options.push_back(*words_it);
-        }
       }
     }
   }
 
-  if (!startup_options.empty()) {
-    string startup_args;
-    blaze_util::JoinStrings(startup_options, ' ', &startup_args);
-    fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
-            filename.c_str(), startup_args.c_str());
-  }
   return blaze_exit_code::SUCCESS;
 }
 
@@ -389,8 +379,50 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   return blaze_exit_code::SUCCESS;
 }
 
+static void PrintStartupOptions(const std::string& source,
+                                const std::vector<std::string>& options) {
+  if (!source.empty()) {
+    std::string startup_args;
+    blaze_util::JoinStrings(options, ' ', &startup_args);
+    fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
+            source.c_str(), startup_args.c_str());
+  }
+}
+
+void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
+  StartupOptions* parsed_startup_options = GetParsedStartupOptions();
+
+  // Print the startup flags in the order they are parsed, to keep the
+  // precendence clear. In order to minimize the number of lines of output in
+  // the terminal, group sequential flags by origin. Note that an rc file may
+  // turn up multiple times in this list, if, for example, it imports another
+  // rc file and contains startup options on either side of the import
+  // statement. This is done intentionally to make option priority clear.
+  std::string command_line_source;
+  std::string& most_recent_blazerc = command_line_source;
+  std::vector<std::string> accumulated_options;
+  for (auto flag : parsed_startup_options->original_startup_options_) {
+    if (flag.source == most_recent_blazerc) {
+      accumulated_options.push_back(flag.value);
+    } else {
+      PrintStartupOptions(most_recent_blazerc, accumulated_options);
+      // Start accumulating again.
+      accumulated_options.clear();
+      accumulated_options.push_back(flag.value);
+      most_recent_blazerc = flag.source;
+    }
+  }
+  // Don't forget to print out the last ones.
+  PrintStartupOptions(most_recent_blazerc, accumulated_options);
+}
+
 blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
     std::string *error) {
+  // Rc files can import other files at any point, and these imported rcs are
+  // expanded in place. The effective ordering of rc flags is stored in
+  // rcoptions_ and should be processed in that order. Here, we isolate just the
+  // startup options, but keep the file they came from attached for the
+  // option_sources tracking and for sending to the server.
   std::vector<RcStartupFlag> rcstartup_flags;
 
   auto iter = rcoptions_.find("startup");
@@ -482,8 +514,8 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     result.push_back("--rc_source=" + blaze::ConvertPath(blazerc->Filename()));
   }
 
-  // Process RcOptions exept for the startup flags that are already parsed
-  // by the client and shouldn't be handled by defult_overrides.
+  // Process RcOptions except for the startup flags that are already parsed
+  // by the client and shouldn't be included in the command args.
   for (auto it = rcoptions.begin(); it != rcoptions.end(); ++it) {
     if (it->first != "startup") {
       for (const RcOption& rcoption : it->second) {
