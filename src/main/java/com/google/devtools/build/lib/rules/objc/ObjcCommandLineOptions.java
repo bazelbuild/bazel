@@ -239,18 +239,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean deviceDebugEntitlements;
 
-  @Option(
-    name = "deprecated_generate_xcode_project",
-    defaultValue = "false",
-    category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help =
-        "If set, will generate xcode project for targets that support this. Will be removed soon."
-  )
-  public boolean generateXcodeProject;
-
   /** Specifies the circumstances under which a CROSSTOOL is used for objc in this configuration. */
   public enum ObjcCrosstoolMode {
     /** The CROSSTOOL is used for all objc compile, archive, and link actions. */

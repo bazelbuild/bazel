@@ -78,7 +78,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final int objcHeaderThinningPartitionSize;
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
-  private final boolean generateXcodeProject;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -116,7 +115,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
-    this.generateXcodeProject = objcOptions.generateXcodeProject;
   }
 
   /**
@@ -332,12 +330,5 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns the label for the Apple SDK for current build configuration. */
   public Label getAppleSdk() {
     return appleSdk;
-  }
-
-  /**
-   * Returns {@code true} if an xcodegen project should be added to a target's files to build.
-   */
-  public boolean generateXcodeProject() {
-    return this.generateXcodeProject;
   }
 }
