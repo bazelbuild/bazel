@@ -150,11 +150,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider provider = providerForTarget("//package:test");
-    // Do not remove SDK_FRAMEWORK or GENERAL_RESOURCE_FILE values in avoid_deps.
+    // Do not remove SDK_FRAMEWORK values in avoid_deps.
     assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
         .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.GENERAL_RESOURCE_FILE)))
-        .containsExactly("package/base.png");
   }
 
   @Test

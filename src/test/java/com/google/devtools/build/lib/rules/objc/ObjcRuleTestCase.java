@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.LegacyCompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
@@ -2123,8 +2122,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getSourceArtifact("x/subdir_for_no_reason/en.lproj/loc.storyboard"),
         getSourceArtifact("x/ja.lproj/loc.storyboard"));
 
-    assertThat(provider.get(GENERAL_RESOURCE_FILE))
-        .containsExactlyElementsIn(storyboardInputs);
     assertThat(provider.get(STORYBOARD))
         .containsExactlyElementsIn(storyboardInputs);
   }

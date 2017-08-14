@@ -56,8 +56,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       ImmutableSet.<Key<?>>of(
           ObjcProvider.ASSET_CATALOG,
           ObjcProvider.BUNDLE_FILE,
-          ObjcProvider.GENERAL_RESOURCE_DIR,
-          ObjcProvider.GENERAL_RESOURCE_FILE,
           ObjcProvider.SDK_DYLIB,
           ObjcProvider.SDK_FRAMEWORK,
           ObjcProvider.STORYBOARD,

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEBUG_SYMBOLS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEBUG_SYMBOLS_PLIST;
@@ -27,8 +26,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -409,10 +406,6 @@ public final class ObjcCommon {
           new ObjcProvider.Builder()
               .addAll(IMPORTED_LIBRARY, extraImportLibraries)
               .addAll(BUNDLE_FILE, bundleImports)
-              .addAll(
-                  BUNDLE_IMPORT_DIR,
-                  uniqueContainers(
-                      BundleableFile.toArtifacts(bundleImports), BUNDLE_CONTAINER_TYPE))
               .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
               .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
               .addAll(SDK_DYLIB, extraSdkDylibs)
@@ -490,12 +483,6 @@ public final class ObjcCommon {
       if (resourceAttributes.isPresent()) {
         ResourceAttributes attributes = resourceAttributes.get();
         objcProvider
-            .addAll(GENERAL_RESOURCE_FILE, attributes.storyboards())
-            .addAll(GENERAL_RESOURCE_FILE, attributes.resources())
-            .addAll(GENERAL_RESOURCE_FILE, attributes.strings())
-            .addAll(GENERAL_RESOURCE_FILE, attributes.xibs())
-            .addAll(
-                GENERAL_RESOURCE_DIR, xcodeStructuredResourceDirs(attributes.structuredResources()))
             .addAll(BUNDLE_FILE, BundleableFile.flattenedRawResourceFiles(attributes.resources()))
             .addAll(
                 BUNDLE_FILE,
@@ -513,7 +500,6 @@ public final class ObjcCommon {
       if (useLaunchStoryboard(context)) {
         Artifact launchStoryboard =
             context.getPrerequisiteArtifact("launch_storyboard", Mode.TARGET);
-        objcProvider.add(GENERAL_RESOURCE_FILE, launchStoryboard);
         if (ObjcRuleClasses.STORYBOARD_TYPE.matches(launchStoryboard.getPath())) {
           objcProvider.add(STORYBOARD, launchStoryboard);
         } else {
@@ -704,30 +690,6 @@ public final class ObjcCommon {
     for (Artifact artifact : artifacts) {
       containers.addAll(ObjcCommon.nearestContainerMatching(containerType, artifact).asSet());
     }
-    return containers.build();
-  }
-
-  /**
-   * Returns the Xcode structured resource directory paths.
-   *
-   * <p>For a checked-in source artifact "//a/b/res/sub_dir/d" included by objc rule "//a/b:c",
-   * "a/b/res" will be returned. For a generated source artifact "res/sub_dir/d" owned by genrule
-   * "//a/b:c", "bazel-out/.../genfiles/a/b/res" will be returned.
-   *
-   * <p>When XCode sees a included resource directory of "a/b/res", the entire directory structure
-   * up to "res" will be copied into the app bundle.
-   */
-  static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
-    ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
-    for (Artifact artifact : artifacts) {
-      PathFragment ownerRuleDirectory =
-          artifact.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
-      String containerName =
-          artifact.getRootRelativePath().relativeTo(ownerRuleDirectory).getSegment(0);
-      PathFragment rootExecPath = artifact.getRoot().getExecPath();
-      containers.add(rootExecPath.getRelative(ownerRuleDirectory.getRelative(containerName)));
-    }
-
     return containers.build();
   }
 
