@@ -176,6 +176,10 @@ def _validate_rule_and_deps(ctx):
     if not _is_valid_swift_module_name(dep.label.name):
       fail(name_error_str % dep.label)
 
+  for dep in ctx.attr.non_propagated_Deps:
+    if not _is_valid_swift_module_name(dep.label.name):
+      fail(name_error_str % dep.label)
+
 
 def swiftc_inputs(ctx):
   """Determine the list of inputs required for the compile action.
@@ -186,8 +190,9 @@ def swiftc_inputs(ctx):
   Returns:
     A list of files needed by swiftc.
   """
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  all_deps = ctx.attr.deps + ctx.attr.non_propagated_deps
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   dep_modules = []
   for swift in swift_providers:
@@ -241,8 +246,8 @@ def swiftc_args(ctx):
   dep_modules = []
   swiftc_defines = ctx.attr.defines
 
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   for swift in swift_providers:
     dep_modules += swift.transitive_modules
@@ -295,13 +300,7 @@ def swiftc_args(ctx):
       # Pass DEFINE or copt values from objc configuration and rules to clang
       + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
       + _clang_compilation_mode_flags(ctx)
-
-      # Load module maps explicitly instead of letting Clang discover them on
-      # search paths. This is needed to avoid a case where Clang may load the
-      # same header both in modular and non-modular contexts, leading to
-      # duplicate definitions in the same file.
-      # https://llvm.org/bugs/show_bug.cgi?id=19501
-      + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
+  )
 
   args = [
       "-emit-object",
@@ -346,8 +345,8 @@ def _swift_library_impl(ctx):
   dep_libs = []
   swiftc_defines = ctx.attr.defines
 
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   for swift in swift_providers:
     dep_libs += swift.transitive_libs
@@ -404,8 +403,11 @@ def _swift_library_impl(ctx):
   ctx.file_action(output=swiftc_output_map_file, content=swiftc_output_map.to_json())
 
   args = _swift_xcrun_args(ctx) + ["swiftc"] + swiftc_args(ctx)
+  args += sorted(set(["-I" + d.dirname for d in dep_modules + [output_module]]))
+
   args += [
-      "-I" + output_module.dirname,
+      "-Xcc", "-fmodule-map-file=" + unextended_modulemap.path,
+      "-import-underlying-module",
       "-emit-module-path",
       output_module.path,
       "-emit-objc-header-path",
@@ -424,7 +426,7 @@ def _swift_library_impl(ctx):
 
   xcrun_action(
       ctx,
-      inputs=swiftc_inputs(ctx) + [swiftc_output_map_file],
+      inputs=swiftc_inputs(ctx) + [swiftc_output_map_file, unextended_modulemap],
       outputs=[output_module, output_header] + output_objs + swiftc_outputs,
       mnemonic="SwiftCompile",
       arguments=args,
@@ -469,6 +471,7 @@ def _swift_library_impl(ctx):
 SWIFT_LIBRARY_ATTRS = {
     "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
     "deps": attr.label_list(providers=[["swift"], ["objc"]]),
+    "non_propagated_deps": attr.label_list(providers=[["swift"], ["objc"]]),
     "module_name": attr.string(mandatory=False),
     "defines": attr.string_list(mandatory=False, allow_empty=True),
     "copts": attr.string_list(mandatory=False, allow_empty=True),

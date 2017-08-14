@@ -48,14 +48,17 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAME
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_NAME;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -74,9 +77,11 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -560,12 +565,16 @@ public final class ObjcCommon {
 
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+        Artifact moduleMapArtifact = moduleMap.getArtifact();
+
+        objcProvider.add(MODULE_MAP, moduleMapArtifact);
+
         Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
         if (umbrellaHeader.isPresent()) {
           objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
         }
-        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
-        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
+        objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_MAP, Collections.singleton(moduleMapArtifact));
+        objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_NAME, Collections.singleton(moduleMap.getName()));
       }
 
       objcProvider
@@ -595,7 +604,7 @@ public final class ObjcCommon {
         return false;
       }
     }
-    
+
     /**
      * Returns {@code true} if the given rule context has a launch storyboard set.
      */
@@ -651,6 +660,36 @@ public final class ObjcCommon {
     return Iterables.concat(
         ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
         ruleContext.getTokenizedStringListAttr("copts"));
+  }
+
+
+  /**
+   * Determines clang module name for a rule. The default is the fully qualified label with
+   * underscores replacing reserved characters.
+   *
+   * It can be overridden with the "module_name" attribute of objc_library.
+   *
+   * User-defined module names are not validated since it is legal in the clang modulemap language
+   * to use an arbitrary string literal, however it is not possible to use {@code @import} syntax
+   * for modules names that contain symbols, spaces, etc.
+   */
+  static String getClangModuleName(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("module_name", STRING)) {
+      String moduleName = ruleContext.attributes().get("module_name", STRING);
+      if (!Strings.isNullOrEmpty(moduleName)) {
+        return moduleName;
+      }
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return
+        ruleContext
+            .getLabel()
+            .toString()
+            .replace("//", "")
+            .replace("@", "")
+            .replace("/", "_")
+            .replace(":", "_");
   }
 
   static ImmutableSet<PathFragment> userHeaderSearchPaths(

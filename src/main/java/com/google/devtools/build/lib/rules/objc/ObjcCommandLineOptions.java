@@ -355,6 +355,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Override
   public FragmentOptions getHost(boolean fallback) {
     ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost(fallback);
+    host.enableModuleMaps = this.enableModuleMaps;
     // This should have the same value in both target and host configurations
     host.objcHeaderScannerTool = this.objcHeaderScannerTool;
     return host;

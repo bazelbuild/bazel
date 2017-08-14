@@ -433,14 +433,8 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    String moduleName =
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("@", "")
-            .replace("/", "_")
-            .replace(":", "_");
+    String moduleName = ObjcCommon.getClangModuleName(ruleContext);
+
  
     Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
     if (customModuleMap.isPresent()) {
@@ -449,12 +443,14 @@ public final class IntermediateArtifacts {
       // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
       // parent directory in the module map search paths.
       return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"),
+          appendExtensionInGenfiles(".modulemaps/" + moduleName + ".modulemap"),
           appendExtensionInGenfiles(".modulemaps/umbrella.h"),
           moduleName);
     } else {
       return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+          appendExtensionInGenfiles(".modulemaps/" + moduleName + ".modulemap"),
+          moduleName
+        );
     }
   }
 

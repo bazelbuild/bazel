@@ -177,6 +177,9 @@ public class FileSystemUtilsTest {
     assertThat(relativePath(topDir, dirLink).getPathString()).isEqualTo("a-dir/inner-dir/dir-link");
     assertThat(relativePath(topDir, file4).getPathString()).isEqualTo("../file-4");
     assertThat(relativePath(innerDir, file4).getPathString()).isEqualTo("../../../file-4");
+
+    assertThat(relativePath(PathFragment.create("foo/baz/aaa/boo"),
+        PathFragment.create("foo/baz/bbb/boo")).getPathString()).isEqualTo("../../bbb/boo");
   }
 
   @Test

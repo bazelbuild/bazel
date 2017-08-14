@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.base.Predicate;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
@@ -32,6 +30,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
  * Helper functions that implement often-used complex operations on file
@@ -84,12 +84,17 @@ public class FileSystemUtils {
    * Returns the longest common ancestor of the two path fragments, or either "/" or "" (depending
    * on whether {@code a} is absolute or relative) if there is none.
    */
-  public static PathFragment commonAncestor(PathFragment a, PathFragment b) {
-    while (a != null && !b.startsWith(a)) {
-      a = a.getParentDirectory();
+  public static PathFragment /**/commonAncestor(PathFragment a, PathFragment b) {
+    int commonIdx = 0;
+
+    while (a != null
+        && a.segmentCount() > commonIdx
+        && b.segmentCount() > commonIdx
+        && a.getSegment(commonIdx).equals(b.getSegment(commonIdx))) {
+      commonIdx += 1;
     }
 
-    return a;
+    return a.subFragment(0, commonIdx);
   }
   /**
    * Returns a path fragment from a given from-dir to a given to-path. May be
