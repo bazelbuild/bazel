@@ -2157,7 +2157,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsExactlyElementsIn(
             new Builder()
                 .add(MOCK_IBTOOLWRAPPER_PATH)
-                .add(storyboardZip)
+                .addExecPath(storyboardZip)
                 .addDynamicString(archiveRoot) // archive root
                 .add("--minimum-deployment-target", minimumOsVersion.toString())
                 .add("--module")
@@ -2180,7 +2180,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsExactlyElementsIn(
             new Builder()
                 .add(MOCK_IBTOOLWRAPPER_PATH)
-                .add(storyboardZip)
+                .addExecPath(storyboardZip)
                 .addDynamicString(archiveRoot) // archive root
                 .add("--minimum-deployment-target", minimumOsVersion.toString())
                 .add("--module")
@@ -2217,10 +2217,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     }
 
     expectedCommandLine
-        .add("--output_zip_path", swiftLibsZip)
+        .addExecPath("--output_zip_path", swiftLibsZip)
         .add("--bundle_path", bundlePath)
         .add("--platform", platformName)
-        .add("--scan-executable", binary);
+        .addExecPath("--scan-executable", binary);
 
     assertThat(toolAction.getArguments()).isEqualTo(expectedCommandLine.build().arguments());
   }
@@ -3870,7 +3870,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo(
             new CustomCommandLine.Builder()
                 .add(MOCK_IBTOOLWRAPPER_PATH)
-                .add(storyboardZip)
+                .addExecPath(storyboardZip)
                 .add("launch.storyboardc")
                 .add("--minimum-deployment-target")
                 .add("8.1")

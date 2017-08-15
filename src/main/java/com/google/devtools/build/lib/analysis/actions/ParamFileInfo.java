@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -31,7 +32,11 @@ public final class ParamFileInfo {
   private final String flag;
   private final boolean always;
 
-  public ParamFileInfo(ParameterFileType fileType, Charset charset, String flag, boolean always) {
+  public ParamFileInfo(
+      ParameterFileType fileType,
+      Charset charset,
+      @CompileTimeConstant String flag,
+      boolean always) {
     this.fileType = Preconditions.checkNotNull(fileType);
     this.charset = Preconditions.checkNotNull(charset);
     this.flag = Preconditions.checkNotNull(flag);

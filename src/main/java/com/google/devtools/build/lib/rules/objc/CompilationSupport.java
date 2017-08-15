@@ -882,7 +882,7 @@ public abstract class CompilationSupport {
         treeObjFiles.add(objFile);
         objFilesToLinkParam.addExpandedTreeArtifactExecPaths(objFile);
       } else {
-        objFilesToLinkParam.add(objFile.getExecPath());
+        objFilesToLinkParam.addPath(objFile.getExecPath());
       }
     }
 
@@ -1074,15 +1074,16 @@ public abstract class CompilationSupport {
 
       CustomCommandLine commandLine =
           CustomCommandLine.builder()
-              .add("--input_archive", j2objcArchive)
-              .add("--output_archive", prunedJ2ObjcArchive)
-              .add("--dummy_archive", dummyArchive)
-              .add("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
-              .add(
+              .addExecPath("--input_archive", j2objcArchive)
+              .addExecPath("--output_archive", prunedJ2ObjcArchive)
+              .addExecPath("--dummy_archive", dummyArchive)
+              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
+              .addExecPaths(
                   "--dependency_mapping_files",
                   VectorArg.of(j2ObjcDependencyMappingFiles).joinWith(","))
-              .add("--header_mapping_files", VectorArg.of(j2ObjcHeaderMappingFiles).joinWith(","))
-              .add(
+              .addExecPaths(
+                  "--header_mapping_files", VectorArg.of(j2ObjcHeaderMappingFiles).joinWith(","))
+              .addExecPaths(
                   "--archive_source_mapping_files",
                   VectorArg.of(j2ObjcArchiveSourceMappingFiles).joinWith(","))
               .add("--entry_classes")
@@ -1168,8 +1169,8 @@ public abstract class CompilationSupport {
     return CustomCommandLine.builder()
         .add(STRIP)
         .add(extraFlags)
-        .add("-o", strippedArtifact)
-        .add(unstrippedArtifact.getExecPath())
+        .addExecPath("-o", strippedArtifact)
+        .addPath(unstrippedArtifact.getExecPath())
         .build();
   }
 
@@ -1396,7 +1397,7 @@ public abstract class CompilationSupport {
                 XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
-      cmdLine.add(
+      cmdLine.addPaths(
           VectorArg.of(
                   ImmutableList.of(
                       info.sourceFile.getExecPath(), info.headersListFile.getExecPath()))

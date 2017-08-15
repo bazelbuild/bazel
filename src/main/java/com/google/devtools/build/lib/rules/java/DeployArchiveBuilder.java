@@ -170,7 +170,7 @@ public class DeployArchiveBuilder {
       Compression compress, Artifact launcher) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
-    args.add("--output", outputJar);
+    args.addExecPath("--output", outputJar);
     if (compress == Compression.COMPRESSED) {
       args.add("--compression");
     }
@@ -186,19 +186,19 @@ public class DeployArchiveBuilder {
 
     if (buildInfoFiles != null) {
       for (Artifact artifact : buildInfoFiles) {
-        args.add("--build_info_file", artifact);
+        args.addExecPath("--build_info_file", artifact);
       }
     }
     if (!includeBuildData) {
       args.add("--exclude_build_data");
     }
     if (launcher != null) {
-      args.add("--java_launcher", launcher);
+      args.addExecPath("--java_launcher", launcher);
     }
 
-    args.add("--classpath_resources", classpathResources);
+    args.addExecPaths("--classpath_resources", classpathResources);
     if (runtimeClasspath != null) {
-      args.add("--sources", ImmutableList.copyOf(runtimeClasspath));
+      args.addExecPaths("--sources", ImmutableList.copyOf(runtimeClasspath));
     }
     return args;
   }

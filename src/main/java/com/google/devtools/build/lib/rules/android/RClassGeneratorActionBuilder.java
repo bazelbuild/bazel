@@ -89,11 +89,11 @@ public class RClassGeneratorActionBuilder {
 
     List<Artifact> outs = new ArrayList<>();
     if (primary.getRTxt() != null) {
-      builder.add("--primaryRTxt", primary.getRTxt());
+      builder.addExecPath("--primaryRTxt", primary.getRTxt());
       inputs.add(primary.getRTxt());
     }
     if (primary.getManifest() != null) {
-      builder.add("--primaryManifest", primary.getManifest());
+      builder.addExecPath("--primaryManifest", primary.getManifest());
       inputs.add(primary.getManifest());
     }
     if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
@@ -115,7 +115,7 @@ public class RClassGeneratorActionBuilder {
                     .transformAndConcat(chooseDepsToArtifacts(version))));
       }
     }
-    builder.add("--classJarOutput", classJarOut);
+    builder.addExecPath("--classJarOutput", classJarOut);
     outs.add(classJarOut);
 
     // Create the spawn action.

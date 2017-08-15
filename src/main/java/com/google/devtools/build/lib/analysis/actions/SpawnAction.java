@@ -1068,7 +1068,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addArguments(Iterable<String> arguments) {
       Preconditions.checkState(commandLine == null);
       if (arguments instanceof NestedSet) {
-        commandLineBuilder.add((NestedSet) arguments);
+        commandLineBuilder.addExecPaths((NestedSet) arguments);
       } else {
         commandLineBuilder.add(ImmutableList.copyOf(arguments));
       }
@@ -1082,7 +1082,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addInputArgument(Artifact argument) {
       Preconditions.checkState(commandLine == null);
       addInput(argument);
-      commandLineBuilder.add(argument);
+      commandLineBuilder.addExecPath(argument);
       return this;
     }
 
@@ -1093,9 +1093,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addInputArguments(Iterable<Artifact> arguments) {
       addInputs(arguments);
       if (arguments instanceof NestedSet) {
-        commandLineBuilder.add((NestedSet) arguments);
+        commandLineBuilder.addExecPaths((NestedSet) arguments);
       } else {
-        commandLineBuilder.add(ImmutableList.copyOf(arguments));
+        commandLineBuilder.addExecPaths(ImmutableList.copyOf(arguments));
       }
       return this;
     }
@@ -1107,7 +1107,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addOutputArgument(Artifact argument) {
       Preconditions.checkState(commandLine == null);
       outputs.add(argument);
-      commandLineBuilder.add(argument);
+      commandLineBuilder.addExecPath(argument);
       return this;
     }
 
@@ -1285,12 +1285,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * artifact must be specified.
      */
     public Builder useParameterFile(
-        ParameterFileType parameterFileType, Charset charset, String flagPrefix) {
+        ParameterFileType parameterFileType,
+        Charset charset,
+        @CompileTimeConstant String flagPrefix) {
       return useParameterFile(parameterFileType, charset, flagPrefix, /*always=*/ false);
     }
 
     private Builder useParameterFile(
-        ParameterFileType parameterFileType, Charset charset, String flagPrefix, boolean always) {
+        ParameterFileType parameterFileType,
+        Charset charset,
+        @CompileTimeConstant String flagPrefix,
+        boolean always) {
       paramFileInfo = new ParamFileInfo(parameterFileType, charset, flagPrefix, always);
       return this;
     }

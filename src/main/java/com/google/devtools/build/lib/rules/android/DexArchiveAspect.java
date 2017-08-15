@@ -373,10 +373,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Artifact result) {
     CustomCommandLine args =
         new Builder()
-            .add("--input", jar)
-            .add("--output", result)
-            .add(VectorArg.of(classpath).beforeEach("--classpath_entry"))
-            .add(VectorArg.of(bootclasspath).beforeEach("--bootclasspath_entry"))
+            .addExecPath("--input", jar)
+            .addExecPath("--output", result)
+            .addExecPaths(VectorArg.of(classpath).beforeEach("--classpath_entry"))
+            .addExecPaths(VectorArg.of(bootclasspath).beforeEach("--bootclasspath_entry"))
             .build();
 
     // Just use params file, since classpaths can get long
@@ -427,8 +427,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
     CustomCommandLine args =
         new Builder()
-            .add("--input_jar", jar)
-            .add("--output_zip", dexArchive)
+            .addExecPath("--input_jar", jar)
+            .addExecPath("--output_zip", dexArchive)
             .add(ImmutableList.copyOf(incrementalDexopts))
             .build();
     Artifact paramFile =

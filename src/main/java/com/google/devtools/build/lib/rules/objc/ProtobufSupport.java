@@ -470,7 +470,7 @@ final class ProtobufSupport {
   private CustomCommandLine getGenerationCommandLine(Artifact protoInputsFile) {
     return new Builder()
         .add("--input-file-list")
-        .add(protoInputsFile)
+        .addExecPath(protoInputsFile)
         .add("--output-dir")
         .addDynamicString(getWorkspaceRelativeOutputDir().getSafePathString())
         .add("--force")
@@ -478,7 +478,7 @@ final class ProtobufSupport {
         .addDynamicString(getGenfilesPathString())
         .add("--proto-root-dir")
         .add(".")
-        .add(VectorArg.of(portableProtoFilters).beforeEach("--config"))
+        .addExecPaths(VectorArg.of(portableProtoFilters).beforeEach("--config"))
         .build();
   }
 

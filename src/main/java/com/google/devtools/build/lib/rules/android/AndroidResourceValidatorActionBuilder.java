@@ -157,7 +157,7 @@ public class AndroidResourceValidatorActionBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("LINK_STATIC_LIBRARY").add("--");
 
-    builder.add("--aapt2", sdk.getAapt2().getExecutable());
+    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
 
     FluentIterable<Artifact> libraries =
         FluentIterable.from(resourceDeps.getResources()).transform(
@@ -165,15 +165,15 @@ public class AndroidResourceValidatorActionBuilder {
 
     builder
         .add("--libraries")
-        .add(
+        .addExecPaths(
             VectorArg.of(ImmutableList.copyOf(libraries))
                 .joinWithDynamicString(context.getConfiguration().getHostPathSeparator()));
     inputs.addAll(libraries);
 
-    builder.add("--compiled", compiledSymbols);
+    builder.addExecPath("--compiled", compiledSymbols);
     inputs.add(compiledSymbols);
 
-    builder.add("--manifest", primary.getManifest());
+    builder.addExecPath("--manifest", primary.getManifest());
     inputs.add(validated.getManifest());
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
@@ -182,13 +182,13 @@ public class AndroidResourceValidatorActionBuilder {
       builder.add("--packageForR", customJavaPackage);
     }
 
-    builder.add("--sourceJarOut", aapt2SourceJarOut);
+    builder.addExecPath("--sourceJarOut", aapt2SourceJarOut);
     outs.add(aapt2SourceJarOut);
 
-    builder.add("--rTxtOut", aapt2RTxtOut);
+    builder.addExecPath("--rTxtOut", aapt2RTxtOut);
     outs.add(aapt2RTxtOut);
 
-    builder.add("--staticLibraryOut", staticLibraryOut);
+    builder.addExecPath("--staticLibraryOut", staticLibraryOut);
     outs.add(staticLibraryOut);
 
     ruleContext.registerAction(
@@ -225,21 +225,21 @@ public class AndroidResourceValidatorActionBuilder {
       builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
     }
 
-    builder.add("--aapt", sdk.getAapt().getExecutable());
+    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
 
     ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
 
-    builder.add("--annotationJar", sdk.getAnnotationsJar());
+    builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
 
-    builder.add("--androidJar", sdk.getAndroidJar());
+    builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     Preconditions.checkNotNull(mergedResources);
-    builder.add("--mergedResources", mergedResources);
+    builder.addExecPath("--mergedResources", mergedResources);
     inputs.add(mergedResources);
 
-    builder.add("--manifest", primary.getManifest());
+    builder.addExecPath("--manifest", primary.getManifest());
     inputs.add(primary.getManifest());
 
     if (debug) {
@@ -253,15 +253,15 @@ public class AndroidResourceValidatorActionBuilder {
     }
     List<Artifact> outs = new ArrayList<>();
     Preconditions.checkNotNull(rTxtOut);
-    builder.add("--rOutput", rTxtOut);
+    builder.addExecPath("--rOutput", rTxtOut);
     outs.add(rTxtOut);
 
     Preconditions.checkNotNull(sourceJarOut);
-    builder.add("--srcJarOutput", sourceJarOut);
+    builder.addExecPath("--srcJarOutput", sourceJarOut);
     outs.add(sourceJarOut);
 
     if (apkOut != null) {
-      builder.add("--packagePath", apkOut);
+      builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
 

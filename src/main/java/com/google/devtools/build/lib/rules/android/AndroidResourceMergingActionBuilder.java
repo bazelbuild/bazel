@@ -133,7 +133,7 @@ public class AndroidResourceMergingActionBuilder {
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
 
-    builder.add("--androidJar", sdk.getAndroidJar());
+    builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     Preconditions.checkNotNull(primary);
@@ -141,7 +141,7 @@ public class AndroidResourceMergingActionBuilder {
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
     Preconditions.checkNotNull(primary.getManifest());
-    builder.add("--primaryManifest", primary.getManifest());
+    builder.addExecPath("--primaryManifest", primary.getManifest());
     inputs.add(primary.getManifest());
 
     ResourceContainerConverter.convertDependencies(
@@ -149,19 +149,19 @@ public class AndroidResourceMergingActionBuilder {
 
     List<Artifact> outs = new ArrayList<>();
     if (classJarOut != null) {
-      builder.add("--classJarOutput", classJarOut);
+      builder.addExecPath("--classJarOutput", classJarOut);
       outs.add(classJarOut);
     }
 
     if (mergedResourcesOut != null) {
-      builder.add("--resourcesOutput", mergedResourcesOut);
+      builder.addExecPath("--resourcesOutput", mergedResourcesOut);
       outs.add(mergedResourcesOut);
     }
 
     // For now, do manifest processing to remove placeholders that aren't handled by the legacy
     // manifest merger. Remove this once enough users migrate over to the new manifest merger.
     if (manifestOut != null) {
-      builder.add("--manifestOutput", manifestOut);
+      builder.addExecPath("--manifestOutput", manifestOut);
       outs.add(manifestOut);
     }
 
@@ -174,7 +174,7 @@ public class AndroidResourceMergingActionBuilder {
     // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
     // aapt2 builds.
     if (dataBindingInfoZip != null) {
-      builder.add("--dataBindingInfoOut", dataBindingInfoZip);
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
       outs.add(dataBindingInfoZip);
     }
 

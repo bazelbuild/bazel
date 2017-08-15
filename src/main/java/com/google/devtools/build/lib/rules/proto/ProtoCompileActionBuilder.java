@@ -298,7 +298,7 @@ public class ProtoCompileActionBuilder {
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
       result.addFormatted(
           "--plugin=protoc-gen-%s=%s", langPrefix, langPluginTarget.getExecutable().getExecPath());
-      result.add(new LazyLangPluginFlag(langPrefix, langPluginParameter1));
+      result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter1));
     }
 
     result.add(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
@@ -306,7 +306,7 @@ public class ProtoCompileActionBuilder {
     boolean areDepsStrict = areDepsStrict(ruleContext);
 
     // Add include maps
-    result.add(
+    result.addCustomMultiArgv(
         new ProtoCommandLineArgv(
             areDepsStrict ? supportData.getProtosInDirectDeps() : null,
             supportData.getTransitiveImports()));
@@ -318,7 +318,7 @@ public class ProtoCompileActionBuilder {
     }
 
     for (Artifact src : supportData.getDirectProtoSources()) {
-      result.add(src.getRootRelativePath());
+      result.addPath(src.getRootRelativePath());
     }
 
     if (!hasServices) {
@@ -570,7 +570,7 @@ public class ProtoCompileActionBuilder {
 
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
-      cmdLine.add(
+      cmdLine.addLazyString(
           new LazyCommandLineExpansion(
               toolchain.commandLine(),
               ImmutableMap.of(
@@ -589,14 +589,14 @@ public class ProtoCompileActionBuilder {
     cmdLine.add(protocOpts);
 
     // Add include maps
-    cmdLine.add(new ProtoCommandLineArgv(protosInDirectDeps, transitiveSources));
+    cmdLine.addCustomMultiArgv(new ProtoCommandLineArgv(protosInDirectDeps, transitiveSources));
 
     if (protosInDirectDeps != null) {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
     }
 
     for (Artifact src : protosToCompile) {
-      cmdLine.add(src.getExecPath());
+      cmdLine.addPath(src.getExecPath());
     }
 
     if (!allowServices) {

@@ -482,18 +482,19 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     argBuilder.add("--java", javaExecutable.getPathString());
 
     Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", Mode.HOST);
-    argBuilder.add("--j2objc", j2ObjcDeployJar);
+    argBuilder.addExecPath("--j2objc", j2ObjcDeployJar);
 
     argBuilder.add("--main_class").add("com.google.devtools.j2objc.J2ObjC");
-    argBuilder.add("--objc_file_path").add(j2ObjcSource.getObjcFilePath());
+    argBuilder.add("--objc_file_path").addPath(j2ObjcSource.getObjcFilePath());
 
     Artifact outputDependencyMappingFile = j2ObjcOutputDependencyMappingFile(ruleContext);
-    argBuilder.add("--output_dependency_mapping_file", outputDependencyMappingFile);
+    argBuilder.addExecPath("--output_dependency_mapping_file", outputDependencyMappingFile);
 
     ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
     if (!Iterables.isEmpty(sourceJars)) {
       sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
-      argBuilder.add("--src_jars", VectorArg.of(ImmutableList.copyOf(sourceJars)).joinWith(","));
+      argBuilder.addExecPaths(
+          "--src_jars", VectorArg.of(ImmutableList.copyOf(sourceJars)).joinWith(","));
       argBuilder.add(sourceJarFlags(ruleContext));
     }
 
@@ -505,44 +506,45 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     NestedSet<Artifact> depsHeaderMappingFiles =
         depJ2ObjcMappingFileProvider.getHeaderMappingFiles();
     if (!depsHeaderMappingFiles.isEmpty()) {
-      argBuilder.add("--header-mapping", VectorArg.of(depsHeaderMappingFiles).joinWith(","));
+      argBuilder.addExecPaths(
+          "--header-mapping", VectorArg.of(depsHeaderMappingFiles).joinWith(","));
     }
 
     boolean experimentalJ2ObjcHeaderMap =
         ruleContext.getFragment(J2ObjcConfiguration.class).experimentalJ2ObjcHeaderMap();
     Artifact outputHeaderMappingFile = j2ObjcOutputHeaderMappingFile(ruleContext);
     if (!experimentalJ2ObjcHeaderMap) {
-      argBuilder.add("--output-header-mapping", outputHeaderMappingFile);
+      argBuilder.addExecPath("--output-header-mapping", outputHeaderMappingFile);
     }
 
     NestedSet<Artifact> depsClassMappingFiles = depJ2ObjcMappingFileProvider.getClassMappingFiles();
     if (!depsClassMappingFiles.isEmpty()) {
-      argBuilder.add("--mapping", VectorArg.of(depsClassMappingFiles).joinWith(","));
+      argBuilder.addExecPaths("--mapping", VectorArg.of(depsClassMappingFiles).joinWith(","));
     }
 
     Artifact archiveSourceMappingFile = j2ObjcOutputArchiveSourceMappingFile(ruleContext);
-    argBuilder.add("--output_archive_source_mapping_file", archiveSourceMappingFile);
+    argBuilder.addExecPath("--output_archive_source_mapping_file", archiveSourceMappingFile);
 
     Artifact compiledLibrary = ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext).archive();
-    argBuilder.add("--compiled_archive_file_path", compiledLibrary);
+    argBuilder.addExecPath("--compiled_archive_file_path", compiledLibrary);
 
     Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
     argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
     Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
     if (deadCodeReport != null) {
-      argBuilder.add("--dead-code-report", deadCodeReport);
+      argBuilder.addExecPath("--dead-code-report", deadCodeReport);
     }
 
-    argBuilder.add("-d").add(j2ObjcSource.getObjcFilePath());
+    argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
     NestedSet<Artifact> compileTimeJars =
         compArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
     if (!compileTimeJars.isEmpty()) {
-      argBuilder.add("-classpath", VectorArg.of(compileTimeJars).joinWith(":"));
+      argBuilder.addExecPaths("-classpath", VectorArg.of(compileTimeJars).joinWith(":"));
     }
 
-    argBuilder.add(ImmutableList.copyOf(sources));
+    argBuilder.addExecPaths(ImmutableList.copyOf(sources));
 
     Artifact paramFile = j2ObjcOutputParamFile(ruleContext);
     ruleContext.registerAction(new ParameterFileWriteAction(
@@ -585,14 +587,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (experimentalJ2ObjcHeaderMap) {
       CustomCommandLine.Builder headerMapCommandLine = CustomCommandLine.builder();
       if (!Iterables.isEmpty(sources)) {
-        headerMapCommandLine.add(
+        headerMapCommandLine.addExecPaths(
             "--source_files", VectorArg.of(ImmutableList.copyOf(sources)).joinWith(","));
       }
       if (!Iterables.isEmpty(sourceJars)) {
-        headerMapCommandLine.add(
+        headerMapCommandLine.addExecPaths(
             "--source_jars", VectorArg.of(ImmutableList.copyOf(sourceJars)).joinWith(","));
       }
-      headerMapCommandLine.add("--output_mapping_file", outputHeaderMappingFile);
+      headerMapCommandLine.addExecPath("--output_mapping_file", outputHeaderMappingFile);
       ruleContext.registerAction(new SpawnAction.Builder()
           .setMnemonic("GenerateJ2objcHeaderMap")
           .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))

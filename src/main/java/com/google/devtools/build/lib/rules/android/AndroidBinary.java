@@ -1341,8 +1341,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
         CommandLine mergeCommandLine =
             CustomCommandLine.builder()
-                .add(VectorArg.of(shardDexes).beforeEach("--input_zip"))
-                .add("--output_zip", classesDex)
+                .addExecPaths(VectorArg.of(shardDexes).beforeEach("--input_zip"))
+                .addExecPath("--output_zip", classesDex)
                 .build();
         ruleContext.registerAction(
             new SpawnAction.Builder()
@@ -1565,11 +1565,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     CustomCommandLine.Builder shardCommandLine =
         CustomCommandLine.builder()
-            .add(VectorArg.of(shards).beforeEach("--output_jar"))
-            .add("--output_resources", javaResourceJar);
+            .addExecPaths(VectorArg.of(shards).beforeEach("--output_jar"))
+            .addExecPath("--output_resources", javaResourceJar);
 
     if (mainDexList != null) {
-      shardCommandLine.add("--main_dex_filter", mainDexList);
+      shardCommandLine.addExecPath("--main_dex_filter", mainDexList);
       shardAction.addInput(mainDexList);
     }
 
@@ -1581,7 +1581,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (proguardedJar != null) {
       // When proguard is used we can't use dex archives, so just shuffle the proguarded jar
       checkArgument(!useDexArchives, "Dex archives are incompatible with Proguard");
-      shardCommandLine.add("--input_jar", proguardedJar);
+      shardCommandLine.addExecPath("--input_jar", proguardedJar);
       shardAction.addInput(proguardedJar);
     } else {
       ImmutableList<Artifact> classpath =
@@ -1620,11 +1620,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       } else {
         classpath = classpath.stream().map(derivedJarFunction::apply).collect(toImmutableList());
       }
-      shardCommandLine.add(VectorArg.of(classpath).beforeEach("--input_jar"));
+      shardCommandLine.addExecPaths(VectorArg.of(classpath).beforeEach("--input_jar"));
       shardAction.addInputs(classpath);
 
       if (inclusionFilterJar != null) {
-        shardCommandLine.add("--inclusion_filter_jar", inclusionFilterJar);
+        shardCommandLine.addExecPath("--inclusion_filter_jar", inclusionFilterJar);
         shardAction.addInput(inclusionFilterJar);
       }
     }

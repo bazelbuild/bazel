@@ -282,7 +282,7 @@ public class AndroidResourcesProcessorBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("AAPT2_PACKAGE").add("--");
 
-    builder.add("--aapt2", sdk.getAapt2().getExecutable());
+    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
     ResourceContainerConverter.convertDependencies(
         dependencies, builder, inputs, AAPT2_RESOURCE_DEP_TO_ARG, AAPT2_RESOURCE_DEP_TO_ARTIFACTS);
 
@@ -345,7 +345,7 @@ public class AndroidResourcesProcessorBuilder {
 
     ResourceContainerConverter.convertDependencies(
         dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
-    builder.add("--aapt", sdk.getAapt().getExecutable());
+    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     configureCommonFlags(outs, inputs, builder);
 
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -404,10 +404,10 @@ public class AndroidResourcesProcessorBuilder {
       builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
     }
 
-    builder.add("--annotationJar", sdk.getAnnotationsJar());
+    builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
 
-    builder.add("--androidJar", sdk.getAndroidJar());
+    builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     if (isLibrary) {
@@ -415,40 +415,40 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     if (rTxtOut != null) {
-      builder.add("--rOutput", rTxtOut);
+      builder.addExecPath("--rOutput", rTxtOut);
       outs.add(rTxtOut);
     }
 
     if (symbols != null) {
-      builder.add("--symbolsOut", symbols);
+      builder.addExecPath("--symbolsOut", symbols);
       outs.add(symbols);
     }
     if (sourceJarOut != null) {
-      builder.add("--srcJarOutput", sourceJarOut);
+      builder.addExecPath("--srcJarOutput", sourceJarOut);
       outs.add(sourceJarOut);
     }
     if (proguardOut != null) {
-      builder.add("--proguardOutput", proguardOut);
+      builder.addExecPath("--proguardOutput", proguardOut);
       outs.add(proguardOut);
     }
 
     if (mainDexProguardOut != null) {
-      builder.add("--mainDexProguardOutput", mainDexProguardOut);
+      builder.addExecPath("--mainDexProguardOutput", mainDexProguardOut);
       outs.add(mainDexProguardOut);
     }
 
     if (manifestOut != null) {
-      builder.add("--manifestOutput", manifestOut);
+      builder.addExecPath("--manifestOutput", manifestOut);
       outs.add(manifestOut);
     }
 
     if (mergedResourcesOut != null) {
-      builder.add("--resourcesOutput", mergedResourcesOut);
+      builder.addExecPath("--resourcesOutput", mergedResourcesOut);
       outs.add(mergedResourcesOut);
     }
 
     if (apkOut != null) {
-      builder.add("--packagePath", apkOut);
+      builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
     if (resourceFilter.hasConfigurationFilters() && !resourceFilter.isPrefiltering()) {
@@ -490,7 +490,7 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     if (dataBindingInfoZip != null) {
-      builder.add("--dataBindingInfoOut", dataBindingInfoZip);
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
       outs.add(dataBindingInfoZip);
     }
 
@@ -501,12 +501,12 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     if (featureOf != null) {
-      builder.add("--featureOf", featureOf);
+      builder.addExecPath("--featureOf", featureOf);
       inputs.add(featureOf);
     }
 
     if (featureAfter != null) {
-      builder.add("--featureAfter", featureAfter);
+      builder.addExecPath("--featureAfter", featureAfter);
       inputs.add(featureAfter);
     }
 
