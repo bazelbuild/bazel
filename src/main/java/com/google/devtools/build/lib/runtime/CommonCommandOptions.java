@@ -287,6 +287,17 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean gcWatchdog;
 
   @Option(
+    name = "experimental_oom_more_eagerly_threshold",
+    defaultValue = "100",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+    help =
+        "If this flag is set to a value less than 100, Blaze will OOM if, after two full GC's, more"
+            + "than this percentage of the (old gen) heap is still occupied."
+  )
+  public int oomMoreEagerlyThreshold;
+
+  @Option(
     name = "startup_time",
     defaultValue = "0",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

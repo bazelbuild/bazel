@@ -209,7 +209,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     help =
         "If set, attempt to detect Java heap OOM conditions and exit before thrashing. Only "
             + "honored when --batch is also passed. In some cases, builds that previously "
-            + "succeeded may OOM if they were close to OOMing before."
+            + "succeeded may OOM if they were close to OOMing before. Deprecated: "
+            + "Use the command argument --experimental_oom_more_eagerly_threshold instead."
   )
   public boolean oomMoreEagerly;
 
@@ -220,8 +221,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
-        "If this flag is set, Blaze will OOM if, after two full GC's, more than this "
-            + "percentage of the (old gen) heap is still occupied."
+        "If this flag is set, Blaze will OOM if, after two full GC's, more than this percentage of "
+            + "the (old gen) heap is still occupied. Deprecated: Use the command argument "
+            + "--experimental_oom_more_eagerly_threshold instead."
   )
   public int oomMoreEagerlyThreshold;
 

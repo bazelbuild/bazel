@@ -470,6 +470,27 @@ public class BlazeCommandDispatcher {
     reporter.addHandler(handler);
     env.getEventBus().register(handler);
 
+    int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
+    if (oomMoreEagerlyThreshold == 100) {
+      oomMoreEagerlyThreshold =
+          runtime
+              .getStartupOptionsProvider()
+              .getOptions(BlazeServerStartupOptions.class)
+              .oomMoreEagerlyThreshold;
+    }
+    if (oomMoreEagerlyThreshold < 0 || oomMoreEagerlyThreshold > 100) {
+      reporter.handle(Event.error("--oom_more_eagerly_threshold must be non-negative percent"));
+      return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+    }
+    if (oomMoreEagerlyThreshold != 100) {
+      try {
+        RetainedHeapLimiter.maybeInstallRetainedHeapLimiter(oomMoreEagerlyThreshold);
+      } catch (OptionsParsingException e) {
+        reporter.handle(Event.error(e.getMessage()));
+        return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+      }
+    }
+
     // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
     // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
     // for commands such as 'blaze run' where the output of the final executable shouldn't be

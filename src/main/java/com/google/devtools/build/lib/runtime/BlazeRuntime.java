@@ -913,9 +913,6 @@ public final class BlazeRuntime {
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
     String productName = startupOptions.productName.toLowerCase(Locale.US);
 
-    if (startupOptions.oomMoreEagerlyThreshold != 100) {
-      new RetainedHeapLimiter(startupOptions.oomMoreEagerlyThreshold).install();
-    }
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;

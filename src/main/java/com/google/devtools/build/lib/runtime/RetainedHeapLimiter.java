@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -37,6 +38,25 @@ import javax.management.openmbean.CompositeData;
 class RetainedHeapLimiter implements NotificationListener {
   private static final Logger LOG = Logger.getLogger(RetainedHeapLimiter.class.getName());
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
+
+  private static int registeredOccupiedHeapPercentageThreshold = -1;
+
+  static void maybeInstallRetainedHeapLimiter(int occupiedHeapPercentageThreshold)
+      throws OptionsParsingException {
+    if (registeredOccupiedHeapPercentageThreshold == -1) {
+      registeredOccupiedHeapPercentageThreshold = occupiedHeapPercentageThreshold;
+      new RetainedHeapLimiter(occupiedHeapPercentageThreshold).install();
+    }
+    if (registeredOccupiedHeapPercentageThreshold != occupiedHeapPercentageThreshold) {
+      throw new OptionsParsingException(
+          "Old threshold of "
+              + registeredOccupiedHeapPercentageThreshold
+              + " not equal to new threshold of "
+              + occupiedHeapPercentageThreshold
+              + ". To change the threshold, shut down the server and restart it with the desired "
+              + "value");
+    }
+  }
 
   private boolean installed = false;
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
