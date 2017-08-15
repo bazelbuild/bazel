@@ -84,6 +84,10 @@ public final class AndroidRuleClasses {
       JavaSemantics.JAVA_LIBRARY_CLASS_JAR;
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR =
       fromTemplates("%{name}.aar");
+  // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
+  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_APK =
+      fromTemplates("%{name}_files/library.ap_");
+
   /**
    * Source Jar for {@link #ANDROID_RESOURCES_CLASS_JAR}, which should be the same as
    * {@link #ANDROID_JAVA_SOURCE_JAR}.

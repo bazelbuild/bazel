@@ -56,6 +56,7 @@ public class AndroidResourceValidatorActionBuilder {
   private Artifact aapt2SourceJarOut;
   private Artifact aapt2RTxtOut;
   private Artifact compiledSymbols;
+  private Artifact apkOut;
 
   /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceValidatorActionBuilder(RuleContext ruleContext) {
@@ -128,6 +129,11 @@ public class AndroidResourceValidatorActionBuilder {
 
   public AndroidResourceValidatorActionBuilder setCompiledSymbols(Artifact compiledSymbols) {
     this.compiledSymbols = compiledSymbols;
+    return this;
+  }
+
+  public AndroidResourceValidatorActionBuilder setApkOut(Artifact apkOut) {
+    this.apkOut = apkOut;
     return this;
   }
 
@@ -253,6 +259,11 @@ public class AndroidResourceValidatorActionBuilder {
     Preconditions.checkNotNull(sourceJarOut);
     builder.add("--srcJarOutput", sourceJarOut);
     outs.add(sourceJarOut);
+
+    if (apkOut != null) {
+      builder.add("--packagePath", apkOut);
+      outs.add(apkOut);
+    }
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     // Create the spawn action.

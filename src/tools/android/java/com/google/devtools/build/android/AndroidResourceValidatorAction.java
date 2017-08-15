@@ -106,6 +106,18 @@ public class AndroidResourceValidatorAction {
       help = "Path to where the R.txt should be written."
     )
     public Path rOutput;
+
+    @Option(
+        name = "packagePath",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the write the archive."
+    )
+    // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
+    public Path packagePath;
   }
 
   public static void main(String[] args) throws Exception {
@@ -152,7 +164,7 @@ public class AndroidResourceValidatorAction {
           resources,
           assets,
           generatedSources,
-          null, /* packageOut */
+          options.packagePath,
           null, /* proguardOut */
           null, /* mainDexProguardOut */
           null /* publicResourcesOut */);
