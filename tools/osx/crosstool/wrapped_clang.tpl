@@ -7,4 +7,4 @@ if [ -z ${MY_LOCATION+x} ]; then
   fi
 fi
 
-"${MY_LOCATION}"/xcrunwrapper.sh clang $@
+"${MY_LOCATION}"/xcrunwrapper.sh clang "$@"
