@@ -126,8 +126,9 @@ class RemoteSpawnRunner implements SpawnRunner {
         try {
           return downloadRemoteResults(cachedResult, policy.getFileOutErr());
         } catch (CacheNotFoundException e) {
-          // Intentionally left empty. No cache hit, so we fall through to local or
-          // remote execution.
+          // No cache hit, so we fall through to local or remote execution.
+          // We set acceptCachedResult to false in order to force the action re-execution.
+          acceptCachedResult = false;
         }
       }
     } catch (IOException e) {

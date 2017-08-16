@@ -728,4 +728,82 @@ public class GrpcRemoteExecutionClientTest {
       assertThat(((CacheNotFoundException) t).getMissingDigest()).isEqualTo(stdOutDigest);
     }
   }
+
+  @Test
+  public void remotelyReExecuteOrphanedCachedActions() throws Exception {
+    final Digest stdOutDigest = Digests.computeDigestUtf8("stdout");
+    final ActionResult actionResult =
+        ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(actionResult);
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            // All reads are a cache miss.
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+
+          @Override
+          public StreamObserver<WriteRequest> write(
+              StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {}
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            assertThat(request.getSkipCacheLookup()).isTrue(); // Action will be re-executed.
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    try {
+      client.exec(simpleSpawn, simplePolicy);
+      fail("Expected an exception");
+    } catch (EnvironmentalExecException expected) {
+      assertThat(expected).hasMessageThat().contains("Failed to download from remote cache");
+      Throwable t = expected.getCause();
+      assertThat(t).isInstanceOf(CacheNotFoundException.class);
+      assertThat(((CacheNotFoundException) t).getMissingDigest()).isEqualTo(stdOutDigest);
+    }
+  }
 }
