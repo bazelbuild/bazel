@@ -192,7 +192,7 @@ output as a graph.
 
 Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 
-As you can see, the first stage of the sample project has a single target that
+As you can see, the first stage of the sample project has a single target
 that builds a single source file with no additional dependencies:
 
 ![Dependency graph for 'hello-world'](/assets/cpp-tutorial-stage1.png)
