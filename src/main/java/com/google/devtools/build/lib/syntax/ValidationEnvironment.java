@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Stack;
 import javax.annotation.Nullable;
 
 /**
@@ -35,10 +34,6 @@ public final class ValidationEnvironment {
   private class Scope {
     private final Set<String> variables = new HashSet<>();
     private final Set<String> readOnlyVariables = new HashSet<>();
-    // A stack of variable-sets which are read only but can be assigned in different
-    // branches of if-else statements.
-    // TODO(laurentlb): Remove it.
-    private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
     @Nullable private final Scope parent;
 
     Scope(@Nullable Scope parent) {
@@ -71,12 +66,8 @@ public final class ValidationEnvironment {
   /** Declare a variable and add it to the environment. */
   void declare(String varname, Location location) throws EvalException {
     checkReadonly(varname, location);
-    if (scope.parent == null) { // top-level values are immutable
+    if (scope.parent == null) {  // top-level values are immutable
       scope.readOnlyVariables.add(varname);
-      if (!scope.futureReadOnlyVariables.isEmpty()) {
-        // Currently validating an if-else statement
-        scope.futureReadOnlyVariables.peek().add(varname);
-      }
     }
     scope.variables.add(varname);
   }
@@ -109,30 +100,7 @@ public final class ValidationEnvironment {
     return all;
   }
 
-  /**
-   * Starts a session with temporarily disabled readonly checking for variables between branches.
-   * This is useful to validate control flows like if-else when we know that certain parts of the
-   * code cannot both be executed.
-   */
-  void startTemporarilyDisableReadonlyCheckSession() {
-    scope.futureReadOnlyVariables.add(new HashSet<String>());
-  }
-
-  /** Finishes the session with temporarily disabled readonly checking. */
-  void finishTemporarilyDisableReadonlyCheckSession() {
-    Set<String> variables = scope.futureReadOnlyVariables.pop();
-    scope.readOnlyVariables.addAll(variables);
-    if (!scope.futureReadOnlyVariables.isEmpty()) {
-      scope.futureReadOnlyVariables.peek().addAll(variables);
-    }
-  }
-
-  /** Finishes a branch of temporarily disabled readonly checking. */
-  void finishTemporarilyDisableReadonlyCheckBranch() {
-    scope.readOnlyVariables.removeAll(scope.futureReadOnlyVariables.peek());
-  }
-
-  /** Throws EvalException if a load() appears after another kind of statement. */
+ /** Throws EvalException if a load() appears after another kind of statement. */
   private static void checkLoadAfterStatement(List<Statement> statements) throws EvalException {
     Location firstStatement = null;
 

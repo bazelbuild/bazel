@@ -73,7 +73,9 @@ public final class IfStatement extends Statement {
     @Override
     void validate(ValidationEnvironment env) throws EvalException {
       condition.validate(env);
-      validateStmts(env, statements);
+      for (Statement stmt : statements) {
+        stmt.validate(env);
+      }
     }
   }
 
@@ -142,19 +144,11 @@ public final class IfStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    env.startTemporarilyDisableReadonlyCheckSession();
     for (ConditionalStatements stmts : thenBlocks) {
       stmts.validate(env);
     }
-    validateStmts(env, elseBlock);
-    env.finishTemporarilyDisableReadonlyCheckSession();
-  }
-
-  private static void validateStmts(ValidationEnvironment env, List<Statement> stmts)
-      throws EvalException {
-    for (Statement stmt : stmts) {
+    for (Statement stmt : elseBlock) {
       stmt.validate(env);
     }
-    env.finishTemporarilyDisableReadonlyCheckBranch();
   }
 }
