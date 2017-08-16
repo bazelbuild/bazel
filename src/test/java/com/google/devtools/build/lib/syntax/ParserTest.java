@@ -290,7 +290,7 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testSubstring() throws Exception {
     SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
-    assertThat(((IntegerLiteral) s.getStart()).value).isEqualTo(1);
+    assertThat(((IntegerLiteral) s.getStart()).getValue()).isEqualTo(1);
 
     FuncallExpression e = (FuncallExpression) parseExpression(
         "'FOO.CC'.lower()[1:].startswith('oo')");
@@ -299,7 +299,7 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(e.getArguments()).hasSize(1);
 
     s = (SliceExpression) parseExpression("'FOO.CC'[1:][:2]");
-    assertThat(((IntegerLiteral) s.getEnd()).value).isEqualTo(2);
+    assertThat(((IntegerLiteral) s.getEnd()).getValue()).isEqualTo(2);
   }
 
   @Test
