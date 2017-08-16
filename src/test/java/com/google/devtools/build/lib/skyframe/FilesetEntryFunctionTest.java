@@ -707,6 +707,43 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testExcludes() throws Exception {
+    Artifact buildFile = getSourceArtifact("foo/BUILD");
+    createFile(buildFile);
+    Artifact outerFile = getSourceArtifact("foo/outerfile.txt");
+    createFile(outerFile);
+    Artifact innerFile = getSourceArtifact("foo/dir/innerfile.txt");
+    createFile(innerFile);
+
+    FilesetTraversalParams params =
+        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            PathFragment.create("output-name"),
+            /* excludes */ ImmutableSet.of(),
+            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(
+        params,
+        symlink("output-name/BUILD", buildFile),
+        symlink("output-name/outerfile.txt", outerFile),
+        symlink("output-name/dir/innerfile.txt", innerFile));
+
+    // Make sure the file within the excluded directory is no longer present.
+    params = FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            PathFragment.create("output-name"),
+            /* excludes */ ImmutableSet.of("dir"),
+            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(
+        params,
+        symlink("output-name/BUILD", buildFile),
+        symlink("output-name/outerfile.txt", outerFile));
+  }
+
+  @Test
   public void testFileTraversalForNonExistentFile() throws Exception {
     Artifact path = getSourceArtifact("foo/non-existent");
     FilesetTraversalParams params =
