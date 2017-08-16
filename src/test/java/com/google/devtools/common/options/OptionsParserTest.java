@@ -1121,8 +1121,8 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
     String usage =
         parser.describeOptions(ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
-    assertThat(usage).contains("  --expands\n    Expands to: --underlying=from_expansion");
-    assertThat(usage).contains("  --expands_by_function\n    Expands to: --expands");
+    assertThat(usage).contains("  --expands\n      Expands to: --underlying=from_expansion");
+    assertThat(usage).contains("  --expands_by_function\n      Expands to: --expands");
   }
 
   @Test

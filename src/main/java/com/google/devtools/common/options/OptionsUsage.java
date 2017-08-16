@@ -56,6 +56,8 @@ class OptionsUsage {
     StringBuilder out = new StringBuilder();
     String sep = "";
     for (String paragraph : NEWLINE_SPLITTER.split(in)) {
+      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
+      // funny for --flag
       BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
       boundary.setText(paragraph);
       out.append(sep).append(indentString);
@@ -132,18 +134,27 @@ class OptionsUsage {
       return;
     }
     if (!annotation.help().equals("")) {
-      usage.append(paragraphFill(annotation.help(), 4, 80)); // (indent, width)
+      usage.append(paragraphFill(annotation.help(), /*indent=*/ 4, /*width=*/ 80));
       usage.append('\n');
     }
     ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
     if (expansion == null) {
-      usage.append("    Expands to unknown options.\n");
+      usage.append(paragraphFill("Expands to unknown options.", /*indent=*/ 6, /*width=*/ 80));
+      usage.append('\n');
     } else if (!expansion.isEmpty()) {
       StringBuilder expandsMsg = new StringBuilder("Expands to: ");
       for (String exp : expansion) {
         expandsMsg.append(exp).append(" ");
       }
-      usage.append(paragraphFill(expandsMsg.toString(), 4, 80)); // (indent, width)
+      usage.append(paragraphFill(expandsMsg.toString(), /*indent=*/ 6, /*width=*/ 80));
+      usage.append('\n');
+    }
+    if (annotation.implicitRequirements().length > 0) {
+      StringBuilder requiredMsg = new StringBuilder("Using this option will also add: ");
+      for (String req : annotation.implicitRequirements()) {
+        requiredMsg.append(req).append(" ");
+      }
+      usage.append(paragraphFill(requiredMsg.toString(), /*indent=*/ 6, /*width=*/ 80));
       usage.append('\n');
     }
   }
@@ -187,7 +198,7 @@ class OptionsUsage {
     usage.append("</dt>\n");
     usage.append("<dd>\n");
     if (!annotation.help().isEmpty()) {
-      usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
+      usage.append(paragraphFill(escaper.escape(annotation.help()), /*indent=*/ 0, /*width=*/ 80));
       usage.append('\n');
     }
     ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
@@ -203,7 +214,7 @@ class OptionsUsage {
             .append(escaper.escape(exp))
             .append("</code><br/>\n");
       }
-      usage.append(expandsMsg.toString()); // (indent, width)
+      usage.append(expandsMsg.toString());
       usage.append('\n');
     }
     usage.append("</dd>\n");
