@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -130,7 +129,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private OptionsParser optionsParser;
   protected PackageManager packageManager;
   private LoadingPhaseRunner loadingPhaseRunner;
-  private ConfigurationFactory configurationFactory;
   private BuildView buildView;
 
   // Note that these configurations are virtual (they use only VFS)
@@ -155,7 +153,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    configurationFactory = analysisMock.createConfigurationFactory();
 
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
@@ -166,10 +163,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
-    useConfigurationFactory(
-        new ConfigurationFactory(
-            ruleClassProvider.getConfigurationCollectionFactory(),
-            ruleClassProvider.getConfigurationFragments()));
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting()
@@ -222,10 +215,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     return ImmutableList.of();
-  }
-
-  protected final void useConfigurationFactory(ConfigurationFactory configurationFactory) {
-    this.configurationFactory = configurationFactory;
   }
 
   /**
@@ -361,8 +350,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
-    masterConfig = skyframeExecutor.createConfigurations(reporter,
-        configurationFactory.getFactories(), buildOptions, multiCpu, false);
+    masterConfig = skyframeExecutor.createConfigurations(
+        reporter, ruleClassProvider.getConfigurationFragments(), buildOptions,
+        multiCpu, false);
     analysisResult =
         buildView.update(
             loadingResult,

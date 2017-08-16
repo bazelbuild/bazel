@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.ConfigurationHolder;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -48,7 +47,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   @Override
   @Nullable
   public BuildConfiguration createConfigurations(
-      ConfigurationFactory configurationFactory,
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations packageProvider,
       BuildOptions buildOptions,
@@ -56,8 +54,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       String mainRepositoryName)
       throws InvalidConfigurationException, InterruptedException {
     // Target configuration
-    BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        packageProvider, buildOptions, cache, mainRepositoryName);
+    // Dead code: being removed. The original value used a class that's already been deleted.
+    BuildConfiguration targetConfiguration = null;
     if (targetConfiguration == null) {
       return null;
     }
@@ -67,7 +65,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Host configuration
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
-    BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
+    BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(
         packageProvider, dataConfiguration, buildOptions, cache, mainRepositoryName);
     if (hostConfiguration == null) {
       return null;
@@ -77,8 +75,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         ArrayListMultimap.create();
     for (SplitTransition<BuildOptions> transition : buildOptions.getPotentialSplitTransitions()) {
       for (BuildOptions splitOptions : transition.split(buildOptions)) {
-        BuildConfiguration splitConfig = configurationFactory.getConfiguration(
-            packageProvider, splitOptions, cache, mainRepositoryName);
+        // Dead code: being removed. The original value used a class that's already been deleted.
+        BuildConfiguration splitConfig = null;
         splitTransitionsTable.put(transition, splitConfig);
       }
     }
@@ -124,7 +122,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
    */
   @Nullable
   private static BuildConfiguration getHostConfigurationFromRequest(
-      ConfigurationFactory configurationFactory,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildConfiguration requestConfig,
       BuildOptions buildOptions,
@@ -135,8 +132,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     if (!commonOptions.useDistinctHostConfiguration) {
       return requestConfig;
     } else {
-      BuildConfiguration hostConfig = configurationFactory.getConfiguration(
-          loadedPackageProvider, buildOptions.createHostOptions(false), cache, repositoryName);
+      // Dead code: being removed. The original value used a class that's already been deleted.
+      BuildConfiguration hostConfig = null;
       if (hostConfig == null) {
         return null;
       }

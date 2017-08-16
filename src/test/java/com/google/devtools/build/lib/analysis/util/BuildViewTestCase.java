@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.DynamicConfigsMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
@@ -170,7 +169,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected AnalysisMock analysisMock;
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  protected ConfigurationFactory configurationFactory;
   protected BuildView view;
 
   protected SequencedSkyframeExecutor skyframeExecutor;
@@ -212,8 +210,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
-    configurationFactory =
-        analysisMock.createConfigurationFactory(ruleClassProvider.getConfigurationFragments());
 
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
         PrecomputedValue.injected(
@@ -320,8 +316,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     skyframeExecutor.invalidateConfigurationCollection();
-    return skyframeExecutor.createConfigurations(reporter, configurationFactory.getFactories(),
-        buildOptions, ImmutableSet.<String>of(), false);
+    return skyframeExecutor.createConfigurations(
+        reporter, ruleClassProvider.getConfigurationFragments(), buildOptions,
+        ImmutableSet.<String>of(), false);
   }
 
   protected Target getTarget(String label)

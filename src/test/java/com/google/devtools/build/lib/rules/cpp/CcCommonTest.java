@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -971,13 +970,6 @@ public class CcCommonTest extends BuildViewTestCase {
     protected AnalysisMock getAnalysisMock() {
       final AnalysisMock original = BazelAnalysisMock.INSTANCE;
       return new AnalysisMock.Delegate(original) {
-        @Override
-        public ConfigurationFactory createConfigurationFactory() {
-          return new ConfigurationFactory(
-              createRuleClassProvider().getConfigurationCollectionFactory(),
-              createRuleClassProvider().getConfigurationFragments());
-        }
-
         @Override
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();

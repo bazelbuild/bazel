@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -66,7 +66,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Testing framework for tests which check ConfigurationFactory.
+ * Testing framework for tests which create configuration collections.
  */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
@@ -89,7 +89,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected Path workspace;
   protected AnalysisMock analysisMock;
   protected SequencedSkyframeExecutor skyframeExecutor;
-  protected ConfigurationFactory configurationFactory;
+  protected List<ConfigurationFragmentFactory> configurationFragmentFactories;
   protected ImmutableList<Class<? extends FragmentOptions>> buildOptionClasses;
 
   @Before
@@ -147,7 +147,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    configurationFactory = analysisMock.createConfigurationFactory();
+    configurationFragmentFactories = analysisMock.getDefaultConfigurationFragmentFactories();
     buildOptionClasses = ruleClassProvider.getConfigurationOptions();
   }
 
@@ -180,9 +180,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     skyframeExecutor.handleDiffs(reporter);
-    BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(reporter,
-        configurationFactory.getFactories(), BuildOptions.of(buildOptionClasses, parser), multiCpu,
-        false);
+    BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
+        reporter, configurationFragmentFactories, BuildOptions.of(buildOptionClasses, parser),
+        multiCpu, false);
     return collection;
   }
 

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -100,11 +99,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     builder.addConfigurationOptions(LateBoundSplitUtil.TestOptions.class);
     builder.addRuleDefinition(LATE_BOUND_DEP_RULE);
     useRuleClassProvider(builder.build());
-
-    // Register the latebound split fragment with the config creation environment.
-    useConfigurationFactory(new ConfigurationFactory(
-        ruleClassProvider.getConfigurationCollectionFactory(),
-        ruleClassProvider.getConfigurationFragments()));
   }
 
   @Test

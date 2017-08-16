@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -234,11 +235,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testCycleInFragments() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragment(CppConfiguration.class, JavaConfiguration.class),
-            createMockFragment(JavaConfiguration.class, CppConfiguration.class));
+    configurationFragmentFactories = ImmutableList.of(
+        createMockFragment(CppConfiguration.class, JavaConfiguration.class),
+        createMockFragment(JavaConfiguration.class, CppConfiguration.class));
     try {
       createCollection();
       fail();
@@ -249,10 +248,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testMissingFragment() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragment(CppConfiguration.class, JavaConfiguration.class));
+    configurationFragmentFactories = ImmutableList.of(
+        createMockFragment(CppConfiguration.class, JavaConfiguration.class));
     try {
       createCollection();
       fail();
@@ -394,10 +391,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void depLabelCycleOnConfigurationLoading() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragmentWithLabelDep("//foo"));
+    configurationFragmentFactories = ImmutableList.of(createMockFragmentWithLabelDep("//foo"));
     getScratch().file("foo/BUILD",
         "load('//skylark:one.bzl', 'one')",
         "cc_library(name = 'foo')");

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -99,12 +98,10 @@ public abstract class AnalysisMock extends LoadingMock {
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
-  public abstract ConfigurationFactory createConfigurationFactory();
-
-  public abstract ConfigurationFactory createConfigurationFactory(
-      List<ConfigurationFragmentFactory> configurationFragmentFactories);
-
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
+
+  /** Returns the default factories for configuration fragments used in tests. */
+  public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
@@ -158,19 +155,13 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public ConfigurationFactory createConfigurationFactory() {
-      return delegate.createConfigurationFactory();
-    }
-
-    @Override
-    public ConfigurationFactory createConfigurationFactory(
-        List<ConfigurationFragmentFactory> configurationFragmentFactories) {
-      return delegate.createConfigurationFactory(configurationFragmentFactories);
-    }
-
-    @Override
     public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
       return delegate.createConfigurationCollectionFactory();
+    }
+
+    @Override
+    public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
+      return delegate.getDefaultConfigurationFragmentFactories();
     }
 
     @Override

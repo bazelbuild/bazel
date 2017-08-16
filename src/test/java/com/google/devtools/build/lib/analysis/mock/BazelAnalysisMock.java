@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -236,19 +235,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
-  public ConfigurationFactory createConfigurationFactory() {
-    return createConfigurationFactory(getDefaultConfigurationFactories());
-  }
-
-  @Override
-  public ConfigurationFactory createConfigurationFactory(
-      List<ConfigurationFragmentFactory> configurationFragmentFactories) {
-    return new ConfigurationFactory(
-        new BazelConfigurationCollection(),
-        configurationFragmentFactories);
-  }
-
-  private static List<ConfigurationFragmentFactory> getDefaultConfigurationFactories() {
+  public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.<ConfigurationFragmentFactory>of(
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),

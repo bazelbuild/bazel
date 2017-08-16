@@ -454,8 +454,7 @@ public final class BuildConfiguration implements BuildEvent {
    * even if they don't affect the value of the BuildConfiguration instances.)
    *
    * <p>IMPORTANT: when adding new options, be sure to consider whether those
-   * values should be propagated to the host configuration or not (see
-   * {@link ConfigurationFactory#getConfiguration}.
+   * values should be propagated to the host configuration or not.
    *
    * <p>ALSO IMPORTANT: all option types MUST define a toString method that
    * gives identical results for semantically identical option values. The

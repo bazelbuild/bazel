@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Supplier;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
@@ -21,7 +20,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
@@ -45,13 +43,9 @@ import javax.annotation.Nullable;
  */
 @Deprecated
 public class ConfigurationCollectionFunction implements SkyFunction {
-
-  private final Supplier<ConfigurationFactory> configurationFactory;
   private final RuleClassProvider ruleClassProvider;
 
-  public ConfigurationCollectionFunction(Supplier<ConfigurationFactory> configurationFactory,
-      RuleClassProvider ruleClassProvider) {
-    this.configurationFactory = configurationFactory;
+  public ConfigurationCollectionFunction(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
   }
 
@@ -169,8 +163,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
           cpuOverride;
     }
 
-    BuildConfiguration targetConfig = configurationFactory.get().createConfigurations(
-        cache, loadedPackageProvider, buildOptions, eventHandler, repositoryName);
+    // Dead code: being removed. The original value used a class that's already been deleted.
+    BuildConfiguration targetConfig = null;
     if (targetConfig == null) {
       return null;
     }
