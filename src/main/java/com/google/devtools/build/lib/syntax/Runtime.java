@@ -122,9 +122,10 @@ public final class Runtime {
           + "instead.</b> The name of the repository the rule or build extension is called from. "
           + "For example, in packages that are called into existence by the WORKSPACE stanza "
           + "<code>local_repository(name='local', path=...)</code> it will be set to "
-          + "<code>@local</code>. In packages in the main repository, it will be empty. "
-          + "It can only be accessed in functions (transitively) called from BUILD files, i.e. "
-          + "it follows the same restrictions as <a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>")
+          + "<code>@local</code>. In packages in the main repository, it will be set to "
+          + "<code>@</code>. It can only be accessed in functions (transitively) called from "
+          + "BUILD files, i.e. it follows the same restrictions as "
+          + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>")
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
   /**
