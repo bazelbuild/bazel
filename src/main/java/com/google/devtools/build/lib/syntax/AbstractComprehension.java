@@ -308,12 +308,11 @@ public abstract class AbstractComprehension extends Expression {
   }
 
   @Override
-  void validate(ValidationEnvironment parentEnv) throws EvalException {
+  void validate(ValidationEnvironment env) throws EvalException {
     // Create a new scope so that loop variables do not leak outside the comprehension.
-    ValidationEnvironment env =
-        parentEnv.getSemantics().incompatibleComprehensionVariablesDoNotLeak
-            ? new ValidationEnvironment(parentEnv)
-            : parentEnv;
+    if (env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
+      env.openScope();
+    }
 
     for (Clause clause : clauses) {
       clause.validate(env, getLocation());
@@ -322,6 +321,10 @@ public abstract class AbstractComprehension extends Expression {
     // Clauses have to be validated before expressions in order to introduce the variable names.
     for (Expression expr : outputExpressions) {
       expr.validate(env);
+    }
+
+    if (env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
+      env.closeScope();
     }
   }
 

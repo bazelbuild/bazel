@@ -112,7 +112,6 @@ public final class FunctionDefStatement extends Statement {
 
   @Override
   void validate(final ValidationEnvironment env) throws EvalException {
-    ValidationEnvironment localEnv = new ValidationEnvironment(env);
     FunctionSignature sig = signature.getSignature();
     FunctionSignature.Shape shape = sig.getShape();
     ImmutableList<String> names = sig.getNames();
@@ -129,16 +128,18 @@ public final class FunctionDefStatement extends Statement {
     int startOptionals = mandatoryPositionals;
     int endOptionals = named - mandatoryNamedOnly;
 
+    env.openScope();
     int j = 0; // index for the defaultExpressions
     for (int i = 0; i < args; i++) {
       String name = names.get(i);
       if (startOptionals <= i && i < endOptionals) {
         defaultExpressions.get(j++).validate(env);
       }
-      localEnv.declare(name, getLocation());
+      env.declare(name, getLocation());
     }
     for (Statement stmts : statements) {
-      stmts.validate(localEnv);
+      stmts.validate(env);
     }
+    env.closeScope();
   }
 }

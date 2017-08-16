@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
+import javax.annotation.Nullable;
 
 /**
  * An Environment for the semantic checking of Skylark files.
@@ -31,38 +32,36 @@ import java.util.Stack;
  */
 public final class ValidationEnvironment {
 
-  private final ValidationEnvironment parent;
+  private class Scope {
+    private final Set<String> variables = new HashSet<>();
+    private final Set<String> readOnlyVariables = new HashSet<>();
+    // A stack of variable-sets which are read only but can be assigned in different
+    // branches of if-else statements.
+    // TODO(laurentlb): Remove it.
+    private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
+    @Nullable private final Scope parent;
 
-  private final Set<String> variables = new HashSet<>();
-
-  private final Set<String> readOnlyVariables = new HashSet<>();
+    Scope(@Nullable Scope parent) {
+      this.parent = parent;
+    }
+  }
 
   private final SkylarkSemanticsOptions semantics;
-
-  // A stack of variable-sets which are read only but can be assigned in different
-  // branches of if-else statements.
-  private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
+  private Scope scope;
 
   /** Create a ValidationEnvironment for a given global Environment. */
   ValidationEnvironment(Environment env) {
     Preconditions.checkArgument(env.isGlobal());
-    parent = null;
+    scope = new Scope(null);
     Set<String> builtinVariables = env.getVariableNames();
-    variables.addAll(builtinVariables);
-    readOnlyVariables.addAll(builtinVariables);
+    scope.variables.addAll(builtinVariables);
+    scope.readOnlyVariables.addAll(builtinVariables);
     semantics = env.getSemantics();
-  }
-
-  /** Creates a local ValidationEnvironment to validate user defined function bodies. */
-  ValidationEnvironment(ValidationEnvironment parent) {
-    // Don't copy readOnlyVariables: Variables may shadow global values.
-    this.parent = parent;
-    semantics = parent.semantics;
   }
 
   /** Returns true if this ValidationEnvironment is top level i.e. has no parent. */
   boolean isTopLevel() {
-    return parent == null;
+    return scope.parent == null;
   }
 
   SkylarkSemanticsOptions getSemantics() {
@@ -72,18 +71,18 @@ public final class ValidationEnvironment {
   /** Declare a variable and add it to the environment. */
   void declare(String varname, Location location) throws EvalException {
     checkReadonly(varname, location);
-    if (parent == null) {  // top-level values are immutable
-      readOnlyVariables.add(varname);
-      if (!futureReadOnlyVariables.isEmpty()) {
+    if (scope.parent == null) { // top-level values are immutable
+      scope.readOnlyVariables.add(varname);
+      if (!scope.futureReadOnlyVariables.isEmpty()) {
         // Currently validating an if-else statement
-        futureReadOnlyVariables.peek().add(varname);
+        scope.futureReadOnlyVariables.peek().add(varname);
       }
     }
-    variables.add(varname);
+    scope.variables.add(varname);
   }
 
   private void checkReadonly(String varname, Location location) throws EvalException {
-    if (readOnlyVariables.contains(varname)) {
+    if (scope.readOnlyVariables.contains(varname)) {
       throw new EvalException(
           location,
           String.format("Variable %s is read only", varname),
@@ -93,16 +92,19 @@ public final class ValidationEnvironment {
 
   /** Returns true if the symbol exists in the validation environment (or a parent). */
   boolean hasSymbolInEnvironment(String varname) {
-    return variables.contains(varname)
-        || (parent != null && parent.hasSymbolInEnvironment(varname));
+    for (Scope s = scope; s != null; s = s.parent) {
+      if (s.variables.contains(varname)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Returns the set of all accessible symbols (both local and global) */
   Set<String> getAllSymbols() {
     Set<String> all = new HashSet<>();
-    all.addAll(variables);
-    if (parent != null) {
-      all.addAll(parent.getAllSymbols());
+    for (Scope s = scope; s != null; s = s.parent) {
+      all.addAll(s.variables);
     }
     return all;
   }
@@ -113,21 +115,21 @@ public final class ValidationEnvironment {
    * code cannot both be executed.
    */
   void startTemporarilyDisableReadonlyCheckSession() {
-    futureReadOnlyVariables.add(new HashSet<String>());
+    scope.futureReadOnlyVariables.add(new HashSet<String>());
   }
 
   /** Finishes the session with temporarily disabled readonly checking. */
   void finishTemporarilyDisableReadonlyCheckSession() {
-    Set<String> variables = futureReadOnlyVariables.pop();
-    readOnlyVariables.addAll(variables);
-    if (!futureReadOnlyVariables.isEmpty()) {
-      futureReadOnlyVariables.peek().addAll(variables);
+    Set<String> variables = scope.futureReadOnlyVariables.pop();
+    scope.readOnlyVariables.addAll(variables);
+    if (!scope.futureReadOnlyVariables.isEmpty()) {
+      scope.futureReadOnlyVariables.peek().addAll(variables);
     }
   }
 
   /** Finishes a branch of temporarily disabled readonly checking. */
   void finishTemporarilyDisableReadonlyCheckBranch() {
-    readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
+    scope.readOnlyVariables.removeAll(scope.futureReadOnlyVariables.peek());
   }
 
   /** Throws EvalException if a load() appears after another kind of statement. */
@@ -202,7 +204,10 @@ public final class ValidationEnvironment {
   }
 
   public static void validateAst(Environment env, List<Statement> statements) throws EvalException {
-    new ValidationEnvironment(env).validateAst(statements);
+    ValidationEnvironment venv = new ValidationEnvironment(env);
+    venv.validateAst(statements);
+    // Check that no closeScope was forgotten.
+    Preconditions.checkState(venv.scope.parent == null);
   }
 
   public static boolean validateAst(
@@ -216,5 +221,15 @@ public final class ValidationEnvironment {
       }
       return false;
     }
+  }
+
+  /** Open a new scope that will contain the future declarations. */
+  public void openScope() {
+    this.scope = new Scope(this.scope);
+  }
+
+  /** Close a scope (and lose all declarations it contained). */
+  public void closeScope() {
+    this.scope = Preconditions.checkNotNull(this.scope.parent);
   }
 }
