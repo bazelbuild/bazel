@@ -1193,14 +1193,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testTopLevelDict() throws Exception {
-    new SkylarkTest().setUp("if 1:",
-      "  v = 'a'",
-      "else:",
-      "  v = 'b'").testLookup("v", "a");
-  }
-
-  @Test
   public void testUserFunctionKeywordArgs() throws Exception {
     new SkylarkTest().setUp("def foo(a, b, c):",
         "  return a + b + c", "s = foo(1, c=2, b=3)")

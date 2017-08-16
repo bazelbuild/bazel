@@ -112,7 +112,7 @@ value has a single declaration. This restriction is consistent with the idea
 that global values cannot be redefined.
 
 *   Flag: `--incompatible_disallow_toplevel_if_statement`
-*   Default: `false`
+*   Default: `true`
 
 
 ## Comprehensions variables

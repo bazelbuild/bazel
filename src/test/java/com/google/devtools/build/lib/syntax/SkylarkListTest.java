@@ -216,21 +216,13 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testConcatListNotEmpty() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
-        "if l:",
-        "  v = 1",
-        "else:",
-        "  v = 0");
+    eval("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(1);
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
-    eval("l = [] + []",
-        "if l:",
-        "  v = 1",
-        "else:",
-        "  v = 0");
+    eval("l = [] + []", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(0);
   }
 
