@@ -486,7 +486,10 @@ public class AndroidIdlHelper {
   /** Returns the idl_preprocessed defined on the given rule. */
   private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
     return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
-        ? ruleContext.getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET).list()
+        ? ruleContext
+            .getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET)
+            .filter(AndroidRuleClasses.ANDROID_IDL)
+            .list()
         : ImmutableList.<Artifact>of();
   }
 }
