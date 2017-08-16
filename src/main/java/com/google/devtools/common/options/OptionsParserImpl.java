@@ -624,7 +624,7 @@ class OptionsParserImpl {
         booleanValue = false;
         if (field != null) {
           // TODO(bazel-team): Add tests for these cases.
-          if (!OptionsData.isBooleanField(field)) {
+          if (!optionsData.isBooleanField(field)) {
             throw new OptionsParsingException(
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
           }
@@ -650,7 +650,7 @@ class OptionsParserImpl {
 
     if (value == null) {
       // Special-case boolean to supply value based on presence of "no" prefix.
-      if (OptionsData.isBooleanField(field)) {
+      if (optionsData.isBooleanField(field)) {
         value = booleanValue ? "1" : "0";
       } else if (field.getType().equals(Void.class) && !option.wrapperOption()) {
         // This is expected, Void type options have no args (unless they're wrapper options).

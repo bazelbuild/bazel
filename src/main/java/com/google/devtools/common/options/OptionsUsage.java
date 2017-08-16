@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -25,9 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A renderer for usage messages. For now this is very simple.
- */
+/** A renderer for usage messages for any combination of options classes. */
 class OptionsUsage {
 
   private static final Splitter NEWLINE_SPLITTER = Splitter.on('\n');
@@ -44,7 +43,7 @@ class OptionsUsage {
     List<Field> optionFields = new ArrayList<>(data.getFieldsForClass(optionsClass));
     optionFields.sort(BY_NAME);
     for (Field optionField : optionFields) {
-      getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG, null);
+      getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG, data);
     }
   }
 
@@ -79,44 +78,31 @@ class OptionsUsage {
   }
 
   /**
-   * Returns the expansion for an option, to the extent known. Precisely, if an {@link OptionsData}
-   * object is supplied, the expansion is read from that if the expansion function doesn't take an
-   * argument. Otherwise, the annotation is inspected: If the annotation uses {@link
-   * Option#expansion} it is returned, and if it uses {@link Option#expansionFunction} null is
-   * returned, indicating a lack of definite information. In all cases, when the option is not an
-   * expansion option, an empty list is returned.
+   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
+   * or is statically declared in the annotation.
    */
   private static @Nullable ImmutableList<String> getExpansionIfKnown(
-      Field optionField, Option annotation, @Nullable OptionsData optionsData) {
-    if (optionsData != null) {
-      try {
-        return optionsData.getEvaluatedExpansion(optionField, null);
-      } catch (ExpansionNeedsValueException e) {
-        return null;
-      } catch (OptionsParsingException e) {
-        throw new IllegalStateException("Error expanding void expansion function: ", e);
-      }
-    } else {
-      if (OptionsData.usesExpansionFunction(annotation)) {
-        return null;
-      } else {
-        // Empty list if it's not an expansion option.
-        return ImmutableList.copyOf(annotation.expansion());
-      }
+      Field optionField, OptionsData optionsData) {
+    Preconditions.checkNotNull(optionField);
+    Preconditions.checkNotNull(optionsData);
+    try {
+      return optionsData.getEvaluatedExpansion(optionField, null);
+    } catch (ExpansionNeedsValueException e) {
+      return null;
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException("Error expanding void expansion function: ", e);
     }
+
   }
 
-  /**
-   * Appends the usage message for a single option-field message to 'usage'. If {@code optionsData}
-   * is not supplied, options that use expansion functions won't be fully described.
-   */
+  /** Appends the usage message for a single option-field message to 'usage'. */
   static void getUsage(
       Field optionField,
       StringBuilder usage,
       OptionsParser.HelpVerbosity helpVerbosity,
-      @Nullable OptionsData optionsData) {
-    String flagName = getFlagName(optionField);
-    String typeDescription = getTypeDescription(optionField);
+      OptionsData optionsData) {
+    String flagName = getFlagName(optionField, optionsData);
+    String typeDescription = getTypeDescription(optionField, optionsData);
     Option annotation = optionField.getAnnotation(Option.class);
     usage.append("  --").append(flagName);
     if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) { // just the name
@@ -149,7 +135,7 @@ class OptionsUsage {
       usage.append(paragraphFill(annotation.help(), 4, 80)); // (indent, width)
       usage.append('\n');
     }
-    ImmutableList<String> expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
     if (expansion == null) {
       usage.append("    Expands to unknown options.\n");
     } else if (!expansion.isEmpty()) {
@@ -162,20 +148,17 @@ class OptionsUsage {
     }
   }
 
-  /**
-   * Append the usage message for a single option-field message to 'usage'. If {@code optionsData}
-   * is not supplied, options that use expansion functions won't be fully described.
-   */
+  /** Append the usage message for a single option-field message to 'usage'. */
   static void getUsageHtml(
-      Field optionField, StringBuilder usage, Escaper escaper, @Nullable OptionsData optionsData) {
-    String plainFlagName = optionField.getAnnotation(Option.class).name();
-    String flagName = getFlagName(optionField);
-    String valueDescription = optionField.getAnnotation(Option.class).valueHelp();
-    String typeDescription = getTypeDescription(optionField);
+      Field optionField, StringBuilder usage, Escaper escaper, OptionsData optionsData) {
     Option annotation = optionField.getAnnotation(Option.class);
+    String plainFlagName = annotation.name();
+    String flagName = getFlagName(optionField, optionsData);
+    String valueDescription = annotation.valueHelp();
+    String typeDescription = getTypeDescription(optionField, optionsData);
     usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
     usage.append(flagName);
-    if (OptionsData.isBooleanField(optionField) || OptionsData.isVoidField(optionField)) {
+    if (optionsData.isBooleanField(optionField) || OptionsData.isVoidField(optionField)) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));
@@ -207,7 +190,7 @@ class OptionsUsage {
       usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
       usage.append('\n');
     }
-    ImmutableList<String> expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
     if (expansion == null) {
       usage.append("    Expands to unknown options.<br>\n");
     } else if (!expansion.isEmpty()) {
@@ -298,13 +281,13 @@ class OptionsUsage {
     }
   };
 
-  private static String getTypeDescription(Field optionsField) {
-    return OptionsData.findConverter(optionsField).getTypeDescription();
+  private static String getTypeDescription(Field optionsField, OptionsData optionsData) {
+    return optionsData.getConverter(optionsField).getTypeDescription();
   }
 
-  static String getFlagName(Field field) {
+  static String getFlagName(Field field, OptionsData optionsData) {
     String name = field.getAnnotation(Option.class).name();
-    return OptionsData.isBooleanField(field) ? "[no]" + name : name;
+    return optionsData.isBooleanField(field) ? "[no]" + name : name;
   }
 
 }

@@ -88,8 +88,11 @@ public class OptionsTest {
 
     // Interestingly, the class needs to be public, or else the default constructor ends up not
     // being public and the expander can't be instantiated.
-    /** SpecialExpansion */
-    public static class SpecialExpansion implements ExpansionFunction {
+    /**
+     * Defines an expansion function that looks at other options defined with it and expands to
+     * options that match a pattern.
+     */
+    public static class ExpansionDependsOnOtherOptionDefinitions implements ExpansionFunction {
       @Override
       public ImmutableList<String> getExpansion(ExpansionContext context) {
         TreeSet<String> flags = new TreeSet<>();
@@ -102,8 +105,11 @@ public class OptionsTest {
       }
     }
 
-    /** VariableExpansion */
-    public static class VariableExpansion implements ExpansionFunction {
+    /**
+     * Defines an expansion function that adapts its expansion to the value assigned to the original
+     * expansion option.
+     */
+    public static class ExpansionDependsOnFlagValue implements ExpansionFunction {
       @Override
       public ImmutableList<String> getExpansion(ExpansionContext context)
           throws OptionsParsingException {
@@ -140,16 +146,17 @@ public class OptionsTest {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null",
-      expansionFunction = SpecialExpansion.class
+      expansionFunction = ExpansionDependsOnOtherOptionDefinitions.class
     )
     public Void specialExp;
 
-
     @Option(
-        name = "dynamicexp",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "null", expansionFunction = VariableExpansion.class)
+      name = "dynamicexp",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null",
+      expansionFunction = ExpansionDependsOnFlagValue.class
+    )
     public Void variableExpansion;
   }
 
@@ -420,9 +427,9 @@ public class OptionsTest {
     String usage = Options.getUsage(HttpOptions.class);
     assertThat(usage)
         .contains("  --special\n    Expands to: --host=special.google.com --port=8080");
-    // Expansion functions aren't evaluated since we're just grabbing the usage for an OptionsBase
-    // subclass and not for a completed parser. The completed case is covered in OptionsParserTest.
-    assertThat(usage).contains("  --specialexp\n    Expands to unknown options.");
+    // Expect that the usage text contains the expansion appropriate to the options bases that were
+    // loaded into the options parser.
+    assertThat(usage).contains("  --specialexp\n    Expands to: --specialexp_bar --specialexp_foo");
   }
 
   public static class NullTestOptions extends OptionsBase {

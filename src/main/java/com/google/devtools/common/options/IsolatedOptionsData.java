@@ -217,10 +217,14 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    *
    * <p>Can be used for usage help and controlling whether the "no" prefix is allowed.
    */
-  static boolean isBooleanField(Field field) {
+  boolean isBooleanField(Field field) {
+    return isBooleanField(field, getConverter(field));
+  }
+
+  private static boolean isBooleanField(Field field, Converter<?> converter) {
     return field.getType().equals(boolean.class)
         || field.getType().equals(TriState.class)
-        || findConverter(field) instanceof BoolOrEnumConverter;
+        || converter instanceof BoolOrEnumConverter;
   }
 
   /** Returns whether a field has Void type. */
@@ -245,7 +249,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * Given an {@code @Option}-annotated field, retrieves the {@link Converter} that will be used,
    * taking into account the default converters if an explicit one is not specified.
    */
-  static Converter<?> findConverter(Field optionField) {
+  private static Converter<?> findConverter(Field optionField) {
     Option annotation = optionField.getAnnotation(Option.class);
     if (annotation.converter() == Converter.class) {
       // No converter provided, use the default one.
@@ -468,28 +472,31 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
         // Get the converter return type.
         @SuppressWarnings("rawtypes")
-        Class<? extends Converter> converter = annotation.converter();
-        if (converter == Converter.class) {
+        Class<? extends Converter> converterClass = annotation.converter();
+        if (converterClass == Converter.class) {
           Converter<?> actualConverter = Converters.DEFAULT_CONVERTERS.get(fieldType);
           if (actualConverter == null) {
             throw new ConstructionException("Cannot find converter for field of type "
                 + field.getType() + " named " + field.getName()
                 + " in class " + field.getDeclaringClass().getName());
           }
-          converter = actualConverter.getClass();
+          converterClass = actualConverter.getClass();
         }
-        if (Modifier.isAbstract(converter.getModifiers())) {
-          throw new ConstructionException("The converter type " + converter
-              + " must be a concrete type");
+        if (Modifier.isAbstract(converterClass.getModifiers())) {
+          throw new ConstructionException(
+              "The converter type " + converterClass + " must be a concrete type");
         }
         Type converterResultType;
         try {
-          Method convertMethod = converter.getMethod("convert", String.class);
-          converterResultType = GenericTypeHelper.getActualReturnType(converter, convertMethod);
+          Method convertMethod = converterClass.getMethod("convert", String.class);
+          converterResultType =
+              GenericTypeHelper.getActualReturnType(converterClass, convertMethod);
         } catch (NoSuchMethodException e) {
           throw new ConstructionException(
               "A known converter object doesn't implement the convert method");
         }
+        Converter<?> converter = findConverter(field);
+        convertersBuilder.put(field, converter);
 
         if (annotation.allowMultiple()) {
           if (GenericTypeHelper.getRawType(converterResultType) == List.class) {
@@ -526,7 +533,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           }
         }
 
-        if (isBooleanField(field)) {
+        if (isBooleanField(field, converter)) {
           checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, optionName);
         }
 
@@ -541,7 +548,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           nameToFieldBuilder.put(annotation.oldName(), field);
 
           // If boolean, repeat the alias dance for the old name.
-          if (isBooleanField(field)) {
+          if (isBooleanField(field, converter)) {
             checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, oldName);
           }
         }
@@ -551,8 +558,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         }
 
         optionDefaultsBuilder.put(field, retrieveDefaultFromAnnotation(field));
-
-        convertersBuilder.put(field, findConverter(field));
 
         allowMultipleBuilder.put(field, annotation.allowMultiple());
 
