@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.regex.Pattern;
 
 /**
@@ -127,8 +128,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     ActionInputFileCache inputFileCache = policy.getActionInputFileCache();
 
-    HashCode workerFilesHash =
-        WorkerFilesHash.getWorkerFilesHash(spawn.getToolFiles(), inputFileCache);
+    SortedMap<PathFragment, HashCode> workerFiles =
+        WorkerFilesHash.getWorkerFilesWithHashes(
+            spawn, policy.getArtifactExpander(), policy.getActionInputFileCache());
+
+    HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
+
     Map<PathFragment, Path> inputFiles = SandboxHelpers.getInputFiles(spawn, policy, execRoot);
     Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
 
@@ -138,7 +143,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             env,
             execRoot,
             spawn.getMnemonic(),
-            workerFilesHash,
+            workerFilesCombinedHash,
+            workerFiles,
             inputFiles,
             outputFiles,
             policy.speculating());

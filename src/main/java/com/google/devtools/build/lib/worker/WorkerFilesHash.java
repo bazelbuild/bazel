@@ -19,23 +19,66 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * Calculates the hash based on the files, which should be unchanged on disk for a worker to get
  * reused.
  */
-public class WorkerFilesHash {
+class WorkerFilesHash {
 
-  public static HashCode getWorkerFilesHash(
-      Iterable<? extends ActionInput> toolFiles, ActionInputFileCache actionInputFileCache)
-      throws IOException {
+  static HashCode getCombinedHash(SortedMap<PathFragment, HashCode> workerFilesMap) {
     Hasher hasher = Hashing.sha256().newHasher();
-    for (ActionInput tool : toolFiles) {
-      hasher.putString(tool.getExecPathString(), Charset.defaultCharset());
-      hasher.putBytes(actionInputFileCache.getMetadata(tool).getDigest());
+    for (Entry<PathFragment, HashCode> workerFile : workerFilesMap.entrySet()) {
+      hasher.putString(workerFile.getKey().getPathString(), Charset.defaultCharset());
+      hasher.putBytes(workerFile.getValue().asBytes());
     }
     return hasher.hash();
+  }
+
+  /**
+   * Return a map that contains the execroot relative path and hash of each tool and runfiles
+   * artifact of the given spawn.
+   */
+  static SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes(
+      Spawn spawn, ArtifactExpander artifactExpander, ActionInputFileCache actionInputFileCache)
+      throws IOException {
+    TreeMap<PathFragment, HashCode> workerFilesMap = new TreeMap<>();
+
+    List<ActionInput> tools =
+        ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
+    for (ActionInput tool : tools) {
+      workerFilesMap.put(
+          tool.getExecPath(),
+          HashCode.fromBytes(actionInputFileCache.getMetadata(tool).getDigest()));
+    }
+
+    for (Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
+        spawn.getRunfilesSupplier().getMappings().entrySet()) {
+      PathFragment root = rootAndMappings.getKey();
+      Preconditions.checkState(!root.isAbsolute(), root);
+      for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+        Artifact localArtifact = mapping.getValue();
+        if (localArtifact != null) {
+          workerFilesMap.put(
+              root.getRelative(mapping.getKey()),
+              HashCode.fromBytes(actionInputFileCache.getMetadata(localArtifact).getDigest()));
+        }
+      }
+    }
+
+    return workerFilesMap;
   }
 }

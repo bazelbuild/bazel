@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
@@ -35,10 +36,14 @@ final class WorkerKey {
   private final String mnemonic;
 
   /**
-   * This is used during validation whether a worker is still usable. It is not used to uniquely
-   * identify a kind of worker, thus it is not to be used by the .equals() / .hashCode() methods.
+   * These are used during validation whether a worker is still usable. They are not used to
+   * uniquely identify a kind of worker, thus it is not to be used by the .equals() / .hashCode()
+   * methods.
    */
-  private final HashCode workerFilesHash;
+  private final HashCode workerFilesCombinedHash;
+
+  private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
+
   private final Map<PathFragment, Path> inputFiles;
   private final Set<PathFragment> outputFiles;
   private final boolean mustBeSandboxed;
@@ -48,7 +53,8 @@ final class WorkerKey {
       Map<String, String> env,
       Path execRoot,
       String mnemonic,
-      HashCode workerFilesHash,
+      HashCode workerFilesCombinedHash,
+      SortedMap<PathFragment, HashCode> workerFilesWithHashes,
       Map<PathFragment, Path> inputFiles,
       Set<PathFragment> outputFiles,
       boolean mustBeSandboxed) {
@@ -56,7 +62,8 @@ final class WorkerKey {
     this.env = ImmutableMap.copyOf(Preconditions.checkNotNull(env));
     this.execRoot = Preconditions.checkNotNull(execRoot);
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
-    this.workerFilesHash = Preconditions.checkNotNull(workerFilesHash);
+    this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
+    this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
     this.inputFiles = Preconditions.checkNotNull(inputFiles);
     this.outputFiles = Preconditions.checkNotNull(outputFiles);
     this.mustBeSandboxed = mustBeSandboxed;
@@ -78,8 +85,12 @@ final class WorkerKey {
     return mnemonic;
   }
 
-  public HashCode getWorkerFilesHash() {
-    return workerFilesHash;
+  public HashCode getWorkerFilesCombinedHash() {
+    return workerFilesCombinedHash;
+  }
+
+  public SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
+    return workerFilesWithHashes;
   }
 
   public Map<PathFragment, Path> getInputFiles() {

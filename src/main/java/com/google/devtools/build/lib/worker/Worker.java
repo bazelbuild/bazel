@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.util.SortedMap;
 
 /**
  * Interface to a worker process running as a child process.
@@ -124,8 +126,12 @@ class Worker {
     return this.workerId;
   }
 
-  HashCode getWorkerFilesHash() {
-    return workerKey.getWorkerFilesHash();
+  HashCode getWorkerFilesCombinedHash() {
+    return workerKey.getWorkerFilesCombinedHash();
+  }
+
+  SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
+    return workerKey.getWorkerFilesWithHashes();
   }
 
   boolean isAlive() {

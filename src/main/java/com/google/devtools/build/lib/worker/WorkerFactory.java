@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -99,25 +102,36 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     p.getObject().destroy();
   }
 
-  /**
-   * The worker is considered to be valid when its files have not changed on disk and its process is
-   * still alive.
-   */
+  /** The worker is considered to be valid when its files have not changed on disk. */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
-    boolean hashMatches = key.getWorkerFilesHash().equals(worker.getWorkerFilesHash());
+    boolean hashMatches =
+        key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
     if (reporter != null && !hashMatches) {
-      reporter.handle(
-          Event.warn(
-              String.format(
-                  "%s worker (id %d) can no longer be used, because its files have changed on"
-                      + " disk [%s -> %s]",
-                  key.getMnemonic(),
-                  worker.getWorkerId(),
-                  worker.getWorkerFilesHash(),
-                  key.getWorkerFilesHash())));
+      StringBuilder msg = new StringBuilder();
+      msg.append(
+          String.format(
+              "%s worker (id %d) can no longer be used, because its files have changed on disk:",
+              key.getMnemonic(), worker.getWorkerId()));
+      TreeSet<PathFragment> files = new TreeSet<>();
+      files.addAll(key.getWorkerFilesWithHashes().keySet());
+      files.addAll(worker.getWorkerFilesWithHashes().keySet());
+      for (PathFragment file : files) {
+        HashCode oldHash = key.getWorkerFilesWithHashes().get(file);
+        HashCode newHash = worker.getWorkerFilesWithHashes().get(file);
+        if (!oldHash.equals(newHash)) {
+          msg.append("\n")
+              .append(file.getPathString())
+              .append(": ")
+              .append(oldHash != null ? oldHash : "<none>")
+              .append(" -> ")
+              .append(newHash != null ? newHash : "<none>");
+        }
+      }
+
+      reporter.handle(Event.warn(msg.toString()));
     }
 
     return hashMatches;
