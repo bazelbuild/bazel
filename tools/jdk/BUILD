@@ -155,6 +155,16 @@ alias(
 java_toolchain(
     name = "toolchain",
     bootclasspath = [":bootclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+            "-XDallowBetterNullChecks=false",
+        ],
+    },
     encoding = "UTF-8",
     extclasspath = [":extclasspath"],
     forcibly_disable_header_compilation = 0,
