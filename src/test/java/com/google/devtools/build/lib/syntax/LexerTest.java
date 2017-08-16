@@ -167,6 +167,14 @@ public class LexerTest {
   }
 
   @Test
+  public void testNonAsciiIdentifiers() throws Exception {
+    tokens("ümlaut");
+    assertThat(lastError.toString()).contains("invalid character: 'ü'");
+    tokens("umläut");
+    assertThat(lastError.toString()).contains("invalid character: 'ä'");
+  }
+
+  @Test
   public void testCrLf() throws Exception {
     assertThat(names(tokens("\r\n\r\n"))).isEqualTo("NEWLINE EOF");
     assertThat(names(tokens("\r\n\r1\r\r\n"))).isEqualTo("NEWLINE INT NEWLINE EOF");

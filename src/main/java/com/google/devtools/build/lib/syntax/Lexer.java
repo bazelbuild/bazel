@@ -834,9 +834,9 @@ public final class Lexer {
           break;
         }
 
-        if (Character.isDigit(c)) {
+        if (c >= '0' && c <= '9') {
           addToken(integer());
-        } else if (Character.isJavaIdentifierStart(c) && c != '$') {
+        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
           addToken(identifierOrKeyword());
         } else {
           error("invalid character: '" + c + "'");
