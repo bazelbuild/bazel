@@ -32,13 +32,17 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class JarDecompressorTest {
+  private static final String FOO_JAR = "/foo.jar";
+  private static final String BUILD_FILE = "BUILD.bazel";
+  private static final String FOO_SOURCES_JAR = "/foo-sources.jar";
   private DecompressorDescriptor.Builder descriptorBuilder;
+  private Scratch fs;
 
   @Before
   public void setUpFs() throws Exception {
-    Scratch fs = new Scratch();
+    fs = new Scratch();
     Path dir = fs.dir("/whatever/external/tester");
-    Path jar = fs.file("/foo.jar", "I'm a jar");
+    Path jar = fs.file(FOO_JAR, "I'm a jar");
     FileSystemUtils.createDirectoryAndParents(dir);
     descriptorBuilder = DecompressorDescriptor.builder()
         .setDecompressor(JarDecompressor.INSTANCE)
@@ -53,7 +57,9 @@ public class JarDecompressorTest {
     Path outputDir = DecompressorValue.decompress(descriptorBuilder.build());
     assertThat(outputDir.exists()).isTrue();
     String buildContent =
-        new String(FileSystemUtils.readContentAsLatin1(outputDir.getRelative("jar/BUILD.bazel")));
+        new String(FileSystemUtils.readContentAsLatin1(jarDirectoryFile(BUILD_FILE, outputDir)));
+    assertThat(jarDirectoryFile(FOO_JAR, outputDir).exists()).isTrue();
+    assertThat(jarDirectoryFile(FOO_SOURCES_JAR, outputDir).exists()).isFalse();
     assertThat(buildContent).contains("java_import");
     assertThat(buildContent).contains("filegroup");
   }
@@ -65,5 +71,26 @@ public class JarDecompressorTest {
     String workspaceContent = new String(
         FileSystemUtils.readContentAsLatin1(outputDir.getRelative("WORKSPACE")));
     assertThat(workspaceContent).contains("workspace(name = \"tester\")");
+  }
+
+  @Test
+  public void testTargetsWithSources() throws Exception {
+    Path sourceJar = fs.file(FOO_SOURCES_JAR, "I'm a sources jar");
+    descriptorBuilder.setArchiveSourcesPath(sourceJar);
+
+    Path outputDir = DecompressorValue.decompress(descriptorBuilder.build());
+    assertThat(outputDir.exists()).isTrue();
+    assertThat(jarDirectoryFile(sourceJar.getBaseName(), outputDir).exists()).isTrue();
+    assertThat(jarDirectoryFile(FOO_JAR, outputDir).exists()).isTrue();
+
+    String buildContent =
+        new String(FileSystemUtils.readContentAsLatin1(jarDirectoryFile(BUILD_FILE, outputDir)));
+    assertThat(buildContent).contains("java_import");
+    assertThat(buildContent).contains("srcjar");
+    assertThat(buildContent).contains("filegroup");
+  }
+
+  private Path jarDirectoryFile(String baseName, Path outputPath) {
+    return outputPath.getRelative("jar/" + baseName);
   }
 }

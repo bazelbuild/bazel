@@ -31,17 +31,21 @@ public class DecompressorDescriptor {
   private final String targetKind;
   private final String targetName;
   private final Path archivePath;
+  private final Optional<Path> archiveSourcesPath;
   private final Path repositoryPath;
   private final Optional<String> prefix;
   private final boolean executable;
   private final Decompressor decompressor;
 
   private DecompressorDescriptor(
-      String targetKind, String targetName, Path archivePath, Path repositoryPath,
+      String targetKind, String targetName, Path archivePath,
+      @Nullable Path archiveSourcesPath,
+      Path repositoryPath,
       @Nullable String prefix, boolean executable, Decompressor decompressor) {
     this.targetKind = targetKind;
     this.targetName = targetName;
     this.archivePath = archivePath;
+    this.archiveSourcesPath = Optional.fromNullable(archiveSourcesPath);
     this.repositoryPath = repositoryPath;
     this.prefix = Optional.fromNullable(prefix);
     this.executable = executable;
@@ -58,6 +62,10 @@ public class DecompressorDescriptor {
 
   public Path archivePath() {
     return archivePath;
+  }
+
+  public Optional<Path> archiveSourcesPath() {
+    return archiveSourcesPath;
   }
 
   public Path repositoryPath() {
@@ -113,6 +121,7 @@ public class DecompressorDescriptor {
     private String targetKind;
     private String targetName;
     private Path archivePath;
+    private Path archiveSourcesPath;
     private Path repositoryPath;
     private String prefix;
     private boolean executable;
@@ -126,7 +135,7 @@ public class DecompressorDescriptor {
         decompressor = DecompressorValue.getDecompressor(archivePath);
       }
       return new DecompressorDescriptor(
-          targetKind, targetName, archivePath, repositoryPath, prefix, executable, decompressor);
+          targetKind, targetName, archivePath, archiveSourcesPath, repositoryPath, prefix, executable, decompressor);
     }
 
     public Builder setTargetKind(String targetKind) {
@@ -141,6 +150,11 @@ public class DecompressorDescriptor {
 
     public Builder setArchivePath(Path archivePath) {
       this.archivePath = archivePath;
+      return this;
+    }
+
+    public Builder setArchiveSourcesPath(Path archiveSourcesPath) {
+      this.archiveSourcesPath = archiveSourcesPath;
       return this;
     }
 

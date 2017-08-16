@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -60,6 +61,12 @@ public class JarDecompressor implements Decompressor {
       if (!jarSymlink.exists()) {
         jarSymlink.createSymbolicLink(descriptor.archivePath());
       }
+      if (descriptor.archiveSourcesPath().isPresent()) {
+        Path sourcesSymlink = jarDirectory.getRelative(descriptor.archiveSourcesPath().get().getBaseName());
+        if (!sourcesSymlink.exists()) {
+          sourcesSymlink.createSymbolicLink(descriptor.archiveSourcesPath().get());
+        }
+      }
       // external/some-name/repository/jar/BUILD.bazel defines the //jar target.
       Path buildFile = jarDirectory.getRelative("BUILD.bazel");
       FileSystemUtils.writeLinesAs(
@@ -69,7 +76,7 @@ public class JarDecompressor implements Decompressor {
               + descriptor.targetKind()
               + " rule "
               + descriptor.targetName(),
-          createBuildFile(baseName));
+          createBuildFile(baseName, descriptor.archiveSourcesPath()));
       if (descriptor.executable()) {
         descriptor.archivePath().chmod(0755);
       }
@@ -84,13 +91,21 @@ public class JarDecompressor implements Decompressor {
     return "jar";
   }
 
-  protected String createBuildFile(String baseName) {
-    return Joiner.on("\n")
+  protected String createBuildFile(String baseName, Optional<Path> srcJar) {
+    String buildFileText = Joiner.on("\n")
         .join(
             "java_import(",
             "    name = 'jar',",
-            "    jars = ['" + baseName + "'],",
-            "    visibility = ['//visibility:public']",
+            "    jars = ['" + baseName + "'],");
+
+    if (srcJar.isPresent()) {
+      buildFileText += "\n    srcjar = ':sources',";
+    }
+
+    buildFileText += Joiner.on("\n")
+        .join(
+            "",
+            "    visibility = ['//visibility:public'],",
             ")",
             "",
             "filegroup(",
@@ -98,5 +113,17 @@ public class JarDecompressor implements Decompressor {
             "    srcs = ['" + baseName + "'],",
             "    visibility = ['//visibility:public']",
             ")");
+
+    if (srcJar.isPresent()) {
+      return buildFileText + Joiner.on("\n").join("",
+          "",
+          "filegroup(",
+          "    name = 'sources',",
+          "    srcs = ['" + srcJar.get().getBaseName() + "'],",
+          "    visibility = ['//visibility:public']",
+          ")");
+    } else {
+      return buildFileText;
+    }
   }
 }

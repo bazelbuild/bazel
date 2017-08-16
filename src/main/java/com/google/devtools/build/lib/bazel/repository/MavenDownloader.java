@@ -43,8 +43,8 @@ import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 
 /**
- * Downloader for JAR files from Maven repositories.
- * TODO(jingwen): standardize interface between this and HttpDownloader
+ * Downloader for JAR files from Maven repositories. TODO(jingwen): standardize interface between
+ * this and HttpDownloader
  */
 public class MavenDownloader extends HttpDownloader {
 
@@ -79,22 +79,36 @@ public class MavenDownloader extends HttpDownloader {
     this.name = name;
     this.outputDirectory = outputDirectory;
 
+    Artifact artifact = createArtifact(mapper);
+    String sha1 = getSha1(mapper, "sha1");
+    return downloadArtifact(sha1, outputDirectory, artifact, serverValue);
+  }
+
+  /**
+   * Download the sources for the Maven artifact to the output directory. Returns the path to the
+   * jar.
+   */
+  public Path downloadSources(String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
+      MavenServerValue serverValue)
+      throws IOException, EvalException {
+    this.name = name;
+    this.outputDirectory = outputDirectory;
+
+    Artifact artifact = createArtifact(mapper);
+    Artifact sourcesArtifact =
+        new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), "sources",
+            artifact.getExtension(), artifact.getVersion());
+    String sha1 = getSha1(mapper, "sources_sha1");
+
+    return downloadArtifact(sha1, outputDirectory, sourcesArtifact, serverValue);
+  }
+
+  private Path downloadArtifact(String sha1, Path outputDirectory, Artifact artifact,
+      MavenServerValue serverValue) throws EvalException, IOException {
+
     String url = serverValue.getUrl();
     Server server = serverValue.getServer();
 
-    Artifact artifact;
-    String artifactId = mapper.get("artifact", Type.STRING);
-    String sha1 = mapper.isAttributeValueExplicitlySpecified("sha1")
-        ? mapper.get("sha1", Type.STRING) : null;
-        if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
-          throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
-        }
-    try {
-      artifact = new DefaultArtifact(artifactId);
-    } catch (IllegalArgumentException e) {
-      throw new IOException(e.getMessage());
-    }
- 
     boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
 
     if (isCaching) {
@@ -135,6 +149,29 @@ public class MavenDownloader extends HttpDownloader {
       repositoryCache.put(sha1, downloadPath, KeyType.SHA1);
     }
     return downloadPath;
+  }
+
+  private String getSha1(WorkspaceAttributeMapper mapper, String attrName)
+      throws EvalException, IOException {
+    String sha1 = mapper.isAttributeValueExplicitlySpecified(attrName)
+        ? mapper.get(attrName, Type.STRING) : null;
+    if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
+      throw new IOException(
+          "Invalid SHA-1 attr " + attrName + " for maven_jar " + name + ": '" + sha1 + "'");
+    }
+    return sha1;
+  }
+
+  private Artifact createArtifact(WorkspaceAttributeMapper mapper)
+      throws EvalException, IOException {
+    Artifact artifact;
+    String artifactId = mapper.get("artifact", Type.STRING);
+    try {
+      artifact = new DefaultArtifact(artifactId);
+    } catch (IllegalArgumentException e) {
+      throw new IOException(e.getMessage());
+    }
+    return artifact;
   }
 
   private Path getDownloadDestination(Artifact artifact) {

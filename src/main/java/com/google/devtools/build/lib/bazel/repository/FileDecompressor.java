@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * Creates a repository for a random file.
@@ -32,7 +34,7 @@ public class FileDecompressor extends JarDecompressor {
   }
 
   @Override
-  protected String createBuildFile(String baseName) {
+  protected String createBuildFile(String baseName, Optional<Path> sourcesJar) {
     return Joiner.on("\n")
         .join(
             "filegroup(",
