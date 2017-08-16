@@ -202,7 +202,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
-      expandArgument(requestBuilder, flagfile);
+      expandArgument(execRoot, flagfile, requestBuilder);
     }
 
     List<ActionInput> inputs =
@@ -231,17 +231,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * files. The @ itself can be escaped with @@. This deliberately does not expand --flagfile= style
    * arguments, because we want to get rid of the expansion entirely at some point in time.
    *
-   * @param requestBuilder the WorkRequest.Builder that the arguments should be added to.
+   * @param execRoot the current execroot of the build (relative paths will be assumed to be
+   *     relative to this directory).
    * @param arg the argument to expand.
+   * @param requestBuilder the WorkRequest to whose arguments the expanded arguments will be added.
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
-  private void expandArgument(WorkRequest.Builder requestBuilder, String arg) throws IOException {
+  static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
+      throws IOException {
     if (arg.startsWith("@") && !arg.startsWith("@@")) {
       for (String line : Files.readAllLines(
           Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
-        if (line.length() > 0) {
-          expandArgument(requestBuilder, line);
-        }
+        expandArgument(execRoot, line, requestBuilder);
       }
     } else {
       requestBuilder.addArguments(arg);
