@@ -4,10 +4,6 @@
 java_library(
     name = "throwable_extension",
     srcs = ["ThrowableExtension.java"],
-    javacopts = [
-        "-source 7",
-        "-target 7",
-    ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android/desugar:__pkg__"],
 )
 
