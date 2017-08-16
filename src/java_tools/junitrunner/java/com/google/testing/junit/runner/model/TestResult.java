@@ -166,34 +166,34 @@ public final class TestResult {
     private Integer numFailures = null;
     private List<TestResult> childResults = null;
 
-    Builder() {}
+    public Builder() {}
 
-    Builder name(String name) {
+    public Builder name(String name) {
       this.name = checkNullToNotNull(this.name, name, "name");
       return this;
     }
 
-    Builder className(String className) {
+    public Builder className(String className) {
       this.className = checkNullToNotNull(this.className, className, "className");
       return this;
     }
 
-    Builder properties(Map<String, String> properties) {
+    public Builder properties(Map<String, String> properties) {
       this.properties = checkNullToNotNull(this.properties, properties, "properties");
       return this;
     }
 
-    Builder integrations(Set<TestIntegration> integrations) {
+    public Builder integrations(Set<TestIntegration> integrations) {
       this.integrations = checkNullToNotNull(this.integrations, integrations, "integrations");
       return this;
     }
 
-    Builder failures(List<Throwable> failures) {
+    public Builder failures(List<Throwable> failures) {
       this.failures = checkNullToNotNull(this.failures, failures, "failures");
       return this;
     }
 
-    Builder runTimeInterval(@Nullable TestInterval runTime) {
+    public Builder runTimeInterval(@Nullable TestInterval runTime) {
       if (this.runTime != null) {
         throw new IllegalStateException("runTime already set");
       }
@@ -201,27 +201,27 @@ public final class TestResult {
       return this;
     }
 
-    Builder status(Status status) {
+    public Builder status(Status status) {
       this.status = checkNullToNotNull(this.status, status, "status");
       return this;
     }
 
-    Builder numTests(int numTests) {
+    public Builder numTests(int numTests) {
       this.numTests = checkNullToNotNull(this.numTests, numTests, "numTests");
       return this;
     }
 
-    Builder numFailures(int numFailures) {
+    public Builder numFailures(int numFailures) {
       this.numFailures = checkNullToNotNull(this.numFailures, numFailures, "numFailures");
       return this;
     }
 
-    Builder childResults(List<TestResult> childResults) {
+    public Builder childResults(List<TestResult> childResults) {
       this.childResults = checkNullToNotNull(this.childResults, childResults, "childResults");
       return this;
     }
 
-    TestResult build() {
+    public TestResult build() {
       return new TestResult(this);
     }
 
