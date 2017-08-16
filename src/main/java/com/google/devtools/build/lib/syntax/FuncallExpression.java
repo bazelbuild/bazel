@@ -204,33 +204,6 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Returns the name of the called function if it's available in the AST.
-   *
-   * <p>It may not be available in cases like `list[0](arg1, arg2)`.
-   */
-  @Nullable
-  public String getFunctionNameIfPossible() {
-    Identifier ident = getFunctionIdentifierIfPossible();
-    return ident == null ? null : ident.getName();
-  }
-
-  /**
-   * Returns the identifier of the called function if it's available in the AST.
-   *
-   * <p>It may not be available in cases like `list[0](arg1, arg2)`.
-   */
-  @Nullable
-  public Identifier getFunctionIdentifierIfPossible() {
-    if (function instanceof Identifier) {
-      return (Identifier) function;
-    }
-    if (function instanceof DotExpression) {
-      return ((DotExpression) function).getField();
-    }
-    return null;
-  }
-
-  /**
    * Returns the number of positional arguments.
    */
   private int countPositionalArguments() {

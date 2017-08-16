@@ -35,14 +35,16 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 
 /**
@@ -156,7 +158,16 @@ public class SkylarkRepositoryModule {
     public Object call(
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
-      String ruleClassName = Preconditions.checkNotNull(ast.getFunctionNameIfPossible());
+      String ruleClassName = null;
+      Expression function = ast.getFunction();
+      if (function instanceof Identifier) {
+        ruleClassName = ((Identifier) function).getName();
+      } else if (function instanceof DotExpression) {
+        ruleClassName = ((DotExpression) function).getField().getName();
+      } else {
+        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
+        throw new IllegalStateException("Function is not an identifier or method call");
+      }
       try {
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);
