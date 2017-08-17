@@ -229,25 +229,6 @@ public final class LValue extends ASTNode {
     visitor.visit(this);
   }
 
-  void validate(ValidationEnvironment env, Location loc) throws EvalException {
-    validate(env, loc, expr);
-  }
-
-  private static void validate(ValidationEnvironment env, Location loc, Expression expr)
-      throws EvalException {
-    if (expr instanceof Identifier) {
-      env.declare(((Identifier) expr).getName(), loc);
-    } else if (expr instanceof IndexExpression) {
-      expr.validate(env);
-    } else if (expr instanceof ListLiteral) {
-      for (Expression e : ((ListLiteral) expr).getElements()) {
-        validate(env, loc, e);
-      }
-    } else {
-      throw new EvalException(loc, "cannot assign to '" + expr + "'");
-    }
-  }
-
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     expr.prettyPrint(buffer);

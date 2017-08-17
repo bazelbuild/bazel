@@ -76,8 +76,6 @@ public abstract class AbstractComprehension extends Expression {
     void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException;
 
-    void validate(ValidationEnvironment env, Location loc) throws EvalException;
-
     /**
      * The LValue defined in Clause, i.e. the loop variables for ForClause and null for
      * IfClause. This is needed for SyntaxTreeVisitor.
@@ -127,12 +125,6 @@ public abstract class AbstractComprehension extends Expression {
       } finally {
         EvalUtils.unlock(iterableObject, loc);
       }
-    }
-
-    @Override
-    public void validate(ValidationEnvironment env, Location loc) throws EvalException {
-      lvalue.validate(env, loc);
-      iterable.validate(env);
     }
 
     @Override
@@ -187,11 +179,6 @@ public abstract class AbstractComprehension extends Expression {
       if (EvalUtils.toBoolean(condition.eval(env))) {
         evalStep(env, collector, step);
       }
-    }
-
-    @Override
-    public void validate(ValidationEnvironment env, Location loc) throws EvalException {
-      condition.validate(env);
     }
 
     @Override
@@ -305,27 +292,6 @@ public abstract class AbstractComprehension extends Expression {
       }
     }
     return result;
-  }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    // Create a new scope so that loop variables do not leak outside the comprehension.
-    if (env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
-      env.openScope();
-    }
-
-    for (Clause clause : clauses) {
-      clause.validate(env, getLocation());
-    }
-
-    // Clauses have to be validated before expressions in order to introduce the variable names.
-    for (Expression expr : outputExpressions) {
-      expr.validate(env);
-    }
-
-    if (env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
-      env.closeScope();
-    }
   }
 
   /**

@@ -78,12 +78,4 @@ public final class ReturnStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    if (env.isTopLevel()) {
-      throw new EvalException(getLocation(), "Return statements must be inside a function");
-    }
-    returnExpression.validate(env);
-  }
 }

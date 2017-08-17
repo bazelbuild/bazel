@@ -112,11 +112,4 @@ public final class ListLiteral extends Expression {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    for (Expression element : elements) {
-      element.validate(env);
-    }
-  }
 }

@@ -44,20 +44,4 @@ public abstract class Statement extends ASTNode {
    * @throws InterruptedException may be thrown in a sub class.
    */
   abstract void doExec(Environment env) throws EvalException, InterruptedException;
-
-  /**
-   * Checks the semantics of the Statement using the Environment according to
-   * the rules of the Skylark language. The Environment can be used e.g. to check
-   * variable type collision, read only variables, detecting recursion, existence of
-   * built-in variables, functions, etc.
-   *
-   * <p>The semantical check should be performed after the Skylark extension is loaded
-   * (i.e. is syntactically correct) and before is executed. The point of the semantical check
-   * is to make sure (as much as possible) that no error can occur during execution (Skylark
-   * programmers get a "compile time" error). It should also check execution branches (e.g. in
-   * if statements) that otherwise might never get executed.
-   *
-   * @throws EvalException if the Statement has a semantical error.
-   */
-  abstract void validate(ValidationEnvironment env) throws EvalException;
 }

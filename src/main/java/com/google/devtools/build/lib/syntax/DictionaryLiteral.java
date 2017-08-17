@@ -102,12 +102,4 @@ public final class DictionaryLiteral extends Expression {
   public ImmutableList<DictionaryEntryLiteral> getEntries() {
     return entries;
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    for (DictionaryEntryLiteral entry : entries) {
-      entry.key.validate(env);
-      entry.value.validate(env);
-    }
-  }
 }

@@ -85,14 +85,7 @@ public final class Identifier extends Expression {
     visitor.visit(this);
   }
 
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    if (!env.hasSymbolInEnvironment(name)) {
-      throw createInvalidIdentifierException(env.getAllSymbols());
-    }
-  }
-
-  private EvalException createInvalidIdentifierException(Set<String> symbols) {
+  EvalException createInvalidIdentifierException(Set<String> symbols) {
     if (name.equals("$error$")) {
       return new EvalException(getLocation(), "contains syntax error(s)", true);
     }

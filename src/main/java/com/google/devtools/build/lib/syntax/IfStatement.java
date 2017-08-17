@@ -26,8 +26,8 @@ public final class IfStatement extends Statement {
   /**
    * Syntax node for an [el]if statement.
    *
-   * <p>This extends Statement because it implements {@code doExec} and {@code validate}, but it
-   * is not actually an independent statement in the grammar.
+   * <p>This extends Statement because it implements {@code doExec}, but it is not actually an
+   * independent statement in the grammar.
    */
   public static final class ConditionalStatements extends Statement {
 
@@ -68,14 +68,6 @@ public final class IfStatement extends Statement {
 
     public ImmutableList<Statement> getStatements() {
       return statements;
-    }
-
-    @Override
-    void validate(ValidationEnvironment env) throws EvalException {
-      condition.validate(env);
-      for (Statement stmt : statements) {
-        stmt.validate(env);
-      }
     }
   }
 
@@ -140,15 +132,5 @@ public final class IfStatement extends Statement {
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    for (ConditionalStatements stmts : thenBlocks) {
-      stmts.validate(env);
-    }
-    for (Statement stmt : elseBlock) {
-      stmt.validate(env);
-    }
   }
 }

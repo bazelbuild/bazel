@@ -96,15 +96,4 @@ public final class ForStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
-    collection.validate(env);
-    variable.validate(env, getLocation());
-
-    for (Statement stmt : block) {
-      stmt.validate(env);
-    }
-  }
 }

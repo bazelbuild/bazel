@@ -259,12 +259,6 @@ public final class BinaryOperatorExpression extends Expression {
     visitor.visit(this);
   }
 
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    lhs.validate(env);
-    rhs.validate(env);
-  }
-
   /** Implements Operator.PLUS. */
   private static Object plus(
       Object lval, Object rval, Environment env, Location location, boolean isAugmented)

@@ -66,10 +66,4 @@ public final class AssignmentStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    expression.validate(env);
-    lvalue.validate(env, getLocation());
-  }
 }

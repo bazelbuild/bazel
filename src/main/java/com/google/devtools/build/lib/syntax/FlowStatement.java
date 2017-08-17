@@ -52,9 +52,6 @@ public final class FlowStatement extends Statement {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {}
-
-  @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
     buffer.append(kind.name);

@@ -65,11 +65,4 @@ public final class ConditionalExpression extends Expression {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    condition.validate(env);
-    thenCase.validate(env);
-    elseCase.validate(env);
-  }
 }
