@@ -1294,7 +1294,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(
     name = "ld_executable",
     structField = true,
-    doc = "Path to GNU binutils 'ld' binary."
+    doc = "Path to the linker binary."
   )
   public String getLdExecutableForSkylark() {
     PathFragment ldExecutable = getLdExecutable();
