@@ -1288,9 +1288,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the execution path to the linker binary to use for this build.
-   * Relative paths are relative to the execution root.
+   * Returns the execution path to the linker binary to use for this build. Relative paths are
+   * relative to the execution root.
    */
+  @SkylarkCallable(name = "ld_executable", structField = true, doc = "Path to the linker binary.")
+  public String getLdExecutableForSkylark() {
+    PathFragment ldExecutable = getLdExecutable();
+    return ldExecutable != null ? ldExecutable.getPathString() : "";
+  }
+
   public PathFragment getLdExecutable() {
     return ldExecutable;
   }
@@ -1821,6 +1827,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // Make variables provided by crosstool/gcc compiler suite.
     globalMakeEnvBuilder.put("AR", getArExecutable().getPathString());
     globalMakeEnvBuilder.put("NM", getNmExecutable().getPathString());
+    globalMakeEnvBuilder.put("LD", getLdExecutable().getPathString());
     PathFragment objcopyTool = getObjCopyExecutable();
     if (objcopyTool != null) {
       // objcopy is optional in Crosstool
