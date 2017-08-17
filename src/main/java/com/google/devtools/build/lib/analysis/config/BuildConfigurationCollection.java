@@ -17,12 +17,9 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * The primary container for all main {@link BuildConfiguration} instances,
@@ -51,7 +48,7 @@ public final class BuildConfigurationCollection {
     // Except for the host configuration (which may be identical across target configs), the other
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
-    for (BuildConfiguration config : getAllConfigurations()) {
+    for (BuildConfiguration config : targetConfigurations) {
       String cacheKey = config.checksum();
       if (cacheKeyConflictDetector.containsKey(cacheKey)) {
         throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
@@ -75,28 +72,6 @@ public final class BuildConfigurationCollection {
    */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
-  }
-
-  /**
-   * For static configurations, returns all configurations that can be reached from the target
-   * configurations through any kind of configuration transition.
-   *
-   * <p>For dynamic configurations, returns the target configurations (since configurations aren't
-   * reached through other configurations).
-   */
-  public Collection<BuildConfiguration> getAllConfigurations() {
-    Set<BuildConfiguration> result = new LinkedHashSet<>();
-    for (BuildConfiguration config : targetConfigurations) {
-      result.addAll(config.getAllReachableConfigurations());
-    }
-    return result;
-  }
-
-  /**
-   * Returns whether this build uses dynamic configurations.
-   */
-  public boolean useDynamicConfigurations() {
-    return getTargetConfigurations().get(0).useDynamicConfigurations();
   }
 
   @Override

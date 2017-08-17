@@ -1304,16 +1304,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config;
     try {
       config = getConfiguredTarget(label).getConfiguration();
+      config = view.getDynamicConfigurationForTesting(getTarget(label), config, reporter);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
-    }
-    if (targetConfig.useDynamicConfigurations()) {
-      try {
-        config = view.getDynamicConfigurationForTesting(getTarget(label), config, reporter);
-      } catch (Exception e) {
-        //TODO(b/36585204): Clean this up
-        throw new RuntimeException(e);
-      }
+    } catch (Exception e) {
+      //TODO(b/36585204): Clean this up
+      throw new RuntimeException(e);
     }
     return new ConfiguredTargetKey(makeLabel(label), config);
   }

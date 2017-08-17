@@ -86,12 +86,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -1094,8 +1091,6 @@ public final class BuildConfiguration implements BuildEvent {
 
   private final String checksum;
 
-  private Set<BuildConfiguration> allReachableConfigurations;
-
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
@@ -1266,20 +1261,6 @@ public final class BuildConfiguration implements BuildEvent {
     if (this == other) {
       return true;
     }
-    if (!useDynamicConfigurations()) {
-      // Static configurations aren't safe for value equality because they include transition
-      // references to other configurations (see setConfigurationTransitions). For example, imagine
-      // in one build target config A has a reference to data config B. Now imagine a second build
-      // where target config C has a reference to data config D. If A and B are value-equal, that
-      // means a call to ConfiguredTargetKey("//foo", C) might return the SkyKey for ("//foo", A).
-      // This is not just possible but *likely* due to SkyKey interning (see
-      // SkyKey.SKY_KEY_INTERNER). This means a data transition on that config could incorrectly
-      // return B, which is not safe because B is not necessarily value-equal to D.
-      //
-      // This becomes safe with dynamic configurations: transitions are completely triggered by
-      // external logic and configs have no awareness of them at all.
-      return false;
-    }
     if (!(other instanceof BuildConfiguration)) {
       return false;
     }
@@ -1295,9 +1276,6 @@ public final class BuildConfiguration implements BuildEvent {
 
   @Override
   public int hashCode() {
-    if (!useDynamicConfigurations()) {
-      return BuildConfiguration.super.hashCode();
-    }
     return hashCode;
   }
 
@@ -1596,38 +1574,6 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * For static configurations, returns all configurations that can be reached from this one through
-   * any kind of configuration transition.
-   *
-   * <p>For dynamic configurations, returns the current configuration (since configurations aren't
-   * reached through other configurations).
-   */
-  public synchronized Collection<BuildConfiguration> getAllReachableConfigurations() {
-    if (allReachableConfigurations == null) {
-      // This is needed for every configured target in skyframe m2, so we cache it.
-      // We could alternatively make the corresponding dependencies into a skyframe node.
-      this.allReachableConfigurations = computeAllReachableConfigurations();
-    }
-    return allReachableConfigurations;
-  }
-
-  private Set<BuildConfiguration> computeAllReachableConfigurations() {
-    if (useDynamicConfigurations()) {
-      return ImmutableSet.of(this);
-    }
-    Set<BuildConfiguration> result = new LinkedHashSet<>();
-    Queue<BuildConfiguration> queue = new LinkedList<>();
-    queue.add(this);
-    while (!queue.isEmpty()) {
-      BuildConfiguration config = queue.remove();
-      if (!result.add(config)) {
-        continue;
-      }
-    }
-    return result;
-  }
-
-  /**
    * A common interface for static vs. dynamic configuration implementations that allows
    * common configuration and transition-selection logic to seamlessly work with either.
    *
@@ -1893,9 +1839,7 @@ public final class BuildConfiguration implements BuildEvent {
    * Returns the {@link TransitionApplier} that should be passed to {#evaluateTransition} calls.
    */
   public TransitionApplier getTransitionApplier() {
-    return useDynamicConfigurations()
-        ? new DynamicTransitionApplier(dynamicTransitionMapper)
-        : new StaticTransitionApplier(this);
+    return new DynamicTransitionApplier(dynamicTransitionMapper);
   }
 
   /**
@@ -2409,17 +2353,6 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * Returns whether we should use dynamically instantiated build configurations vs. static
-   * configurations (e.g. predefined in {@link
-   * com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory}).
-   */
-  @Deprecated
-  public boolean useDynamicConfigurations() {
-    // TODO(gregce): remove this interface, which is now redundant.
-    return true;
-  }
-
-  /**
    * Returns whether we should trim dynamic configurations to only include the fragments needed
    * to correctly analyze a rule.
    */
@@ -2516,7 +2449,6 @@ public final class BuildConfiguration implements BuildEvent {
    */
   @Nullable
   public PatchTransition getArtifactOwnerTransition() {
-    Preconditions.checkState(useDynamicConfigurations());
     PatchTransition ownerTransition = null;
     for (Fragment fragment : fragments.values()) {
       PatchTransition fragmentTransition = fragment.getArtifactOwnerTransition();

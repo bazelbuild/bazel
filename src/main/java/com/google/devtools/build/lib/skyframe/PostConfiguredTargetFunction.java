@@ -108,7 +108,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       deps =
           resolver.dependentNodeMap(
               ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);
-      if (ct.getConfiguration() != null && ct.getConfiguration().useDynamicConfigurations()) {
+      if (ct.getConfiguration() != null) {
         deps = ConfiguredTargetFunction.getDynamicConfigurations(env, ctgValue, deps,
             hostConfiguration, ruleClassProvider);
       }

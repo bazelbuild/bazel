@@ -769,7 +769,7 @@ public abstract class DependencyResolver {
       AspectCollection aspects =
           requiredAspects(this.aspects, attributeAndOwner, toTarget, rule);
       Dependency dep;
-      if (config.useDynamicConfigurations() && !applyNullTransition) {
+      if (!applyNullTransition) {
         // Pass a transition rather than directly feeding the configuration so deps get trimmed.
         dep = Dependency.withTransitionAndAspects(
             depLabel, new FixedTransition(config.getOptions()), aspects);

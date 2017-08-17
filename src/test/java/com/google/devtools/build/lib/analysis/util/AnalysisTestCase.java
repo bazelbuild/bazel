@@ -286,7 +286,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     throws InterruptedException {
     BuildConfiguration targetConfig =
         Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
-    if (useDynamicVersionIfEnabled && targetConfig.useDynamicConfigurations()) {
+    if (useDynamicVersionIfEnabled) {
       return skyframeExecutor.getConfigurationForTesting(
           reporter, targetConfig.fragmentClasses(), targetConfig.getOptions());
     } else {

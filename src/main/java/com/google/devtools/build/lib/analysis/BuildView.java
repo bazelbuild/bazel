@@ -875,10 +875,7 @@ public class BuildView {
         nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
       }
     }
-    return ImmutableList.copyOf(
-        configurations.useDynamicConfigurations()
-            ? getDynamicConfigurations(nodes, eventHandler)
-            : nodes);
+    return ImmutableList.copyOf(getDynamicConfigurations(nodes, eventHandler));
   }
 
   /**
@@ -960,7 +957,6 @@ public class BuildView {
       DynamicTransitionMapper dynamicTransitionMapper) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
-    Preconditions.checkArgument(fromConfig.useDynamicConfigurations());
 
     // Top-level transitions (chosen by configuration fragments):
     Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);

@@ -148,10 +148,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
-  private static boolean useDynamicConfigurations(BuildConfiguration config) {
-    return config != null && config.useDynamicConfigurations();
-  }
-
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws ConfiguredTargetFunctionException,
       InterruptedException {
@@ -197,7 +193,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // associates the corresponding error with this target, as expected. Without this line,
     // the first TransitiveTargetValue call happens on its dep (in trimConfigurations), so Bazel
     // associates the error with the dep, which is misleading.
-    if (useDynamicConfigurations(configuration) && configuration.trimConfigurations()
+    if (configuration != null && configuration.trimConfigurations()
         && env.getValue(TransitiveTargetValue.key(lc.getLabel())) == null) {
       return null;
     }
@@ -402,8 +398,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
-    // closure (only dynamic configurations support this).
-    if (useDynamicConfigurations(ctgValue.getConfiguration())) {
+    // closure.
+    if (ctgValue.getConfiguration() != null) {
       depValueNames = getDynamicConfigurations(env, ctgValue, depValueNames, hostConfiguration,
           ruleClassProvider);
       // It's important that we don't use "if (env.missingValues()) { return null }" here (or
@@ -754,7 +750,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   private static Set<Class<? extends BuildConfiguration.Fragment>> getTransitiveFragments(
       Environment env, Label dep, BuildConfiguration parentConfig) throws InterruptedException {
-    Preconditions.checkArgument(parentConfig.useDynamicConfigurations());
     if (!parentConfig.trimConfigurations()) {
       return parentConfig.getAllFragments().keySet();
     }
@@ -1067,20 +1062,16 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
-
     // No need to get new configs from Skyframe - config_setting rules always use the current
     // target's config.
     // TODO(bazel-team): remove the need for this special transformation. We can probably do this by
     // simply passing this through trimConfigurations.
-    BuildConfiguration targetConfig = ctgValue.getConfiguration();
-    if (useDynamicConfigurations(targetConfig)) {
-      ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
-      for (Dependency dep : configValueNames) {
-        staticConfigs.add(
-            Dependency.withConfigurationAndAspects(dep.getLabel(), targetConfig, dep.getAspects()));
-      }
-      configValueNames = staticConfigs.build();
+    ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
+    for (Dependency dep : configValueNames) {
+      staticConfigs.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
+          ctgValue.getConfiguration(), dep.getAspects()));
     }
+    configValueNames = staticConfigs.build();
 
     Map<SkyKey, ConfiguredTarget> configValues = resolveConfiguredTargetDependencies(
         env, configValueNames, transitivePackages, transitiveLoadingRootCauses);

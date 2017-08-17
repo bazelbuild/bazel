@@ -1571,8 +1571,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns a particular configured target. If dynamic configurations are active, applies the given
-   * configuration transition.
+   * Returns a particular configured target after applying the given transition.
    */
   @VisibleForTesting
   @Nullable
@@ -1581,35 +1580,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       BuildConfiguration configuration,
       Attribute.Transition transition) {
-
-    if (configuration != null && !configuration.useDynamicConfigurations()
-        && transition != ConfigurationTransition.NONE) {
-      // It's illegal to apply this transition over a statically configured build. But C++ LIPO
-      // support works by applying a rule configurator for static configurations and a rule
-      // transition applier for dynamic configurations. Dynamically configured builds skip
-      // the configurator and this code makes statically configured builds skip the rule transition
-      // applier.
-      //
-      // This will all get a lot simpler once static configurations are removed entirely.
-      transition = ConfigurationTransition.NONE;
-    }
-
     if (memoizingEvaluator.getExistingValueForTesting(
         PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
       injectWorkspaceStatusData(label.getWorkspaceRoot());
     }
 
-    Dependency dep;
-    if (configuration == null) {
-      dep = Dependency.withNullConfiguration(label);
-    } else if (configuration.useDynamicConfigurations()) {
-      dep = Dependency.withTransitionAndAspects(label, transition, AspectCollection.EMPTY);
-    } else {
-      dep = Dependency.withConfiguration(label, configuration);
-    }
-
     return Iterables.getFirst(
-        getConfiguredTargets(eventHandler, configuration, ImmutableList.of(dep), false),
+        getConfiguredTargets(
+            eventHandler,
+            configuration,
+            ImmutableList.of(configuration == null
+                ? Dependency.withNullConfiguration(label)
+                : Dependency.withTransitionAndAspects(label, transition, AspectCollection.EMPTY)),
+            false),
         null);
   }
 

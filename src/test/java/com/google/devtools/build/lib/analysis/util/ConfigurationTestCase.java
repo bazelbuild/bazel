@@ -56,7 +56,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -196,9 +195,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public void assertConfigurationsHaveUniqueOutputDirectories(
       BuildConfigurationCollection configCollection) throws Exception {
-    Collection<BuildConfiguration> allConfigs = configCollection.getAllConfigurations();
     Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
-    for (BuildConfiguration config : allConfigs) {
+    for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
       if (config.isActionsEnabled()) {
         BuildConfiguration otherConfig = outputPaths.get(
             config.getOutputDirectory(RepositoryName.MAIN));

@@ -512,7 +512,7 @@ public final class SkyframeBuildView {
    * correct host configuration at the top-level.
    */
   public BuildConfiguration getHostConfiguration(BuildConfiguration config) {
-    if (config == null || !config.useDynamicConfigurations()) {
+    if (config == null) {
       return topLevelHostConfiguration;
     }
     // TODO(bazel-team): have the fragment classes be those required by the consuming target's
