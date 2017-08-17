@@ -1086,8 +1086,8 @@ public final class RuleContext extends TargetContext
       if (!attributes().has(attributeName)) {
         continue;
       }
-      Iterables.addAll(makeVariableProviders,
-          getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.SKYLARK_CONSTRUCTOR));
+      Iterables.addAll(makeVariableProviders, getPrerequisites(
+          attributeName, Mode.DONT_CHECK, MakeVariableProvider.SKYLARK_CONSTRUCTOR));
     }
 
     LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();

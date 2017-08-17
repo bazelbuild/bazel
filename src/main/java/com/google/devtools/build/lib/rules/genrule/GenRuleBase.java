@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -354,9 +355,11 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           return dir.getRelative(relPath).getPathString();
         }
       } else if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
+        List<String> attributes = new ArrayList<>();
+        attributes.addAll(ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES);
+        attributes.add(":host_jdk");
         return new ConfigurationMakeVariableContext(
-                ruleContext.getMakeVariables(
-                    ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
+                ruleContext.getMakeVariables(attributes),
                 ruleContext.getTarget().getPackage(),
                 ruleContext.getHostConfiguration())
             .lookupMakeVariable(variableName);
