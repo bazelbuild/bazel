@@ -52,7 +52,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,9 +160,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     // make sure to examine only the value we just parsed: not the entire list.
     Multiset<String> optionsCount = HashMultiset.create();
 
-    // Since OptionsParser instantiation involves reflection, let's try to minimize that happening.
-    Map<Class<? extends OptionsBase>, OptionsParser> parserCache = new HashMap<>();
-
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
@@ -178,10 +174,9 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         continue;
       }
 
-      OptionsParser parser =
-          parserCache.computeIfAbsent(optionClass, OptionsParser::newOptionsParser);
-
+      OptionsParser parser;
       try {
+        parser = OptionsParser.newOptionsParser(optionClass);
         parser.parse("--" + optionName + "=" + expectedRawValue);
       } catch (OptionsParsingException ex) {
         errors.attributeError(
