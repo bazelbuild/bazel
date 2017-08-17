@@ -31,13 +31,20 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
+import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -99,10 +106,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
 
+  @VisibleForTesting
   AppleConfiguration(
       AppleCommandLineOptions options,
-      String cpu,
-      XcodeVersionProperties xcodeVersionProperties,
+      String iosCpu,
+      @Nullable DottedVersion xcodeVersion,
       DottedVersion iosSdkVersion,
       DottedVersion iosMinimumOs,
       DottedVersion watchosSdkVersion,
@@ -126,8 +134,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(macosSdkVersion, "macOsSdkVersion");
     this.macosMinimumOs = Preconditions.checkNotNull(macosMinimumOs, "macOsMinimumOs");
 
-    this.xcodeVersion = xcodeVersionProperties.getXcodeVersion().orNull();
-    this.iosCpu = iosCpuFromCpu(cpu);
+    this.xcodeVersion = xcodeVersion;
+    this.iosCpu = iosCpu;
     this.appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
@@ -670,6 +678,81 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         .build();
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof AppleConfiguration)) {
+      return false;
+    }
+    AppleConfiguration that = (AppleConfiguration) obj;
+    return this.options.equals(that.options)
+        && Objects.equals(this.xcodeVersion, that.xcodeVersion)
+        && this.iosSdkVersion.equals(that.iosSdkVersion)
+        && this.iosMinimumOs.equals(that.iosMinimumOs)
+        && this.watchosSdkVersion.equals(that.watchosSdkVersion)
+        && this.watchosMinimumOs.equals(that.watchosMinimumOs)
+        && this.tvosSdkVersion.equals(that.tvosSdkVersion)
+        && this.tvosMinimumOs.equals(that.tvosMinimumOs)
+        && this.macosSdkVersion.equals(that.macosSdkVersion)
+        && this.macosMinimumOs.equals(that.macosMinimumOs);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        options,
+        xcodeVersion,
+        iosSdkVersion,
+        iosMinimumOs,
+        watchosSdkVersion,
+        watchosMinimumOs,
+        tvosSdkVersion,
+        tvosMinimumOs,
+        macosSdkVersion,
+        macosMinimumOs);
+  }
+
+  void serialize(CodedOutputStream out) throws IOException, SerializationException {
+    options.serialize(out);
+    out.writeStringNoTag(iosCpu);
+    if (xcodeVersion == null) {
+      out.writeBoolNoTag(false);
+    } else {
+      out.writeBoolNoTag(true);
+      xcodeVersion.serialize(out);
+    }
+    iosSdkVersion.serialize(out);
+    iosMinimumOs.serialize(out);
+    watchosSdkVersion.serialize(out);
+    watchosMinimumOs.serialize(out);
+    tvosSdkVersion.serialize(out);
+    tvosMinimumOs.serialize(out);
+    macosSdkVersion.serialize(out);
+    macosMinimumOs.serialize(out);
+  }
+
+  static AppleConfiguration deserialize(CodedInputStream in)
+      throws IOException, SerializationException {
+    AppleCommandLineOptions options = AppleCommandLineOptions.deserialize(in);
+    String iosCpu = FastStringCodec.INSTANCE.deserialize(in);
+    boolean hasXcodeVersion = in.readBool();
+    DottedVersion xcodeVersion = hasXcodeVersion ? DottedVersion.deserialize(in) : null;
+    return new AppleConfiguration(
+        options,
+        iosCpu,
+        xcodeVersion,
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in),
+        DottedVersion.deserialize(in));
+  }
+
   /**
    * Loads {@link AppleConfiguration} from build options.
    */
@@ -701,8 +784,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       AppleConfiguration configuration =
           new AppleConfiguration(
               appleOptions,
-              cpu,
-              xcodeVersionProperties,
+              iosCpuFromCpu(cpu),
+              xcodeVersionProperties.getXcodeVersion().orNull(),
               iosSdkVersion,
               iosMinimumOsVersion,
               watchosSdkVersion,
@@ -781,5 +864,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public String getFileSystemName() {
       return fileSystemName;
     }
+
+    static final EnumCodec<ConfigurationDistinguisher> CODEC =
+        new EnumCodec<>(ConfigurationDistinguisher.class);
   }
 }

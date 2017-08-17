@@ -1,6 +1,9 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs"],
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
+    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 

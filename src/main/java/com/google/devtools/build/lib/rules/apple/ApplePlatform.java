@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -299,5 +300,7 @@ public enum ApplePlatform implements SkylarkValue {
     public void repr(SkylarkPrinter printer) {
       printer.append(toString());
     }
+
+    static final EnumCodec<PlatformType> CODEC = new EnumCodec<>(PlatformType.class);
   }
 }

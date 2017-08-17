@@ -26,10 +26,14 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Represents a value with multiple components, separated by periods, for example {@code 4.5.6} or
@@ -249,13 +253,35 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     printer.append(stringRepresentation);
   }
 
+  void serialize(CodedOutputStream out) throws IOException {
+    out.writeInt32NoTag(components.size());
+    for (Component component : components) {
+      component.serialize(out);
+    }
+    out.writeStringNoTag(stringRepresentation);
+    out.writeInt32NoTag(numOriginalComponents);
+  }
+
+  static DottedVersion deserialize(CodedInputStream in) throws IOException {
+    int numComponents = in.readInt32();
+    // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is resolved.
+    ImmutableList.Builder<Component> components = ImmutableList.builder();
+    for (int i = 0; i < numComponents; i++) {
+      components.add(Component.deserialize(in));
+    }
+    return new DottedVersion(components.build(), in.readString(), in.readInt32());
+  }
+
   private static final class Component implements Comparable<Component> {
     private final int firstNumber;
-    private final String alphaSequence;
+    @Nullable private final String alphaSequence;
     private final int secondNumber;
     private final String stringRepresentation;
 
-    public Component(int firstNumber, String alphaSequence, int secondNumber,
+    public Component(
+        int firstNumber,
+        @Nullable String alphaSequence,
+        int secondNumber,
         String stringRepresentation) {
       this.firstNumber = firstNumber;
       this.alphaSequence = alphaSequence;
@@ -292,6 +318,26 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     @Override
     public String toString() {
       return stringRepresentation;
+    }
+
+    void serialize(CodedOutputStream out) throws IOException {
+      if (alphaSequence == null) {
+        out.writeBoolNoTag(false);
+      } else {
+        out.writeBoolNoTag(true);
+        out.writeStringNoTag(alphaSequence);
+      }
+      out.writeInt32NoTag(firstNumber);
+      out.writeInt32NoTag(secondNumber);
+      out.writeStringNoTag(stringRepresentation);
+    }
+
+    static Component deserialize(CodedInputStream in) throws IOException {
+      String alphaSequence = null;
+      if (in.readBool()) {
+        alphaSequence = in.readString();
+      }
+      return new Component(in.readInt32(), alphaSequence, in.readInt32(), in.readString());
     }
   }
 }
