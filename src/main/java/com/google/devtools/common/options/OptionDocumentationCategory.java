@@ -90,4 +90,7 @@ public enum OptionDocumentationCategory {
    * based on execution-environment requirements.
    */
   TOOLCHAIN,
+
+  /** This option relates to query output and semantics. */
+  QUERY,
 }
