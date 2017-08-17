@@ -201,22 +201,29 @@ class OptionsUsage {
       usage.append(paragraphFill(escaper.escape(annotation.help()), /*indent=*/ 0, /*width=*/ 80));
       usage.append('\n');
     }
-    ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
-    if (expansion == null) {
-      usage.append("    Expands to unknown options.<br>\n");
-    } else if (!expansion.isEmpty()) {
+
+    if (!optionsData.getExpansionDataForField(optionField).isEmpty()) {
+      // If this is an expansion option, list the expansion if known, or at least specify that we
+      // don't know.
       usage.append("<br/>\n");
-      StringBuilder expandsMsg = new StringBuilder("Expands to:<br/>\n");
-      for (String exp : expansion) {
-        // TODO(ulfjack): Can we link to the expanded flags here?
-        expandsMsg
-            .append("&nbsp;&nbsp;<code>")
-            .append(escaper.escape(exp))
-            .append("</code><br/>\n");
+      ImmutableList<String> expansion = getExpansionIfKnown(optionField, optionsData);
+      StringBuilder expandsMsg;
+      if (expansion == null) {
+        expandsMsg = new StringBuilder("Expands to unknown options.<br/>\n");
+      } else {
+        Preconditions.checkArgument(!expansion.isEmpty());
+        expandsMsg = new StringBuilder("Expands to:<br/>\n");
+        for (String exp : expansion) {
+          // TODO(ulfjack): Can we link to the expanded flags here?
+          expandsMsg
+              .append("&nbsp;&nbsp;<code>")
+              .append(escaper.escape(exp))
+              .append("</code><br/>\n");
+        }
       }
       usage.append(expandsMsg.toString());
-      usage.append('\n');
     }
+
     usage.append("</dd>\n");
   }
 
