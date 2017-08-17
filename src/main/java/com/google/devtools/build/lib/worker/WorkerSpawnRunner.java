@@ -95,7 +95,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_WORKERS)
         || !spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS).equals("1")) {
       // TODO(ulfjack): Don't circumvent SpawnExecutionPolicy. Either drop the warning here, or
-      // provide a mechanism in SpawnExectionPolicy to report warnings.
+      // provide a mechanism in SpawnExecutionPolicy to report warnings.
       reporter.handle(
           Event.warn(
               String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));

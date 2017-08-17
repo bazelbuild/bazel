@@ -60,7 +60,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     Worker worker;
     boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
     if (sandboxed) {
-      Path workDir = workerBaseDir.getRelative("worker-" + workerId + "-" + key.getMnemonic());
+      Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
     } else {
       worker = new Worker(key, workerId, key.getExecRoot(), logFile);
@@ -78,6 +78,13 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
                   logFile)));
     }
     return worker;
+  }
+
+  Path getSandboxedWorkerPath(WorkerKey key, int workerId) {
+    String workspaceName = key.getExecRoot().getBaseName();
+    return workerBaseDir
+        .getRelative("worker-" + workerId + "-" + key.getMnemonic())
+        .getRelative(workspaceName);
   }
 
   /**

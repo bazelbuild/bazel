@@ -44,8 +44,8 @@ public class WorkerModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(WorkerOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(WorkerOptions.class)
+        : ImmutableList.of();
   }
 
   @Override

@@ -45,13 +45,14 @@ final class SandboxedWorker extends Worker {
     // used to pass information to this method and the method below. Instead, don't pass the
     // WorkerKey to this method but only the input and output files.
     new SymlinkedSandboxedSpawn(
-        workDir,
-        workDir,
-        ImmutableList.of("/does_not_exist"),
-        ImmutableMap.<String, String>of(),
-        key.getInputFiles(),
-        key.getOutputFiles(),
-        ImmutableSet.<Path>of()).createFileSystem();
+            workDir,
+            workDir,
+            ImmutableList.of("/does_not_exist"),
+            ImmutableMap.of(),
+            key.getInputFiles(),
+            key.getOutputFiles(),
+            ImmutableSet.of())
+        .createFileSystem();
   }
 
   @Override
@@ -59,12 +60,13 @@ final class SandboxedWorker extends Worker {
     // Note: the key passed in here may be different from the key passed to the constructor for
     // subsequent invocations of the same worker.
     new SymlinkedSandboxedSpawn(
-        workDir,
-        workDir,
-        ImmutableList.of("/does_not_exist"),
-        ImmutableMap.<String, String>of(),
-        key.getInputFiles(),
-        key.getOutputFiles(),
-        ImmutableSet.<Path>of()).copyOutputs(key.getExecRoot());
+            workDir,
+            workDir,
+            ImmutableList.of("/does_not_exist"),
+            ImmutableMap.of(),
+            key.getInputFiles(),
+            key.getOutputFiles(),
+            ImmutableSet.of())
+        .copyOutputs(key.getExecRoot());
   }
 }
