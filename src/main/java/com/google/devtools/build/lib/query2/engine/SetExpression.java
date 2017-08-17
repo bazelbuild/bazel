@@ -64,8 +64,13 @@ public class SetExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
+  }
+
+  /** Gets the list of {@link TargetLiteral}s contained in the expression. */
+  List<TargetLiteral> getWords() {
+    return words;
   }
 
   @Override

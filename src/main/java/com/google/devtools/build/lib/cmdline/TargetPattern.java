@@ -293,6 +293,11 @@ public abstract class TargetPattern implements Serializable {
     throw new IllegalStateException();
   }
 
+  /** For patterns of type {@link Type#SINGLE_TARGET}, returns the target path. */
+  public String getSingleTargetPath() {
+    throw new IllegalStateException();
+  }
+
   /**
    * For patterns of type {@link Type#SINGLE_TARGET} and {@link Type#TARGETS_IN_PACKAGE}, returns
    * the {@link PackageIdentifier} corresponding to the package that would contain the target(s)
@@ -346,6 +351,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public boolean getRulesOnly() {
       return false;
+    }
+
+    @Override
+    public String getSingleTargetPath() {
+      return targetName;
     }
 
     @Override

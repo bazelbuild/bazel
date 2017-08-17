@@ -1746,17 +1746,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   @Override
   public EvaluationResult<SkyValue> prepareAndGet(
-      SkyKey universeKey, int numThreads, ExtendedEventHandler eventHandler)
+      Set<SkyKey> roots, int numThreads, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationResult<SkyValue> evaluationResult =
-        buildDriver.evaluate(ImmutableList.of(universeKey), true, numThreads, eventHandler);
-    Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), universeKey);
+        buildDriver.evaluate(roots, true, numThreads, eventHandler);
     return evaluationResult;
   }
 
   @Override
-  public boolean isUpToDate(SkyKey universeKey) {
-    return buildDriver.alreadyEvaluated(ImmutableList.of(universeKey));
+  public boolean isUpToDate(Set<SkyKey> roots) {
+    return buildDriver.alreadyEvaluated(roots);
   }
 
   /**

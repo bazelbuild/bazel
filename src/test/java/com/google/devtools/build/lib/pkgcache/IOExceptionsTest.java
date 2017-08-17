@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -64,7 +65,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   private boolean visitTransitively(Label label) throws InterruptedException {
     SkyKey key = TransitiveTargetValue.key(label);
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.prepareAndGet(key, /*numThreads=*/5, reporter);
+        skyframeExecutor.prepareAndGet(ImmutableSet.of(key), /*numThreads=*/ 5, reporter);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
     System.out.println(value);
     boolean hasTransitiveError = (value == null) || value.getTransitiveRootCauses() != null;
