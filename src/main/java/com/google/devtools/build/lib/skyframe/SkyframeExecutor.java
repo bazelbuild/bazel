@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -153,7 +152,6 @@ import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -426,8 +424,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
-    map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
-        ruleClassProvider));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments, ruleClassProvider));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
@@ -650,12 +646,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void dropConfiguredTargets();
 
   /**
-   * Removes ConfigurationFragmentValuess and ConfigurationCollectionValues from the cache.
+   * Removes ConfigurationFragmentValues from the cache.
    */
   @VisibleForTesting
   public void invalidateConfigurationCollection() {
-    invalidate(SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT,
-            SkyFunctions.CONFIGURATION_COLLECTION)));
+    invalidate(SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT)));
   }
 
   /**
@@ -1072,38 +1067,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * {@link #createConfigurations} implementation that creates the configurations statically.
-   */
-  private BuildConfigurationCollection createStaticConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      boolean keepGoing)
-      throws InvalidConfigurationException, InterruptedException {
-    SkyKey skyKey = ConfigurationCollectionValue.key(
-        buildOptions, ImmutableSortedSet.copyOf(multiCpu));
-    EvaluationResult<ConfigurationCollectionValue> result =
-        buildDriver.evaluate(Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, eventHandler);
-    if (result.hasError()) {
-      ErrorInfo error = result.getError(skyKey);
-      Throwable e = error.getException();
-      // Wrap loading failed exceptions
-      if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(e);
-      } else if (e == null && !Iterables.isEmpty(error.getCycleInfo())) {
-        getCyclesReporter().reportCycles(error.getCycleInfo(), skyKey, eventHandler);
-        e = new InvalidConfigurationException(
-            "cannot load build configuration because of this cycle");
-      }
-      Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
-      throw new IllegalStateException(
-          "Unknown error during ConfigurationCollectionValue evaluation", e);
-    }
-    ConfigurationCollectionValue configurationValue = result.get(skyKey);
-    return configurationValue.getConfigurationCollection();
-  }
-
-  /**
    * {@link #createConfigurations} implementation that creates the configurations dynamically.
    */
   private BuildConfigurationCollection createDynamicConfigurations(
@@ -1437,7 +1400,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
       }
       throw new IllegalStateException(
-          "Unknown error during ConfigurationCollectionValue evaluation", e);
+          "Unknown error during configuration creation evaluation", e);
     }
 
     // Prepare and return the results.

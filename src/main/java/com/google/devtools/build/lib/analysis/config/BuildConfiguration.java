@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -1096,7 +1094,6 @@ public final class BuildConfiguration implements BuildEvent {
 
   private final String checksum;
 
-  private Transitions transitions;
   private Set<BuildConfiguration> allReachableConfigurations;
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
@@ -1599,22 +1596,6 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * Set the outgoing configuration transitions. During the lifetime of a given build configuration,
-   * this must happen exactly once, shortly after the configuration is created.
-   */
-  public void setConfigurationTransitions(Transitions transitions) {
-    // TODO(bazel-team): This method makes the object mutable - get rid of it. Dynamic
-    // configurations should eventually make this obsolete.
-    Preconditions.checkNotNull(transitions);
-    Preconditions.checkState(this.transitions == null);
-    this.transitions = transitions;
-  }
-
-  public Transitions getTransitions() {
-    return transitions;
-  }
-
-  /**
    * For static configurations, returns all configurations that can be reached from this one through
    * any kind of configuration transition.
    *
@@ -1642,36 +1623,8 @@ public final class BuildConfiguration implements BuildEvent {
       if (!result.add(config)) {
         continue;
       }
-      config.getTransitions().addDirectlyReachableConfigurations(queue);
     }
     return result;
-  }
-
-  /**
-   * Returns the new configuration after traversing a dependency edge with a given configuration
-   * transition.
-   *
-   * @param transition the configuration transition
-   * @return the new configuration
-   * @throws IllegalArgumentException if the transition is a {@link SplitTransition}
-   *
-   * TODO(bazel-team): remove this as part of the static -> dynamic configuration migration
-   */
-  public BuildConfiguration getConfiguration(Transition transition) {
-    Preconditions.checkArgument(!(transition instanceof SplitTransition));
-    // The below call precondition-checks we're indeed using static configurations.
-    return transitions.getStaticConfiguration(transition);
-  }
-
-  /**
-   * Returns the new configurations after traversing a dependency edge with a given split
-   * transition.
-   *
-   * @param transition the split configuration transition
-   * @return the new configurations
-   */
-  public List<BuildConfiguration> getSplitConfigurations(SplitTransition<?> transition) {
-    return transitions.getSplitConfigurations(transition);
   }
 
   /**
@@ -1707,8 +1660,7 @@ public final class BuildConfiguration implements BuildEvent {
     void applyAttributeConfigurator(Configurator<BuildOptions> configurator);
 
     /**
-     * Calls {@link Transitions#configurationHook} on the current configuration(s) represent by
-     * this instance.
+     * Applies a custom configuration hook for the given rule.
      */
     void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget);
 
@@ -1739,23 +1691,12 @@ public final class BuildConfiguration implements BuildEvent {
 
     @Override
     public void applyTransition(Transition transition) {
-      if (transition == Attribute.ConfigurationTransition.NULL) {
-        toConfigurations = Lists.<BuildConfiguration>asList(null, new BuildConfiguration[0]);
-      } else {
-        ImmutableList.Builder<BuildConfiguration> newConfigs = ImmutableList.builder();
-        for (BuildConfiguration currentConfig : toConfigurations) {
-          newConfigs.add(currentConfig.getTransitions().getStaticConfiguration(transition));
-        }
-        toConfigurations = newConfigs.build();
-      }
+      throw new UnsupportedOperationException("dead static config code being removed");
     }
 
     @Override
     public void split(SplitTransition<BuildOptions> splitTransition) {
-      // Split transitions can't be nested, so if we're splitting we must be doing it over
-      // a single config.
-      toConfigurations =
-          Iterables.getOnlyElement(toConfigurations).getSplitConfigurations(splitTransition);
+      throw new UnsupportedOperationException("dead static config code being removed");
     }
 
     @Override
@@ -1775,18 +1716,7 @@ public final class BuildConfiguration implements BuildEvent {
 
     @Override
     public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      ImmutableList.Builder<BuildConfiguration> toConfigs = ImmutableList.builder();
-      for (BuildConfiguration currentConfig : toConfigurations) {
-        // BuildConfigurationCollection.configurationHook can apply further transitions. We want
-        // those transitions to only affect currentConfig (not everything in toConfigurations), so
-        // we use a delegate bound to only that config.
-        StaticTransitionApplier delegate = new StaticTransitionApplier(currentConfig);
-        currentConfig.getTransitions().configurationHook(fromRule, attribute, toTarget, delegate);
-        currentConfig = Iterables.getOnlyElement(delegate.toConfigurations);
-
-        toConfigs.add(currentConfig);
-      }
-      toConfigurations = toConfigs.build();
+      throw new UnsupportedOperationException("dead static config code being removed");
     }
 
     @Override
@@ -2583,8 +2513,6 @@ public final class BuildConfiguration implements BuildEvent {
   /**
    * Returns the transition that produces the "artifact owner" for this configuration, or null
    * if this configuration is its own owner.
-   *
-   * <p>This is the dynamic configuration version of {@link #getArtifactOwnerConfiguration}.
    */
   @Nullable
   public PatchTransition getArtifactOwnerTransition() {
@@ -2603,16 +2531,6 @@ public final class BuildConfiguration implements BuildEvent {
       }
     }
     return ownerTransition;
-  }
-
-  /**
-   * See {@code BuildConfigurationCollection.Transitions.getArtifactOwnerConfiguration()}.
-   *
-   * <p>This is the static configuration version of {@link #getArtifactOwnerTransition}.
-   */
-  public BuildConfiguration getArtifactOwnerConfiguration() {
-    Preconditions.checkState(!useDynamicConfigurations());
-    return transitions.getArtifactOwnerConfiguration();
   }
 
   /**

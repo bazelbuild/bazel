@@ -872,14 +872,7 @@ public class BuildView {
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target,
-            config.useDynamicConfigurations()
-                // Dynamic configurations apply top-level transitions through a different code path:
-                // BuildConfiguration#topLevelConfigurationHook. That path has the advantages of a)
-                // not requiring a global transitions table and b) making its choices outside core
-                // Bazel code.
-                ? (target.isConfigurable() ? config : null)
-                : BuildConfigurationCollection.configureTopLevelTarget(config, target)));
+        nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
       }
     }
     return ImmutableList.copyOf(

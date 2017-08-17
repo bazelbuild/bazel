@@ -181,9 +181,6 @@ public final class ConfiguredTargetFactory {
     if (fromConfig == null) {
       return null;
     }
-    if (!fromConfig.useDynamicConfigurations()) {
-      return fromConfig.getArtifactOwnerConfiguration();
-    }
     PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
     if (ownerTransition == null) {
       return fromConfig;

@@ -1512,8 +1512,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return fromConfig;
     } else if (transition == ConfigurationTransition.NULL) {
       return null;
-    } else if (!fromConfig.useDynamicConfigurations()) {
-      return fromConfig.getConfiguration(transition);
     } else {
       PatchTransition patchTransition =
           (PatchTransition) ruleClassProvider.getDynamicTransitionMapper().map(transition);

@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /**
  * A (Label, Configuration) pair. Note that this pair may be used to look up the generating action
  * of an artifact. Callers may want to ensure that they have the correct configuration for this
- * purpose by passing in {@link BuildConfiguration#getArtifactOwnerConfiguration} in preference to
+ * purpose by passing in {@link BuildConfiguration#getArtifactOwnerTransition} in preference to
  * the raw configuration.
  */
 public class ConfiguredTargetKey extends ActionLookupKey {
