@@ -19,14 +19,12 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
-import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -252,11 +250,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new FeaturePolicyLoader(FEATURE_POLICY_FEATURES),
         new AndroidConfiguration.Loader(),
         new PlatformConfigurationLoader());
-  }
-
-  @Override
-  public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
-    return new BazelConfigurationCollection();
   }
 
   @Override

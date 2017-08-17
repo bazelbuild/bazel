@@ -213,7 +213,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private ConfigurationCollectionFactory configurationCollectionFactory;
     private ImmutableMap.Builder<Attribute.Transition, Attribute.Transition> dynamicTransitionMaps
         = ImmutableMap.builder();
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
@@ -322,11 +321,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
       configurationFragmentFactories.add(factory);
-      return this;
-    }
-
-    public Builder setConfigurationCollectionFactory(ConfigurationCollectionFactory factory) {
-      this.configurationCollectionFactory = factory;
       return this;
     }
 
@@ -443,7 +437,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          configurationCollectionFactory,
           new DynamicTransitionMapper(dynamicTransitionMaps.build()),
           universalFragment,
           prerequisiteValidator,
@@ -548,11 +541,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
   /**
-   * The factory that creates the configuration collection.
-   */
-  private final ConfigurationCollectionFactory configurationCollectionFactory;
-
-  /**
    * The dynamic configuration transition mapper.
    */
   private final DynamicTransitionMapper dynamicTransitionMapper;
@@ -582,7 +570,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ConfigurationCollectionFactory configurationCollectionFactory,
       DynamicTransitionMapper dynamicTransitionMapper,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
@@ -600,7 +587,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.configurationCollectionFactory = configurationCollectionFactory;
     this.dynamicTransitionMapper = dynamicTransitionMapper;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
@@ -671,13 +657,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
-  }
-
-  /**
-   * Returns the configuration collection creator.
-   */
-  public ConfigurationCollectionFactory getConfigurationCollectionFactory() {
-    return configurationCollectionFactory;
   }
 
   /**

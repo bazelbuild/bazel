@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -98,8 +97,6 @@ public abstract class AnalysisMock extends LoadingMock {
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
-  public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
-
   /** Returns the default factories for configuration fragments used in tests. */
   public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
@@ -152,11 +149,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
       delegate.setupMockWorkspaceFiles(embeddedBinariesRoot);
-    }
-
-    @Override
-    public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
-      return delegate.createConfigurationCollectionFactory();
     }
 
     @Override
