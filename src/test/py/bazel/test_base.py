@@ -94,10 +94,11 @@ class TestBase(unittest.TestCase):
     return os.name == 'nt'
 
   def Path(self, path):
-    """Returns the absolute path of `path` relative to the scratch directory.
+    """Returns the absolute path of `path` relative to self._test_cwd.
 
     Args:
-      path: string; a path, relative to the test's scratch directory,
+      path: string; a path, relative to self._test_cwd,
+        self._test_cwd is different for each test case.
         e.g. "foo/bar/BUILD"
     Returns:
       an absolute path
@@ -107,7 +108,7 @@ class TestBase(unittest.TestCase):
     if os.path.isabs(path) or '..' in path:
       raise ArgumentError(('path="%s" may not be absolute and may not contain '
                            'uplevel references') % path)
-    return os.path.join(self._tests_root, path)
+    return os.path.join(self._test_cwd, path)
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
