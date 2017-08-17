@@ -896,12 +896,13 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         actionsTestUtil().artifactClosureOf(getFilesToBuild(b1)), "b1_deploy.jar");
     List<String> b1Inputs = ActionsTestUtil.prettyArtifactNames(b1DeployAction.getInputs());
 
-    assertThat(b1Inputs).containsNoneOf("java/com/google/android/neversayneveragain/libl1.jar",
-        "java/com/google/android/neversayneveragain/libl2.jar",
-        "java/com/google/android/neversayneveragain/libl3.jar",
-        "java/com/google/android/neversayneveragain/libl4.jar");
+    assertThat(b1Inputs).containsNoneOf(
+        "java/com/google/android/neversayneveragain/libl1.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libl2.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libl3.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libl4.jar_desugared.jar");
     assertThat(b1Inputs).contains(
-        "java/com/google/android/neversayneveragain/libb1.jar");
+        "java/com/google/android/neversayneveragain/libb1.jar_desugared.jar");
 
     ConfiguredTarget b2 = getConfiguredTarget("//java/com/google/android/neversayneveragain:b2");
     Action b2DeployAction = actionsTestUtil().getActionForArtifactEndingWith(
@@ -909,23 +910,25 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> b2Inputs = ActionsTestUtil.prettyArtifactNames(b2DeployAction.getInputs());
 
     assertThat(b2Inputs).containsNoneOf(
-        "java/com/google/android/neversayneveragain/libl1.jar",
-        "java/com/google/android/neversayneveragain/libl2.jar",
-        "java/com/google/android/neversayneveragain/libl4.jar");
+        "java/com/google/android/neversayneveragain/libl1.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libl2.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libl4.jar_desugared.jar");
     assertThat(b2Inputs).containsAllOf(
-        "java/com/google/android/neversayneveragain/libl3.jar",
-        "java/com/google/android/neversayneveragain/libb2.jar");
+        "java/com/google/android/neversayneveragain/_dx/l3/libl3.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libb2.jar_desugared.jar");
 
     ConfiguredTarget b3 = getConfiguredTarget("//java/com/google/android/neversayneveragain:b3");
     Action b3DeployAction = actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(b3)), "b3_deploy.jar");
     List<String> b3Inputs = ActionsTestUtil.prettyArtifactNames(b3DeployAction.getInputs());
 
-    assertThat(b3Inputs).containsAllOf("java/com/google/android/neversayneveragain/libl1.jar",
-        "java/com/google/android/neversayneveragain/libl3.jar",
-        "java/com/google/android/neversayneveragain/libl4.jar",
-        "java/com/google/android/neversayneveragain/libb3.jar");
-    assertThat(b3Inputs).doesNotContain("java/com/google/android/neversayneveragain/libl2.jar");
+    assertThat(b3Inputs).containsAllOf(
+        "java/com/google/android/neversayneveragain/_dx/l1/libl1.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/_dx/l3/libl3.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/_dx/l4/libl4.jar_desugared.jar",
+        "java/com/google/android/neversayneveragain/libb3.jar_desugared.jar");
+    assertThat(b3Inputs)
+        .doesNotContain("java/com/google/android/neversayneveragain/libl2.jar_desugared.jar");
   }
 
   @Test
@@ -1732,15 +1735,16 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Action deployJarAction =
         getGeneratingAction(
             getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
-    List<String> inputs = ActionsTestUtil.prettyArtifactNames(deployJarAction.getInputs());
+    List<String> inputs = ActionsTestUtil.baseArtifactNames(deployJarAction.getInputs());
 
     assertThat(inputs)
         .containsAllOf(
-            dir + "libsublib.jar",
-            dir + "liblib.jar",
-            dir + "libbin.jar",
-            dir + "bin_resources.jar");
-    assertThat(inputs).containsNoneOf(dir + "lib_resources.jar", dir + "sublib_resources.jar");
+            "libsublib.jar_desugared.jar",
+            "liblib.jar_desugared.jar",
+            "libbin.jar_desugared.jar",
+            "bin_resources.jar_desugared.jar");
+    assertThat(inputs)
+        .containsNoneOf("lib_resources.jar_desugared.jar", "sublib_resources.jar_desugared.jar");
   }
 
   @Test
@@ -1771,16 +1775,16 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Action deployJarAction =
         getGeneratingAction(
             getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
-    List<String> inputs = ActionsTestUtil.prettyArtifactNames(deployJarAction.getInputs());
+    List<String> inputs = ActionsTestUtil.baseArtifactNames(deployJarAction.getInputs());
 
     assertThat(inputs)
         .containsAllOf(
-            dir + "libsublib.jar",
-            dir + "liblib.jar",
-            dir + "libbin.jar",
-            dir + "bin_resources.jar",
-            dir + "lib_resources.jar",
-            dir + "sublib_resources.jar");
+            "libsublib.jar_desugared.jar",
+            "liblib.jar_desugared.jar",
+            "libbin.jar_desugared.jar",
+            "bin_resources.jar_desugared.jar",
+            "lib_resources.jar_desugared.jar",
+            "sublib_resources.jar_desugared.jar");
   }
 
   @Test
@@ -2089,7 +2093,21 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    multidex='legacy',",
         "    manifest='AndroidManifest.xml')");
 
-    internalTestDexShardStructure(MultidexMode.LEGACY, false, "");
+    internalTestDexShardStructure(MultidexMode.LEGACY, false, "_desugared.jar");
+  }
+
+  @Test
+  public void testDexShardingNativeStructure_withNoDesugaring() throws Exception {
+    useConfiguration("--noexperimental_desugar_for_android", "--noincremental_dexing");
+    scratch.file("java/a/BUILD",
+        "android_binary(",
+        "    name='a',",
+        "    srcs=['A.java'],",
+        "    dex_shards=2,",
+        "    multidex='native',",
+        "    manifest='AndroidManifest.xml')");
+
+    internalTestDexShardStructure(MultidexMode.NATIVE, false, "");
   }
 
   @Test
@@ -2103,26 +2121,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    multidex='native',",
         "    manifest='AndroidManifest.xml')");
 
-    internalTestDexShardStructure(MultidexMode.NATIVE, false, "");
-  }
-
-  @Test
-  public void testDexShardingNativeStructure_withDesugaring() throws Exception {
-    useConfiguration("--experimental_desugar_for_android", "--noincremental_dexing");
-
-    scratch.file("java/a/BUILD",
-        "android_binary(",
-        "    name='a',",
-        "    srcs=['A.java'],",
-        "    dex_shards=2,",
-        "    multidex='native',",
-        "    manifest='AndroidManifest.xml')");
-
     internalTestDexShardStructure(MultidexMode.NATIVE, false, "_desugared.jar");
   }
 
   @Test
-  public void testDexShardingLegacyAndProguardStructure() throws Exception {
+  public void testDexShardingLegacyAndProguardStructure_withNoDesugaring() throws Exception {
+    useConfiguration("--noexperimental_desugar_for_android");
     scratch.file("java/a/BUILD",
         "android_binary(",
         "    name='a',",
@@ -2136,8 +2140,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDexShardingLegacyAndProguardStructure_withDesugaring() throws Exception {
-    useConfiguration("--experimental_desugar_for_android");
+  public void testDexShardingLegacyAndProguardStructure() throws Exception {
     scratch.file("java/a/BUILD",
         "android_binary(",
         "    name='a',",

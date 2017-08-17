@@ -382,8 +382,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
     @Option(
-      name = "experimental_desugar_for_android",
-      defaultValue = "false",
+      name = "desugar_for_android",
+      oldName = "experimental_desugar_for_android",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to desugar Java 8 bytecode before dexing."
