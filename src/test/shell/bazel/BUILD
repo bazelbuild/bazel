@@ -78,6 +78,15 @@ sh_test(
 )
 
 sh_test(
+    name = "cpp_darwin_integration_test",
+    size = "large",
+    srcs = ["cpp_darwin_integration_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+)
+
+sh_test(
     name = "bazel_tools_test",
     size = "large",
     srcs = ["bazel_tools_test.sh"],

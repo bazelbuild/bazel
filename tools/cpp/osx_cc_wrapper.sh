@@ -32,21 +32,18 @@ INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
 
 LIBS=
 LIB_DIRS=
-RPATH=
+RPATHS=
 OUTPUT=
 # let parse the option list
 for i in "$@"; do
     if [[ "${OUTPUT}" = "1" ]]; then
         OUTPUT=$i
     elif [[ "$i" =~ ^-l(.*)$ ]]; then
-        # lib
         LIBS="${BASH_REMATCH[1]} $LIBS"
     elif [[ "$i" =~ ^-L(.*)$ ]]; then
-        # lib
         LIB_DIRS="${BASH_REMATCH[1]} $LIB_DIRS"
     elif [[ "$i" =~ ^-Wl,-rpath,\$ORIGIN/(.*)$ ]]; then
-        # rpath
-        RPATH=${BASH_REMATCH[1]}
+        RPATHS="${BASH_REMATCH[1]} ${RPATHS}"
     elif [[ "$i" = "-o" ]]; then
         # output is coming
         OUTPUT=1
@@ -83,12 +80,15 @@ function get_otool_path() {
 }
 
 # Do replacements in the output
-if [ -n "${RPATH}" ]; then
+for rpath in ${RPATHS}; do
     for lib in ${LIBS}; do
-        libpath=$(get_library_path ${lib})
-        if [ -n "${libpath}" ]; then
-            ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") "@loader_path/${RPATH}/lib${lib}.so" "${OUTPUT}"
+        if [ -f "`dirname ${OUTPUT}`/${rpath}/lib${lib}.so" ]; then
+            libpath=$(get_library_path ${lib})
+            if [ -n "${libpath}" ]; then
+                ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") \
+                    "@loader_path/${rpath}/lib${lib}.so" "${OUTPUT}"
+            fi
         fi
     done
-fi
+done
 

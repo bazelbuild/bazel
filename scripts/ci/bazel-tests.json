@@ -86,7 +86,8 @@
                 "//scripts/...",
                 "filter(\"^(?!//src/test/docker).*$\", //src/test/...)",
                 "//third_party/ijar/...",
-                "//tools/android/..."
+                "//tools/android/...",
+                "//src/test/shell/bazel:cpp_darwin_integration_test"
             ],
             "targets": []
         }
