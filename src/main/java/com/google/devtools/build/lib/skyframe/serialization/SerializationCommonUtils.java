@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 
 /** Common utilities for serialization. */
 public class SerializationCommonUtils {
@@ -37,5 +40,20 @@ public class SerializationCommonUtils {
     } else {
       return RepositoryName.create(repoNameBytes.toStringUtf8());
     }
+  }
+
+  public static <T> void serializeNullable(T obj, CodedOutputStream out, ObjectCodec<T> codec)
+      throws IOException, SerializationException {
+    if (obj == null) {
+      out.writeBoolNoTag(false);
+    } else {
+      out.writeBoolNoTag(true);
+      codec.serialize(obj, out);
+    }
+  }
+
+  public static <T> T deserializeNullable(CodedInputStream in, ObjectCodec<T> codec)
+      throws IOException, SerializationException {
+    return in.readBool() ? codec.deserialize(in) : null;
   }
 }

@@ -11,9 +11,11 @@ java_library(
     testonly = 1,
     srcs = SERIALIZATION_TEST_SRCS,
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:serialization-test-base",
         "//third_party:guava",
         "//third_party:junit4",

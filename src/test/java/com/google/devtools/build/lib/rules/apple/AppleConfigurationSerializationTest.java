@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -52,45 +55,57 @@ public class AppleConfigurationSerializationTest
         subject());
   }
 
-  private static AppleConfiguration subject() {
-    AppleCommandLineOptions options = new AppleCommandLineOptions();
-    options.mandatoryMinimumVersion = false;
-    options.xcodeVersion = DottedVersion.fromString("1.0");
-    options.iosSdkVersion = DottedVersion.fromString("2.0");
-    options.watchOsSdkVersion = DottedVersion.fromString("3.0");
-    options.tvOsSdkVersion = DottedVersion.fromString("4.0");
-    options.macOsSdkVersion = DottedVersion.fromString("5.0");
-    options.iosMinimumOs = DottedVersion.fromString("6.1beta3.7");
-    options.watchosMinimumOs = DottedVersion.fromString("7.0");
-    options.tvosMinimumOs = DottedVersion.fromString("8.0");
-    options.macosMinimumOs = DottedVersion.fromString("9.0");
-    options.iosCpu = "ioscpu1";
-    options.appleCrosstoolTop = Label.parseAbsoluteUnchecked("//apple/crosstool:top");
-    options.applePlatformType = ApplePlatform.PlatformType.WATCHOS;
-    options.appleSplitCpu = "appleSplitCpu1";
-    options.configurationDistinguisher =
+  private static AppleConfiguration[] subject() {
+    AppleCommandLineOptions firstOptions = new AppleCommandLineOptions();
+    firstOptions.mandatoryMinimumVersion = false;
+    firstOptions.iosSdkVersion = DottedVersion.fromString("2.0");
+    firstOptions.watchOsSdkVersion = DottedVersion.fromString("3.0");
+    firstOptions.tvOsSdkVersion = DottedVersion.fromString("4.0");
+    firstOptions.macOsSdkVersion = DottedVersion.fromString("5.0");
+    firstOptions.iosMinimumOs = DottedVersion.fromString("6.1beta3.7");
+    firstOptions.watchosMinimumOs = DottedVersion.fromString("7.0");
+    firstOptions.tvosMinimumOs = DottedVersion.fromString("8.0");
+    firstOptions.macosMinimumOs = DottedVersion.fromString("9.0");
+    firstOptions.iosCpu = "ioscpu1";
+    firstOptions.appleCrosstoolTop = Label.parseAbsoluteUnchecked("//apple/crosstool:top");
+    firstOptions.applePlatformType = ApplePlatform.PlatformType.WATCHOS;
+    firstOptions.appleSplitCpu = "appleSplitCpu1";
+    firstOptions.configurationDistinguisher =
         AppleConfiguration.ConfigurationDistinguisher.APPLEBIN_TVOS;
-    options.iosMultiCpus = ImmutableList.of("iosMultiCpu1", "iosMultiCpu2");
-    options.watchosCpus = ImmutableList.of("watchosCpu1", "watchosCpu2", "watchosCpu3");
-    options.tvosCpus = ImmutableList.of("tvosCpu1");
-    options.macosCpus = ImmutableList.of();
-    options.defaultProvisioningProfile = Label.parseAbsoluteUnchecked("//default/provisioning");
-    options.xcodeVersionConfig = Label.parseAbsoluteUnchecked("//xcode/version:config");
-    options.xcodeToolchain = "xcodeToolchain1";
-    options.appleBitcodeMode = AppleCommandLineOptions.AppleBitcodeMode.EMBEDDED_MARKERS;
-    options.enableAppleCrosstoolTransition = false;
-    options.targetUsesAppleCrosstool = true;
-    return new AppleConfiguration(
-        options,
-        "iosCpuArg",
-        DottedVersion.fromString("10.0"),
-        DottedVersion.fromString("11.0"),
-        DottedVersion.fromString("12.0"),
-        DottedVersion.fromString("13.0"),
-        DottedVersion.fromString("14.0"),
-        DottedVersion.fromString("15.0"),
-        DottedVersion.fromString("16.0"),
-        DottedVersion.fromString("17.0"),
-        DottedVersion.fromString("18.0"));
+    firstOptions.iosMultiCpus = ImmutableList.of("iosMultiCpu1", "iosMultiCpu2");
+    firstOptions.watchosCpus = ImmutableList.of("watchosCpu1", "watchosCpu2", "watchosCpu3");
+    firstOptions.tvosCpus = ImmutableList.of("tvosCpu1");
+    firstOptions.macosCpus = ImmutableList.of();
+    firstOptions.defaultProvisioningProfile =
+        Label.parseAbsoluteUnchecked("//default/provisioning");
+    firstOptions.xcodeVersionConfig = Label.parseAbsoluteUnchecked("//xcode/version:config");
+    firstOptions.xcodeToolchain = "xcodeToolchain1";
+    firstOptions.appleBitcodeMode = AppleCommandLineOptions.AppleBitcodeMode.EMBEDDED_MARKERS;
+    firstOptions.enableAppleCrosstoolTransition = false;
+    firstOptions.targetUsesAppleCrosstool = true;
+    firstOptions.xcodeVersion = DottedVersion.fromString("1.0");
+    try {
+      return new AppleConfiguration[] {
+        new AppleConfiguration(
+            firstOptions,
+            "iosCpuArg",
+            DottedVersion.fromString("10.0"),
+            DottedVersion.fromString("11.0"),
+            DottedVersion.fromString("12.0"),
+            DottedVersion.fromString("13.0"),
+            DottedVersion.fromString("14.0"),
+            DottedVersion.fromString("15.0"),
+            DottedVersion.fromString("16.0"),
+            DottedVersion.fromString("17.0"),
+            DottedVersion.fromString("18.0")),
+        AppleConfiguration.create(
+            BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
+                .get(AppleCommandLineOptions.class),
+            "another cpu",
+            XcodeVersionProperties.unknownXcodeVersionProperties())
+      };
+    } catch (InvalidConfigurationException | OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
   }
 }
