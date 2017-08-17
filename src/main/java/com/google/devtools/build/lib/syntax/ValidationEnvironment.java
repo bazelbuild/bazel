@@ -23,17 +23,15 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * A class for doing static checks on files, before evaluating them.
- */
+/** A class for doing static checks on files, before evaluating them. */
 public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
-  private static class Scope {
+  private static class Block {
     private final Set<String> variables = new HashSet<>();
     private final Set<String> readOnlyVariables = new HashSet<>();
-    @Nullable private final Scope parent;
+    @Nullable private final Block parent;
 
-    Scope(@Nullable Scope parent) {
+    Block(@Nullable Block parent) {
       this.parent = parent;
     }
   }
@@ -59,15 +57,15 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   private final SkylarkSemanticsOptions semantics;
-  private Scope scope;
+  private Block block;
 
   /** Create a ValidationEnvironment for a given global Environment. */
   ValidationEnvironment(Environment env) {
     Preconditions.checkArgument(env.isGlobal());
-    scope = new Scope(null);
+    block = new Block(null);
     Set<String> builtinVariables = env.getVariableNames();
-    scope.variables.addAll(builtinVariables);
-    scope.readOnlyVariables.addAll(builtinVariables);
+    block.variables.addAll(builtinVariables);
+    block.readOnlyVariables.addAll(builtinVariables);
     semantics = env.getSemantics();
   }
 
@@ -122,9 +120,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   @Override
   public void visit(AbstractComprehension node) {
     if (semantics.incompatibleComprehensionVariablesDoNotLeak) {
-      openScope();
+      openBlock();
       super.visit(node);
-      closeScope();
+      closeBlock();
     } else {
       super.visit(node);
     }
@@ -137,45 +135,52 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         visit(param.getDefaultValue());
       }
     }
-    openScope();
+    openBlock();
     for (Parameter<Expression, Expression> param : node.getParameters()) {
       if (param.hasName()) {
         declare(param.getName(), param.getLocation());
       }
     }
-    for (Statement stmt : node.getStatements()) {
-      visit(stmt);
-    }
-    closeScope();
+    visitAll(node.getStatements());
+    closeBlock();
   }
 
-  /** Returns true if this ValidationEnvironment is top level i.e. has no parent. */
+  @Override
+  public void visit(IfStatement node) {
+    if (semantics.incompatibleDisallowToplevelIfStatement && isTopLevel()) {
+      throw new ValidationException(
+          node.getLocation(),
+          "if statements are not allowed at the top level. You may move it inside a function "
+          + "or use an if expression (x if condition else y). "
+          + "Use --incompatible_disallow_toplevel_if_statement=false to temporarily disable "
+          + "this check.");
+    }
+    super.visit(node);
+  }
+
+  /** Returns true if the current block is the top level i.e. has no parent. */
   private boolean isTopLevel() {
-    return scope.parent == null;
+    return block.parent == null;
   }
 
   /** Declare a variable and add it to the environment. */
   private void declare(String varname, Location location) {
-    checkReadonly(varname, location);
-    if (scope.parent == null) {  // top-level values are immutable
-      scope.readOnlyVariables.add(varname);
-    }
-    scope.variables.add(varname);
-  }
-
-  private void checkReadonly(String varname, Location location) {
-    if (scope.readOnlyVariables.contains(varname)) {
+    if (block.readOnlyVariables.contains(varname)) {
       throw new ValidationException(
           location,
           String.format("Variable %s is read only", varname),
           "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html");
     }
+    if (isTopLevel()) {  // top-level values are immutable
+      block.readOnlyVariables.add(varname);
+    }
+    block.variables.add(varname);
   }
 
   /** Returns true if the symbol exists in the validation environment (or a parent). */
   private boolean hasSymbolInEnvironment(String varname) {
-    for (Scope s = scope; s != null; s = s.parent) {
-      if (s.variables.contains(varname)) {
+    for (Block b = block; b != null; b = b.parent) {
+      if (b.variables.contains(varname)) {
         return true;
       }
     }
@@ -185,8 +190,8 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   /** Returns the set of all accessible symbols (both local and global) */
   private Set<String> getAllSymbols() {
     Set<String> all = new HashSet<>();
-    for (Scope s = scope; s != null; s = s.parent) {
-      all.addAll(s.variables);
+    for (Block b = block; b != null; b = b.parent) {
+      all.addAll(b.variables);
     }
     return all;
   }
@@ -221,30 +226,11 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  /** Throws ValidationException if a `if` statement appears at the top level. */
-  private static void checkToplevelIfStatement(List<Statement> statements) {
-    for (Statement statement : statements) {
-      if (statement instanceof IfStatement) {
-        throw new ValidationException(
-            statement.getLocation(),
-            "if statements are not allowed at the top level. You may move it inside a function "
-                + "or use an if expression (x if condition else y). "
-                + "Use --incompatible_disallow_toplevel_if_statement=false to temporarily disable "
-                + "this check.");
-      }
-    }
-  }
-
   /** Validates the AST and runs static checks. */
   private void validateAst(List<Statement> statements) {
     // Check that load() statements are on top.
     if (semantics.incompatibleBzlDisallowLoadAfterStatement) {
       checkLoadAfterStatement(statements);
-    }
-
-    // Check that load() statements are on top.
-    if (semantics.incompatibleDisallowToplevelIfStatement) {
-      checkToplevelIfStatement(statements);
     }
 
     // Add every function in the environment before validating. This is
@@ -257,17 +243,15 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       }
     }
 
-    for (Statement statement : statements) {
-      this.visit(statement);
-    }
+    this.visitAll(statements);
   }
 
   public static void validateAst(Environment env, List<Statement> statements) throws EvalException {
     try {
       ValidationEnvironment venv = new ValidationEnvironment(env);
       venv.validateAst(statements);
-      // Check that no closeScope was forgotten.
-      Preconditions.checkState(venv.scope.parent == null);
+      // Check that no closeBlock was forgotten.
+      Preconditions.checkState(venv.block.parent == null);
     } catch (ValidationException e) {
       throw e.exception;
     }
@@ -286,13 +270,13 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  /** Open a new scope that will contain the future declarations. */
-  private void openScope() {
-    this.scope = new Scope(this.scope);
+  /** Open a new lexical block that will contain the future declarations. */
+  private void openBlock() {
+    block = new Block(block);
   }
 
-  /** Close a scope (and lose all declarations it contained). */
-  private void closeScope() {
-    this.scope = Preconditions.checkNotNull(this.scope.parent);
+  /** Close a lexical block (and lose all declarations it contained). */
+  private void closeBlock() {
+    block = Preconditions.checkNotNull(block.parent);
   }
 }
