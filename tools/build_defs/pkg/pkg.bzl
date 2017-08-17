@@ -31,7 +31,7 @@ def _pkg_tar_impl(ctx):
       "--owner=" + ctx.attr.owner,
       "--owner_name=" + ctx.attr.ownername,
       ]
-  file_inputs = ctx.files.srcs
+  file_inputs = ctx.files.srcs[:]
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
            for f in ctx.files.srcs]
   for target, f_dest_path in ctx.attr.files.items():
