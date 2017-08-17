@@ -739,10 +739,6 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
-  // Propagate BAZEL_SH environment variable to a sub-process.
-  // TODO(dslomov): More principled approach to propagating
-  // environment variables.
-  SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
   BOOL ok = CreateProcessA(
       /* lpApplicationName */ NULL,
@@ -834,11 +830,6 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
   startupInfo.cb = sizeof(STARTUPINFOA);
 
   PROCESS_INFORMATION processInfo = {0};
-
-  // Propagate BAZEL_SH environment variable to a sub-process.
-  // todo(dslomov): More principled approach to propagating
-  // environment variables.
-  SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
@@ -1151,17 +1142,8 @@ string GetEnv(const string& name) {
 }
 
 void SetEnv(const string& name, const string& value) {
-  if (value.empty()) {
-    ::SetEnvironmentVariableA(name.c_str(), NULL);
-#ifndef COMPILER_MSVC
-    unsetenv(name.c_str());
-#endif  // not COMPILER_MSVC
-  } else {
-    ::SetEnvironmentVariableA(name.c_str(), value.c_str());
-#ifndef COMPILER_MSVC
-    setenv(name.c_str(), value.c_str(), 1);
-#endif  // not COMPILER_MSVC
-  }
+  // _putenv_s both calls ::SetEnvionmentVariableA and updates environ(5).
+  _putenv_s(name.c_str(), value.c_str());
 }
 
 void UnsetEnv(const string& name) { SetEnv(name, ""); }
@@ -1698,9 +1680,11 @@ void DetectBashOrDie() {
 
   string bash = LocateBash();
   uint64_t end = blaze::GetMillisecondsMonotonic();
-  debug_log("BAZEL_SH detection took %lu msec", end - start);
+  debug_log("BAZEL_SH detection took %lu msec, found %s", end - start,
+            bash.c_str());
 
   if (!bash.empty()) {
+    // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
   } else {
     printf(
