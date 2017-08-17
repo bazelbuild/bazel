@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
@@ -1785,15 +1784,6 @@ public final class BuildConfiguration implements BuildEvent {
         currentConfig.getTransitions().configurationHook(fromRule, attribute, toTarget, delegate);
         currentConfig = Iterables.getOnlyElement(delegate.toConfigurations);
 
-        // Allow rule classes to override their own configurations.
-        Rule associatedRule = toTarget.getAssociatedRule();
-        if (associatedRule != null) {
-          @SuppressWarnings("unchecked")
-          RuleClass.Configurator<BuildConfiguration, Rule> func =
-              associatedRule.getRuleClassObject().<BuildConfiguration, Rule>getConfigurator();
-          currentConfig = func.apply(associatedRule, currentConfig);
-        }
-
         toConfigs.add(currentConfig);
       }
       toConfigurations = toConfigs.build();
@@ -1952,22 +1942,6 @@ public final class BuildConfiguration implements BuildEvent {
                 ruleClassTransition);
           }
         }
-      }
-
-      /**
-       * Dynamic configurations don't support rule class configurators (which may need intermediate
-       * configurations to apply). The only current use of that is LIPO, which dynamic
-       * configurations have a different code path for:
-       * {@link com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LIPO_ON_DEMAND}.
-       *
-       * So just check that if there is a configurator, it's for LIPO, in which case we can ignore
-       * it.
-       */
-      if (associatedRule != null) {
-        @SuppressWarnings("unchecked")
-        RuleClass.Configurator<?, ?> func =
-            associatedRule.getRuleClassObject().getConfigurator();
-        Verify.verify(func == RuleClass.NO_CHANGE || func.getCategory().equals("lipo"));
       }
     }
 

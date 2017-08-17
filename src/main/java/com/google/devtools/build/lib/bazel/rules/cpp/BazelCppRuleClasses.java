@@ -37,7 +37,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -71,29 +70,6 @@ public class BazelCppRuleClasses {
 
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
-
-  static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
-      new RuleClass.Configurator<BuildConfiguration, Rule>() {
-        @Override
-        public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
-          Preconditions.checkState(!configuration.useDynamicConfigurations(),
-              "Dynamic configurations don't use rule class configurators for LIPO");
-          BuildConfiguration toplevelConfig =
-              configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
-          CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-          if (toplevelConfig != null
-              && cppConfig.isDataConfigurationForLipoOptimization()
-              && rule.getLabel().equals(cppConfig.getLipoContextForBuild())) {
-            return toplevelConfig;
-          }
-          return configuration;
-        }
-
-        @Override
-        public String getCategory() {
-          return "lipo";
-        }
-      };
 
   public static final LateBoundLabel<BuildConfiguration> STL =
       new LateBoundLabel<BuildConfiguration>() {
