@@ -39,6 +39,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -51,9 +54,12 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Configuration fragment for Android rules.
- */
+/** Configuration fragment for Android rules. */
+@SkylarkModule(
+  name = "android",
+  doc = "A configuration fragment for Android.",
+  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
+)
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
@@ -837,6 +843,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return cpu;
   }
 
+  @SkylarkCallable(name = "sdk", structField = true, doc = "Android SDK")
   public Label getSdk() {
     return sdk;
   }
