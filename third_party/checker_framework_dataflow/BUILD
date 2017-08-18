@@ -17,7 +17,7 @@ java_library(
     ],
 )
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
+load("@//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "bootstrap",
