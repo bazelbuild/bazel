@@ -33,8 +33,8 @@ import com.google.devtools.build.android.desugar.CoreLibraryRewriter.Unprefixing
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOError;
 import java.io.IOException;
@@ -65,7 +65,7 @@ import org.objectweb.asm.tree.ClassNode;
 class Desugar {
 
   /** Commandline options for {@link Desugar}. */
-  public static class Options extends OptionsBase {
+  public static class DesugarOptions extends OptionsBase {
     @Option(
       name = "input",
       allowMultiple = true,
@@ -231,7 +231,7 @@ class Desugar {
     public boolean coreLibrary;
   }
 
-  private final Options options;
+  private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store;
@@ -247,7 +247,7 @@ class Desugar {
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
-  private Desugar(Options options, Path dumpDirectory) {
+  private Desugar(DesugarOptions options, Path dumpDirectory) {
     this.options = options;
     this.rewriter = new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
     this.lambdas = new LambdaClassMaker(dumpDirectory);
@@ -590,7 +590,7 @@ class Desugar {
     Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
     verifyLambdaDumpDirectoryRegistered(dumpDirectory);
 
-    Options options = parseCommandLineOptions(args);
+    DesugarOptions options = parseCommandLineOptions(args);
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
@@ -646,16 +646,13 @@ class Desugar {
     return dumpDirectory;
   }
 
-  private static Options parseCommandLineOptions(String[] args) throws IOException {
+  private static DesugarOptions parseCommandLineOptions(String[] args) throws IOException {
     if (args.length == 1 && args[0].startsWith("@")) {
       args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
     }
-
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.setAllowResidue(false);
-    optionsParser.parseAndExitUponError(args);
-
-    Options options = optionsParser.getOptions(Options.class);
+    DesugarOptions options =
+        Options.parseAndExitUponError(DesugarOptions.class, /*allowResidue=*/ false, args)
+            .getOptions();
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
@@ -672,7 +669,7 @@ class Desugar {
     return options;
   }
 
-  private static ImmutableList<InputOutputPair> toInputOutputPairs(Options options) {
+  private static ImmutableList<InputOutputPair> toInputOutputPairs(DesugarOptions options) {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
             outputIt = options.outputJars.iterator();

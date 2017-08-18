@@ -75,6 +75,7 @@ java_binary(
     deps = [
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
