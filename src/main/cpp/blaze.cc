@@ -1229,10 +1229,7 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
       blaze_util::JoinPath(globals->options->output_base, "server/jvm.out");
 }
 
-// Prepares the environment to be suitable to start a JVM.
-// Any changes made to the environment in this function *will not* be part
-// of '--client_env'.
-static void PrepareEnvironmentForJvm() {
+static void CheckEnvironmentOrDie() {
   if (!blaze::GetEnv("http_proxy").empty()) {
     PrintWarning("ignoring http_proxy in environment.");
     blaze::UnsetEnv("http_proxy");
@@ -1274,6 +1271,8 @@ static void PrepareEnvironmentForJvm() {
   blaze::SetEnv("LANGUAGE", "en_US.ISO-8859-1");
   blaze::SetEnv("LC_ALL", "en_US.ISO-8859-1");
   blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
+
+  blaze::DetectBashOrDie();
 }
 
 static string CheckAndGetBinaryPath(const string &argv0) {
@@ -1318,26 +1317,11 @@ int GetExitCodeForAbruptExit(const GlobalVariables &globals) {
   return custom_exit_code;
 }
 
-// Check whether --client_debug is passed in argv.
-// Bypasses option parsing to makes sure that debug_log is available at
-// the earliest possible moment.
-static bool IsClientDebugEnabled(int argc, const char *argv[]) {
-  for (int i = 0; i < argc; i++) {
-    if (strcmp("--client_debug", argv[i]) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor,
          std::unique_ptr<blaze_util::LogHandler> log_handler) {
   // Logging must be set first to assure no log statements are missed.
   blaze_util::SetLogHandler(std::move(log_handler));
-  // Same for client debug log.
-  blaze::SetDebugLog(IsClientDebugEnabled(argc, argv));
-  debug_log("Debug logging active");
 
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
@@ -1357,16 +1341,13 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
-
-  // Must be done before command line parsing.
-  // ParseOptions already populate --client_env, so detect bash before it
-  // happens.
-  DetectBashOrDie();
-
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
-  PrepareEnvironmentForJvm();
+  blaze::SetDebugLog(globals->options->client_debug);
+  debug_log("Debug logging active");
+
+  CheckEnvironmentOrDie();
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();

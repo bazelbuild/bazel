@@ -531,7 +531,6 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     string env_str(*env);
     if (IsValidEnvName(*env)) {
       PreprocessEnvString(&env_str);
-      debug_log("--client_env=%s", env_str.c_str());
       result.push_back("--client_env=" + env_str);
     }
   }
