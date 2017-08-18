@@ -743,7 +743,8 @@ public class AndroidCommon {
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest,
-      NativeLibs nativeLibs) {
+      NativeLibs nativeLibs,
+      boolean isResourcesOnly) {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
@@ -777,14 +778,16 @@ public class AndroidCommon {
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .add(
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
-        .add(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .add(AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
-        .add(
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
+        .addProvider(
+            AndroidResourcesProvider.class,
+            resourceApk.toResourceProvider(ruleContext.getLabel(), isResourcesOnly))
+        .addProvider(
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(
                 ruleContext,
@@ -796,7 +799,7 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest,
                 nativeLibs))
-        .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
@@ -831,10 +834,24 @@ public class AndroidCommon {
     if (prerequisite == null) {
       return null;
     }
+
+    AndroidResourcesProvider provider = prerequisite.getProvider(AndroidResourcesProvider.class);
+
+    if (!provider.getIsResourcesOnly()) {
+      ruleContext.attributeError(
+          "resources",
+          "android_library target "
+              + prerequisite.getLabel()
+              + " cannot be used in the 'resources' attribute as it specifies information (probably"
+              + " 'srcs' or 'deps') not directly related to android_resources. Consider moving this"
+              + " target from 'resources' to 'deps'.");
+      return null;
+    }
+
     ruleContext.ruleWarning(
         "The use of the android_resources rule and the resources attribute is deprecated. "
             + "Please use the resource_files, assets, and manifest attributes of android_library.");
-    return prerequisite.getProvider(AndroidResourcesProvider.class);
+    return provider;
   }
 
   /**

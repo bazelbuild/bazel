@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -56,6 +57,48 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           + "Use \"resource_files\" instead.");
     }
   }
+
+  /**
+   * Attributes provided by android_library targets that provide information also supported by
+   * android_resources targets.
+   *
+   * <p>As part of migrating away from android_resources, we are allowing android_library targets to
+   * be used in the 'resources' attribute of android_binary, android_library, and android_test
+   * targets. However, android_library targets can specify information that cannot be propagated by
+   * the 'resources' attribute. By enumerating those attributes which can be propagated by
+   * 'resources' and having the {@link AndroidResourcesProvider} specify whether any other
+   * attributes are used, we can error out if an android_library is specified in a resources
+   * attribute despite having information incompatible with that output.
+   *
+   * TODO(b/30307842): Remove this support once the resources attribute is completely removed.
+   *
+   * <p>With the exception of 'resource_files', these attributes are simply those provided by both
+   * android_library and android_resources. android_resources does provide the 'resources'
+   * attribute, but its behavior is like the android_library 'resource_files' attribute, not the
+   * android_library 'resources' attribute (which indicates a dependency on an android_resources
+   * target).
+   */
+  private static final ImmutableSet<String> ATTRS_COMPATIBLE_WITH_ANDROID_RESOURCES =
+      ImmutableSet.of(
+          "assets",
+          "assets_dir",
+          "compatible_with",
+          "custom_package",
+          "deprecation",
+          "distribs",
+          "exports_manifest",
+          "features",
+          "inline_constants",
+          "javacopts",
+          "licenses",
+          "manifest",
+          "name",
+          "plugins",
+          "resource_files",
+          "restricted_to",
+          "tags",
+          "testonly",
+          "visibility");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -197,6 +240,15 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
       .build(ruleContext);
 
+    boolean isResourcesOnly = true;
+    for (String attr : ruleContext.attributes().getAttributeNames()) {
+      if (ruleContext.attributes().isAttributeValueExplicitlySpecified(attr)
+          && !ATTRS_COMPATIBLE_WITH_ANDROID_RESOURCES.contains(attr)) {
+        isResourcesOnly = false;
+        break;
+      }
+    }
+
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     androidCommon.addTransitiveInfoProviders(
         builder,
@@ -205,7 +257,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         resourceApk,
         null,
         ImmutableList.<Artifact>of(),
-        NativeLibs.EMPTY);
+        NativeLibs.EMPTY,
+        isResourcesOnly);
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (androidCommon.getResourceClassJar() != null) {

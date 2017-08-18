@@ -27,14 +27,13 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
   public static AndroidResourcesProvider create(
       Label label,
       NestedSet<ResourceContainer> transitiveAndroidResources,
-      NestedSet<ResourceContainer> directAndroidResources) {
+      NestedSet<ResourceContainer> directAndroidResources,
+      boolean isResourcesOnly) {
     return new AutoValue_AndroidResourcesProvider(
-        label, transitiveAndroidResources, directAndroidResources);
+        label, transitiveAndroidResources, directAndroidResources, isResourcesOnly);
   }
 
-  /**
-   * Returns the label that is associated with this piece of information.
-   */
+  /** Returns the label that is associated with this piece of information. */
   public abstract Label getLabel();
 
   /** Returns the transitive ResourceContainers for the label. */
@@ -42,6 +41,14 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
 
   /** Returns the immediate ResourceContainers for the label. */
   public abstract NestedSet<ResourceContainer> getDirectAndroidResources();
+
+  /**
+   * Returns whether the targets contained within this provider only represent android resources or
+   * also contain other information.
+   *
+   * TODO(b/30307842): Remove this once android_resources is fully removed.
+   */
+  public abstract boolean getIsResourcesOnly();
 
   AndroidResourcesProvider() {}
 }
