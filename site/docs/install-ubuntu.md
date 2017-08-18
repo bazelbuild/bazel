@@ -70,7 +70,7 @@ libraries must also be installed for Bazel to work.
 ### 1. Install required packages
 
 ```bash
-sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
+sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
 ```
 
 ### 2. Download Bazel
