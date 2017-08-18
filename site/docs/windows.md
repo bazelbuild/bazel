@@ -19,20 +19,20 @@ variables:
 
 ```bash
 export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
-export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
+export BAZEL_SH=c:/msys64/usr/bin/bash.exe
 ```
 
 If you run outside of `bash`, ensure that ``msys-2.0.dll`` is in your ``PATH``
-(if you install msys2 to ``c:\tools\msys64``, just add
-``c:\tools\msys64\usr\bin`` to ``PATH``).
+(if you install msys2 to ``c:\msys64``, just add
+``c:\msys64\usr\bin`` to ``PATH``).
 
 If you have another tool that vendors msys2 (such as msysgit), then
-``c:\tools\msys64\usr\bin`` must appear in your ``PATH`` *before* entries for
+``c:\msys64\usr\bin`` must appear in your ``PATH`` *before* entries for
 those tools.
 
 Similarly, if you have [bash on Ubuntu on
 Windows](https://msdn.microsoft.com/en-gb/commandline/wsl/about) installed, you
-should make sure ``c:\tools\msys64\usr\bin`` appears in ``PATH`` *before*
+should make sure ``c:\msys64\usr\bin`` appears in ``PATH`` *before*
 ``c:\windows\system32``, because otherwise Windows' ``bash.exe`` is used before
 msys2's.
 
@@ -42,7 +42,7 @@ To **run** Bazel (even pre-built binaries), you will need:
 
 *    Java JDK 8 or later
 *    [msys2 shell](https://msys2.github.io/) (need to be installed at
-     ``C:\tools\msys64\``).
+     ``C:\msys64\``).
     * We build against version
      [20160205](https://sourceforge.net/projects/msys2/files/Base/x86_64/msys2-x86_64-20160205.exe/download),
      you will need this version in order to run the pre-built
