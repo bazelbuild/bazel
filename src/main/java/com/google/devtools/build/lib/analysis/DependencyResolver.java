@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPath
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
@@ -60,7 +62,10 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-  protected DependencyResolver() {
+  private final ConfigurationResolver configResolver;
+
+  protected DependencyResolver(DynamicTransitionMapper transitionMapper) {
+    this.configResolver = new ConfigurationResolver(transitionMapper);
   }
 
   /**
@@ -562,38 +567,6 @@ public abstract class DependencyResolver {
     }
   }
 
-
-  private AspectCollection requiredAspects(
-      Iterable<Aspect> aspectPath,
-      AttributeAndOwner attributeAndOwner,
-      final Target target,
-      Rule originalRule) throws InconsistentAspectOrderException {
-    if (!(target instanceof Rule)) {
-      return AspectCollection.EMPTY;
-    }
-
-    if (attributeAndOwner.ownerAspect != null) {
-      // Do not propagate aspects along aspect attributes.
-      return AspectCollection.EMPTY;
-    }
-
-    ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
-    ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
-
-    Attribute attribute = attributeAndOwner.attribute;
-    collectOriginatingAspects(originalRule, attribute, (Rule) target,
-        filteredAspectPath, visibleAspects);
-
-    collectPropagatingAspects(aspectPath,
-        attribute,
-        (Rule) target, filteredAspectPath, visibleAspects);
-    try {
-      return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
-    } catch (AspectCycleOnPathException e) {
-      throw  new InconsistentAspectOrderException(originalRule, attribute, target, e);
-    }
-  }
-
   /**
    * Collects into {@code filteredAspectPath}
    * aspects from {@code aspectPath} that propagate along {@code attribute}
@@ -734,22 +707,22 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
-      BuildConfiguration.TransitionApplier resolver = ruleConfig.getTransitionApplier();
-      ruleConfig.evaluateTransition(rule, attributeAndOwner.attribute, toTarget, resolver);
-      // An <Attribute, Label> pair can resolve to multiple deps because of split transitions.
-      for (Dependency dependency :
-          resolver.getDependencies(depLabel,
-              requiredAspects(aspects, attributeAndOwner, toTarget, rule))) {
-        outgoingEdges.put(attributeAndOwner.attribute, dependency);
-      }
+      Attribute.Transition transition = configResolver.evaluateTransition(
+          ruleConfig, rule, attributeAndOwner.attribute, toTarget);
+      outgoingEdges.put(
+          attributeAndOwner.attribute,
+          transition == Attribute.ConfigurationTransition.NULL
+              ? Dependency.withNullConfiguration(depLabel)
+              : Dependency.withTransitionAndAspects(depLabel, transition,
+                    requiredAspects(attributeAndOwner, toTarget)));
     }
 
     /**
      * Resolves the given dep for the given attribute using a pre-prepared configuration.
      *
      * <p>Use this method with care: it skips Bazel's standard config transition semantics ({@link
-     * BuildConfiguration#evaluateTransition}). That means attributes passed through here won't obey
-     * standard rules on which configurations apply to their deps. This should only be done for
+     * ConfigurationResolver#evaluateTransition}). That means attributes passed through here won't
+     * obey standard rules on which configurations apply to their deps. This should only be done for
      * special circumstances that really justify the difference. When in doubt, use {@link
      * #resolveDep(AttributeAndOwner, Label)}.
      */
@@ -759,25 +732,40 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: this is either a loading error or unevaluated Skyframe dep.
       }
-      BuildConfiguration.TransitionApplier transitionApplier = config.getTransitionApplier();
-      boolean applyNullTransition = false;
-      if (BuildConfiguration.usesNullConfiguration(toTarget)) {
-        transitionApplier.applyTransition(Attribute.ConfigurationTransition.NULL);
-        applyNullTransition = true;
+      outgoingEdges.put(
+          attributeAndOwner.attribute,
+          configResolver.usesNullConfiguration(toTarget)
+              ? Dependency.withNullConfiguration(depLabel)
+              : Dependency.withTransitionAndAspects(depLabel, new FixedTransition(
+                    config.getOptions()), requiredAspects(attributeAndOwner, toTarget)));
+    }
+
+    private AspectCollection requiredAspects(AttributeAndOwner attributeAndOwner,
+        final Target target) throws InconsistentAspectOrderException {
+      if (!(target instanceof Rule)) {
+        return AspectCollection.EMPTY;
       }
 
-      AspectCollection aspects =
-          requiredAspects(this.aspects, attributeAndOwner, toTarget, rule);
-      Dependency dep;
-      if (!applyNullTransition) {
-        // Pass a transition rather than directly feeding the configuration so deps get trimmed.
-        dep = Dependency.withTransitionAndAspects(
-            depLabel, new FixedTransition(config.getOptions()), aspects);
-      } else {
-        dep = Iterables.getOnlyElement(transitionApplier.getDependencies(depLabel, aspects));
+      if (attributeAndOwner.ownerAspect != null) {
+        // Do not propagate aspects along aspect attributes.
+        return AspectCollection.EMPTY;
       }
 
-      outgoingEdges.put(attributeAndOwner.attribute, dep);
+      ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
+      ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
+
+      Attribute attribute = attributeAndOwner.attribute;
+      collectOriginatingAspects(rule, attribute, (Rule) target,
+          filteredAspectPath, visibleAspects);
+
+      collectPropagatingAspects(aspects,
+          attribute,
+          (Rule) target, filteredAspectPath, visibleAspects);
+      try {
+        return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
+      } catch (AspectCycleOnPathException e) {
+        throw new InconsistentAspectOrderException(rule, attribute, target, e);
+      }
     }
   }
 

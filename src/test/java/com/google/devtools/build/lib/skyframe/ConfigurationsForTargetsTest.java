@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
@@ -120,7 +121,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         OrderedSetMultimap<Attribute, ConfiguredTarget> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 env,
-                new SkyframeDependencyResolver(env),
+                new SkyframeDependencyResolver(env, ((ConfiguredRuleClassProvider) stateProvider
+                    .lateBoundRuleClassProvider()).getDynamicTransitionMapper()),
                 (TargetAndConfiguration) skyKey.argument(),
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),

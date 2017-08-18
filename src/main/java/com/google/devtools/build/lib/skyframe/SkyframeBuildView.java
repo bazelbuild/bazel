@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -108,7 +107,7 @@ public final class SkyframeBuildView {
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
 
-  private final RuleClassProvider ruleClassProvider;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   // The host configuration containing all fragments used by this build's transitive closure.
   private BuildConfiguration topLevelHostConfiguration;
@@ -554,7 +553,7 @@ public final class SkyframeBuildView {
   }
 
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
-    return new SkyframeDependencyResolver(env);
+    return new SkyframeDependencyResolver(env, ruleClassProvider.getDynamicTransitionMapper());
   }
 
   /**

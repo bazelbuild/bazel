@@ -101,7 +101,6 @@ public class CppRuleClasses {
       ImmutableMap.of(
           Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
           LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
-          // TARGET_CONFIG_FOR_LIPO has no entry because only static configurations use it.
       );
 
 

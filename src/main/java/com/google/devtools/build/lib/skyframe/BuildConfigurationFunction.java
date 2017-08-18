@@ -76,8 +76,7 @@ public class BuildConfigurationFunction implements SkyFunction {
             directories,
             fragmentsMap,
             key.getBuildOptions(),
-            workspaceNameValue.getName(),
-            ruleClassProvider.getDynamicTransitionMapper());
+            workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
 

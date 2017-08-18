@@ -34,10 +34,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -50,23 +48,13 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.Configurator;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1094,7 +1082,6 @@ public final class BuildConfiguration implements BuildEvent {
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
-  private final DynamicTransitionMapper dynamicTransitionMapper;
   private final ImmutableSet<String> reservedActionMnemonics;
 
   /**
@@ -1386,8 +1373,7 @@ public final class BuildConfiguration implements BuildEvent {
   public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      String repositoryName,
-      @Nullable DynamicTransitionMapper dynamicTransitionMapper) {
+      String repositoryName) {
     this.directories = directories;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
@@ -1398,7 +1384,6 @@ public final class BuildConfiguration implements BuildEvent {
     this.options = buildOptions.get(Options.class);
     this.separateGenfilesDirectory = options.separateGenfilesDirectory;
     this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
-    this.dynamicTransitionMapper = dynamicTransitionMapper;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1492,8 +1477,7 @@ public final class BuildConfiguration implements BuildEvent {
             directories,
             fragmentsMap,
             options,
-            mainRepositoryName.strippedName(),
-            dynamicTransitionMapper);
+            mainRepositoryName.strippedName());
     return newConfig;
   }
 
@@ -1571,363 +1555,6 @@ public final class BuildConfiguration implements BuildEvent {
       platformNameBuilder.append(fragment.getPlatformName());
     }
     return platformNameBuilder.toString();
-  }
-
-  /**
-   * A common interface for static vs. dynamic configuration implementations that allows
-   * common configuration and transition-selection logic to seamlessly work with either.
-   *
-   * <p>The basic role of this interface is to "accept" a desired transition and produce
-   * an actual configuration change from it in an implementation-appropriate way.
-   */
-  public interface TransitionApplier {
-    /**
-     * Accepts the given configuration transition. The implementation decides how to turn
-     * this into an actual configuration. This may be called multiple times (representing a
-     * request for a sequence of transitions).
-     */
-    void applyTransition(Transition transition);
-
-    /**
-     * Accepts the given split transition. The implementation decides how to turn this into
-     * actual configurations.
-     */
-    void split(SplitTransition<BuildOptions> splitTransition);
-
-    /**
-     * Returns whether or not all configuration(s) represented by the current state of this
-     * instance are null.
-     */
-    boolean isNull();
-
-    /**
-     * Applies the given attribute configurator to the current configuration(s).
-     */
-    void applyAttributeConfigurator(Configurator<BuildOptions> configurator);
-
-    /**
-     * Applies a custom configuration hook for the given rule.
-     */
-    void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget);
-
-    /**
-     * Populates a {@link com.google.devtools.build.lib.analysis.Dependency}
-     * for each configuration represented by this instance.
-     * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
-     */
-    Iterable<Dependency> getDependencies(Label label, AspectCollection aspects);
-  }
-
-  /**
-   * Transition applier for static configurations. This implementation populates
-   * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
-   * actual configurations.
-   *
-   * TODO(bazel-team): remove this when dynamic configurations are fully production-ready.
-   */
-  private static class StaticTransitionApplier implements TransitionApplier {
-    // The configuration(s) this applier applies to dep rules. Plural because of split transitions.
-    // May change multiple times: the ultimate transition might be a sequence of intermediate
-    // transitions.
-    List<BuildConfiguration> toConfigurations;
-
-    private StaticTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.toConfigurations = ImmutableList.<BuildConfiguration>of(originalConfiguration);
-    }
-
-    @Override
-    public void applyTransition(Transition transition) {
-      throw new UnsupportedOperationException("dead static config code being removed");
-    }
-
-    @Override
-    public void split(SplitTransition<BuildOptions> splitTransition) {
-      throw new UnsupportedOperationException("dead static config code being removed");
-    }
-
-    @Override
-    public boolean isNull() {
-      return toConfigurations.size() == 1
-          ? Iterables.getOnlyElement(toConfigurations) == null
-          : false;
-    }
-
-    @Override
-    public void applyAttributeConfigurator(Configurator<BuildOptions> configurator) {
-      // There should only be one output configuration at this point: splits don't occur down
-      // attributes with attribute configurators. We can lift this restriction later if desired.
-      BuildOptions toOptions = Iterables.getOnlyElement(toConfigurations).getOptions();
-      applyTransition(configurator.apply(toOptions));
-    }
-
-    @Override
-    public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      throw new UnsupportedOperationException("dead static config code being removed");
-    }
-
-    @Override
-    public Iterable<Dependency> getDependencies(
-        Label label, AspectCollection aspects) {
-      ImmutableList.Builder<Dependency> deps = ImmutableList.builder();
-      for (BuildConfiguration config : toConfigurations) {
-        deps.add(config != null
-            ? Dependency.withConfigurationAndAspects(label, config, aspects)
-            : Dependency.withNullConfiguration(label));
-      }
-      return deps.build();
-    }
-  }
-
-  /**
-   * Transition applier for dynamic configurations. This implementation populates
-   * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
-   * transitions that the caller subsequently creates configurations from.
-   */
-  private static class DynamicTransitionApplier implements TransitionApplier {
-    private final DynamicTransitionMapper dynamicTransitionMapper;
-    private boolean splitApplied = false;
-
-    // The transition this applier applies to dep rules. When multiple transitions are requested,
-    // this is a ComposingSplitTransition, which encapsulates the sequence into a single instance
-    // so calling code doesn't need special logic to support combinations.
-    private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
-
-    private DynamicTransitionApplier(DynamicTransitionMapper dynamicTransitionMapper) {
-      this.dynamicTransitionMapper = dynamicTransitionMapper;
-    }
-
-    /**
-     * Returns true if the given transition should not be modifiable by subsequent ones, i.e.
-     * once this transition is applied it's the final word on the output configuration.
-     */
-    private static boolean isFinal(Transition transition) {
-      return (transition == Attribute.ConfigurationTransition.NULL
-          || transition == HostTransition.INSTANCE);
-    }
-
-    @Override
-    public void applyTransition(Transition transitionToApply) {
-      currentTransition = composeTransitions(currentTransition, transitionToApply);
-    }
-
-    /**
-     * Composes two transitions together efficiently.
-     */
-    private Transition composeTransitions(Transition transition1, Transition transition2) {
-      if (isFinal(transition1)) {
-        return transition1;
-      } else if (transition2 == Attribute.ConfigurationTransition.NONE) {
-        return transition1;
-      } else if (transition2 == Attribute.ConfigurationTransition.NULL) {
-        // A NULL transition can just replace earlier transitions: no need to cfpose them.
-        return Attribute.ConfigurationTransition.NULL;
-      } else if (transition2 == Attribute.ConfigurationTransition.HOST) {
-        // A HOST transition can just replace earlier transitions: no need to compose them.
-        // But it also improves performance: host transitions are common, and
-        // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried
-        // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
-        return HostTransition.INSTANCE;
-      }
-
-      // TODO(gregce): remove this dynamic transition mapping when static configs are removed.
-      Transition dynamicTransition = dynamicTransitionMapper.map(transition2);
-      return transition1 == Attribute.ConfigurationTransition.NONE
-          ? dynamicTransition
-          : new ComposingSplitTransition(transition1, dynamicTransition);
-    }
-
-    @Override
-    // TODO(gregce): fold this into applyTransition during the static config code removal cleanup
-    public void split(SplitTransition<BuildOptions> splitTransition) {
-      // This "single split" check doesn't come from any design restriction. Its purpose is to
-      // protect against runaway graph explosion, e.g. applying split[1,2,3] -> split[4,5,6] -> ...
-      // and getting 3^n versions of a dep. So it's fine to loosen or lift this restriction
-      // for a principled use case.
-      Preconditions.checkState(!splitApplied,
-          "dependency edges may apply at most one split transition");
-      Preconditions.checkState(currentTransition != Attribute.ConfigurationTransition.NULL,
-          "cannot apply splits after null transitions (null transitions are expected to be final)");
-      Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
-          "cannot apply splits after host transitions (host transitions are expected to be final)");
-      currentTransition = currentTransition == Attribute.ConfigurationTransition.NONE
-          ? splitTransition
-          : new ComposingSplitTransition(currentTransition, splitTransition);
-      splitApplied = true;
-    }
-
-    @Override
-    public boolean isNull() {
-      return currentTransition == Attribute.ConfigurationTransition.NULL;
-    }
-
-    /**
-     * A {@link PatchTransition} that applies an attribute configurator over some input options
-     * to determine which transition to use, then applies that transition over those options
-     * for the final output.
-     */
-    private static final class AttributeConfiguratorTransition implements PatchTransition {
-      private final Configurator<BuildOptions> configurator;
-
-      AttributeConfiguratorTransition(Configurator<BuildOptions> configurator) {
-        this.configurator = configurator;
-      }
-
-      @Override
-      public BuildOptions apply(BuildOptions options) {
-        return Iterables.getOnlyElement(
-            ComposingSplitTransition.apply(options, configurator.apply(options)));
-      }
-
-      @Override
-      public boolean defaultsToSelf() {
-        return false;
-      }
-    }
-    /**
-     * Unlike the static config version, this one can be composed with arbitrary transitions
-     * (including splits).
-     */
-    @Override
-    public void applyAttributeConfigurator(Configurator<BuildOptions> configurator) {
-      if (isFinal(currentTransition)) {
-        return;
-      }
-      currentTransition =
-          composeTransitions(currentTransition, new AttributeConfiguratorTransition(configurator));
-    }
-
-    @Override
-    public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      if (isFinal(currentTransition)) {
-        return;
-      }
-      Rule associatedRule = toTarget.getAssociatedRule();
-      RuleTransitionFactory transitionFactory =
-          associatedRule.getRuleClassObject().getTransitionFactory();
-      if (transitionFactory != null) {
-        // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
-        // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
-        // C++-specific patch transition that implements it.
-        PatchTransition ruleClassTransition = (PatchTransition)
-            dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
-        if (ruleClassTransition != null) {
-          if (currentTransition == ConfigurationTransition.NONE) {
-            currentTransition = ruleClassTransition;
-          } else {
-            currentTransition = new ComposingSplitTransition(currentTransition,
-                ruleClassTransition);
-          }
-        }
-      }
-    }
-
-    @Override
-    public Iterable<Dependency> getDependencies(
-        Label label, AspectCollection aspects) {
-      return ImmutableList.of(
-          isNull()
-              // We can trivially set the final value for null-configured targets now. This saves
-              // us from having to recreate a new Dependency object for the final value later. Since
-              // there are lots of null-configured targets (e.g. all source files), this can add up
-              // over the course of a build.
-              ? Dependency.withNullConfiguration(label)
-              : Dependency.withTransitionAndAspects(label, currentTransition, aspects));
-    }
-  }
-
-  /**
-   * Returns the {@link TransitionApplier} that should be passed to {#evaluateTransition} calls.
-   */
-  public TransitionApplier getTransitionApplier() {
-    return new DynamicTransitionApplier(dynamicTransitionMapper);
-  }
-
-  /**
-   * Returns true if the given target uses a null configuration, false otherwise. Consider
-   * this method the "source of truth" for determining this.
-   */
-  public static boolean usesNullConfiguration(Target target) {
-    return target instanceof InputFile || target instanceof PackageGroup;
-  }
-
-  /**
-   * Calculates the configurations of a direct dependency. If a rule in some BUILD file refers
-   * to a target (like another rule or a source file) using a label attribute, that target needs
-   * to have a configuration, too. This method figures out the proper configuration for the
-   * dependency.
-   *
-   * @param fromRule the rule that's depending on some target
-   * @param attribute the attribute using which the rule depends on that target (eg. "srcs")
-   * @param toTarget the target that's dependeded on
-   * @param transitionApplier the transition applier to accept transitions requests
-   */
-  public void evaluateTransition(final Rule fromRule, final Attribute attribute,
-      final Target toTarget, TransitionApplier transitionApplier) {
-    // Fantastic configurations and where to find them:
-
-    // I. Input files and package groups have no configurations. We don't want to duplicate them.
-    if (usesNullConfiguration(toTarget)) {
-      transitionApplier.applyTransition(Attribute.ConfigurationTransition.NULL);
-      return;
-    }
-
-    // II. Host configurations never switch to another. All prerequisites of host targets have the
-    // same host configuration.
-    if (isHostConfiguration()) {
-      transitionApplier.applyTransition(Attribute.ConfigurationTransition.NONE);
-      return;
-    }
-
-    // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
-    // unconditionally. For example, given:
-    //
-    // genrule(
-    //     name = 'myrule',
-    //     tools = select({ '//a:condition': [':sometool'] })
-    //
-    // all labels in "tools" get resolved in the host configuration (since the "tools" attribute
-    // declares a host configuration transition). We want to explicitly exclude configuration labels
-    // from these transitions, since their *purpose* is to do computation on the owning
-    // rule's configuration.
-    // TODO(bazel-team): don't require special casing here. This is far too hackish.
-    if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClassObject().isConfigMatcher()) {
-      transitionApplier.applyTransition(Attribute.ConfigurationTransition.NONE); // Unnecessary.
-      return;
-    }
-
-    // Apply the parent rule's outgoing transition if it has one.
-    RuleTransitionFactory transitionFactory =
-        fromRule.getRuleClassObject().getOutgoingTransitionFactory();
-    if (transitionFactory != null) {
-      Transition transition = transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
-      if (transition != null) {
-        transitionApplier.applyTransition(transition);
-      }
-    }
-
-    // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses) once
-    // the static config code path is removed. They can be mixed freely with dynamic configurations.
-    if (attribute.hasSplitConfigurationTransition()) {
-      Preconditions.checkState(attribute.getConfigurator() == null);
-      transitionApplier.split(
-          (SplitTransition<BuildOptions>) attribute.getSplitTransition(fromRule));
-    } else {
-      // III. Attributes determine configurations. The configuration of a prerequisite is determined
-      // by the attribute.
-      @SuppressWarnings("unchecked")
-      Configurator<BuildOptions> configurator =
-          (Configurator<BuildOptions>) attribute.getConfigurator();
-      if (configurator != null) {
-        // TODO(gregce): remove this branch when static config logic is removed. Attribute
-        // configurators can just be implemented as standard attribute transitions, via
-        // applyTransition.
-        transitionApplier.applyAttributeConfigurator(configurator);
-      } else {
-        transitionApplier.applyTransition(attribute.getConfigurationTransition());
-      }
-    }
-
-    transitionApplier.applyConfigurationHook(fromRule, attribute, toTarget);
   }
 
   /**
