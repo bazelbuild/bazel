@@ -28,7 +28,7 @@ set launcher=%~dp0%~n0
 set sh_path=%launcher:\=/%
 
 set RUNFILES_MANIFEST_ONLY=1
-set RUNFILES_MANIFEST_FILE=%sh_path%.runfiles/MANIFEST
+set RUNFILES_MANIFEST_FILE=%sh_path%.cmd.runfiles/MANIFEST
 set all_args=%*
 rem replaces $ with \$ in $*, then puts it on the command line
 rem Cribbed from here: http://ss64.com/nt/syntax-replace.html

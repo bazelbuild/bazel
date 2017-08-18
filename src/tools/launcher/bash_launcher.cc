@@ -36,8 +36,7 @@ ExitCode BashBinaryLauncher::Launch() {
 
   vector<string> origin_args = this->GetCommandlineArguments();
   ostringstream bash_command;
-  string bash_main_file =
-      this->Rlocation(this->GetLaunchInfoByKey(BASH_MAIN_FILE));
+  string bash_main_file = GetBinaryPathWithoutExtension(origin_args[0]);
   bash_command << GetEscapedArgument(bash_main_file);
   for (int i = 1; i < origin_args.size(); i++) {
     bash_command << ' ';

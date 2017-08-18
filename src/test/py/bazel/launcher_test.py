@@ -88,12 +88,15 @@ class LauncherTest(test_base.TestBase):
                                          launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
-    bin1 = os.path.join(bazel_bin, 'foo', 'bin1.sh.%s' % bin1_suffix
-                        if self.IsWindows() else 'bin1.sh')
+    if not self.IsWindows():
+      bin1_suffix = ''
+
+    bin1 = os.path.join(bazel_bin, 'foo', 'bin1.sh%s' % bin1_suffix)
 
     self.assertTrue(os.path.exists(bin1))
     self.assertTrue(
-        os.path.isdir(os.path.join(bazel_bin, 'foo/bin1.sh.runfiles')))
+        os.path.isdir(
+            os.path.join(bazel_bin, 'foo/bin1.sh%s.runfiles' % bin1_suffix)))
 
     exit_code, _, stderr = self.RunBazel(['build', '//foo:bin2.cmd'] +
                                          launcher_flag)
@@ -126,7 +129,8 @@ class LauncherTest(test_base.TestBase):
 
     if self.IsWindows():
       self.AssertRunfilesManifestContains(
-          os.path.join(bazel_bin, 'foo/bin1.sh.runfiles/MANIFEST'),
+          os.path.join(bazel_bin,
+                       'foo/bin1.sh%s.runfiles/MANIFEST' % bin1_suffix),
           '__main__/bar/bar.txt')
       self.AssertRunfilesManifestContains(
           os.path.join(bazel_bin, 'foo/bin2.cmd.runfiles/MANIFEST'),
@@ -151,9 +155,10 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'hello shell')
     if self.IsWindows():
       self.assertEqual(stdout[1], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(stdout[2],
-                               (r'^runfiles_manifest_file='
-                                r'[a-zA-Z]:/.*/foo/bin1.sh.runfiles/MANIFEST$'))
+      self.assertRegexpMatches(
+          stdout[2],
+          (r'^runfiles_manifest_file='
+           r'[a-zA-Z]:/.*/foo/bin1.sh%s.runfiles/MANIFEST$' % bin1_suffix))
     else:
       # TODO(laszlocsomor): Find out whether the runfiles-related envvars should
       # be set on Linux (e.g. $RUNFILES, $RUNFILES_MANIFEST_FILE). Currently
@@ -210,8 +215,8 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], 'cmd')
-    self._buildShBinaryTargets(bazel_bin, [], 'exe')
+    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd')
+    self._buildShBinaryTargets(bazel_bin, [], '.exe')
 
   def testShBinaryArgumentPassing(self):
     self.ScratchFile('WORKSPACE')
@@ -242,10 +247,13 @@ class LauncherTest(test_base.TestBase):
         ['build', '--windows_exe_launcher', '//foo:bin'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    bin1 = os.path.join(bazel_bin, 'foo', 'bin.exe'
-                        if self.IsWindows() else 'bin')
+    bin_suffix = '.exe' if self.IsWindows() else ''
+
+    bin1 = os.path.join(bazel_bin, 'foo', 'bin%s' % bin_suffix)
     self.assertTrue(os.path.exists(bin1))
-    self.assertTrue(os.path.isdir(os.path.join(bazel_bin, 'foo/bin.runfiles')))
+    self.assertTrue(
+        os.path.isdir(
+            os.path.join(bazel_bin, 'foo/bin%s.runfiles' % bin_suffix)))
 
     arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
     exit_code, stdout, stderr = self.RunProgram([bin1] + arguments)

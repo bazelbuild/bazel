@@ -46,7 +46,7 @@ BinaryLauncherBase::BinaryLauncherBase(
 
 string BinaryLauncherBase::FindManifestFile(const char* argv0) {
   // Get the name of the binary
-  string binary = GetBinaryPathWithoutExtension(argv0);
+  string binary = GetBinaryPathWithExtension(argv0);
 
   // The path will be set as the RUNFILES_MANIFEST_FILE envvar and used by the
   // shell script, so let's convert backslashes to forward slashes.
@@ -64,7 +64,7 @@ string BinaryLauncherBase::FindManifestFile(const char* argv0) {
     return manifest_file;
   }
 
-  die("Couldn't find MANIFEST file %s.runfiles\\", binary.c_str());
+  die("Couldn't find MANIFEST file under %s.runfiles\\", binary.c_str());
 }
 
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
