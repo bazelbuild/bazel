@@ -76,24 +76,11 @@ public final class CustomCommandLine extends CommandLine {
     abstract void eval(ImmutableList.Builder<String> builder);
   }
 
-  // TODO(bazel-team): CustomArgv and CustomMultiArgv is  going to be difficult to expose
+  // TODO(bazel-team): CustomMultiArgv is  going to be difficult to expose
   // in Skylark. Maybe we can get rid of them by refactoring JavaCompileAction. It also
   // raises immutability / serialization issues.
-  /** Custom Java code producing a String argument. Usage of this class is discouraged. */
-  public abstract static class CustomArgv extends StandardArgvFragment {
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(argv());
-    }
-
-    public abstract String argv();
-  }
-
   /**
    * Custom Java code producing a List of String arguments.
-   *
-   * <p>Usage of this class is discouraged. Please see {@link CustomArgv}.
    */
   public abstract static class CustomMultiArgv extends StandardArgvFragment {
 
@@ -824,13 +811,6 @@ public final class CustomCommandLine extends CommandLine {
       if (!vectorArg.isEmpty) {
         arguments.add(arg);
         addVectorArgInternal(vectorArg);
-      }
-      return this;
-    }
-
-    public Builder addCustomArgv(@Nullable CustomArgv arg) {
-      if (arg != null) {
-        arguments.add(arg);
       }
       return this;
     }

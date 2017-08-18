@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -161,21 +160,6 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testCustomArgs() {
-    CustomCommandLine cl =
-        CustomCommandLine.builder()
-            .addCustomArgv(
-                new CustomArgv() {
-                  @Override
-                  public String argv() {
-                    return "--arg";
-                  }
-                })
-            .build();
-    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--arg"));
-  }
-
-  @Test
   public void testCustomMultiArgs() {
     CustomCommandLine cl =
         CustomCommandLine.builder()
@@ -259,7 +243,6 @@ public class CustomCommandLineTest {
             .addExecPaths("foo", VectorArg.of((ImmutableList<Artifact>) null))
             .addExecPaths("foo", VectorArg.of(ImmutableList.of()))
             .addPlaceholderTreeArtifactExecPath("foo", null)
-            .addCustomArgv((CustomArgv) null)
             .addCustomMultiArgv((CustomMultiArgv) null)
             .build();
     assertThat(cl.arguments()).isEmpty();
