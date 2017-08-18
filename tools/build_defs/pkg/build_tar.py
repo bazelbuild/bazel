@@ -15,6 +15,7 @@
 
 import os
 import os.path
+import stat
 import sys
 import tarfile
 import tempfile
@@ -104,9 +105,9 @@ class TarFile(object):
     dest = destfile.lstrip('/')  # Remove leading slashes
     if self.directory and self.directory != '/':
       dest = self.directory.lstrip('/') + '/' + dest
-    # If mode is unspecified, derive the mode from the file's mode.
+    # If mode is unspecified, keep the file's current mode
     if mode is None:
-      mode = 0o755 if os.access(f, os.X_OK) else 0o644
+      mode = stat.S_IMODE(os.stat(f).st_mode)
     if ids is None:
       ids = (0, 0)
     if names is None:

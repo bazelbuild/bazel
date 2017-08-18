@@ -27,10 +27,11 @@ def _pkg_tar_impl(ctx):
   args = [
       "--output=" + ctx.outputs.out.path,
       "--directory=" + ctx.attr.package_dir,
-      "--mode=" + ctx.attr.mode,
       "--owner=" + ctx.attr.owner,
       "--owner_name=" + ctx.attr.ownername,
       ]
+  if ctx.attr.mode != "None":
+    args.append("--mode=" + ctx.attr.mode)
   file_inputs = ctx.files.srcs[:]
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
            for f in ctx.files.srcs]
@@ -167,7 +168,7 @@ _real_pkg_tar = rule(
         "deps": attr.label_list(allow_files=tar_filetype),
         "srcs": attr.label_list(allow_files=True),
         "files": attr.label_keyed_string_dict(allow_files=True),
-        "mode": attr.string(default="0555"),
+        "mode": attr.string(default="None"),
         "modes": attr.string_dict(),
         "owner": attr.string(default="0.0"),
         "ownername": attr.string(default="."),
