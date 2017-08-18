@@ -228,6 +228,14 @@ public class BuildRequest implements OptionsClassProvider {
     public boolean dumpToStdout;
 
     @Option(
+      name = "experimental_post_build_query",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
+    public String queryExpression;
+
+    @Option(
       name = "analyze",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

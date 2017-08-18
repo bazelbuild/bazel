@@ -13,17 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
@@ -98,53 +92,17 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
 
   @Override
   public List<String> getStringListAttr(Target target, String attrName) {
-    Preconditions.checkArgument(target instanceof Rule);
-    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+    return TargetUtils.getStringListAttr(target, attrName);
   }
 
   @Override
   public String getStringAttr(Target target, String attrName) {
-    Preconditions.checkArgument(target instanceof Rule);
-    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING);
+    return TargetUtils.getStringAttr(target, attrName);
   }
 
   @Override
   public Iterable<String> getAttrAsString(Target target, String attrName) {
-    Preconditions.checkArgument(target instanceof Rule);
-    List<String> values = new ArrayList<>(); // May hold null values.
-    Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
-    if (attribute != null) {
-      Type<?> attributeType = attribute.getType();
-      for (Object attrValue : AggregatingAttributeMapper.of((Rule) target).visitAttribute(
-          attribute.getName(), attributeType)) {
-
-        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
-        // attributes. These are internally stored as actual Boolean or TriState objects but were
-        // historically queried as integers. To maintain compatibility, we inspect their actual
-        // value and return the integer equivalent represented as a String. This code is the
-        // opposite of the code in BooleanType and TriStateType respectively.
-        if (attributeType == BOOLEAN) {
-          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
-        } else if (attributeType == TRISTATE) {
-            switch (BuildType.TRISTATE.cast(attrValue)) {
-              case AUTO :
-                values.add("-1");
-                break;
-              case NO :
-                values.add("0");
-                break;
-              case YES :
-                values.add("1");
-                break;
-              default :
-                throw new AssertionError("This can't happen!");
-            }
-        } else {
-          values.add(attrValue == null ? null : attrValue.toString());
-        }
-      }
-    }
-    return values;
+    return TargetUtils.getAttrAsString(target, attrName);
   }
 
   @Override

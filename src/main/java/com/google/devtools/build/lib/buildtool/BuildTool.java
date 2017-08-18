@@ -56,13 +56,19 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -132,6 +138,7 @@ public final class BuildTool {
     env.setupPackageCache(request, DefaultsPackage.getDefaultsPackageContent(buildOptions));
 
     ExecutionTool executionTool = null;
+    BuildConfigurationCollection configurations;
     boolean catastrophe = false;
     try {
       env.getEventBus().post(new BuildStartingEvent(env, request));
@@ -184,7 +191,7 @@ public final class BuildTool {
       // TODO(gregce): BuildConfigurationCollection is important for static configs, less so for
       // dynamic configs. Consider dropping it outright and passing on-the-fly target / host configs
       // directly when needed (although this could be hard when Skyframe is unavailable).
-      BuildConfigurationCollection configurations =
+      configurations =
           env.getSkyframeExecutor()
               .createConfigurations(
                   env.getReporter(),
@@ -216,6 +223,22 @@ public final class BuildTool {
           env.getEventBus().post(new AbortedEvent(config.getEventId(), AbortReason.SKIPPED,
             String.format(
                 "Target %s build was skipped.", target.getLabel())));
+        }
+
+        // TODO(janakr): this query will operate over the graph as constructed by analysis, but will
+        // also pick up any nodes that are in the graph from prior builds. This makes the results
+        // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
+        // graph beforehand if this option is specified, or add another option to wipe if desired
+        // (SkyframeExecutor#dropConfiguredTargets should be sufficient).
+        if (request.getBuildOptions().queryExpression != null) {
+          try {
+            doConfiguredTargetQuery(request, configurations);
+          } catch (QueryException | IOException e) {
+            if (!request.getViewOptions().keepGoing) {
+              throw new ViewCreationFailedException("Error doing configured target query", e);
+            }
+            env.getReporter().error(null, "Error doing configured target query", e);
+          }
         }
 
         // Execution phase.
@@ -366,6 +389,40 @@ public final class BuildTool {
     }
 
     return result;
+  }
+
+  private void doConfiguredTargetQuery(
+      BuildRequest request, BuildConfigurationCollection configurations)
+      throws InterruptedException, QueryException, IOException {
+    WalkableGraph walkableGraph =
+        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
+        new ConfiguredTargetQueryEnvironment(
+            request.getViewOptions().keepGoing,
+            env.getReporter(),
+            env.getRuntime().getQueryFunctions(),
+            configurations.getTargetConfigurations().get(0),
+            configurations.getHostConfiguration(),
+            env.newTargetPatternEvaluator().getOffset(),
+            env.getPackageManager().getPackagePath(),
+            () -> walkableGraph);
+    configuredTargetQueryEnvironment.evaluateQuery(
+        request.getBuildOptions().queryExpression,
+        new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
+          @Override
+          public void processOutput(Iterable<ConfiguredTarget> partialResult)
+              throws IOException, InterruptedException {
+            for (ConfiguredTarget configuredTarget : partialResult) {
+              env.getReporter()
+                  .getOutErr()
+                  .printOutLn(
+                      configuredTarget.getLabel()
+                          + " ("
+                          + configuredTarget.getConfiguration()
+                          + ")");
+            }
+          }
+        });
   }
 
   private void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
