@@ -81,7 +81,6 @@ public final class PyCommon {
   private final RuleContext ruleContext;
 
   private Artifact executable = null;
-  private Artifact executableWrapper = null;
 
   private NestedSet<Artifact> transitivePythonSources;
 
@@ -115,10 +114,18 @@ public final class PyCommon {
     Preconditions.checkNotNull(version);
 
     validatePackageName();
-    executable = ruleContext.createOutputArtifact();
     if (OS.getCurrent() == OS.WINDOWS) {
-      executableWrapper =
-          ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
+      String executableSuffix;
+      if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+        executableSuffix = ".exe";
+      } else {
+        executableSuffix = ".cmd";
+      }
+      executable =
+          ruleContext.getImplicitOutputArtifact(
+              ruleContext.getTarget().getName() + executableSuffix);
+    } else {
+      executable = ruleContext.createOutputArtifact();
     }
     if (this.version == PythonVersion.PY2AND3) {
       // TODO(bazel-team): we need to create two actions
@@ -127,9 +134,11 @@ public final class PyCommon {
 
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addAll(srcs).add(executable);
-    if (executableWrapper != null) {
-      filesToBuildBuilder.add(executableWrapper);
+
+    if (ruleContext.getConfiguration().buildPythonZip()) {
+      filesToBuildBuilder.add(getPythonZipArtifact(executable));
     }
+
     filesToBuild = filesToBuildBuilder.build();
 
     if (ruleContext.hasErrors()) {
@@ -137,6 +146,11 @@ public final class PyCommon {
     }
 
     addPyExtraActionPseudoAction();
+  }
+
+  /** @return An artifact next to the executable file with ".zip" suffix */
+  public Artifact getPythonZipArtifact(Artifact executable) {
+    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
   }
 
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
@@ -454,10 +468,6 @@ public final class PyCommon {
 
   public Artifact getExecutable() {
     return executable;
-  }
-
-  public Artifact getExecutableWrapper() {
-    return executableWrapper;
   }
 
   public Map<PathFragment, Artifact> getConvertedFiles() {

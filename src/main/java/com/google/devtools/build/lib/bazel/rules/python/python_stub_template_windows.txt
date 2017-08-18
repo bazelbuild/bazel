@@ -17,7 +17,7 @@
 
 @SETLOCAL ENABLEEXTENSIONS
 
-@rem launcher=${$0%.cmd}
-@set launcher=%~dp0%~n0
+@rem launcher=${$0%.cmd}.zip
+@set launcher=%~dp0%~n0.zip
 
 @call "%python_path%" "%launcher%" %*

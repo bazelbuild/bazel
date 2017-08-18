@@ -12,14 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <vector>
+
 #include "src/tools/launcher/python_launcher.h"
+#include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
 namespace launcher {
 
+using std::string;
+using std::vector;
+
 ExitCode PythonBinaryLauncher::Launch() {
-  // TODO(pcloudy): Implement Python launcher
-  return 0;
+  string python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
+  // If specified python binary path doesn't exist, then fall back to
+  // python.exe and hope it's in PATH.
+  if (!DoesFilePathExist(python_binary.c_str())) {
+    python_binary = "python.exe";
+  }
+
+  vector<string> args = this->GetCommandlineArguments();
+  string python_zip_file = GetBinaryPathWithoutExtension(args[0]) + ".zip";
+
+  // Replace the first argument with python zip file path
+  args[0] = python_zip_file;
+  return this->LaunchProcess(python_binary, args);
 }
 
 }  // namespace launcher

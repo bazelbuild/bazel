@@ -20,6 +20,8 @@
 namespace bazel {
 namespace launcher {
 
+static constexpr const char* PYTHON_BIN_PATH = "python_bin_path";
+
 class PythonBinaryLauncher : public BinaryLauncherBase {
  public:
   PythonBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,

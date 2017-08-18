@@ -128,9 +128,6 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     Runfiles.Builder builder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addArtifact(common.getExecutable());
-    if (common.getExecutableWrapper() != null) {
-      builder.addArtifact(common.getExecutableWrapper());
-    }
     if (common.getConvertedFiles() != null) {
       builder.addSymlinks(common.getConvertedFiles());
     } else {

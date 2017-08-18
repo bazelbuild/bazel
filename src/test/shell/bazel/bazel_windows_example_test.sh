@@ -148,7 +148,7 @@ function test_native_python() {
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
-  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  python ./bazel-bin/examples/py_native/bin.zip >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test
