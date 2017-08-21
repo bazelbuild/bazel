@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.common.resources.configuration.VersionQualifier;
 import com.android.resources.Density;
 import com.android.resources.ResourceFolderType;
@@ -59,6 +60,23 @@ import javax.annotation.Nullable;
 public class ResourceFilter {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
+
+  /**
+   * Locales used for pseudolocation.
+   *
+   * <p>These are special resources that can be used to test how apps handles special cases (such as
+   * particularly long text, accents, or left-to-right text). These resources are not provided like
+   * other resources; instead, when the appropriate filters are passed in, aapt generates them based
+   * on the default resources.
+   *
+   * <p>When these locales are specified in the configuration filters, even if we are filtering in
+   * analysis, we need to pass *all* configuration filters to aapt - the pseudolocalization filters
+   * themselves to trigger pseudolocalization, and the other filters to prevent aapt from filtering
+   * matching resources out.
+   */
+  private static final ImmutableSet<LocaleQualifier> PSEUDOLOCATION_LOCALES =
+      ImmutableSet.of(
+          LocaleQualifier.getQualifier("en-rXA"), LocaleQualifier.getQualifier("ar-rXB"));
 
   @VisibleForTesting
   static enum FilterBehavior {
@@ -697,6 +715,36 @@ public class ResourceFilter {
 
   boolean usesDynamicConfiguration() {
     return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
+  }
+
+  /**
+   * @return whether resource configuration filters should be propagated to the resource processing
+   *     action and eventually to aapt.
+   */
+  public boolean shouldPropagateConfigs(RuleErrorConsumer ruleErrorConsumer) {
+    if (!hasConfigurationFilters()) {
+      // There are no filters to propagate
+      return false;
+    }
+
+    if (!isPrefiltering()) {
+      // The filters were not applied in analysis and must be applied in execution
+      return true;
+    }
+
+    for (FolderConfiguration config : getConfigurationFilters((ruleErrorConsumer))) {
+      for (LocaleQualifier pseudoLocale : PSEUDOLOCATION_LOCALES) {
+        if (pseudoLocale.equals(config.getLocaleQualifier())) {
+          // A pseudolocale was used, and needs to be propagated to aapt. Propagate all
+          // configuration values so that aapt does not filter out those that were skipped.
+          return true;
+        }
+      }
+    }
+
+    // Filtering already happened, and there's no reason to have aapt waste its time trying to
+    // filter again. Don't propagate the filters.
+    return false;
   }
 
   /*

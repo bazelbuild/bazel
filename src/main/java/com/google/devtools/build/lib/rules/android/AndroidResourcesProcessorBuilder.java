@@ -451,7 +451,7 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
-    if (resourceFilter.hasConfigurationFilters() && !resourceFilter.isPrefiltering()) {
+    if (resourceFilter.shouldPropagateConfigs(ruleContext)) {
       builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
     if (resourceFilter.hasDensities() && !resourceFilter.isPrefiltering()) {

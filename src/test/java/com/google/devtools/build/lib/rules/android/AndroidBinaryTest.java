@@ -1582,6 +1582,24 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFilterResourcesPseudolocalesPropagated() throws Exception {
+    String dir = "java/r/android";
+    ConfiguredTarget binary =
+        scratchConfiguredTarget(
+            dir,
+            "bin",
+            "android_binary(name = 'bin',",
+            "  resource_files = glob(['res/**']),",
+            "  resource_configuration_filters = ['en', 'en-rXA', 'ar-rXB'],",
+            "  manifest = 'AndroidManifest.xml')");
+
+    List<String> resourceProcessingArgs =
+        getGeneratingSpawnActionArgs(getResourceContainer(binary).getRTxt());
+
+    assertThat(resourceProcessingArgs).containsAllOf("--resourceConfigs", "ar-rXB,en,en-rXA");
+  }
+
+  @Test
   public void testThrowOnResourceConflictFlagGetsPropagated() throws Exception {
     scratch.file(
         "java/r/android/BUILD",
