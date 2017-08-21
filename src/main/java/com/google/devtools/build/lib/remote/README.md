@@ -26,7 +26,7 @@ For a quick setup, you can use Hazelcast's REST interface. Alternatively you can
 We recommend editing your `~/.bazelrc` to enable remote caching using the HTTP REST protocol. You will need to replace `http://server-address:port/cache` with the correct address for your HTTP REST server:
 
 ```
-startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
+startup --host_jvm_args=-Dbazel.DigestFunction=SHA256
 build --spawn_strategy=remote
 build --remote_rest_cache=REPLACE_THIS:http://server-address:port/cache
 # Bazel currently doesn't support remote caching in combination with workers.
@@ -39,7 +39,7 @@ build --strategy=Closure=remote
 
 #### Customizing The Digest Function
 
-Bazel currently supports the following digest functions with the remote worker: SHA1, SHA256, and MD5. The digest function is passed via the `--host_jvm_args=-Dbazel.DigestFunction=###` startup option. In the example above, SHA1 is used, but you can use any one of SHA1, SHA256, and MD5, provided that your remote execution server supports it and is configured to use the same one. For example, the provided remote worker (`//src/tools/remote_worker`) is configured to use SHA1 by default in the binary build rule. You can customize it there by modifying the `jvm_flags` attribute to use, for example, `"-Dbazel.DigestFunction=SHA256"` instead.
+Bazel currently supports the following digest functions with the remote worker: SHA1, SHA256, and MD5. The digest function is passed via the `--host_jvm_args=-Dbazel.DigestFunction=###` startup option. In the example above, SHA256 is used, but you can use any one of SHA1, SHA256, and MD5, provided that your remote execution server supports it and is configured to use the same one. For example, the provided remote worker (`//src/tools/remote_worker`) is configured to use SHA257 by default in the binary build rule. You can customize it there by modifying the `jvm_flags` attribute to use, for example, `"-Dbazel.DigestFunction=SHA1"` instead.
 
 
 ### Hazelcast with REST interface
@@ -114,7 +114,7 @@ that supports both remote caching and remote execution. As of this writing, ther
 We recommend editing your `~/.bazelrc` to enable remote caching using the gRPC protocol. Use the following build options to use the gRPC CAS endpoint for sharing build artifacts. Change `REPLACE_THIS:address:8080` to the correct server address and port number.
 
 ```
-startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
+startup --host_jvm_args=-Dbazel.DigestFunction=SHA256
 build --spawn_strategy=remote
 build --remote_cache=REPLACE_THIS:address:8080
 # Bazel currently doesn't support remote caching in combination with workers.

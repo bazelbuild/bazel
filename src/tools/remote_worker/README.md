@@ -13,7 +13,7 @@ The simplest setup is as follows:
 
 - Then you run Bazel pointing to the remote_worker instance.
 
-        bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+        bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
             --spawn_strategy=remote --remote_cache=localhost:8080 \
             --remote_executor=localhost:8080 src/tools/generate_workspace:all
 

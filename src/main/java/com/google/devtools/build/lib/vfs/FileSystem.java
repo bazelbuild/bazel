@@ -76,7 +76,7 @@ public abstract class FileSystem {
   static {
     try {
       digestFunction = new HashFunction.Converter().convert(
-          System.getProperty("bazel.DigestFunction", "MD5"));
+          System.getProperty("bazel.DigestFunction", "SHA256"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
