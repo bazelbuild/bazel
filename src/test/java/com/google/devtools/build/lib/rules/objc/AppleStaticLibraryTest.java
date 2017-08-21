@@ -558,4 +558,70 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public void testMinimumOsDifferentTargets() throws Exception {
     checkMinimumOsDifferentTargets(RULE_TYPE, "_lipo.a", "-fl.a");
   }
+
+  @Test
+  public void testAvoidDepsObjects() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidLib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
+        "objc_library(name = 'baseLib', srcs = [ 'base.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
+        "package/libobjcLib.a", "package/libbaseLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, all of its dependencies are
+  // transitively avoided, even if it is not present in deps.
+  public void testAvoidDepsObjects_avoidViaCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, and it is present in deps, it will
+  // be avoided, as well as its transitive dependencies.
+  public void testAvoidDepsObjects_avoidCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib', ':avoidCclib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
+  }
 }
