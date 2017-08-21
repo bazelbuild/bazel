@@ -228,7 +228,8 @@ public class GrpcRemoteExecutionClientTest {
         GrpcUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
         new GrpcRemoteCache(channel, creds, options, retrier);
-    client = new RemoteSpawnRunner(execRoot, options, null, true, remoteCache, executor);
+    client = new RemoteSpawnRunner(execRoot, options, null, true, /*cmdlineReporter=*/null,
+        remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 

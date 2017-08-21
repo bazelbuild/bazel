@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
@@ -34,6 +36,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A remote {@link SpawnCache} implementation.
@@ -50,12 +54,21 @@ final class RemoteSpawnCache implements SpawnCache {
   private final Platform platform;
 
   private final RemoteActionCache remoteCache;
+  private final boolean verboseFailures;
 
-  RemoteSpawnCache(Path execRoot, RemoteOptions options, RemoteActionCache remoteCache) {
+  @Nullable private final Reporter cmdlineReporter;
+
+  // Used to ensure that a warning is reported only once.
+  private final AtomicBoolean warningReported = new AtomicBoolean();
+
+  RemoteSpawnCache(Path execRoot, RemoteOptions options, RemoteActionCache remoteCache,
+      boolean verboseFailures, @Nullable Reporter cmdlineReporter) {
     this.execRoot = execRoot;
     this.options = options;
     this.platform = options.parseRemotePlatformOverride();
     this.remoteCache = remoteCache;
+    this.verboseFailures = verboseFailures;
+    this.cmdlineReporter = cmdlineReporter;
   }
 
   @Override
@@ -118,7 +131,15 @@ final class RemoteSpawnCache implements SpawnCache {
           if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
             return;
           }
-          remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr());
+          try {
+            remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr());
+          } catch (IOException e) {
+            if (verboseFailures) {
+              report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
+            } else {
+              reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
+            }
+          }
         }
 
         @Override
@@ -127,6 +148,18 @@ final class RemoteSpawnCache implements SpawnCache {
       };
     } else {
       return SpawnCache.NO_RESULT_NO_STORE;
+    }
+  }
+
+  private void reportOnce(Event evt) {
+    if (warningReported.compareAndSet(false, true)) {
+      report(evt);
+    }
+  }
+
+  private void report(Event evt) {
+    if (cmdlineReporter != null) {
+      cmdlineReporter.handle(evt);
     }
   }
 }

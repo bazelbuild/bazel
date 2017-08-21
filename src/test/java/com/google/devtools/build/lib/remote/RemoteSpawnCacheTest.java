@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -29,6 +31,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
@@ -76,6 +82,8 @@ public class RemoteSpawnCacheTest {
   @Mock private RemoteActionCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
+
+  private StoredEventHandler eventHandler = new StoredEventHandler();
 
   private final SpawnExecutionPolicy simplePolicy =
       new SpawnExecutionPolicy() {
@@ -155,7 +163,10 @@ public class RemoteSpawnCacheTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    cache = new RemoteSpawnCache(execRoot, options, remoteCache);
+    Reporter reporter = new Reporter(new EventBus());
+    eventHandler = new StoredEventHandler();
+    reporter.addHandler(eventHandler);
+    cache = new RemoteSpawnCache(execRoot, options, remoteCache, false, reporter);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
@@ -199,5 +210,32 @@ public class RemoteSpawnCacheTest {
             any(Path.class),
             eq(outputFiles),
             eq(outErr));
+  }
+
+  @Test
+  public void printWarningIfUploadFails() throws Exception {
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+    assertThat(entry.hasResult()).isFalse();
+    SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+
+    doThrow(new IOException("cache down")).when(remoteCache).upload(any(ActionKey.class),
+        any(Path.class),
+        eq(outputFiles),
+        eq(outErr));
+
+    entry.store(result, outputFiles);
+    verify(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr));
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains("fail");
+    assertThat(evt.getMessage()).contains("upload");
   }
 }
