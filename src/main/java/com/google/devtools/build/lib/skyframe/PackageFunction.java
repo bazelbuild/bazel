@@ -171,12 +171,13 @@ public class PackageFunction implements SkyFunction {
    */
   public interface ActionOnIOExceptionReadingBuildFile {
     /**
-     * Given the {@link IOException} encountered when reading the contents of a BUILD file,
+     * Given the {@link IOException} encountered when reading the contents of the given BUILD file,
      * returns the contents that should be used, or {@code null} if the original {@link IOException}
      * should be respected (that is, we should error-out with a package loading error).
      */
     @Nullable
-    byte[] maybeGetBuildFileContentsToUse(IOException originalExn);
+    byte[] maybeGetBuildFileContentsToUse(
+        PathFragment buildFilePathFragment, IOException originalExn);
 
     /**
      * A {@link ActionOnIOExceptionReadingBuildFile} whose {@link #maybeGetBuildFileContentsToUse}
@@ -190,7 +191,8 @@ public class PackageFunction implements SkyFunction {
 
       @Override
       @Nullable
-      public byte[] maybeGetBuildFileContentsToUse(IOException originalExn) {
+      public byte[] maybeGetBuildFileContentsToUse(
+          PathFragment buildFilePathFragment, IOException originalExn) {
         return null;
       }
     }
@@ -1218,8 +1220,8 @@ public class PackageFunction implements SkyFunction {
                       : FileSystemUtils.readWithKnownFileSize(
                           buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
-              buildFileBytes =
-                  actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(e);
+              buildFileBytes = actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(
+                  buildFilePath.asFragment(), e);
               if (buildFileBytes == null) {
                 // Note that we did the work that led to this IOException, so we should
                 // conservatively report this error as transient.
