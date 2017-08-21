@@ -39,7 +39,6 @@ import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.Metadata;
 import io.grpc.Status;
-import io.grpc.Status.Code;
 import io.grpc.StatusException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -353,7 +352,7 @@ final class ByteStreamUploader {
 
             @Override
             public void onClose(Status status, Metadata trailers) {
-              if (status.isOk() || Code.ALREADY_EXISTS.equals(status.getCode())) {
+              if (status.isOk()) {
                 listener.success();
               } else {
                 listener.failure(status);
