@@ -193,7 +193,9 @@ def pkg_tar(**kwargs):
   if "srcs" not in kwargs:
     if "files" in kwargs:
       if not hasattr(kwargs["files"], "items"):
-        print("pkg_tar: renaming non-dict `files` attribute to `srcs`")
+        print("pkg_tar: you provided a non dictionary to the `files` attribute. " +
+              "This attribute was renamed to `srcs`. " +
+              "Consider renaming it in your BUILD file.")
         kwargs["srcs"] = kwargs.pop("files")
   _real_pkg_tar(**kwargs)
 
