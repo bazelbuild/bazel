@@ -459,6 +459,7 @@ public final class ObjcProvider extends Info {
           INCLUDE_SYSTEM,
           IQUOTE,
           LINKOPT,
+          LINK_INPUTS,
           SDK_DYLIB,
           SDK_FRAMEWORK,
           WEAK_SDK_FRAMEWORK);
