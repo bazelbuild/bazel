@@ -97,9 +97,13 @@ a minimal set of extra dependencies.
 
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.0.20-SNAPSHOT
+* Version: 2.1.0
 * License: Apache License 2.0
 
+## [Hungarian Algorithm](https://github.com/KevinStern/software-and-algorithms)
+
+* Version 1.0
+* License: MIT
 
 ## [JCIP Annotations](https://github.com/stephenc/jcip-annotations/)
 
