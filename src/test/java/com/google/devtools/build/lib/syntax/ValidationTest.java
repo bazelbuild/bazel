@@ -39,6 +39,11 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testAugmentedAssignmentWithMultipleLValues() {
+    checkError("cannot perform augmented assignment on a list or tuple expression", "a, b += 2, 3");
+  }
+
+  @Test
   public void testReturnOutsideFunction() throws Exception {
     checkError("Return statements must be inside a function", "return 2\n");
   }

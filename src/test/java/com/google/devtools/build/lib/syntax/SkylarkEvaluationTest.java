@@ -964,7 +964,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testInvalidAugmentedAssignment_ListLiteral() throws Exception {
-    new SkylarkTest().testIfErrorContains("cannot perform augmented assignment on a list literal",
+    new SkylarkTest().testIfErrorContains(
+        "cannot perform augmented assignment on a list or tuple expression",
         "def f(a, b):",
         "  [a, b] += []",
         "f(1, 2)");

@@ -158,6 +158,16 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     super.visit(node);
   }
 
+  @Override
+  public void visit(AugmentedAssignmentStatement node) {
+    if (node.getLValue().getExpression() instanceof ListLiteral) {
+      throw new ValidationException(
+          node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
+    }
+    // Other bad cases are handled when visiting the LValue node.
+    super.visit(node);
+  }
+
   /** Returns true if the current block is the top level i.e. has no parent. */
   private boolean isTopLevel() {
     return block.parent == null;
