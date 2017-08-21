@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MakeVariableProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -133,7 +133,7 @@ public class TestRuleClassProvider {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException {
-      MakeVariableProvider variables = new MakeVariableProvider(ImmutableMap.of(
+      MakeVariableInfo variables = new MakeVariableInfo(ImmutableMap.of(
           "TEST_VARIABLE", "FOOBAR"));
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
@@ -150,7 +150,7 @@ public class TestRuleClassProvider {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .advertiseProvider(MakeVariableProvider.class)
+          .advertiseProvider(MakeVariableInfo.class)
           .build();
     }
 

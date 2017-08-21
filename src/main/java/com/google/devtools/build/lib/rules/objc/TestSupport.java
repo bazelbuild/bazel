@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Info;
@@ -274,7 +274,7 @@ public class TestSupport {
       envBuilder.put("APPLE_COVERAGE", "1");
     }
 
-    return ImmutableList.<Info>of(new TestEnvironmentProvider(envBuilder.build()));
+    return ImmutableList.<Info>of(new TestEnvironmentInfo(envBuilder.build()));
   }
 
   /**

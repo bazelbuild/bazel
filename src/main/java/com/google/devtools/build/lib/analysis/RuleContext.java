@@ -1079,20 +1079,20 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    ArrayList<MakeVariableProvider> makeVariableProviders = new ArrayList<>();
+    ArrayList<MakeVariableInfo> makeVariableInfos = new ArrayList<>();
 
     for (String attributeName : attributeNames) {
       // TODO(b/37567440): Remove this continue statement.
       if (!attributes().has(attributeName)) {
         continue;
       }
-      Iterables.addAll(makeVariableProviders, getPrerequisites(
-          attributeName, Mode.DONT_CHECK, MakeVariableProvider.SKYLARK_CONSTRUCTOR));
+      Iterables.addAll(makeVariableInfos, getPrerequisites(
+          attributeName, Mode.DONT_CHECK, MakeVariableInfo.PROVIDER));
     }
 
     LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();
-    for (MakeVariableProvider makeVariableProvider : makeVariableProviders) {
-      makeVariables.putAll(makeVariableProvider.getMakeVariables());
+    for (MakeVariableInfo makeVariableInfo : makeVariableInfos) {
+      makeVariables.putAll(makeVariableInfo.getMakeVariables());
     }
 
     return ImmutableMap.copyOf(makeVariables);

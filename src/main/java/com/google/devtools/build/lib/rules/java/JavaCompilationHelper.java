@@ -681,7 +681,7 @@ public final class JavaCompilationHelper {
       List<JavaCompilationArgsProvider> compilationArgsProviders = new LinkedList<>();
       for (TransitiveInfoCollection dep : deps) {
         JavaCompilationArgsProvider provider =
-            JavaProvider.getProvider(JavaCompilationArgsProvider.class, dep);
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
         if (provider != null) {
           compilationArgsProviders.add(provider);
         }

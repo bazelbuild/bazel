@@ -56,7 +56,7 @@ public class ToolchainInfo extends Info {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ToolchainInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<ToolchainInfo> PROVIDER =
       new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected ToolchainInfo createInstanceFromSkylark(Object[] args, Location loc)
@@ -68,7 +68,7 @@ public class ToolchainInfo extends Info {
       };
 
   protected ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.copyOf(toolchainData), loc);
+    super(PROVIDER, ImmutableMap.copyOf(toolchainData), loc);
   }
 
   public static ToolchainInfo create(Map<String, Object> toolchainData) {

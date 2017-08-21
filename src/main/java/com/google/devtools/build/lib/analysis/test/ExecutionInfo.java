@@ -24,16 +24,16 @@ import java.util.Map;
  * tests).
  */
 @Immutable
-public final class ExecutionInfoProvider extends Info {
+public final class ExecutionInfo extends Info {
 
-  /** Skylark constructor and identifier for ExecutionInfoProvider. */
-  public static final NativeProvider<ExecutionInfoProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<ExecutionInfoProvider>(ExecutionInfoProvider.class, "ExecutionInfo") {};
+  /** Skylark constructor and identifier for ExecutionInfo. */
+  public static final NativeProvider<ExecutionInfo> PROVIDER =
+      new NativeProvider<ExecutionInfo>(ExecutionInfo.class, "ExecutionInfo") {};
 
   private final ImmutableMap<String, String> executionInfo;
 
-  public ExecutionInfoProvider(Map<String, String> requirements) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("requirements", requirements));
+  public ExecutionInfo(Map<String, String> requirements) {
+    super(PROVIDER, ImmutableMap.<String, Object>of("requirements", requirements));
     this.executionInfo = ImmutableMap.copyOf(requirements);
   }
 

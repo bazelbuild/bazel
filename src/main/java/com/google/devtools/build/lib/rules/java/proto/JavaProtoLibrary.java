@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
@@ -73,14 +73,14 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
 
-    JavaProvider javaProvider =
-        JavaProvider.Builder.create()
+    JavaInfo javaInfo =
+        JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(
                 ProtoJavaApiInfoAspectProvider.class,
                 ProtoJavaApiInfoAspectProvider.merge(
-                    JavaProvider.getProvidersFromListOfTargets(
+                    JavaInfo.getProvidersFromListOfTargets(
                         ProtoJavaApiInfoAspectProvider.class,
                         ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
@@ -99,7 +99,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(sourceJarsProvider)
             .addProvider(javaRunfilesProvider)
             .addProvider(JavaRuleOutputJarsProvider.EMPTY)
-            .addNativeDeclaredProvider(javaProvider);
+            .addNativeDeclaredProvider(javaInfo);
 
     if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {
       result.addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()));

@@ -107,7 +107,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
   }
 
   // TODO(b/34175492): eventually the Jvm fragement will containg only the label of a java_runtime
-  // rule, and all of the configuration will be accessed using JavaRuntimeProvider.
+  // rule, and all of the configuration will be accessed using JavaRuntimeInfo.
   private static Jvm createFromRuntimeSuite(
       ConfigurationEnvironment lookup, Rule javaRuntimeSuite, String cpu)
       throws InvalidConfigurationException, InterruptedException, NoSuchTargetException,

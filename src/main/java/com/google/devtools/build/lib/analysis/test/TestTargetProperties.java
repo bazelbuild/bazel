@@ -74,7 +74,7 @@ public class TestTargetProperties {
    * will be called only for test configured targets.
    */
   TestTargetProperties(RuleContext ruleContext,
-      ExecutionInfoProvider executionRequirements) {
+      ExecutionInfo executionRequirements) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));

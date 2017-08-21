@@ -53,7 +53,7 @@ public class ConstraintSettingInfo extends Info {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.of(Label.class)));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ConstraintSettingInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<ConstraintSettingInfo> PROVIDER =
       new NativeProvider<ConstraintSettingInfo>(
           ConstraintSettingInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
@@ -68,7 +68,7 @@ public class ConstraintSettingInfo extends Info {
   private final Label label;
 
   private ConstraintSettingInfo(Label label, Location location) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("label", label), location);
+    super(PROVIDER, ImmutableMap.<String, Object>of("label", label), location);
 
     this.label = label;
   }

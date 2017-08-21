@@ -49,7 +49,7 @@ public class ConstraintValueRule implements RuleDefinition {
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(
-                    ImmutableList.of(ConstraintSettingInfo.SKYLARK_CONSTRUCTOR.id())))
+                    ImmutableList.of(ConstraintSettingInfo.PROVIDER.id())))
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule *defines* a constraint")

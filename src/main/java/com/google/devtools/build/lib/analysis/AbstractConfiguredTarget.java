@@ -47,7 +47,7 @@ public abstract class AbstractConfiguredTarget
   private final NestedSet<PackageSpecification> visibility;
 
   // Cached on-demand default provider
-  private final AtomicReference<DefaultProvider> defaultProvider = new AtomicReference<>();
+  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -165,11 +165,11 @@ public abstract class AbstractConfiguredTarget
   protected void addExtraSkylarkKeys(Consumer<String> result) {
   }
 
-  private DefaultProvider getDefaultProvider() {
+  private DefaultInfo getDefaultProvider() {
     if (defaultProvider.get() == null) {
       defaultProvider.compareAndSet(
           null,
-          DefaultProvider.build(
+          DefaultInfo.build(
               getProvider(RunfilesProvider.class),
               getProvider(FileProvider.class),
               getProvider(FilesToRunProvider.class)));
@@ -181,7 +181,7 @@ public abstract class AbstractConfiguredTarget
   @Nullable
   @Override
   public final Info get(Provider.Key providerKey) {
-    if (providerKey.equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+    if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
       return getDefaultProvider();
     }
     return rawGetSkylarkProvider(providerKey);

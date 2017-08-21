@@ -49,7 +49,7 @@ public class PlatformCommon {
     structField = true
   )
   public Provider getConstraintSettingInfoConstructor() {
-    return ConstraintSettingInfo.SKYLARK_CONSTRUCTOR;
+    return ConstraintSettingInfo.PROVIDER;
   }
 
   @SkylarkCallable(
@@ -72,7 +72,7 @@ public class PlatformCommon {
     structField = true
   )
   public Provider getToolchainInfoConstructor() {
-    return ToolchainInfo.SKYLARK_CONSTRUCTOR;
+    return ToolchainInfo.PROVIDER;
   }
 
   static {

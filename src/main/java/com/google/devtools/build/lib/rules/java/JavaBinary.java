@@ -502,9 +502,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
     TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    JavaRuntimeProvider javaRuntime = null;
+    JavaRuntimeInfo javaRuntime = null;
     if (javabaseTarget != null) {
-      javaRuntime = javabaseTarget.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR);
+      javaRuntime = javabaseTarget.get(JavaRuntimeInfo.PROVIDER);
       builder.addTransitiveArtifacts(javaRuntime.javaBaseInputs());
 
       // Add symlinks to the C++ runtime libraries under a path that can be built

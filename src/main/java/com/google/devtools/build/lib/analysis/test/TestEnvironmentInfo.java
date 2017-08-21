@@ -23,18 +23,18 @@ import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentProvider extends Info {
+public final class TestEnvironmentInfo extends Info {
 
-  /** Skylark constructor and identifier for TestEnvironmentProvider. */
-  public static final NativeProvider<TestEnvironmentProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<TestEnvironmentProvider>(
-          TestEnvironmentProvider.class, "TestEnvironment") {};
+  /** Skylark constructor and identifier for TestEnvironmentInfo. */
+  public static final NativeProvider<TestEnvironmentInfo> PROVIDER =
+      new NativeProvider<TestEnvironmentInfo>(
+          TestEnvironmentInfo.class, "TestEnvironment") {};
 
   private final Map<String, String> environment;
 
   /** Constructs a new provider with the given variable name to variable value mapping. */
-  public TestEnvironmentProvider(Map<String, String> environment) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("environment", environment));
+  public TestEnvironmentInfo(Map<String, String> environment) {
+    super(PROVIDER, ImmutableMap.<String, Object>of("environment", environment));
     this.environment = Preconditions.checkNotNull(environment);
   }
 

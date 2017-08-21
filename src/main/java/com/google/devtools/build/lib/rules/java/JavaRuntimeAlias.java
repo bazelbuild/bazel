@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -49,8 +49,8 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
 
     if (runtime != null) {
       builder
-          .addNativeDeclaredProvider(runtime.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR))
-          .addNativeDeclaredProvider(runtime.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR))
+          .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
+          .addNativeDeclaredProvider(runtime.get(MakeVariableInfo.PROVIDER))
           .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
           .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
           .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild());

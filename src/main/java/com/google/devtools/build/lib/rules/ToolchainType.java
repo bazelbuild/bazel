@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MakeVariableProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -63,7 +63,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     // out the lookup rule -> toolchain rule mapping. For now, it only provides Make variables that
     // come from BuildConfiguration so no need to ask Skyframe.
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new MakeVariableProvider(ImmutableMap.copyOf(makeVariables)))
+        .addNativeDeclaredProvider(new MakeVariableInfo(ImmutableMap.copyOf(makeVariables)))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

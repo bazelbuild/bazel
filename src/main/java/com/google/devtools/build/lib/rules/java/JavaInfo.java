@@ -34,10 +34,10 @@ import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-public final class JavaProvider extends Info {
+public final class JavaInfo extends Info {
 
-  public static final NativeProvider<JavaProvider> JAVA_PROVIDER =
-      new NativeProvider<JavaProvider>(JavaProvider.class, "java_common.provider") {};
+  public static final NativeProvider<JavaInfo> PROVIDER =
+      new NativeProvider<JavaInfo>(JavaInfo.class, "java_common.provider") {};
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
@@ -62,21 +62,21 @@ public final class JavaProvider extends Info {
   }
 
   /**
-   * Merges the given providers into one {@link JavaProvider}. All the providers with the same type
+   * Merges the given providers into one {@link JavaInfo}. All the providers with the same type
    * in the given list are merged into one provider that is added to the resulting
-   * {@link JavaProvider}.
+   * {@link JavaInfo}.
    */
-  public static JavaProvider merge(List<JavaProvider> providers) {
+  public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
-        JavaProvider.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
+        JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
-        JavaProvider.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
+        JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
     List<ProtoJavaApiInfoAspectProvider> protoJavaApiInfoAspectProviders =
-        JavaProvider.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
+        JavaInfo.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
-        JavaProvider.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
+        JavaInfo.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
     List<JavaPluginInfoProvider> javaPluginInfoProviders =
-        JavaProvider.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
+        JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
@@ -84,7 +84,7 @@ public final class JavaProvider extends Info {
       mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
     }
 
-    return JavaProvider.Builder.create()
+    return JavaInfo.Builder.create()
         .addProvider(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
@@ -104,16 +104,16 @@ public final class JavaProvider extends Info {
 
   /**
    * Returns a list of providers of the specified class, fetched from the given list of
-   * {@link JavaProvider}s.
+   * {@link JavaInfo}s.
    * Returns an empty list if no providers can be fetched.
    * Returns a list of the same size as the given list if the requested providers are of type
    * JavaCompilationArgsProvider.
    */
   public static <C extends TransitiveInfoProvider> List<C> fetchProvidersFromList(
-      Iterable<JavaProvider> javaProviders, Class<C> providersClass) {
+      Iterable<JavaInfo> javaProviders, Class<C> providersClass) {
     List<C> fetchedProviders = new LinkedList<>();
-    for (JavaProvider javaProvider : javaProviders) {
-      C provider = javaProvider.getProvider(providersClass);
+    for (JavaInfo javaInfo : javaProviders) {
+      C provider = javaInfo.getProvider(providersClass);
       if (provider != null) {
         fetchedProviders.add(provider);
       }
@@ -123,11 +123,11 @@ public final class JavaProvider extends Info {
 
   /**
    * Returns a provider of the specified class, fetched from the specified target or, if not found,
-   * from the JavaProvider of the given target. JavaProvider can be found as a declared provider
+   * from the JavaInfo of the given target. JavaInfo can be found as a declared provider
    * in SkylarkProviders.
    * Returns null if no such provider exists.
    *
-   * <p>A target can either have both the specified provider and JavaProvider that encapsulates the
+   * <p>A target can either have both the specified provider and JavaInfo that encapsulates the
    * same information, or just one of them.</p>
    */
   @Nullable
@@ -137,12 +137,12 @@ public final class JavaProvider extends Info {
     if (provider != null) {
       return provider;
     }
-    JavaProvider javaProvider =
-        (JavaProvider) target.get(JavaProvider.JAVA_PROVIDER.getKey());
-    if (javaProvider == null) {
+    JavaInfo javaInfo =
+        (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    if (javaInfo == null) {
       return null;
     }
-    return javaProvider.getProvider(providerClass);
+    return javaInfo.getProvider(providerClass);
   }
 
   public static <T extends TransitiveInfoProvider> List<T> getProvidersFromListOfTargets(
@@ -159,14 +159,14 @@ public final class JavaProvider extends Info {
 
   /**
    * Returns a list of the given provider class with all the said providers retrieved from the
-   * given {@link JavaProvider}s.
+   * given {@link JavaInfo}s.
    */
   public static <T extends TransitiveInfoProvider> ImmutableList<T>
       getProvidersFromListOfJavaProviders(
-          Class<T> providerClass, Iterable<JavaProvider> javaProviders) {
+          Class<T> providerClass, Iterable<JavaInfo> javaProviders) {
     ImmutableList.Builder<T> providersList = new ImmutableList.Builder<>();
-    for (JavaProvider javaProvider : javaProviders) {
-      T provider = javaProvider.getProvider(providerClass);
+    for (JavaInfo javaInfo : javaProviders) {
+      T provider = javaInfo.getProvider(providerClass);
       if (provider != null) {
         providersList.add(provider);
       }
@@ -174,8 +174,8 @@ public final class JavaProvider extends Info {
     return providersList.build();
   }
 
-  private JavaProvider(TransitiveInfoProviderMap providers) {
-    super(JAVA_PROVIDER, ImmutableMap.<String, Object>of(
+  private JavaInfo(TransitiveInfoProviderMap providers) {
+    super(PROVIDER, ImmutableMap.<String, Object>of(
         "transitive_runtime_jars", SkylarkNestedSet.of(
             Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)
@@ -193,7 +193,7 @@ public final class JavaProvider extends Info {
   }
 
   /**
-   * A Builder for {@link JavaProvider}.
+   * A Builder for {@link JavaInfo}.
    */
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
@@ -206,9 +206,9 @@ public final class JavaProvider extends Info {
       return new Builder(new TransitiveInfoProviderMapBuilder());
     }
 
-    public static Builder copyOf(JavaProvider javaProvider) {
+    public static Builder copyOf(JavaInfo javaInfo) {
       return new Builder(
-          new TransitiveInfoProviderMapBuilder().addAll(javaProvider.getProviders()));
+          new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()));
     }
 
     public <P extends TransitiveInfoProvider> Builder addProvider(
@@ -218,9 +218,9 @@ public final class JavaProvider extends Info {
       return this;
     }
 
-    public JavaProvider build() {
+    public JavaInfo build() {
       Preconditions.checkArgument(providerMap.contains(JavaCompilationArgsProvider.class));
-      return new JavaProvider(providerMap.build());
+      return new JavaInfo(providerMap.build());
     }
   }
 }

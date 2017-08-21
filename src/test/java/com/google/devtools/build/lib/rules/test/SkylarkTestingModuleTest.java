@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.test;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.test.ExecutionInfoProvider;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -49,7 +49,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    ExecutionInfoProvider provider = skylarkTarget.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
+    ExecutionInfo provider = skylarkTarget.get(ExecutionInfo.PROVIDER);
 
     assertThat(provider.getExecutionInfo().get("requires-darwin")).isEqualTo("1");
   }
@@ -74,8 +74,8 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    TestEnvironmentProvider provider =
-        skylarkTarget.get(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR);
+    TestEnvironmentInfo provider =
+        skylarkTarget.get(TestEnvironmentInfo.PROVIDER);
 
     assertThat(provider.getEnvironment().get("XCODE_VERSION_OVERRIDE")).isEqualTo("7.3.1");
   }

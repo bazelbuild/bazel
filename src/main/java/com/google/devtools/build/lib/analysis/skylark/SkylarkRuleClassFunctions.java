@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.DefaultProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -236,7 +236,7 @@ public class SkylarkRuleClassFunctions {
             + "<li><code>default_runfiles</code></li>"
             + "</ul>"
   )
-  private static final Provider defaultInfo = DefaultProvider.SKYLARK_CONSTRUCTOR;
+  private static final Provider defaultInfo = DefaultInfo.PROVIDER;
 
   @SkylarkSignature(
     name = "OutputGroupInfo",

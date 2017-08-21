@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.test.ExecutionInfoProvider;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.io.IOException;
 import java.util.HashSet;
@@ -167,10 +167,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    ExecutionInfoProvider executionInfoProvider =
-        target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
-    assertThat(executionInfoProvider.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    ExecutionInfo executionInfo =
+        target.get(ExecutionInfo.PROVIDER);
+    assertThat(executionInfo.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     TemplateExpansionAction stubAction = (TemplateExpansionAction) getGeneratingAction(
         getExecutable(target));
     String stubContents = stubAction.getFileContents();
@@ -227,8 +227,8 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo())
         .containsEntry(REQUIRES_KVM, "");
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR).getExecutionInfo())
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    assertThat(target.get(ExecutionInfo.PROVIDER).getExecutionInfo())
         .containsKey(REQUIRES_KVM);
   }
 

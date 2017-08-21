@@ -114,6 +114,6 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testToolchainAlias() throws Exception {
     ConfiguredTarget reference = scratchConfiguredTarget("a", "ref",
         "cc_toolchain_alias(name='ref')");
-    assertThat(reference.get(CcToolchainProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
+    assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
   }
 }

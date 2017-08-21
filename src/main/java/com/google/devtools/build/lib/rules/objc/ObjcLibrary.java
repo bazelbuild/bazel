@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
@@ -97,7 +97,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
         .addNativeDeclaredProvider(
-            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
+            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
   }

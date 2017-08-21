@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsSto
 
 /** A target that provides C linker parameters. */
 @Immutable
-public final class CcLinkParamsProvider extends Info {
-  public static final NativeProvider<CcLinkParamsProvider> CC_LINK_PARAMS =
-      new NativeProvider<CcLinkParamsProvider>(CcLinkParamsProvider.class, "link_params") {};
+public final class CcLinkParamsInfo extends Info {
+  public static final NativeProvider<CcLinkParamsInfo> PROVIDER =
+      new NativeProvider<CcLinkParamsInfo>(CcLinkParamsInfo.class, "link_params") {};
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
         // ... then try Skylark.
-        CcLinkParamsProvider provider = input.get(CC_LINK_PARAMS);
+        CcLinkParamsInfo provider = input.get(PROVIDER);
         if (provider != null) {
           return provider.getCcLinkParamsStore();
         }
@@ -39,23 +39,23 @@ public final class CcLinkParamsProvider extends Info {
 
   private final CcLinkParamsStoreImpl store;
 
-  public CcLinkParamsProvider(CcLinkParamsStore store) {
-    super(CC_LINK_PARAMS, ImmutableMap.<String, Object>of());
+  public CcLinkParamsInfo(CcLinkParamsStore store) {
+    super(PROVIDER, ImmutableMap.<String, Object>of());
     this.store = new CcLinkParamsStoreImpl(store);
   }
 
-  public static CcLinkParamsProvider merge(final Iterable<CcLinkParamsProvider> providers) {
+  public static CcLinkParamsInfo merge(final Iterable<CcLinkParamsInfo> providers) {
     CcLinkParamsStore ccLinkParamsStore =
         new CcLinkParamsStore() {
           @Override
           protected void collect(
               CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            for (CcLinkParamsProvider provider : providers) {
+            for (CcLinkParamsInfo provider : providers) {
               builder.add(provider.getCcLinkParamsStore());
             }
           }
         };
-    return new CcLinkParamsProvider(ccLinkParamsStore);
+    return new CcLinkParamsInfo(ccLinkParamsStore);
   }
 
   /** Returns the link params store. */

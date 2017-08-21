@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** DefaultProvider is provided by all targets implicitly and contains all standard fields. */
+/** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
 @Immutable
-public final class DefaultProvider extends Info {
+public final class DefaultInfo extends Info {
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -47,7 +47,7 @@ public final class DefaultProvider extends Info {
   private final AtomicReference<SkylarkNestedSet> files = new AtomicReference<>();
 
   public static final String SKYLARK_NAME = "DefaultInfo";
-  public static final Provider SKYLARK_CONSTRUCTOR =
+  public static final Provider PROVIDER =
       new NativeProvider<Info>(Info.class, SKYLARK_NAME) {
         @Override
         protected Info createInstanceFromSkylark(Object[] args, Location loc) {
@@ -57,7 +57,7 @@ public final class DefaultProvider extends Info {
         }
       };
 
-  private DefaultProvider(
+  private DefaultInfo(
       Provider constructor,
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
@@ -69,12 +69,12 @@ public final class DefaultProvider extends Info {
     this.filesToRunProvider = filesToRunProvider;
   }
 
-  public static DefaultProvider build(
+  public static DefaultInfo build(
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
-    return new DefaultProvider(
-        SKYLARK_CONSTRUCTOR, runfilesProvider, fileProvider, filesToRunProvider);
+    return new DefaultInfo(
+        PROVIDER, runfilesProvider, fileProvider, filesToRunProvider);
   }
 
   @Override

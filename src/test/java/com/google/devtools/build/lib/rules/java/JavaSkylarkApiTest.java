@@ -225,7 +225,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     // Extract out information from native rule
     JavaCompilationArgsProvider jlJavaCompilationArgsProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, javaLibraryTarget);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, javaLibraryTarget);
     NestedSet<Artifact> jlCompileJars =
         jlJavaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars();
     NestedSet<Artifact> jlTransitiveRuntimeJars =
@@ -295,7 +295,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    Info info = target.get(JavaProvider.JAVA_PROVIDER);
+    Info info = target.get(JavaInfo.PROVIDER);
 
     SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
@@ -335,7 +335,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    Info info = target.get(JavaProvider.JAVA_PROVIDER);
+    Info info = target.get(JavaInfo.PROVIDER);
 
     SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
@@ -382,7 +382,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
     JavaCompilationArgsProvider provider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     assertThat(provider).isNotNull();
     List<String> compileTimeJars =
         prettyJarNames(provider.getJavaCompilationArgs().getCompileTimeJars());
@@ -399,7 +399,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(transitiveRuntimeJars).containsExactly("foo/libd.jar");
 
     JavaSourceJarsProvider sourcesProvider =
-        JavaProvider.getProvider(JavaSourceJarsProvider.class, target);
+        JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
     List<String> sourceJars = prettyJarNames(sourcesProvider.getSourceJars());
     assertThat(sourceJars).containsExactly("foo/liba-src.jar");
   }
@@ -435,7 +435,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
     JavaCompilationArgsProvider provider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     assertThat(provider).isNotNull();
     List<String> compileTimeJars =
         prettyJarNames(provider.getJavaCompilationArgs().getCompileTimeJars());
@@ -475,7 +475,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     ConfiguredTarget target = getConfiguredTarget("//foo:java_lib");
     JavaCompilationArgsProvider provider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     List<String> compileTimeJars = prettyJarNames(
         provider.getRecursiveJavaCompilationArgs().getCompileTimeJars());
     assertThat(compileTimeJars).containsExactly("foo/libjava_lib-hjar.jar", "foo/liba.jar");
@@ -506,8 +506,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "my_provider");
     Info declaredProvider = myRuleTarget.get(myProviderKey);
     Object javaProvider = declaredProvider.getValue("p");
-    assertThat(javaProvider).isInstanceOf(JavaProvider.class);
-    assertThat(javaLibraryTarget.get(JavaProvider.JAVA_PROVIDER)).isEqualTo(javaProvider);
+    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
+    assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
   }
 
   @Test
@@ -529,18 +529,18 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
 
-    Object javaProvider = myRuleTarget.get(JavaProvider.JAVA_PROVIDER.getKey());
-    assertThat(javaProvider).isInstanceOf(JavaProvider.class);
+    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
 
-    JavaProvider jlJavaProvider = javaLibraryTarget.get(JavaProvider.JAVA_PROVIDER);
+    JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
 
-    assertThat(jlJavaProvider == javaProvider).isTrue();
+    assertThat(jlJavaInfo == javaProvider).isTrue();
 
-    JavaProvider jlTopJavaProvider = topJavaLibraryTarget.get(JavaProvider.JAVA_PROVIDER);
+    JavaInfo jlTopJavaInfo = topJavaLibraryTarget.get(JavaInfo.PROVIDER);
 
     javaCompilationArgsHaveTheSameParent(
-        jlJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs(),
-        jlTopJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs());
+        jlJavaInfo.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs(),
+        jlTopJavaInfo.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs());
   }
 
   @Test
@@ -569,7 +569,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     // Test that all bottom jars are on the runtime classpath of lib_exports.
     ConfiguredTarget jlExports = getConfiguredTarget("//foo:lib_exports");
     JavaCompilationArgsProvider jlExportsProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, jlExports);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, jlExports);
     assertThat(prettyJarNames(jlExportsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
         .containsAllOf(
             "foo/libjl_bottom_for_deps.jar",
@@ -579,7 +579,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     // Test that libjl_bottom_for_exports.jar is in the recursive java compilation args of lib_top.
     ConfiguredTarget jlTop = getConfiguredTarget("//foo:lib_interm");
     JavaCompilationArgsProvider jlTopProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, jlTop);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, jlTop);
     assertThat(prettyJarNames(jlTopProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
         .contains("foo/libjl_bottom_for_exports.jar");
   }
@@ -632,7 +632,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     // Test that all bottom jars are on the runtime classpath.
     ConfiguredTarget importTarget = getConfiguredTarget("//foo:import");
     JavaCompilationArgsProvider compilationProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, importTarget);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, importTarget);
     assertThat(prettyJarNames(
         compilationProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
         .containsAllOf(
@@ -666,7 +666,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
     List<String> directJars = prettyJarNames(
         javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars());
     assertThat(directJars).containsExactly("foo/liba.jar");
@@ -699,7 +699,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        JavaProvider.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
     List<String> directJars = prettyJarNames(
         javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars());
     assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");

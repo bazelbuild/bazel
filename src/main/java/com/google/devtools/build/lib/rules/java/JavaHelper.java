@@ -149,22 +149,22 @@ public abstract class JavaHelper {
         ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
   }
 
-  public static JavaRuntimeProvider getJavaRuntime(RuleContext ruleContext) {
+  public static JavaRuntimeInfo getJavaRuntime(RuleContext ruleContext) {
     if (!ruleContext.attributes().has(":jvm", BuildType.LABEL)) {
       return null;
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    return jvm == null ? null :  jvm.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
   }
 
-  public static JavaRuntimeProvider getHostJavaRuntime(RuleContext ruleContext) {
+  public static JavaRuntimeInfo getHostJavaRuntime(RuleContext ruleContext) {
     if (!ruleContext.attributes().has(":host_jdk", BuildType.LABEL)) {
       return null;
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
-    return jvm == null ? null :  jvm.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
   }
 
   /**

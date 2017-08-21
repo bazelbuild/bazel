@@ -24,16 +24,16 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(name = "MakeVariables", doc = "Make variables exposed by the current target.")
 @Immutable
-public final class MakeVariableProvider extends Info {
+public final class MakeVariableInfo extends Info {
   public static final String SKYLARK_NAME = "MakeVariableInfo";
 
-  public static final NativeProvider<MakeVariableProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<MakeVariableProvider>(MakeVariableProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<MakeVariableInfo> PROVIDER =
+      new NativeProvider<MakeVariableInfo>(MakeVariableInfo.class, SKYLARK_NAME) {};
 
   private final ImmutableMap<String, String> makeVariables;
 
-  public MakeVariableProvider(ImmutableMap<String, String> makeVariables) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+  public MakeVariableInfo(ImmutableMap<String, String> makeVariables) {
+    super(PROVIDER, ImmutableMap.<String, Object>of());
     this.makeVariables = makeVariables;
   }
 

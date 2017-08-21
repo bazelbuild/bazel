@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MakeVariableProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -73,10 +73,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             .addTransitiveArtifacts(filesToBuild)
             .build();
 
-    JavaRuntimeProvider javaRuntime = new JavaRuntimeProvider(
+    JavaRuntimeInfo javaRuntime = new JavaRuntimeInfo(
         filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
 
-    MakeVariableProvider makeVariableProvider = new MakeVariableProvider(ImmutableMap.of(
+    MakeVariableInfo makeVariableInfo = new MakeVariableInfo(ImmutableMap.of(
         "JAVA", javaBinaryExecPath.getPathString(),
         "JAVABASE", javaHome.getPathString()));
 
@@ -85,7 +85,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .addNativeDeclaredProvider(makeVariableProvider)
+        .addNativeDeclaredProvider(makeVariableInfo)
         .build();
   }
 

@@ -848,7 +848,7 @@ public final class CcLibraryHelper {
 
   /**
    * This adds the {@link CcSpecificLinkParamsProvider} to the providers created by this class.
-   * Otherwise the result will contain an instance of {@link CcLinkParamsProvider}.
+   * Otherwise the result will contain an instance of {@link CcLinkParamsInfo}.
    */
   public CcLibraryHelper enableCcSpecificLinkParamsProvider() {
     this.emitCcSpecificLinkParamsProvider = true;
@@ -1082,7 +1082,7 @@ public final class CcLibraryHelper {
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     } else {
       providers.put(
-          new CcLinkParamsProvider(
+          new CcLinkParamsInfo(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }
     return new Info(
@@ -1551,7 +1551,7 @@ public final class CcLibraryHelper {
         builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
         builder.addTransitiveTargets(
             deps,
-            CcLinkParamsProvider.TO_LINK_PARAMS,
+            CcLinkParamsInfo.TO_LINK_PARAMS,
             CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
           builder.addLibraries(

@@ -41,7 +41,7 @@ public final class JavaRuntimeSuiteRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("default", BuildType.LABEL)
-                .mandatoryProviders(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR.id())
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(attr("output_licenses", LICENSE))
         .build();

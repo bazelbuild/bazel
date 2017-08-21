@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
-import com.google.devtools.build.lib.analysis.DefaultProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
@@ -629,7 +629,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     doc = "Deprecated. Use <a href=\"globals.html#DefaultInfo\">DefaultInfo</a> instead."
   )
   public static Provider getDefaultProvider() {
-    return DefaultProvider.SKYLARK_CONSTRUCTOR;
+    return DefaultInfo.PROVIDER;
   }
 
   @SkylarkCallable(

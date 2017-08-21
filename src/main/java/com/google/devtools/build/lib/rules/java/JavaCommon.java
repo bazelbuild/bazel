@@ -289,7 +289,7 @@ public class JavaCommon {
       builder.add(outDeps);
     }
 
-    for (JavaCompilationArgsProvider provider : JavaProvider.getProvidersFromListOfTargets(
+    for (JavaCompilationArgsProvider provider : JavaInfo.getProvidersFromListOfTargets(
         JavaCompilationArgsProvider.class, getExports(ruleContext))) {
       builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
     }
@@ -369,7 +369,7 @@ public class JavaCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(targetSrcJars);
 
-    for (JavaSourceJarsProvider sourceJarsProvider : JavaProvider.getProvidersFromListOfTargets(
+    for (JavaSourceJarsProvider sourceJarsProvider : JavaInfo.getProvidersFromListOfTargets(
         JavaSourceJarsProvider.class, getDependencies())) {
       builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
     }
@@ -465,14 +465,14 @@ public class JavaCommon {
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeProvider javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
     return javaRuntime != null
         ? javaRuntime.javaBinaryExecPath()
         : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
     return javaRuntime != null
         ? javaRuntime.javaBinaryExecPath()
         : ruleContext.getFragment(Jvm.class).getJavaExecutable();
@@ -486,7 +486,7 @@ public class JavaCommon {
       RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
-    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
@@ -786,7 +786,7 @@ public class JavaCommon {
   private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
       RuleContext ruleContext, String attribute, Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return JavaProvider.getProvidersFromListOfTargets(
+      return JavaInfo.getProvidersFromListOfTargets(
           JavaPluginInfoProvider.class, ruleContext.getPrerequisites(attribute, mode));
     }
     return ImmutableList.of();

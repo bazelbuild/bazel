@@ -55,7 +55,7 @@ public final class TestActionBuilder {
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
-  private ExecutionInfoProvider executionRequirements;
+  private ExecutionInfo executionRequirements;
   private InstrumentedFilesProvider instrumentedFiles;
   private int explicitShardCount;
   private Map<String, String> extraEnv;
@@ -113,7 +113,7 @@ public final class TestActionBuilder {
   }
 
   public TestActionBuilder setExecutionRequirements(
-      @Nullable ExecutionInfoProvider executionRequirements) {
+      @Nullable ExecutionInfo executionRequirements) {
     this.executionRequirements = executionRequirements;
     return this;
   }

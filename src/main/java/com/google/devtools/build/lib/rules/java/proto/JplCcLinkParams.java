@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,7 +30,7 @@ import java.util.List;
 public class JplCcLinkParams {
 
   /**
-   * Creates a CcLinkParamsProvider based on 'deps' and an explicit list of proto runtimes, in the
+   * Creates a CcLinkParamsInfo based on 'deps' and an explicit list of proto runtimes, in the
    * context of a java_xxx_proto_library and its aspects.
    *
    * @param ruleContext used to extract 'deps'. the 'deps' are expected to provide

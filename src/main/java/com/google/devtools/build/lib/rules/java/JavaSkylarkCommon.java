@@ -51,7 +51,7 @@ public class JavaSkylarkCommon {
     doc = "Returns the Java declared provider."
   )
   public Provider getJavaProvider() {
-    return JavaProvider.JAVA_PROVIDER;
+    return JavaInfo.PROVIDER;
   }
 
   @SkylarkCallable(
@@ -120,7 +120,7 @@ public class JavaSkylarkCommon {
       )
     }
   )
-  public JavaProvider create(
+  public JavaInfo create(
       Object compileTimeJars,
       Object runtimeJars,
       Object transitiveCompileTimeJars,
@@ -149,8 +149,8 @@ public class JavaSkylarkCommon {
           .addTransitiveRuntimeJars(transitiveRuntimeJarsNestedSet);
     }
 
-    JavaProvider javaProvider =
-        JavaProvider.Builder.create()
+    JavaInfo javaInfo =
+        JavaInfo.Builder.create()
             .addProvider(
                 JavaCompilationArgsProvider.class,
                 JavaCompilationArgsProvider.create(
@@ -161,7 +161,7 @@ public class JavaSkylarkCommon {
                     NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
                     asArtifactNestedSet(sourceJars)))
             .build();
-    return javaProvider;
+    return javaInfo;
   }
 
   /**
@@ -224,7 +224,7 @@ public class JavaSkylarkCommon {
         positional = false,
         named = true,
         type = SkylarkList.class,
-        generic1 = JavaProvider.class,
+        generic1 = JavaInfo.class,
         defaultValue = "[]",
         doc = "A list of dependencies. Optional."
       ),
@@ -233,7 +233,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of exports. Optional."
       ),
@@ -242,7 +242,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of plugins. Optional."
       ),
@@ -251,7 +251,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of exported plugins. Optional."
       ),
@@ -298,16 +298,16 @@ public class JavaSkylarkCommon {
       )
     }
   )
-  public JavaProvider createJavaCompileAction(
+  public JavaInfo createJavaCompileAction(
       SkylarkRuleContext skylarkRuleContext,
       SkylarkList<Artifact> sourceJars,
       SkylarkList<Artifact> sourceFiles,
       Artifact outputJar,
       SkylarkList<String> javacOpts,
-      SkylarkList<JavaProvider> deps,
-      SkylarkList<JavaProvider> exports,
-      SkylarkList<JavaProvider> plugins,
-      SkylarkList<JavaProvider> exportedPlugins,
+      SkylarkList<JavaInfo> deps,
+      SkylarkList<JavaInfo> exports,
+      SkylarkList<JavaInfo> plugins,
+      SkylarkList<JavaInfo> exportedPlugins,
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
@@ -324,17 +324,17 @@ public class JavaSkylarkCommon {
             .setJavacOpts(javacOpts);
 
     List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
-        JavaProvider.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
+        JavaInfo.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
     List<JavaCompilationArgsProvider> exportsCompilationArgsProviders =
-        JavaProvider.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
+        JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
     helper.addAllDeps(depsCompilationArgsProviders);
     helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
     helper.addAllPlugins(
-        JavaProvider.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
-    helper.addAllPlugins(JavaProvider.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
+        JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
+    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
 
     NestedSet<Artifact> hostJavabaseArtifacts =
         hostJavabaseProvider == null
@@ -362,13 +362,13 @@ public class JavaSkylarkCommon {
 
     JavaPluginInfoProvider transitivePluginsProvider =
         JavaPluginInfoProvider.merge(Iterables.concat(
-          JavaProvider.getProvidersFromListOfJavaProviders(
+          JavaInfo.getProvidersFromListOfJavaProviders(
               JavaPluginInfoProvider.class, exportedPlugins),
-          JavaProvider.getProvidersFromListOfJavaProviders(
+          JavaInfo.getProvidersFromListOfJavaProviders(
               JavaPluginInfoProvider.class, exports)
         ));
 
-    return JavaProvider.Builder.create()
+    return JavaInfo.Builder.create()
              .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
              .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
              .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
@@ -417,8 +417,8 @@ public class JavaSkylarkCommon {
     // We have one positional argument: the list of providers to merge.
     mandatoryPositionals = 1
   )
-  public static JavaProvider mergeJavaProviders(SkylarkList<JavaProvider> providers) {
-    return JavaProvider.merge(providers);
+  public static JavaInfo mergeJavaProviders(SkylarkList<JavaInfo> providers) {
+    return JavaInfo.merge(providers);
   }
 
   @SkylarkCallable(
@@ -428,11 +428,11 @@ public class JavaSkylarkCommon {
       // There's only one mandatory positional, the Java provider.
       mandatoryPositionals = 1
   )
-  public static JavaProvider makeNonStrict(JavaProvider javaProvider) {
+  public static JavaInfo makeNonStrict(JavaInfo javaInfo) {
     JavaCompilationArgsProvider directCompilationArgs =
-        StrictDepsUtils.makeNonStrict(javaProvider.getProvider(JavaCompilationArgsProvider.class));
+        StrictDepsUtils.makeNonStrict(javaInfo.getProvider(JavaCompilationArgsProvider.class));
 
-    return JavaProvider.Builder.copyOf(javaProvider)
+    return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
         .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
         .build();
@@ -454,13 +454,13 @@ public class JavaSkylarkCommon {
   }
 
   @SkylarkCallable(
-    name = JavaRuntimeProvider.SKYLARK_NAME,
+    name = JavaRuntimeInfo.SKYLARK_NAME,
     doc =
         "The key used to retrieve the provider that contains information about the Java "
             + "runtime being used.",
     structField = true
   )
   public static Provider getJavaRuntimeProvider() {
-    return JavaRuntimeProvider.SKYLARK_CONSTRUCTOR;
+    return JavaRuntimeInfo.PROVIDER;
   }
 }

@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.java.JavaProvider;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -76,19 +76,19 @@ public class BazelJavaRuleClasses {
 
   /**
    * Meant to be an element of {@code mandatoryProvidersLists} in order to accept rules providing
-   * a {@link JavaProvider} through an attribute. Other providers can be included in
+   * a {@link JavaInfo} through an attribute. Other providers can be included in
    * {@code mandatoryProvidersLists} as well.
    */
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaProvider.JAVA_PROVIDER.getKey()));
+      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()));
 
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
       ImmutableList.of(
-          SkylarkProviderIdentifier.forKey(CcLinkParamsProvider.CC_LINK_PARAMS.getKey()));
+          SkylarkProviderIdentifier.forKey(CcLinkParamsInfo.PROVIDER.getKey()));
 
   /**
    * Meant to be the value of {@code mandatoryProvidersLists} in order for the rule to provide only
-   * a {@link JavaProvider} through an attribute.
+   * a {@link JavaInfo} through an attribute.
    */
   public static final ImmutableList<ImmutableList<SkylarkProviderIdentifier>>
       MANDATORY_JAVA_PROVIDER_ONLY = ImmutableList.of(CONTAINS_JAVA_PROVIDER);

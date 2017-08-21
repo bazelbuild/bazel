@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
-import com.google.devtools.build.lib.analysis.test.ExecutionInfoProvider;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -190,9 +190,9 @@ public final class RuleConfiguredTargetBuilder {
         new TestActionBuilder(ruleContext)
             .setInstrumentedFiles(providersBuilder.getProvider(InstrumentedFilesProvider.class));
 
-    TestEnvironmentProvider environmentProvider =
-        (TestEnvironmentProvider)
-            providersBuilder.getProvider(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
+    TestEnvironmentInfo environmentProvider =
+        (TestEnvironmentInfo)
+            providersBuilder.getProvider(TestEnvironmentInfo.PROVIDER.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
     }
@@ -201,8 +201,8 @@ public final class RuleConfiguredTargetBuilder {
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
             .setExecutionRequirements(
-                (ExecutionInfoProvider) providersBuilder
-                    .getProvider(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
+                (ExecutionInfo) providersBuilder
+                    .getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
     ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());

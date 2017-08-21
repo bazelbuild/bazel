@@ -27,21 +27,21 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
-public class JavaRuntimeProvider extends Info {
+public class JavaRuntimeInfo extends Info {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
-  public static final NativeProvider<JavaRuntimeProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<JavaRuntimeProvider>(JavaRuntimeProvider.class, SKYLARK_NAME) {};
+  public static final NativeProvider<JavaRuntimeInfo> PROVIDER =
+      new NativeProvider<JavaRuntimeInfo>(JavaRuntimeInfo.class, SKYLARK_NAME) {};
 
   private final NestedSet<Artifact> javaBaseInputs;
   private final PathFragment javaHome;
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaBinaryRunfilesPath;
 
-  public JavaRuntimeProvider(
+  public JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs, PathFragment javaHome,
       PathFragment javaBinaryExecPath, PathFragment javaBinaryRunfilesPath) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(PROVIDER, ImmutableMap.<String, Object>of());
     this.javaBaseInputs = javaBaseInputs;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
@@ -73,7 +73,7 @@ public class JavaRuntimeProvider extends Info {
     return javaBinaryRunfilesPath;
   }
 
-  // Not all of JavaRuntimeProvider is exposed to Skylark, which makes implementing deep equality
+  // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override

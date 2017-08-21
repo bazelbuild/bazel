@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DefaultProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -317,7 +317,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       if (declaredProvider
           .getProvider()
           .getKey()
-          .equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+          .equals(DefaultInfo.PROVIDER.getKey())) {
         parseDefaultProviderKeys(declaredProvider, ruleContext, builder);
         defaultProviderProvidedExplicitly = true;
       } else {
@@ -398,7 +398,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       } else if (provider
           .getProvider()
           .getKey()
-          .equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+          .equals(DefaultInfo.PROVIDER.getKey())) {
         // Custom keys are not allowed for default providers
         throw new EvalException(loc, "Invalid key for default provider: " + key);
       }

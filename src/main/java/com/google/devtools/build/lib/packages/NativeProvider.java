@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * <p>Typical implementation of a non-constructable from Skylark declared provider is as follows:
  *
  * <pre>
- *     public static final Provider CC_LINK_PARAMS =
+ *     public static final Provider PROVIDER =
  *       new NativeProvider("link_params") { };
  * </pre>
  *

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
-import com.google.devtools.build.lib.analysis.test.ExecutionInfoProvider;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.Type;
@@ -309,20 +309,20 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Propagates the {@link ExecutionInfoProvider} from the {@code android_device} rule in the {@code
+   * Propagates the {@link ExecutionInfo} from the {@code android_device} rule in the {@code
    * target_device} attribute.
    *
    * <p>This allows the dependent {@code android_device} rule to specify some requirements on the
    * machine that the {@code android_instrumentation_test} runs on.
    */
-  private static ExecutionInfoProvider getExecutionInfoProvider(RuleContext ruleContext) {
-    ExecutionInfoProvider executionInfoProvider =
+  private static ExecutionInfo getExecutionInfoProvider(RuleContext ruleContext) {
+    ExecutionInfo executionInfo =
             ruleContext.getPrerequisite(
-                "target_device", Mode.HOST, ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
+                "target_device", Mode.HOST, ExecutionInfo.PROVIDER);
     ImmutableMap<String, String> executionRequirements =
-        (executionInfoProvider != null)
-            ? executionInfoProvider.getExecutionInfo()
+        (executionInfo != null)
+            ? executionInfo.getExecutionInfo()
             : ImmutableMap.of();
-    return new ExecutionInfoProvider(executionRequirements);
+    return new ExecutionInfo(executionRequirements);
   }
 }

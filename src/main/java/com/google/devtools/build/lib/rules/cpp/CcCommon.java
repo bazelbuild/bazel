@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -685,7 +685,7 @@ public final class CcCommon {
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
     CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) toolchain.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
+        (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, toolchainProvider);
     if (!featureConfiguration.actionIsConfigured(
@@ -702,10 +702,10 @@ public final class CcCommon {
                 featureConfiguration.getCommandLine(
                     CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
     String oldCcFlags = "";
-    MakeVariableProvider makeVariableProvider =
-        toolchain.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR);
-    if (makeVariableProvider != null) {
-      oldCcFlags = makeVariableProvider.getMakeVariables().getOrDefault(
+    MakeVariableInfo makeVariableInfo =
+        toolchain.get(MakeVariableInfo.PROVIDER);
+    if (makeVariableInfo != null) {
+      oldCcFlags = makeVariableInfo.getMakeVariables().getOrDefault(
           CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
     }
     return FluentIterable.of(oldCcFlags)
