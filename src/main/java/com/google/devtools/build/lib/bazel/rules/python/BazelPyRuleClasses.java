@@ -89,8 +89,13 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("imports", STRING_LIST).value(ImmutableList.<String>of()))
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(srcs_version) -->
+          The value set here is for documentation purpose, and it will NOT determine which version
+          of python interpreter to use. Starting with 0.5.3 this attribute has been deprecated and
+          no longer has effect.
           A string specifying the Python major version(s) that the <code>.py</code> source
           files listed in the <code>srcs</code> of this rule are compatible with.
+          Please reference to <a href="${link py_runtime}"><code>py_runtime</code></a> rules for
+          determining the python version.
           Valid values are:<br/>
           <code>"PY2ONLY"</code> -
             Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
