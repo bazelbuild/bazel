@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
-import static com.google.devtools.build.lib.rules.core.CoreRules.FEATURE_POLICY_FEATURES;
-
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
@@ -139,6 +136,18 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "exports_files(['precompile.py'])",
         "sh_binary(name='2to3', srcs=['2to3.sh'])");
 
+    // Use an alias package group to allow for modification at the simpler path
+    config.create(
+        "/bazel_tools_workspace/tools/whitelists/config_feature_flag/BUILD",
+        "package_group(",
+        "    name='config_feature_flag',",
+        "    includes=['@//tools/whitelists/config_feature_flag'],",
+        ")");
+
+    config.create(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name='config_feature_flag', packages=['//...'])");
+
     config.create(
         "/bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
@@ -247,7 +256,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new J2ObjcConfiguration.Loader(),
         new ProtoConfiguration.Loader(),
         new ConfigFeatureFlagConfiguration.Loader(),
-        new FeaturePolicyLoader(FEATURE_POLICY_FEATURES),
         new AndroidConfiguration.Loader(),
         new PlatformConfigurationLoader());
   }

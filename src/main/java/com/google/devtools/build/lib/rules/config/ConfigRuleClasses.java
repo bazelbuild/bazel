@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -202,7 +201,7 @@ public class ConfigRuleClasses {
                   .mandatoryProviders(
                       ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .requiresConfigurationFragments(FeaturePolicyConfiguration.class)
+          .add(ConfigFeatureFlag.getWhitelistAttribute(env))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->
@@ -292,9 +291,7 @@ config_setting(
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented(/* the feature flag feature has not yet been launched */)
-          .requiresConfigurationFragments(
-              ConfigFeatureFlagConfiguration.class,
-              FeaturePolicyConfiguration.class)
+          .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
           .add(
               attr("allowed_values", STRING_LIST)
                   .mandatory()
@@ -305,6 +302,7 @@ config_setting(
               attr("default_value", STRING)
                   .mandatory()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(ConfigFeatureFlag.getWhitelistAttribute(env))
           .build();
     }
 

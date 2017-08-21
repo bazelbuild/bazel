@@ -28,6 +28,7 @@ filegroup(
         "//tools/osx/crosstool:srcs",
         "//tools/test:srcs",
         "//tools/python:srcs",
+        "//tools/whitelists:srcs",
         "//tools/zip:srcs",
     ],
 )
@@ -56,6 +57,7 @@ filegroup(
         "//tools/test:srcs",
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
+        "//tools/whitelists:srcs",
         "//tools/zip:srcs",
     ],
 )

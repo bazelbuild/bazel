@@ -29,9 +29,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
@@ -41,13 +44,36 @@ import java.util.List;
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
-  public static final String POLICY_NAME = "config_feature_flag";
+  private static final String WHITELIST_NAME = "config_feature_flag";
+
+  /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
+  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
+    return Whitelist.getAttributeFromWhitelistName(
+        WHITELIST_NAME,
+        env.getToolsLabel("//tools/whitelists/config_feature_flag:config_feature_flag"));
+  }
+
+  /**
+   * Returns whether config_feature_flag and related features are available to the current rule.
+   *
+   * <p>The current rule must have an attribute defined on it created with {@link
+   * #getWhitelistAttribute}.
+   */
+  public static boolean isAvailable(RuleContext ruleContext) {
+    return Whitelist.isAvailable(ruleContext, WHITELIST_NAME);
+  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    FeaturePolicyConfiguration.checkAvailable(
-        ruleContext, POLICY_NAME, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
+    if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
+      ruleContext.ruleError(
+          String.format(
+              "the %s rule is not available in package '%s'",
+              ruleContext.getRuleClassNameForLogging(),
+              ruleContext.getLabel().getPackageIdentifier()));
+      throw new RuleErrorException();
+    }
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);

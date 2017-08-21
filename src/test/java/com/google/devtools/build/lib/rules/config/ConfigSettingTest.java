@@ -1126,10 +1126,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
   @Test
   public void policyMustContainRuleToUseFlagValues() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
-    scratch.file(
-        "policy/BUILD",
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
         "package_group(",
-        "    name = 'feature_flag_users',",
+        "    name = 'config_feature_flag',",
         "    packages = ['//flag'])");
     scratch.file(
         "flag/BUILD",
@@ -1147,22 +1147,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        '//flag:flag': 'right',",
         "    },",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag_values_user")).isNull();
     assertContainsEvent(
-        "in config_setting rule //test:flag_values_user: the flag_values attribute is not "
-            + "available in package 'test' according to policy "
-            + "'//policy:feature_flag_users'");
+        "in flag_values attribute of config_setting rule //test:flag_values_user: the flag_values "
+            + "attribute is not available in package 'test'");
   }
 
   @Test
   public void policyDoesNotBlockRuleIfInPolicy() throws Exception {
-    scratch.file(
-        "policy/BUILD",
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
         "package_group(",
-        "    name = 'feature_flag_users',",
+        "    name = 'config_feature_flag',",
         "    packages = ['//flag', '//test'])");
     scratch.file(
         "flag/BUILD",
@@ -1180,19 +1176,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        '//flag:flag': 'right',",
         "    },",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
     assertNoEvents();
   }
 
   @Test
   public void policyDoesNotBlockRuleIfFlagValuesNotUsed() throws Exception {
-    scratch.file(
-        "policy/BUILD",
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
         "package_group(",
-        "    name = 'feature_flag_users',",
+        "    name = 'config_feature_flag',",
         "    packages = ['//flag'])");
     scratch.file("flag/BUILD");
     scratch.file(
@@ -1203,9 +1196,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'cpu': 'k8',",
         "    },",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
     assertNoEvents();
   }

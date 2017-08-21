@@ -291,9 +291,9 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   @Test
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
-    scratch.file(
-        "policy/BUILD",
-        "package_group(name = 'feature_flag_users', packages = ['//some/other'])");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
         "config_feature_flag(",
@@ -301,20 +301,17 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
-        + "package 'test' according to policy '//policy:feature_flag_users'");
+        + "package 'test'");
   }
 
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(name = 'feature_flag_users', packages = ['//test'])");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",
         "config_feature_flag(",
@@ -322,9 +319,6 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag")).isNotNull();
     assertNoEvents();
   }
