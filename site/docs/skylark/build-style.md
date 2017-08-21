@@ -136,6 +136,12 @@ compatible with the
 [References to targets in the current package](#references-to-targets-in-the-current-package)
 section above (not by their absolute package name).
 
+Prefer to list dependencies directly, as a single list. Putting the "common"
+dependencies of several targets into a variable reduces maintainability, makes
+it impossible for tools to change the dependencies of a target and can lead to
+unused dependencies.
+
+
 ## Globs
 
 Do not use recursive globs (e.g., `glob(["**/*.java"])`). Recursive globs
