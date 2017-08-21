@@ -1601,4 +1601,45 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCustomModuleMap() throws Exception {
     checkCustomModuleMap(RULE_TYPE);
   }
+
+  private boolean containsObjcFeature(String srcName) throws Exception {
+     MockObjcSupport.setup(
+        mockToolsConfig,
+        "feature {",
+        "  name: 'contains_objc_sources'",
+        "  flag_set {",
+        "    flag_group {",
+        "      flag: 'DUMMY_FLAG'",
+        "    }",
+        "    action: 'c++-compile'",
+        "  }",
+        "}");
+    createLibraryTargetWriter("//bottom:lib").setList("srcs", srcName).write();
+    createLibraryTargetWriter("//middle:lib")
+        .setList("srcs", "b.cc")
+        .setList("deps", "//bottom:lib")
+        .write();
+    createLibraryTargetWriter("//top:lib")
+        .setList("srcs", "a.cc")
+        .setList("deps", "//middle:lib")
+        .write();
+
+    CommandAction compileAction = compileAction("//top:lib", "a.o");
+    return compileAction.getArguments().contains("DUMMY_FLAG");
+  }
+
+  @Test
+  public void testObjcSourcesFeatureCC() throws Exception {
+    assertThat(containsObjcFeature("c.cc")).isFalse();
+  }
+
+  @Test
+  public void testObjcSourcesFeatureObjc() throws Exception {
+     assertThat(containsObjcFeature("c.m")).isTrue();
+  }
+
+  @Test
+  public void testObjcSourcesFeatureObjcPlusPlus() throws Exception {
+     assertThat(containsObjcFeature("c.mm")).isTrue();
+  }
 }

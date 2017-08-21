@@ -59,6 +59,24 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     useConfiguration(ObjcCrosstoolMode.OFF, args);
   }
 
+  @Override
+  @Test
+  public void testObjcSourcesFeatureCC() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
+  @Override
+  @Test
+  public void testObjcSourcesFeatureObjc() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
+  @Override
+  @Test
+  public void testObjcSourcesFeatureObjcPlusPlus() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
   @Test
   public void testLibFileIsCorrectForSlashInTargetName() throws Exception {
     ConfiguredTarget target =
