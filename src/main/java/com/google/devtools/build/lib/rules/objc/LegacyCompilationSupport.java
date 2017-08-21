@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -300,20 +299,20 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
 
     commandLine
-        .add(ImmutableList.copyOf(compileFlagsForClang(appleConfiguration)))
-        .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
-        .add(objcConfiguration.getCoptsForCompilationMode())
-        .addPaths(
-            VectorArg.of(ObjcCommon.userHeaderSearchPaths(objcProvider, buildConfiguration))
-                .beforeEach("-iquote"))
-        .addExecPaths(VectorArg.of(ImmutableList.copyOf(pchFile.asSet())).beforeEach("-include"))
-        .addPaths(VectorArg.of(ImmutableList.copyOf(priorityHeaders)).beforeEach("-I"))
-        .addPaths(VectorArg.of(objcProvider.get(INCLUDE)).beforeEach("-I"))
-        .addPaths(VectorArg.of(objcProvider.get(INCLUDE_SYSTEM)).beforeEach("-isystem"))
-        .add(ImmutableList.copyOf(otherFlags))
-        .add(VectorArg.of(objcProvider.get(DEFINE)).formatEach("-D%s"))
-        .add(coverageFlags)
-        .add(ImmutableList.copyOf(getCompileRuleCopts()));
+        .addAll(ImmutableList.copyOf(compileFlagsForClang(appleConfiguration)))
+        .addAll(
+            commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
+        .addAll(objcConfiguration.getCoptsForCompilationMode())
+        .addBeforeEachPath(
+            "-iquote", ObjcCommon.userHeaderSearchPaths(objcProvider, buildConfiguration))
+        .addBeforeEachExecPath("-include", pchFile.asSet())
+        .addBeforeEachPath("-I", ImmutableList.copyOf(priorityHeaders))
+        .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
+        .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
+        .addAll(ImmutableList.copyOf(otherFlags))
+        .addFormatEach("-D%s", objcProvider.get(DEFINE))
+        .addAll(coverageFlags)
+        .addAll(ImmutableList.copyOf(getCompileRuleCopts()));
 
     // Add input source file arguments
     commandLine.add("-c");
@@ -703,7 +702,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
     commandLine.add("-filelist", inputFileList.getExecPathString());
 
     AppleBitcodeMode bitcodeMode = appleConfiguration.getBitcodeMode();
-    commandLine.add(bitcodeMode.getCompileAndLinkFlags());
+    commandLine.addAll(bitcodeMode.getCompileAndLinkFlags());
 
     if (bitcodeMode == AppleBitcodeMode.EMBEDDED) {
       commandLine.add("-Xlinker").add("-bitcode_verify");
@@ -716,7 +715,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
 
     commandLine
-        .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
+        .addAll(
+            commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add("-Xlinker")
         .add("-objc_abi_version")
         .add("-Xlinker")
@@ -728,24 +728,20 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add("-Xlinker")
         .add("@executable_path/Frameworks")
         .add("-fobjc-link-runtime")
-        .add(DEFAULT_LINKER_FLAGS)
-        .add(
-            VectorArg.of(ImmutableList.copyOf(frameworkNames(objcProvider)))
-                .beforeEach("-framework"))
-        .add(
-            VectorArg.of(SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
-                .beforeEach("-weak_framework"))
-        .add(VectorArg.of(libraryNames).formatEach("-l%s"))
+        .addAll(DEFAULT_LINKER_FLAGS)
+        .addBeforeEach("-framework", frameworkNames(objcProvider))
+        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
+        .addFormatEach("-l%s", libraryNames)
         .addExecPath("-o", linkedBinary)
-        .addExecPaths(VectorArg.of(forceLinkArtifacts).beforeEach("-force_load"))
-        .add(ImmutableList.copyOf(extraLinkArgs))
-        .add(objcProvider.get(ObjcProvider.LINKOPT));
+        .addBeforeEachExecPath("-force_load", forceLinkArtifacts)
+        .addAll(ImmutableList.copyOf(extraLinkArgs))
+        .addAll(objcProvider.get(ObjcProvider.LINKOPT));
 
     if (buildConfiguration.isCodeCoverageEnabled()) {
       if (buildConfiguration.isLLVMCoverageMapFormatEnabled()) {
-        commandLine.add(LINKER_LLVM_COVERAGE_FLAGS);
+        commandLine.addAll(LINKER_LLVM_COVERAGE_FLAGS);
       } else {
-        commandLine.add(LINKER_COVERAGE_FLAGS);
+        commandLine.addAll(LINKER_COVERAGE_FLAGS);
       }
     }
 

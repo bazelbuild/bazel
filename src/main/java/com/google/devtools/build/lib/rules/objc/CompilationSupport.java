@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1078,16 +1077,12 @@ public abstract class CompilationSupport {
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
               .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
-              .addExecPaths(
-                  "--dependency_mapping_files",
-                  VectorArg.of(j2ObjcDependencyMappingFiles).joinWith(","))
-              .addExecPaths(
-                  "--header_mapping_files", VectorArg.of(j2ObjcHeaderMappingFiles).joinWith(","))
-              .addExecPaths(
-                  "--archive_source_mapping_files",
-                  VectorArg.of(j2ObjcArchiveSourceMappingFiles).joinWith(","))
+              .addJoinedExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+              .addJoinedExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+              .addJoinedExecPaths(
+                  "--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
               .add("--entry_classes")
-              .add(VectorArg.of(entryClasses).joinWith(","))
+              .addJoined(",", entryClasses)
               .build();
 
       ruleContext.registerAction(
@@ -1168,7 +1163,7 @@ public abstract class CompilationSupport {
       ImmutableList<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
         .add(STRIP)
-        .add(extraFlags)
+        .addAll(extraFlags)
         .addExecPath("-o", strippedArtifact)
         .addPath(unstrippedArtifact.getExecPath())
         .build();
@@ -1397,16 +1392,13 @@ public abstract class CompilationSupport {
                 XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
             .add("--");
     for (ObjcHeaderThinningInfo info : infos) {
-      cmdLine.addPaths(
-          VectorArg.of(
-                  ImmutableList.of(
-                      info.sourceFile.getExecPath(), info.headersListFile.getExecPath()))
-              .joinWith(":"));
+      cmdLine.addFormatted(
+          "%s:%s", info.sourceFile.getExecPath(), info.headersListFile.getExecPath());
       builder.addInput(info.sourceFile).addOutput(info.headersListFile);
     }
     ruleContext.registerAction(
         builder
-            .setCommandLine(cmdLine.add("--").add(args).build())
+            .setCommandLine(cmdLine.add("--").addAll(args).build())
             .addInputs(compilationArtifacts.getPrivateHdrs())
             .addTransitiveInputs(attributes.hdrs())
             .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))

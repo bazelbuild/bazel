@@ -181,7 +181,7 @@ public class DeployArchiveBuilder {
 
     if (!deployManifestLines.isEmpty()) {
       args.add("--deploy_manifest_lines");
-      args.add(deployManifestLines);
+      args.addAll(deployManifestLines);
     }
 
     if (buildInfoFiles != null) {

@@ -1058,7 +1058,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder addArguments(String... arguments) {
       Preconditions.checkState(commandLine == null);
-      commandLineBuilder.add(ImmutableList.copyOf(arguments));
+      commandLineBuilder.addAll(ImmutableList.copyOf(arguments));
       return this;
     }
 
@@ -1070,7 +1070,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       if (arguments instanceof NestedSet) {
         commandLineBuilder.addExecPaths((NestedSet) arguments);
       } else {
-        commandLineBuilder.add(ImmutableList.copyOf(arguments));
+        commandLineBuilder.addAll(ImmutableList.copyOf(arguments));
       }
       return this;
     }

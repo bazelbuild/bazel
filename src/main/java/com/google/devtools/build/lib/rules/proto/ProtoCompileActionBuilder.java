@@ -301,7 +301,7 @@ public class ProtoCompileActionBuilder {
       result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter1));
     }
 
-    result.add(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
+    result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
 
     boolean areDepsStrict = areDepsStrict(ruleContext);
 
@@ -326,7 +326,7 @@ public class ProtoCompileActionBuilder {
     }
 
     if (additionalCommandLineArguments != null) {
-      result.add(ImmutableList.copyOf(additionalCommandLineArguments));
+      result.addAll(ImmutableList.copyOf(additionalCommandLineArguments));
     }
 
     return result;
@@ -586,7 +586,7 @@ public class ProtoCompileActionBuilder {
       }
     }
 
-    cmdLine.add(protocOpts);
+    cmdLine.addAll(protocOpts);
 
     // Add include maps
     cmdLine.addCustomMultiArgv(new ProtoCommandLineArgv(protosInDirectDeps, transitiveSources));

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -375,8 +374,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new Builder()
             .addExecPath("--input", jar)
             .addExecPath("--output", result)
-            .addExecPaths(VectorArg.of(classpath).beforeEach("--classpath_entry"))
-            .addExecPaths(VectorArg.of(bootclasspath).beforeEach("--bootclasspath_entry"))
+            .addBeforeEachExecPath("--classpath_entry", classpath)
+            .addBeforeEachExecPath("--bootclasspath_entry", bootclasspath)
             .build();
 
     // Just use params file, since classpaths can get long
@@ -429,7 +428,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new Builder()
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
-            .add(ImmutableList.copyOf(incrementalDexopts))
+            .addAll(ImmutableList.copyOf(incrementalDexopts))
             .build();
     Artifact paramFile =
         ruleContext.getDerivedArtifact(

@@ -447,8 +447,8 @@ final class BundleSupport {
     }
 
     return commandLine
-        .add(ImmutableList.copyOf(PathFragment.safePathStrings(provider.get(XCASSETS_DIR))))
-        .add(ImmutableList.copyOf(extraActoolArgs))
+        .addAll(ImmutableList.copyOf(PathFragment.safePathStrings(provider.get(XCASSETS_DIR))))
+        .addAll(ImmutableList.copyOf(extraActoolArgs))
         .build();
   }
 

@@ -275,7 +275,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment workspaceName = runfilesSupport.getWorkspaceName();
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     inputsBuilder.add(templateMain);
-    argv.addWithPrefix("__main__.py=", templateMain);
+    argv.addPrefixedExecPath("__main__.py=", templateMain);
 
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");

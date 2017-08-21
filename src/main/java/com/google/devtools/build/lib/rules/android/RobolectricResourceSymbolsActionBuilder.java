@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -86,11 +85,11 @@ public class RobolectricResourceSymbolsActionBuilder {
     inputs.add(sdk.getAndroidJar());
 
     if (!Iterables.isEmpty(dependencies.getResources())) {
-      builder.add(
+      builder.addJoined(
           "--data",
-          VectorArg.of(dependencies.getResources())
-              .joinWithDynamicString(RESOURCE_CONTAINER_TO_ARG.listSeparator())
-              .mapEach(RESOURCE_CONTAINER_TO_ARG));
+          RESOURCE_CONTAINER_TO_ARG.listSeparator(),
+          dependencies.getResources(),
+          RESOURCE_CONTAINER_TO_ARG);
     }
 
     // This flattens the nested set.

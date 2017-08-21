@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -241,18 +240,12 @@ public class ResourceContainerConverter {
 
     if (dependencies != null) {
       if (!dependencies.getTransitiveResources().isEmpty()) {
-        cmdBuilder.add(
-            "--data",
-            VectorArg.of(dependencies.getTransitiveResources())
-                .joinWithDynamicString(toArg.listSeparator())
-                .mapEach(toArg));
+        cmdBuilder.addJoined(
+            "--data", toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
       }
       if (!dependencies.getDirectResources().isEmpty()) {
-        cmdBuilder.add(
-            "--directData",
-            VectorArg.of(dependencies.getDirectResources())
-                .joinWithDynamicString(toArg.listSeparator())
-                .mapEach(toArg));
+        cmdBuilder.addJoined(
+            "--directData", toArg.listSeparator(), dependencies.getDirectResources(), toArg);
       }
       // This flattens the nested set. Since each ResourceContainer needs to be transformed into
       // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation

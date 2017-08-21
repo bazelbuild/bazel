@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
@@ -241,14 +240,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     CustomCommandLine.Builder cmdLineArgs = CustomCommandLine.builder();
     if (!transitiveAars.isEmpty()) {
-      cmdLineArgs.add(
-          "--android_libraries",
-          VectorArg.of(transitiveAars).joinWith(",").mapEach(AndroidLocalTestBase::aarCmdLineArg));
+      cmdLineArgs.addJoined(
+          "--android_libraries", ",", transitiveAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     if (!strictAars.isEmpty()) {
-      cmdLineArgs.add(
-          "--strict_libraries",
-          VectorArg.of(strictAars).joinWith(",").mapEach(AndroidLocalTestBase::aarCmdLineArg));
+      cmdLineArgs.addJoined(
+          "--strict_libraries", ",", strictAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(

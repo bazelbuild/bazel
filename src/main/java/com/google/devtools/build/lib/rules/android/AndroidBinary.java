@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1342,7 +1341,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
         CommandLine mergeCommandLine =
             CustomCommandLine.builder()
-                .addExecPaths(VectorArg.of(shardDexes).beforeEach("--input_zip"))
+                .addBeforeEachExecPath("--input_zip", shardDexes)
                 .addExecPath("--output_zip", classesDex)
                 .build();
         ruleContext.registerAction(
@@ -1566,7 +1565,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     CustomCommandLine.Builder shardCommandLine =
         CustomCommandLine.builder()
-            .addExecPaths(VectorArg.of(shards).beforeEach("--output_jar"))
+            .addBeforeEachExecPath("--output_jar", shards)
             .addExecPath("--output_resources", javaResourceJar);
 
     if (mainDexList != null) {
@@ -1621,7 +1620,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       } else {
         classpath = classpath.stream().map(derivedJarFunction::apply).collect(toImmutableList());
       }
-      shardCommandLine.addExecPaths(VectorArg.of(classpath).beforeEach("--input_jar"));
+      shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);
       shardAction.addInputs(classpath);
 
       if (inclusionFilterJar != null) {

@@ -87,7 +87,7 @@ public final class ParamFileHelper {
   public static CommandLine createWithParamsFile(
       ImmutableList<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
     return CustomCommandLine.builder()
-        .add(executableArgs)
+        .addAll(executableArgs)
         // This is actually a constant, but there is no way to suppress the warning
         .addWithDynamicPrefix(paramFileInfo.getFlag(), parameterFile)
         .build();
