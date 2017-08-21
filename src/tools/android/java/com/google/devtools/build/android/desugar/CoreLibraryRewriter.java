@@ -19,10 +19,8 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.ClassRemapper;
-import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 /** Utility class to prefix or unprefix class names of core library classes */
@@ -107,7 +105,7 @@ class CoreLibraryRewriter {
     @Override
     public void accept(ClassVisitor cv, Attribute[] attrs, int flags) {
       cv =
-          new ClassRemapperWithBugFix(
+          new ClassRemapper(
               cv,
               new Remapper() {
                 @Override
@@ -140,7 +138,7 @@ class CoreLibraryRewriter {
       this.cv = this.writer;
       if (!prefix.isEmpty()) {
         this.cv =
-            new ClassRemapperWithBugFix(
+            new ClassRemapper(
                 this.cv,
                 new Remapper() {
                   @Override
@@ -153,58 +151,6 @@ class CoreLibraryRewriter {
 
     byte[] toByteArray() {
       return writer.toByteArray();
-    }
-  }
-
-  /** ClassRemapper subclass to work around b/36654936 (caused by ASM bug 317785) */
-  private static class ClassRemapperWithBugFix extends ClassRemapper {
-
-    public ClassRemapperWithBugFix(ClassVisitor cv, Remapper remapper) {
-      super(cv, remapper);
-    }
-
-    @Override
-    protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-      return new MethodRemapper(mv, this.remapper) {
-
-        @Override
-        public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
-          if (this.mv != null) {
-            mv.visitFrame(
-                type,
-                nLocal,
-                remapEntriesWithBugfix(nLocal, local),
-                nStack,
-                remapEntriesWithBugfix(nStack, stack));
-          }
-        }
-
-        /**
-         * In {@code FrameNode.accept(MethodVisitor)}, when the frame is Opcodes.F_CHOP, it is
-         * possible that nLocal is greater than 0, and local is null, which causes MethodRemapper to
-         * throw a NPE. So the patch is to make sure that the {@code nLocal<=local.length} and
-         * {@code nStack<=stack.length}
-         */
-        private Object[] remapEntriesWithBugfix(int n, Object[] entries) {
-          if (entries == null || entries.length == 0) {
-            return entries;
-          }
-          for (int i = 0; i < n; i++) {
-            if (entries[i] instanceof String) {
-              Object[] newEntries = new Object[n];
-              if (i > 0) {
-                System.arraycopy(entries, 0, newEntries, 0, i);
-              }
-              do {
-                Object t = entries[i];
-                newEntries[i++] = t instanceof String ? remapper.mapType((String) t) : t;
-              } while (i < n);
-              return newEntries;
-            }
-          }
-          return entries;
-        }
-      };
     }
   }
 }
