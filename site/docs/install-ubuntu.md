@@ -16,6 +16,9 @@ Install Bazel on Ubuntu using one of the following methods:
 *   [Use the binary installer](#install-with-installer-ubuntu)
 *   [Compile Bazel from source](install-compile-source.md)
 
+To install Bazel on CentOS, you must install the `which` command. Then, follow
+the Ubuntu instructions below.
+
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
 *   access the [bash completion script](install.md)
