@@ -1894,40 +1894,28 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
 <p>
-  This option, which is currently enabled by default, specifies
-  whether the runfiles symlinks for tests and
-  <code>cc_binary</code> targets should be built in the output directory.
+  This option, which is enabled by default, specifies whether the runfiles
+  symlinks for tests and binaries should be built in the output directory.
   Using <code class='flag'>--nobuild_runfile_links</code> can be useful
   to validate if all targets compile without incurring the overhead
   for building the runfiles trees.
 
-  Within Bazel's output tree, the
-  runfiles symlink tree is typically rooted as a sibling of the corresponding
-  binary or test.
 </p>
 
 <p>
-  When tests (or applications) are executed, their
-  run-time data dependencies are gathered together in one place, and
-  may be accessed by the test using paths of the form
+  When tests (or applications) are executed, their run-time data
+  dependencies are gathered together in one place.  Within Bazel's
+  output tree, this "runfiles" tree is typically rooted as a sibling of
+  the corresponding binary or test.
+  During test execution, runfiles may be accessed using paths of the form
   <code>$TEST_SRCDIR/workspace/<var>packagename</var>/<var>filename</var></code>.
-  The "runfiles" tree ensures that tests have access to all the files
+  The runfiles tree ensures that tests have access to all the files
   upon which they have a declared dependence, and nothing more.  By
   default, the runfiles tree is implemented by constructing a set of
   symbolic links to the required files.  As the set of links grows, so
   does the cost of this operation, and for some large builds it can
   contribute significantly to overall build time, particularly because
   each individual test (or application) requires its own runfiles tree.
-</p>
-<p>
-  The <code class='flag'>--build_runfile_links</code> flag controls the
-  construction of the tree of symbolic links (for C++ applications and
-  tests only). The reasons only C++ non-test rules are affected are numerous
-  and subtle: C++ builds are more likely to be slower due to runfiles;
-  no C++ host tools (tools that run during the build) need their runfiles,
-  so this option can be used by the host configuration; and other rules
-  (notably Python) need their runfiles for other purposes besides test
-  execution.
 </p>
 
 <h4 id='flag--discard_analysis_cache'>
