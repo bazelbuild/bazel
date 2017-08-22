@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -184,12 +185,14 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setExecutable(ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST))
         .setMnemonic("AarFileExtractor")
         .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
-        .addArgument("x")
-        .addInputArgument(aar)
-        .addArgument("-d")
+        .addInput(aar)
         .addOutput(outputArtifact)
-        .addArgument(outputArtifact.getExecPath().getParentDirectory().getPathString())
-        .addArgument(filename)
+        .setCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("x", aar)
+                .addPath("-d", outputArtifact.getExecPath().getParentDirectory())
+                .addDynamicString(filename)
+                .build())
         .build(ruleContext);
   }
 
@@ -198,11 +201,14 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST))
         .setMnemonic("AarManifestFileEntriesExtractor")
-        .addArgument("x")
-        .addInputArgument(aar)
-        .addArgument("-d")
-        .addOutputArgument(outputTree)
-        .addArgument("@" + manifest.getExecPathString())
+        .addInput(aar)
+        .addOutput(outputTree)
+        .setCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("x", aar)
+                .addExecPath("-d", outputTree)
+                .addPrefixedExecPath("@", manifest)
+                .build())
         .addInput(manifest)
         .build(ruleContext);
   }
@@ -214,12 +220,15 @@ public class AarImport implements RuleConfiguredTargetFactory {
             ruleContext.getExecutablePrerequisite("$aar_embedded_jars_extractor", Mode.HOST))
         .setMnemonic("AarEmbeddedJarsExtractor")
         .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
-        .addArgument("--input_aar")
-        .addInputArgument(aar)
-        .addArgument("--output_dir")
-        .addOutputArgument(jarsTreeArtifact)
-        .addArgument("--output_singlejar_param_file")
-        .addOutputArgument(singleJarParamFile)
+        .addInput(aar)
+        .addOutput(jarsTreeArtifact)
+        .addOutput(singleJarParamFile)
+        .setCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("--input_aar", aar)
+                .addExecPath("--output_dir", jarsTreeArtifact)
+                .addExecPath("--output_singlejar_param_file", singleJarParamFile)
+                .build())
         .build(ruleContext);
   }
 
@@ -229,11 +238,14 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setMnemonic("AarJarsMerger")
         .setProgressMessage("Merging AAR embedded jars")
         .addInput(jarsTreeArtifact)
-        .addArgument("--output")
-        .addOutputArgument(mergedJar)
-        .addArgument("--dont_change_compression")
+        .addOutput(mergedJar)
         .addInput(paramFile)
-        .addArgument("@" + paramFile.getExecPathString())
+        .setCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("--output", mergedJar)
+                .add("--dont_change_compression")
+                .addPrefixedExecPath("@", paramFile)
+                .build())
         .build(ruleContext);
   }
 
@@ -244,25 +256,33 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setMnemonic("ZipManifestCreator")
         .setProgressMessage(
             "Creating manifest for %s matching %s", aar.getFilename(), filenameRegexp)
-        .addArgument(filenameRegexp)
-        .addInputArgument(aar)
-        .addOutputArgument(manifest)
+        .addInput(aar)
+        .addOutput(manifest)
+        .setCommandLine(
+            CustomCommandLine.builder()
+                .addDynamicString(filenameRegexp)
+                .addExecPath(aar)
+                .addExecPath(manifest)
+                .build())
         .build(ruleContext);
   }
 
   private static Action[] createAarNativeLibsFilterActions(RuleContext ruleContext, Artifact aar,
       Artifact outputZip) {
-    SpawnAction.Builder actionBuilder = new SpawnAction.Builder()
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$aar_native_libs_zip_creator", Mode.HOST))
-        .setMnemonic("AarNativeLibsFilter")
-        .setProgressMessage("Filtering AAR native libs by architecture")
-        .addArgument("--input_aar")
-        .addInputArgument(aar)
-        .addArgument("--cpu")
-        .addArgument(ruleContext.getConfiguration().getCpu())
-        .addArgument("--output_zip")
-        .addOutputArgument(outputZip);
+    SpawnAction.Builder actionBuilder =
+        new SpawnAction.Builder()
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$aar_native_libs_zip_creator", Mode.HOST))
+            .setMnemonic("AarNativeLibsFilter")
+            .setProgressMessage("Filtering AAR native libs by architecture")
+            .addInput(aar)
+            .addOutput(outputZip)
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--input_aar", aar)
+                    .add("--cpu", ruleContext.getConfiguration().getCpu())
+                    .addExecPath("--output_zip", outputZip)
+                    .build());
     return actionBuilder.build(ruleContext);
   }
 
