@@ -1517,14 +1517,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns true if runfiles support should create the runfiles tree, or
-   * false if it should just create the manifest.
-   */
-  public boolean shouldCreateRunfilesSymlinks() {
-    return getConfiguration().buildRunfiles();
-  }
-
-  /**
    * @return true if {@code rule} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision

@@ -747,6 +747,18 @@ public final class BuildConfiguration implements BuildEvent {
     public boolean useLLVMCoverageMapFormat;
 
     @Option(
+      name = "build_runfile_manifests",
+      defaultValue = "true",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, write runfiles manifests for all targets.  "
+              + "If false, omit them."
+    )
+    public boolean buildRunfilesManifests;
+
+    @Option(
       name = "build_runfile_links",
       defaultValue = "true",
       category = "strategy",
@@ -1044,6 +1056,7 @@ public final class BuildConfiguration implements BuildEvent {
       }
 
       // === Runfiles ===
+      host.buildRunfilesManifests = buildRunfilesManifests;
       host.buildRunfiles = buildRunfiles;
 
       // === Linkstamping ===
@@ -1871,6 +1884,13 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public boolean extendedSanityChecks() {
     return options.extendedSanityChecks;
+  }
+
+  /**
+   * Returns true if we are building runfiles manifests for this configuration.
+   */
+  public boolean buildRunfilesManifests() {
+    return options.buildRunfilesManifests;
   }
 
   /**

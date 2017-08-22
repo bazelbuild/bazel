@@ -93,7 +93,8 @@ public final class RunfilesSupport {
       Runfiles runfiles,
       CommandLine args) {
     owningExecutable = Preconditions.checkNotNull(executable);
-    createSymlinks = ruleContext.shouldCreateRunfilesSymlinks();
+    boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
+    createSymlinks = createManifest && ruleContext.getConfiguration().buildRunfiles();
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -118,10 +119,14 @@ public final class RunfilesSupport {
     }
 
     Artifact artifactsMiddleman = createArtifactsMiddleman(ruleContext, runfiles.getAllArtifacts());
-    runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
-    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
-    this.runfilesMiddleman = createRunfilesMiddleman(
-        ruleContext, artifactsMiddleman, runfilesManifest);
+    if (createManifest) {
+      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
+      runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
+    } else {
+      runfilesInputManifest = artifactsMiddleman;
+      runfilesManifest = artifactsMiddleman;
+    }
+    runfilesMiddleman = createRunfilesMiddleman(ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
 
     this.args = args;

@@ -1918,6 +1918,15 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   each individual test (or application) requires its own runfiles tree.
 </p>
 
+<h4 id='flag--build_runfile_manifests'><code class='flag'>--[no]build_runfile_manifests</code></h4>
+<p>
+  This option, which is enabled by default, specifies whether runfiles manifests
+  should be written to the output tree.
+  Disabling it implies <code class='flag'>--nobuild_runfile_links</code>.
+
+  It can be disabled when executing tests on Forge, as runfiles trees will
+  be created remotely from in-memory manifests.
+
 <h4 id='flag--discard_analysis_cache'>
   <code class='flag'>--[no]discard_analysis_cache</code></h4>
 <p>

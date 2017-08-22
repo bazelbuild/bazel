@@ -85,9 +85,6 @@ function test_run_py_test() {
 }
 
 function test_runfiles_present_cc_binary() {
-  # cc_binary is needed because runfiles are always created for Python
-  # and shell binaries, so --nobuild_runfile_links does not apply to them.
-  # (see RuleConfiguredTarget.shouldCreateRunfilesSymlinks())
   write_cc_source_files
 
   cat > cc/hello_kitty.txt <<EOF
