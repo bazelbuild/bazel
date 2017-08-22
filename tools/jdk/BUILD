@@ -181,6 +181,8 @@ java_toolchain(
     ],
     misc = [
         "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
     ],
     singlejar = ["@bazel_tools//tools/jdk:singlejar"],
     source_version = "8",
