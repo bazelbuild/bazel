@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -361,7 +362,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     @SuppressWarnings("unchecked")
     List<String> argumentsContents = arguments.getContents(String.class, "arguments");
 
-    builder.addArguments(argumentsContents);
+    builder.setCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
       builder.addInput(executable);
@@ -515,17 +516,18 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
     SpawnAction.Builder builder = new SpawnAction.Builder();
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     if (arguments.size() > 0) {
       // When we use a shell command, add an empty argument before other arguments.
       //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
       // bash will use the empty argument as the value of $0 (which we don't care about).
       // arg1 and arg2 will be $1 and $2, as a user expects.
-      builder.addArgument("");
+      commandLine.add("");
     }
 
     @SuppressWarnings("unchecked")
     List<String> argumentsContents = arguments.getContents(String.class, "arguments");
-    builder.addArguments(argumentsContents);
+    commandLine.addAll(argumentsContents);
 
     if (commandUnchecked instanceof String) {
       builder.setShellCommand((String) commandUnchecked);
@@ -543,6 +545,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           "expected string or list of strings for command instead of "
               + EvalUtils.getDataTypeName(commandUnchecked));
     }
+    builder.setCommandLine(commandLine.build());
     registerSpawnAction(
         outputs,
         inputs,
