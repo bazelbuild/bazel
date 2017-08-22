@@ -1229,7 +1229,10 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
       blaze_util::JoinPath(globals->options->output_base, "server/jvm.out");
 }
 
-static void CheckEnvironmentOrDie() {
+// Prepares the environment to be suitable to start a JVM.
+// Changes made to the environment in this function *will not* be part
+// of '--client_env'.
+static void PrepareEnvironmentForJvm() {
   if (!blaze::GetEnv("http_proxy").empty()) {
     PrintWarning("ignoring http_proxy in environment.");
     blaze::UnsetEnv("http_proxy");
@@ -1271,8 +1274,6 @@ static void CheckEnvironmentOrDie() {
   blaze::SetEnv("LANGUAGE", "en_US.ISO-8859-1");
   blaze::SetEnv("LC_ALL", "en_US.ISO-8859-1");
   blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
-
-  blaze::DetectBashOrDie();
 }
 
 static string CheckAndGetBinaryPath(const string &argv0) {
@@ -1341,13 +1342,19 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
+
+  // Must be done before command line parsing.
+  // ParseOptions already populate --client_env, so detect bash before it
+  // happens.
+  DetectBashOrDie();
+
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
   blaze::SetDebugLog(globals->options->client_debug);
   debug_log("Debug logging active");
 
-  CheckEnvironmentOrDie();
+  PrepareEnvironmentForJvm();
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();
