@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -70,7 +71,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -197,35 +197,35 @@ public class AndroidCommon {
       RuleContext ruleContext,
       Artifact jarToDex, Artifact classesDex, List<String> dexOptions, boolean multidex,
       Artifact mainDexList) {
-    List<String> args = new ArrayList<>();
-    args.add("--dex");
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
+    commandLine.add("--dex");
 
     // Multithreaded dex does not work when using --multi-dex.
     if (!multidex) {
       // Multithreaded dex tends to run faster, but only up to about 5 threads (at which point the
       // law of diminishing returns kicks in). This was determined experimentally, with 5-thread dex
       // performing about 25% faster than 1-thread dex.
-      args.add("--num-threads=5");
+      commandLine.add("--num-threads=5");
     }
 
-    args.addAll(dexOptions);
+    commandLine.addAll(dexOptions);
     if (multidex) {
-      args.add("--multi-dex");
+      commandLine.add("--multi-dex");
       if (mainDexList != null) {
-        args.add("--main-dex-list=" + mainDexList.getExecPathString());
+        commandLine.addPrefixedExecPath("--main-dex-list=", mainDexList);
       }
     }
-    args.add("--output=" + classesDex.getExecPathString());
-    args.add(jarToDex.getExecPathString());
+    commandLine.addPrefixedExecPath("--output=", classesDex);
+    commandLine.addExecPath(jarToDex);
 
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
             .addInput(jarToDex)
             .addOutput(classesDex)
-            .addArguments(args)
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
+            .setCommandLine(commandLine.build())
             .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
     if (mainDexList != null) {
       builder.addInput(mainDexList);
@@ -494,15 +494,22 @@ public class AndroidCommon {
       FilesToRunProvider jarjar =
           ruleContext.getExecutablePrerequisite("$jarjar_bin", Mode.HOST);
 
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .setExecutable(jarjar)
-          .addArgument("process")
-          .addInputArgument(jarJarRuleFile)
-          .addInputArgument(binaryResourcesJar)
-          .addOutputArgument(resourcesJar)
-          .setProgressMessage("Repackaging jar")
-          .setMnemonic("AndroidRepackageJar")
-          .build(ruleContext));
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .setExecutable(jarjar)
+              .setProgressMessage("Repackaging jar")
+              .setMnemonic("AndroidRepackageJar")
+              .addInput(jarJarRuleFile)
+              .addInput(binaryResourcesJar)
+              .addOutput(resourcesJar)
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .add("process")
+                      .addExecPath(jarJarRuleFile)
+                      .addExecPath(binaryResourcesJar)
+                      .addExecPath(resourcesJar)
+                      .build())
+              .build(ruleContext));
       jarsProducedForRuntime.add(resourcesJar);
     }
   }
