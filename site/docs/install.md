@@ -8,7 +8,7 @@ title: Installing Bazel
 See the instructions for installing Bazel on:
 
 *   [Linux](install-ubuntu.md)
-*   [Mac OS X](install-os-x.md)
+*   [macOS](install-os-x.md)
 *   [Windows](install-windows.md)
 
 For other platforms, you can try to [compile from source](install-compile-source.md).
