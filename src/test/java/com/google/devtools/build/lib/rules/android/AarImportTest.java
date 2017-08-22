@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.rules.android;
+package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider;
-import com.google.devtools.build.lib.rules.android.NativeLibsZipsProvider;
-import com.google.devtools.build.lib.rules.android.ResourceContainer;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
@@ -95,8 +92,8 @@ public class AarImportTest extends BuildViewTestCase {
     NestedSet<Artifact> nativeLibs =
         androidLibraryTarget.getProvider(NativeLibsZipsProvider.class).getAarNativeLibs();
     assertThat(nativeLibs).containsExactly(
-        actionsTestUtil().getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
-        actionsTestUtil().getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"));
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"));
   }
 
   @Test
