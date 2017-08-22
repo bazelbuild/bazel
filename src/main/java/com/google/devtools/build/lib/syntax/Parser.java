@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.Parser.Dialect.SKYLARK;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -108,15 +106,6 @@ public class Parser {
           TokenKind.RPAREN,
           TokenKind.SEMI);
 
-  private static final EnumSet<TokenKind> BLOCK_STARTING_SET =
-      EnumSet.of(
-          TokenKind.CLASS,
-          TokenKind.DEF,
-          TokenKind.ELSE,
-          TokenKind.FOR,
-          TokenKind.IF,
-          TokenKind.TRY);
-
   private static final EnumSet<TokenKind> EXPR_TERMINATOR_SET =
       EnumSet.of(
           TokenKind.COLON,
@@ -130,14 +119,6 @@ public class Parser {
           TokenKind.RPAREN,
           TokenKind.SLASH);
 
-  /**
-   * Keywords that are forbidden in both Skylark and BUILD parsing modes.
-   *
-   * <p>(Mapping: token -> human-readable string description)
-   */
-  private static final ImmutableMap<TokenKind, String> ILLEGAL_BLOCK_KEYWORDS =
-      ImmutableMap.of(TokenKind.CLASS, "Class definition", TokenKind.TRY, "Try statement");
-
   private Token token; // current lookahead token
   private Token pushedToken = null; // used to implement LL(2)
   private int loopCount; // break/continue keywords can be used only inside a loop
@@ -147,7 +128,6 @@ public class Parser {
   private final Lexer lexer;
   private final EventHandler eventHandler;
   private final List<Comment> comments;
-  private final Dialect dialect;
 
   private static final Map<TokenKind, Operator> binaryOperators =
       new ImmutableMap.Builder<TokenKind, Operator>()
@@ -198,10 +178,9 @@ public class Parser {
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
-  private Parser(Lexer lexer, EventHandler eventHandler, Dialect dialect) {
+  private Parser(Lexer lexer, EventHandler eventHandler) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
-    this.dialect = dialect;
     this.tokens = lexer.getTokens().iterator();
     this.comments = new ArrayList<>();
     nextToken();
@@ -229,13 +208,15 @@ public class Parser {
   public static ParseResult parseFile(
       ParserInputSource input, EventHandler eventHandler, Dialect dialect) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, dialect);
+    Parser parser = new Parser(lexer, eventHandler);
     List<Statement> statements = parser.parseFileInput();
+    boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
+    // TODO(laurentlb): Remove dialect argument.
+    if (dialect == Dialect.BUILD) {
+      errors |= !ValidationEnvironment.checkBuildSyntax(statements, eventHandler);
+    }
     return new ParseResult(
-        statements,
-        parser.comments,
-        locationFromStatements(lexer, statements),
-        parser.errorsCount > 0 || lexer.containsErrors());
+        statements, parser.comments, locationFromStatements(lexer, statements), errors);
   }
 
   /**
@@ -245,10 +226,9 @@ public class Parser {
    * function definitions, for statements, etc., are allowed.
    */
   public static List<Statement> parseStatements(
-      ParserInputSource input, EventHandler eventHandler,
-      ParsingLevel parsingLevel, Dialect dialect) {
+      ParserInputSource input, EventHandler eventHandler, ParsingLevel parsingLevel) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, dialect);
+    Parser parser = new Parser(lexer, eventHandler);
     List<Statement> result = new ArrayList<>();
     parser.parseStatement(result, parsingLevel);
     while (parser.token.kind == TokenKind.NEWLINE) {
@@ -264,18 +244,15 @@ public class Parser {
    * @throws IllegalArgumentException if the number of parsed statements was not exactly one
    */
   public static Statement parseStatement(
-      ParserInputSource input, EventHandler eventHandler,
-      ParsingLevel parsingLevel, Dialect dialect) {
-    List<Statement> stmts = parseStatements(
-        input, eventHandler, parsingLevel, dialect);
+      ParserInputSource input, EventHandler eventHandler, ParsingLevel parsingLevel) {
+    List<Statement> stmts = parseStatements(input, eventHandler, parsingLevel);
     return Iterables.getOnlyElement(stmts);
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  public static Expression parseExpression(
-      ParserInputSource input, EventHandler eventHandler, Dialect dialect) {
+  public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, dialect);
+    Parser parser = new Parser(lexer, eventHandler);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
       parser.nextToken();
@@ -364,10 +341,24 @@ public class Parser {
 
   // Keywords that exist in Python and that we don't parse.
   private static final EnumSet<TokenKind> FORBIDDEN_KEYWORDS =
-      EnumSet.of(TokenKind.AS, TokenKind.ASSERT,
-          TokenKind.DEL, TokenKind.EXCEPT, TokenKind.FINALLY, TokenKind.FROM, TokenKind.GLOBAL,
-          TokenKind.IMPORT, TokenKind.IS, TokenKind.LAMBDA, TokenKind.NONLOCAL, TokenKind.RAISE,
-          TokenKind.TRY, TokenKind.WITH, TokenKind.WHILE, TokenKind.YIELD);
+      EnumSet.of(
+          TokenKind.AS,
+          TokenKind.ASSERT,
+          TokenKind.CLASS,
+          TokenKind.DEL,
+          TokenKind.EXCEPT,
+          TokenKind.FINALLY,
+          TokenKind.FROM,
+          TokenKind.GLOBAL,
+          TokenKind.IMPORT,
+          TokenKind.IS,
+          TokenKind.LAMBDA,
+          TokenKind.NONLOCAL,
+          TokenKind.RAISE,
+          TokenKind.TRY,
+          TokenKind.WITH,
+          TokenKind.WHILE,
+          TokenKind.YIELD);
 
   private void checkForbiddenKeywords(Token token) {
     if (!FORBIDDEN_KEYWORDS.contains(token.kind)) {
@@ -450,22 +441,12 @@ public class Parser {
     final int start = token.left;
     // parse **expr
     if (token.kind == TokenKind.STAR_STAR) {
-      if (dialect != SKYLARK) {
-        reportError(
-            lexer.createLocation(token.left, token.right),
-            "**kwargs arguments are not allowed in BUILD files");
-      }
       nextToken();
       Expression expr = parseNonTupleExpression();
       return setLocation(new Argument.StarStar(expr), start, expr);
     }
     // parse *expr
     if (token.kind == TokenKind.STAR) {
-      if (dialect != SKYLARK) {
-        reportError(
-            lexer.createLocation(token.left, token.right),
-            "*args arguments are not allowed in BUILD files");
-      }
       nextToken();
       Expression expr = parseNonTupleExpression();
       return setLocation(new Argument.Star(expr), start, expr);
@@ -1364,61 +1345,24 @@ public class Parser {
     return list;
   }
 
-  // skipSuite does not check that the code is syntactically correct, it
-  // just skips based on indentation levels.
-  private void skipSuite() {
-    if (token.kind == TokenKind.NEWLINE) {
-      expect(TokenKind.NEWLINE);
-      if (token.kind != TokenKind.INDENT) {
-        reportError(lexer.createLocation(token.left, token.right),
-                    "expected an indented block");
-        return;
-      }
-      expect(TokenKind.INDENT);
-
-      // Don't try to parse all the Python syntax, just skip the block
-      // until the corresponding outdent token.
-      int depth = 1;
-      while (depth > 0) {
-        // Because of the way the lexer works, this should never happen
-        Preconditions.checkState(token.kind != TokenKind.EOF);
-
-        if (token.kind == TokenKind.INDENT) {
-          depth++;
-        }
-        if (token.kind == TokenKind.OUTDENT) {
-          depth--;
-        }
-        nextToken();
-      }
-
-    } else {
-      // the block ends at the newline token
-      // e.g.  if x == 3: print "three"
-      syncTo(STATEMENT_TERMINATOR_SET);
-    }
-  }
-
   // stmt ::= simple_stmt
   //        | compound_stmt
   private void parseStatement(List<Statement> list, ParsingLevel parsingLevel) {
-    if (token.kind == TokenKind.DEF && dialect == SKYLARK) {
+    if (token.kind == TokenKind.DEF) {
       if (parsingLevel == ParsingLevel.LOCAL_LEVEL) {
         reportError(lexer.createLocation(token.left, token.right),
             "nested functions are not allowed. Move the function to top-level");
       }
       parseFunctionDefStatement(list);
-    } else if (token.kind == TokenKind.IF && dialect == SKYLARK) {
+    } else if (token.kind == TokenKind.IF) {
       list.add(parseIfStatement());
-    } else if (token.kind == TokenKind.FOR && dialect == SKYLARK) {
+    } else if (token.kind == TokenKind.FOR) {
       if (parsingLevel == ParsingLevel.TOP_LEVEL) {
         reportError(
             lexer.createLocation(token.left, token.right),
             "for loops are not allowed on top-level. Put it into a function");
       }
       parseForStatement(list);
-    } else if (BLOCK_STARTING_SET.contains(token.kind)) {
-      skipBlock();
     } else {
       parseSimpleStatement(list);
     }
@@ -1454,28 +1398,6 @@ public class Parser {
         expression = parseExpression();
     }
     return setLocation(new ReturnStatement(expression), start, expression);
-  }
-
-  // block ::= ('if' | 'for' | 'class' | 'try' | 'def') expr ':' suite
-  private void skipBlock() {
-    int start = token.left;
-    Token blockToken = token;
-    syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
-    if (blockToken.kind == TokenKind.ELSE) {
-      reportError(
-          lexer.createLocation(blockToken.left, blockToken.right),
-          "syntax error at 'else': not allowed here.");
-    } else {
-      String msg =
-          ILLEGAL_BLOCK_KEYWORDS.containsKey(blockToken.kind)
-              ? String.format("%ss are not supported.", ILLEGAL_BLOCK_KEYWORDS.get(blockToken.kind))
-              : "This is not supported in BUILD files. Move the block to a .bzl file and load it";
-      reportError(
-          lexer.createLocation(start, token.right),
-          String.format("syntax error at '%s': %s", blockToken, msg));
-    }
-    expect(TokenKind.COLON);
-    skipSuite();
   }
 
   // create a comment node

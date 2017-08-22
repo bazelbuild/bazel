@@ -1314,16 +1314,17 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/macro.bzl",
         "x = 5");
 
-    scratch.file("test/skylark/BUILD",
+    scratch.file(
+        "test/skylark/BUILD",
         "load('//test/skylark:macro.bzl', 'x')",
-        "if 0: pass", // syntax error
+        "pass", // syntax error
         "print(1 / (5 - x)"); // division by 0
 
     // Make sure that evaluation continues and load() succeeds, despite a syntax
     // error in the file.
     // We can get the division by 0 only if x was correctly loaded.
     getConfiguredTarget("//test/skylark:a");
-    assertContainsEvent("syntax error at 'if'");
+    assertContainsEvent("syntax error");
     assertContainsEvent("integer division by zero");
   }
 

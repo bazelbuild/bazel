@@ -289,4 +289,48 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   private void closeBlock() {
     block = Preconditions.checkNotNull(block.parent);
   }
+
+  /**
+   * Checks that the AST is using the restricted syntax.
+   *
+   * <p>Restricted syntax is used by Bazel BUILD files. It forbids function definitions, *args, and
+   * **kwargs. This creates a better separation between code and data.
+   */
+  public static boolean checkBuildSyntax(
+      List<Statement> statements, final EventHandler eventHandler) {
+    // Wrap the boolean inside an array so that the inner class can modify it.
+    final boolean[] success = new boolean[] {true};
+    // TODO(laurentlb): Merge with the visitor above when possible (i.e. when BUILD files use it).
+    SyntaxTreeVisitor checker =
+        new SyntaxTreeVisitor() {
+          @Override
+          public void visit(FuncallExpression node) {
+            for (Argument.Passed arg : node.getArguments()) {
+              if (arg.isStarStar()) {
+                eventHandler.handle(
+                    Event.error(
+                        node.getLocation(), "**kwargs arguments are not allowed in BUILD files"));
+                success[0] = false;
+              } else if (arg.isStar()) {
+                eventHandler.handle(
+                    Event.error(
+                        node.getLocation(), "*args arguments are not allowed in BUILD files"));
+                success[0] = false;
+              }
+            }
+          }
+
+          @Override
+          public void visit(FunctionDefStatement node) {
+            eventHandler.handle(
+                Event.error(
+                    node.getLocation(),
+                    "syntax error at 'def': This is not supported in BUILD files. "
+                        + "Move the block to a .bzl file and load it"));
+            success[0] = false;
+          }
+        };
+    checker.visitAll(statements);
+    return success[0];
+  }
 }
