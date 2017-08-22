@@ -3,28 +3,28 @@ layout: documentation
 title: Installing Bazel on Ubuntu
 ---
 
-# <a name="ubuntu"></a>Install Bazel on Ubuntu
+# <a name="ubuntu"></a>Install Bazel on Linux
 
-Supported Ubuntu Linux platforms:
+Supported Linux platforms:
 
-*   16.04 (LTS)
-*   14.04 (LTS)
+*  Ubuntu
+   *   16.04 (LTS)
+   *   14.04 (LTS)
+*  CentOS 6.7
 
-Install Bazel on Ubuntu using one of the following methods:
 
-*   [Use our custom APT repository (recommended)](#install-on-ubuntu)
-*   [Use the binary installer](#install-with-installer-ubuntu)
+Install Bazel on Linux using one of the following methods:
+
+*   [Use our custom APT repository (recommended)](#install-on-linux)
+*   [Use the binary installer](#install-with-installer-linux)
 *   [Compile Bazel from source](install-compile-source.md)
-
-To install Bazel on CentOS, you must install the `which` command. Then, follow
-the Ubuntu instructions below.
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
 *   access the [bash completion script](install.md)
 *   install the [zsh completion script](install.md)
 
-## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository (recommended)
+## <a name="install-on-linux"></a> Using Bazel custom APT repository (recommended)
 
 ### 1. Install JDK 8
 
@@ -63,7 +63,7 @@ Once installed, you can upgrade to a newer version of Bazel with:
 sudo apt-get upgrade bazel
 ```
 
-## <a name="install-with-installer-ubuntu"></a>Install using binary installer
+## <a name="install-with-installer-linux"></a>Install using binary installer
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
