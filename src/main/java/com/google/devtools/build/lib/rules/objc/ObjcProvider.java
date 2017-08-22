@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
@@ -55,7 +55,7 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for compilation and linking of objc."
 )
-public final class ObjcProvider extends Info {
+public final class ObjcProvider extends NativeInfo {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -492,11 +492,6 @@ public final class ObjcProvider extends Info {
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
-  }
-
-  @Override
-  public Concatter getConcatter() {
-    return null;
   }
 
   /**

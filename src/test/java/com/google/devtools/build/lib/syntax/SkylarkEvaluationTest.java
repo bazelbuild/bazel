@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -1417,7 +1417,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
-  static final class SkylarkClassObjectWithSkylarkCallables extends Info {
+  static final class SkylarkClassObjectWithSkylarkCallables extends NativeInfo {
     private static final NativeProvider<SkylarkClassObjectWithSkylarkCallables> CONSTRUCTOR =
         new NativeProvider<SkylarkClassObjectWithSkylarkCallables>(
             SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};

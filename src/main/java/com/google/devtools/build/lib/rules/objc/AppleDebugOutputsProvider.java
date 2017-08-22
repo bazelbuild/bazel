@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -37,7 +37,7 @@ import java.util.Map.Entry;
  * <p>Example: { "arm64": { "bitcode_symbols": Artifact, "dsym_binary": Artifact } }
  */
 @Immutable
-public final class AppleDebugOutputsProvider extends Info {
+public final class AppleDebugOutputsProvider extends NativeInfo {
 
   /** Expected types of debug outputs. */
   enum OutputType {

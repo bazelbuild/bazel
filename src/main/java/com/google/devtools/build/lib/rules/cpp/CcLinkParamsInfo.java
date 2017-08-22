@@ -18,13 +18,13 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 
 /** A target that provides C linker parameters. */
 @Immutable
-public final class CcLinkParamsInfo extends Info {
+public final class CcLinkParamsInfo extends NativeInfo {
   public static final NativeProvider<CcLinkParamsInfo> PROVIDER =
       new NativeProvider<CcLinkParamsInfo>(CcLinkParamsInfo.class, "link_params") {};
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =

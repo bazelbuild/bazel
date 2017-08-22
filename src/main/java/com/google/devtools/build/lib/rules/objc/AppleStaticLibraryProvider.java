@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
  *       included in this archive multiple times).
  * </ul>
  */
-public final class AppleStaticLibraryProvider extends Info {
+public final class AppleStaticLibraryProvider extends NativeInfo {
 
   /** Skylark name for the AppleStaticLibraryProvider. */
   public static final String SKYLARK_NAME = "AppleStaticLibrary";

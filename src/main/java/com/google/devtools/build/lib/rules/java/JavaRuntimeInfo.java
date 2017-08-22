@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
-public class JavaRuntimeInfo extends Info {
+public class JavaRuntimeInfo extends NativeInfo {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
   public static final NativeProvider<JavaRuntimeInfo> PROVIDER =

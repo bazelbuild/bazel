@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentInfo extends Info {
+public final class TestEnvironmentInfo extends NativeInfo {
 
   /** Skylark constructor and identifier for TestEnvironmentInfo. */
   public static final NativeProvider<TestEnvironmentInfo> PROVIDER =

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidHostServiceFixtureInfoProvider extends Info {
+public class AndroidHostServiceFixtureInfoProvider extends NativeInfo {
 
   private static final String SKYLARK_NAME = "HostServiceFixtureInfo";
   static final NativeProvider<AndroidHostServiceFixtureInfoProvider>

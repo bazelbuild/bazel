@@ -19,14 +19,14 @@ import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A tuple containing information about a version of xcode and its properties. */
 @Immutable
-public class XcodeVersionProperties extends Info {
+public class XcodeVersionProperties extends NativeInfo {
 
   /** Skylark name for the XcodeVersionProperties provider. */
   public static final String SKYLARK_NAME = "XcodeProperties";

@@ -19,16 +19,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
 @Immutable
-public final class DefaultInfo extends Info {
+public final class DefaultInfo extends NativeInfo {
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -47,23 +46,24 @@ public final class DefaultInfo extends Info {
   private final AtomicReference<SkylarkNestedSet> files = new AtomicReference<>();
 
   public static final String SKYLARK_NAME = "DefaultInfo";
-  public static final Provider PROVIDER =
-      new NativeProvider<Info>(Info.class, SKYLARK_NAME) {
+
+  // todo(dslomov,vladmos): make this provider return DefaultInfo.
+  public static final NativeProvider<NativeInfo> PROVIDER =
+      new NativeProvider<NativeInfo>(NativeInfo.class, SKYLARK_NAME) {
         @Override
-        protected Info createInstanceFromSkylark(Object[] args, Location loc) {
+        protected NativeInfo createInstanceFromSkylark(Object[] args, Location loc) {
           @SuppressWarnings("unchecked")
           Map<String, Object> kwargs = (Map<String, Object>) args[0];
-          return new Info(this, kwargs, loc);
+          return new NativeInfo(this, kwargs, loc);
         }
       };
 
   private DefaultInfo(
-      Provider constructor,
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
     // Fields map is not used here to prevent memory regression
-    super(constructor, ImmutableMap.<String, Object>of());
+    super(PROVIDER, ImmutableMap.<String, Object>of());
     this.runfilesProvider = runfilesProvider;
     this.fileProvider = fileProvider;
     this.filesToRunProvider = filesToRunProvider;
@@ -73,8 +73,7 @@ public final class DefaultInfo extends Info {
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
-    return new DefaultInfo(
-        PROVIDER, runfilesProvider, fileProvider, filesToRunProvider);
+    return new DefaultInfo(runfilesProvider, fileProvider, filesToRunProvider);
   }
 
   @Override

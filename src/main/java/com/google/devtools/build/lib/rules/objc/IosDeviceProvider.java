@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 
 /** Provider that describes a simulator device. */
 @Immutable
-public final class IosDeviceProvider extends Info {
+public final class IosDeviceProvider extends NativeInfo {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
     private String type;

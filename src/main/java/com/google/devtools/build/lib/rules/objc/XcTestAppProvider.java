@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.util.Preconditions;
       "Deprecated. A provider for XCTest apps for testing. This is a legacy provider and should "
           + "not be used."
 )
-public final class XcTestAppProvider extends Info {
+public final class XcTestAppProvider extends NativeInfo {
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */

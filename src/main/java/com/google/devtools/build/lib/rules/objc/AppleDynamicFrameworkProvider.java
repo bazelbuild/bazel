@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  *       executable may avoid relinking symbols included in the loadable binary
  * </ul>
  */
-public final class AppleDynamicFrameworkProvider extends Info {
+public final class AppleDynamicFrameworkProvider extends NativeInfo {
 
   /** Skylark name for the AppleDynamicFrameworkProvider. */
   public static final String SKYLARK_NAME = "AppleDynamicFramework";

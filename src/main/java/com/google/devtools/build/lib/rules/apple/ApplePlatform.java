@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -219,7 +221,7 @@ public enum ApplePlatform implements SkylarkValue {
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
-    return new Info(constructor, fields);
+    return new SkylarkInfo(constructor, fields, Location.BUILTIN);
   }
 
   @Override
@@ -293,7 +295,7 @@ public enum ApplePlatform implements SkylarkValue {
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);
       }
-      return new Info(constructor, fields);
+      return new SkylarkInfo(constructor, fields, Location.BUILTIN);
     }
 
     @Override

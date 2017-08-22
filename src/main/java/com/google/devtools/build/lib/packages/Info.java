@@ -15,20 +15,15 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -48,24 +43,21 @@ import javax.annotation.Nullable;
           + "See the global <a href=\"globals.html#struct\">struct</a> function "
           + "for more details."
 )
-public class Info implements ClassObject, SkylarkValue, Concatable, Serializable {
+public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   private final Provider provider;
-  private final ImmutableMap<String, Object> values;
   private final Location creationLoc;
   private final String errorMessage;
 
   /** Creates an empty struct with a given location. */
   public Info(Provider provider, Location location) {
     this.provider = provider;
-    this.values = ImmutableMap.of();
     this.creationLoc = location;
     this.errorMessage = provider.getErrorMessageFormatForInstances();
   }
 
   /** Creates a built-in struct (i.e. without creation loc). */
-  public Info(Provider provider, Map<String, Object> values) {
+  public Info(Provider provider) {
     this.provider = provider;
-    this.values = copyValues(values);
     this.creationLoc = null;
     this.errorMessage = provider.getErrorMessageFormatForInstances();
   }
@@ -80,20 +72,12 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
    */
   Info(Provider provider, Map<String, Object> values, String errorMessage) {
     this.provider = provider;
-    this.values = copyValues(values);
     this.creationLoc = null;
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
   }
 
-  public Info(Provider provider, Map<String, Object> values, Location creationLoc) {
-    this.provider = provider;
-    this.values = copyValues(values);
-    this.creationLoc = Preconditions.checkNotNull(creationLoc);
-    this.errorMessage = provider.getErrorMessageFormatForInstances();
-  }
-
   // Ensure that values are all acceptable to Skylark before to stuff them in a ClassObject
-  private ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
+  protected static ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(
@@ -102,18 +86,11 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
     return builder.build();
   }
 
-  @Override
-  public Object getValue(String name) {
-    return values.get(name);
-  }
-
-  public boolean hasKey(String name) {
-    return values.containsKey(name);
-  }
+  public abstract boolean hasKey(String name);
 
   /** Returns a value and try to cast it into specified type */
   public <TYPE> TYPE getValue(String key, Class<TYPE> type) throws EvalException {
-    Object obj = values.get(key);
+    Object obj = getValue(key);
     if (obj == null) {
       return null;
     }
@@ -121,18 +98,8 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
     return type.cast(obj);
   }
 
-  @Override
-  public ImmutableCollection<String> getKeys() {
-    return values.keySet();
-  }
-
   public Location getCreationLoc() {
     return Preconditions.checkNotNull(creationLoc, "This struct was not created in a Skylark code");
-  }
-
-  @Override
-  public Concatter getConcatter() {
-    return StructConcatter.INSTANCE;
   }
 
   public Provider getProvider() {
@@ -144,55 +111,11 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
     return creationLoc;
   }
 
-  private static class StructConcatter implements Concatter {
-    private static final StructConcatter INSTANCE = new StructConcatter();
-
-    private StructConcatter() {}
-
-    @Override
-    public Info concat(Concatable left, Concatable right, Location loc) throws EvalException {
-      Info lval = (Info) left;
-      Info rval = (Info) right;
-      if (!lval.provider.equals(rval.provider)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "Cannot concat %s with %s",
-                lval.provider.getPrintableName(), rval.provider.getPrintableName()));
-      }
-      SetView<String> commonFields = Sets.intersection(lval.values.keySet(), rval.values.keySet());
-      if (!commonFields.isEmpty()) {
-        throw new EvalException(
-            loc,
-            "Cannot concat structs with common field(s): " + Joiner.on(",").join(commonFields));
-      }
-      return new Info(
-          lval.provider,
-          ImmutableMap.<String, Object>builder().putAll(lval.values).putAll(rval.values).build(),
-          loc);
-    }
-  }
-
   @Override
   public String errorMessage(String name) {
     String suffix =
-        "Available attributes: "
-            + Joiner.on(", ").join(Ordering.natural().sortedCopy(values.keySet()));
+        "Available attributes: " + Joiner.on(", ").join(Ordering.natural().sortedCopy(getKeys()));
     return String.format(errorMessage, name) + "\n" + suffix;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    // If the provider is not yet exported the hash code of the object is subject to change
-    if (!provider.isExported()) {
-      return false;
-    }
-    for (Object item : values.values()) {
-      if (!EvalUtils.isImmutable(item)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   @Override
@@ -241,14 +164,14 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(values.keySet())) {
+    for (String key : Ordering.natural().sortedCopy(getKeys())) {
       if (!first) {
         printer.append(", ");
       }
       first = false;
       printer.append(key);
       printer.append(" = ");
-      printer.repr(values.get(key));
+      printer.repr(getValue(key));
     }
     printer.append(")");
   }
@@ -259,14 +182,14 @@ public class Info implements ClassObject, SkylarkValue, Concatable, Serializable
     printer.append(provider.getPrintableName());
     printer.append("(");
     // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(values.keySet())) {
+    for (String key : Ordering.natural().sortedCopy(getKeys())) {
       if (!first) {
         printer.append(", ");
       }
       first = false;
       printer.append(key);
       printer.append(" = ");
-      printer.repr(values.get(key));
+      printer.repr(getValue(key));
     }
     printer.append(")");
   }

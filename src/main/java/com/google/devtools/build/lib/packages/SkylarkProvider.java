@@ -60,7 +60,7 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   protected Info createInstanceFromSkylark(Object[] args, Location loc) throws EvalException {
     @SuppressWarnings("unchecked")
     Map<String, Object> kwargs = (Map<String, Object>) args[0];
-    return new Info(this, kwargs, loc);
+    return new SkylarkInfo(this, kwargs, loc);
   }
 
   @Override
