@@ -432,6 +432,8 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/benchmark:srcs",
         "//src/tools/launcher:srcs",
+        "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
+        "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
         "//src/tools/xcode/environment:srcs",
         "//src/tools/xcode/ibtoolwrapper:srcs",
