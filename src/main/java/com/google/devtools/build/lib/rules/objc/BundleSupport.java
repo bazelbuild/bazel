@@ -374,10 +374,13 @@ final class BundleSupport {
         new SpawnAction.Builder()
             .setMnemonic("MergeInfoPlistFiles")
             .setExecutable(attributes.plmerge())
-            .addArgument("--control")
-            .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(bundling.getIntermediateArtifacts().mergedInfoplist())
+            .addInput(plMergeControlArtifact)
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--control", plMergeControlArtifact)
+                    .build())
             .build(ruleContext));
   }
 
