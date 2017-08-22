@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -43,24 +44,30 @@ public final class TransitiveOptionDetails implements Serializable {
     try {
       for (OptionsBase options : buildOptions) {
         for (Field field : options.getClass().getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            Option option = field.getAnnotation(Option.class);
-            if (ImmutableList.copyOf(option.metadataTags()).contains(OptionMetadataTag.INTERNAL)) {
+          OptionDefinition optionDefinition;
+          try {
+            optionDefinition = OptionDefinition.extractOptionDefinition(field);
+          } catch (ConstructionException e) {
+            // Skip non @Option fields.
+            continue;
+          }
+          if (ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
+              .contains(OptionMetadataTag.INTERNAL)) {
               // ignore internal options
               continue;
             }
             Object value = field.get(options);
             if (value == null) {
-              if (lateBoundDefaults.containsKey(option.name())) {
-                value = lateBoundDefaults.get(option.name());
-              } else if (!option.defaultValue().equals("null")) {
-                // See {@link Option#defaultValue} for an explanation of default "null" strings.
-                value = option.defaultValue();
+            if (lateBoundDefaults.containsKey(optionDefinition.getOptionName())) {
+              value = lateBoundDefaults.get(optionDefinition.getOptionName());
+            } else if (!optionDefinition.isSpecialNullDefault()) {
+              // See {@link Option#defaultValue} for an explanation of default "null" strings.
+              value = optionDefinition.getUnparsedDefaultValue();
               }
             }
-            map.put(option.name(),
-                new OptionDetails(options.getClass(), value, option.allowMultiple()));
-          }
+          map.put(
+              optionDefinition.getOptionName(),
+              new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
         }
       }
     } catch (IllegalAccessException e) {
@@ -105,15 +112,15 @@ public final class TransitiveOptionDetails implements Serializable {
   }
 
   /**
-   * Returns the {@link Option} class the defines the given option, null if the option isn't
+   * Returns the {@link OptionsBase} class the defines the given option, null if the option isn't
    * recognized.
    *
    * <p>optionName is the name of the option as it appears on the command line e.g. {@link
-   * Option#name}).
+   * OptionDefinition#getOptionName()}).
    */
   public Class<? extends OptionsBase> getOptionClass(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return optionData == null ? null : optionData.optionsClass;
+    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    return optionDetails == null ? null : optionDetails.optionsClass;
   }
 
   /**
@@ -122,23 +129,23 @@ public final class TransitiveOptionDetails implements Serializable {
    * distinguish between that and an unknown option.
    *
    * <p>optionName is the name of the option as it appears on the command line e.g. {@link
-   * Option#name}).
+   * OptionDefinition#getOptionName()}).
    */
   public Object getOptionValue(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? null : optionData.value;
+    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    return (optionDetails == null) ? null : optionDetails.value;
   }
 
   /**
    * Returns whether or not the given option supports multiple values at the command line (e.g.
-   * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use
-   * {@link #getOptionClass} to distinguish between those and legitimate single-value options.
+   * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use {@link
+   * #getOptionClass} to distinguish between those and legitimate single-value options.
    *
-   * <p>As declared in {@link Option#allowMultiple}, multi-value options are expected to be
-   * of type {@code List<T>}.
+   * <p>As declared in {@link OptionDefinition#allowsMultiple()}, multi-value options are expected
+   * to be of type {@code List<T>}.
    */
   public boolean allowsMultipleValues(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? false : optionData.allowsMultiple;
+    OptionDetails optionDetails = transitiveOptionsMap.get(optionName);
+    return optionDetails != null && optionDetails.allowsMultiple;
   }
 }

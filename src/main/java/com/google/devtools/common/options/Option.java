@@ -19,25 +19,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An interface for annotating fields in classes (derived from OptionsBase)
- * that are options.
+ * An interface for annotating fields in classes (derived from OptionsBase) that are options.
+ *
+ * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
+ * access these fields directly, but instead go through that class.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
-  /**
-   * The name of the option ("--name").
-   */
+  /** The name of the option ("--name"). */
   String name();
 
-  /**
-   * The single-character abbreviation of the option ("-abbrev").
-   */
+  /** The single-character abbreviation of the option ("-a"). */
   char abbrev() default '\0';
 
-  /**
-   * A help string for the usage information.
-   */
+  /** A help string for the usage information. */
   String help() default "";
 
   /**
@@ -125,10 +121,10 @@ public @interface Option {
   Class<? extends Converter> converter() default Converter.class;
 
   /**
-   * A flag indicating whether the option type should be allowed to occur multiple times in a single
-   * option list.
+   * A boolean value indicating whether the option type should be allowed to occur multiple times in
+   * a single arg list.
    *
-   * <p>If the command can occur multiple times, then the attribute value <em>must</em> be a list
+   * <p>If the option can occur multiple times, then the attribute value <em>must</em> be a list
    * type {@code List<T>}, and the result type of the converter for this option must either match
    * the parameter {@code T} or {@code List<T>}. In the latter case the individual lists are
    * concatenated to form the full options value.

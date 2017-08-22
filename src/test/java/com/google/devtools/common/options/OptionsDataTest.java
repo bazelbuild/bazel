@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -431,17 +430,17 @@ public class OptionsDataTest {
         EndOfAlphabetOptions.class,
         ReverseOrderedOptions.class);
     ArrayList<String> names = new ArrayList<>();
-    for (Map.Entry<String, Field> entry : data.getAllNamedFields()) {
+    for (Map.Entry<String, OptionDefinition> entry : data.getAllNamedFields()) {
       names.add(entry.getKey());
     }
     assertThat(names).containsExactly(
         "bar", "baz", "foo", "qux", "X", "Y", "A", "B", "C").inOrder();
   }
 
-  private List<String> getOptionNames(Iterable<Field> fields) {
+  private List<String> getOptionNames(Iterable<OptionDefinition> fields) {
     ArrayList<String> result = new ArrayList<>();
-    for (Field field : fields) {
-      result.add(field.getAnnotation(Option.class).name());
+    for (OptionDefinition optionDefinition : fields) {
+      result.add(optionDefinition.getOptionName());
     }
     return result;
   }
@@ -452,12 +451,15 @@ public class OptionsDataTest {
         FieldNamesDifferOptions.class,
         EndOfAlphabetOptions.class,
         ReverseOrderedOptions.class);
-    assertThat(getOptionNames(data.getFieldsForClass(FieldNamesDifferOptions.class)))
-        .containsExactly("bar", "baz", "foo", "qux").inOrder();
-    assertThat(getOptionNames(data.getFieldsForClass(EndOfAlphabetOptions.class)))
-        .containsExactly("X", "Y").inOrder();
-    assertThat(getOptionNames(data.getFieldsForClass(ReverseOrderedOptions.class)))
-        .containsExactly("A", "B", "C").inOrder();
+    assertThat(getOptionNames(data.getOptionDefinitionsFromClass(FieldNamesDifferOptions.class)))
+        .containsExactly("bar", "baz", "foo", "qux")
+        .inOrder();
+    assertThat(getOptionNames(data.getOptionDefinitionsFromClass(EndOfAlphabetOptions.class)))
+        .containsExactly("X", "Y")
+        .inOrder();
+    assertThat(getOptionNames(data.getOptionDefinitionsFromClass(ReverseOrderedOptions.class)))
+        .containsExactly("A", "B", "C")
+        .inOrder();
   }
 
   /** Dummy options class. */

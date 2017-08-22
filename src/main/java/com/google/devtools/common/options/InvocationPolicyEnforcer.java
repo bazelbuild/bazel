@@ -114,7 +114,7 @@ public final class InvocationPolicyEnforcer {
       }
 
       OptionDescription optionDescription = parser.getOptionDescription(flagName);
-      // getOptionDescription() will return null if the option does not exist, however
+      // extractOptionDefinition() will return null if the option does not exist, however
       // getOptionValueDescription() above would have thrown an IllegalArgumentException if that
       // were the case.
       Verify.verifyNotNull(optionDescription);
