@@ -88,9 +88,6 @@ class LauncherTest(test_base.TestBase):
                                          launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
-    if not self.IsWindows():
-      bin1_suffix = ''
-
     bin1 = os.path.join(bazel_bin, 'foo', 'bin1.sh%s' % bin1_suffix)
 
     self.assertTrue(os.path.exists(bin1))
@@ -172,12 +169,10 @@ class LauncherTest(test_base.TestBase):
       self.AssertExitCode(exit_code, 0, stderr)
       self.assertEqual(stdout[0], 'hello batch')
 
-  def _buildPyTargets(self, bazel_bin, launcher_flag, win_suffix):
+  def _buildPyTargets(self, bazel_bin, launcher_flag, binary_suffix):
     # Verify that the build of our py_binary succeeds.
     exit_code, _, stderr = self.RunBazel(['build', '//foo:foo'] + launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
-
-    binary_suffix = win_suffix if self.IsWindows() else ''
 
     # Verify that generated files exist.
     foo_bin = os.path.join(bazel_bin, 'foo', 'foo%s' % binary_suffix)
@@ -260,8 +255,10 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd')
-    self._buildShBinaryTargets(bazel_bin, [], '.exe')
+    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd'
+                               if self.IsWindows() else '')
+    self._buildShBinaryTargets(bazel_bin, [], '.exe'
+                               if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
     self.ScratchFile('WORKSPACE')
@@ -359,8 +356,9 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    self._buildPyTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd')
-    self._buildPyTargets(bazel_bin, [], '.exe')
+    self._buildPyTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd'
+                         if self.IsWindows() else '')
+    self._buildPyTargets(bazel_bin, [], '.exe' if self.IsWindows() else '')
 
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:

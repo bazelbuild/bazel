@@ -28,7 +28,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 /** Utility class to create Windows native launcher */
-public class NativeLauncherUtil {
+public final class NativeLauncherUtil {
+
+  private NativeLauncherUtil() {}
 
   /** Write a key-value pair launch info to buffer. */
   public static void writeLaunchInfo(ByteArrayOutputStream launchInfo, String key, String value)
