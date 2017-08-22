@@ -370,12 +370,15 @@ public class AndroidIdlHelper {
             .addInput(sdk.getFrameworkAidl())
             .addInputs(getIdlPreprocessed(ruleContext))
             .addOutput(output)
-            .addArgument("-b") // Fail if trying to compile a parcelable.
-            .addArguments(importArgs)
-            .addArgument(idl.getExecPathString())
-            .addArgument(output.getExecPathString())
             .setProgressMessage("Android IDL generation")
             .setMnemonic("AndroidIDLGnerate")
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .add("-b") // Fail if trying to compile a parcelable.
+                    .addAll(importArgs)
+                    .addExecPath(idl)
+                    .addExecPath(output)
+                    .build())
             .build(ruleContext));
   }
 
