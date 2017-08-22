@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -327,11 +328,12 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
               "--android_sdk_path=" + sdkPath.getExecPathString(),
               "--platform_apks=" + Artifact.joinExecPaths(",", platformApks));
 
+      CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
       if (defaultProperties.isPresent()) {
         spawnBuilder.addInput(defaultProperties.get());
-        spawnBuilder.addArgument(
-          "--default_properties_file=" + defaultProperties.get().getExecPathString());
+        commandLine.addPrefixedExecPath("--default_properties_file=", defaultProperties.get());
       }
+      spawnBuilder.setCommandLine(commandLine.build());
       ruleContext.registerAction(spawnBuilder.build(ruleContext));
     }
 
