@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -70,21 +71,25 @@ public final class ApplicationManifest {
                 ruleContext.getExecutablePrerequisite("$build_split_manifest", Mode.HOST))
             .setProgressMessage("Creating manifest for split %s", splitName)
             .setMnemonic("AndroidBuildSplitManifest")
-            .addArgument("--main_manifest")
-            .addInputArgument(manifest)
-            .addArgument("--split_manifest")
-            .addOutputArgument(result)
-            .addArgument("--split")
-            .addArgument(splitName)
-            .addArgument(hasCode ? "--hascode" : "--nohascode");
+            .addInput(manifest)
+            .addOutput(result);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .addExecPath("--main_manifest", manifest)
+            .addExecPath("--split_manifest", result)
+            .add("--split", splitName);
+    if (hasCode) {
+      commandLine.add("--hascode");
+    } else {
+      commandLine.add("--nohascode");
+    }
 
     String overridePackage = manifestValues.get("applicationId");
     if (overridePackage != null) {
-      builder
-          .addArgument("--override_package")
-          .addArgument(overridePackage);
+      commandLine.add("--override_package", overridePackage);
     }
 
+    builder.setCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
     return new ApplicationManifest(ruleContext, result, targetAaptVersion);
   }
@@ -94,26 +99,31 @@ public final class ApplicationManifest {
 
     Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
             AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_MANIFEST);
+    Artifact stubData =
+        ruleContext.getImplicitOutputArtifact(
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA);
 
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
-        .setProgressMessage("Injecting mobile install stub application")
-        .setMnemonic("InjectMobileInstallStubApplication")
-        .addArgument("--mode=mobile_install")
-        .addArgument("--input_manifest")
-        .addInputArgument(manifest)
-        .addArgument("--output_manifest")
-        .addOutputArgument(stubManifest)
-        .addArgument("--output_datafile")
-        .addOutputArgument(ruleContext.getImplicitOutputArtifact(
-            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA));
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
+            .setProgressMessage("Injecting mobile install stub application")
+            .setMnemonic("InjectMobileInstallStubApplication")
+            .addInput(manifest)
+            .addOutput(stubManifest)
+            .addOutput(stubData);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--mode=mobile_install")
+            .addExecPath("--input_manifest", manifest)
+            .addExecPath("--output_manifest", stubManifest)
+            .addExecPath("--output_datafile", stubData);
 
     String overridePackage = manifestValues.get("applicationId");
     if (overridePackage != null) {
-      builder.addArgument("--override_package");
-      builder.addArgument(overridePackage);
+      commandLine.add("--override_package", overridePackage);
     }
 
+    builder.setCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
 
     return new ApplicationManifest(ruleContext, stubManifest, targetAaptVersion);
@@ -125,15 +135,19 @@ public final class ApplicationManifest {
     Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.INSTANT_RUN_STUB_APPLICATION_MANIFEST);
 
-    SpawnAction.Builder builder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
-        .setProgressMessage("Injecting instant run stub application")
-        .setMnemonic("InjectInstantRunStubApplication")
-        .addArgument("--mode=instant_run")
-        .addArgument("--input_manifest")
-        .addInputArgument(manifest)
-        .addArgument("--output_manifest")
-        .addOutputArgument(stubManifest);
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
+            .setProgressMessage("Injecting instant run stub application")
+            .setMnemonic("InjectInstantRunStubApplication")
+            .addInput(manifest)
+            .addOutput(stubManifest)
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .add("--mode=instant_run")
+                    .addExecPath("--input_manifest", manifest)
+                    .addExecPath("--output_manifest", stubManifest)
+                    .build());
 
     ruleContext.registerAction(builder.build(ruleContext));
 
