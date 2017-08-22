@@ -20,6 +20,23 @@ java_library(
 
 java_library(
     name = "options",
+    exported_plugins = [":options_preprocessor"],
+    exports = [":options_internal"],
+)
+
+java_plugin(
+    name = "options_preprocessor",
+    srcs = [
+        "OptionProcessor.java",
+    ],
+    processor_class = "com.google.devtools.common.options.OptionProcessor",
+    deps = [
+        ":options_internal",
+    ],
+)
+
+java_library(
+    name = "options_internal",
     srcs = glob(
         ["*.java"],
         exclude = [
