@@ -481,6 +481,23 @@ sh_test(
     data = [":test-deps"],
 )
 
+genquery(
+    name = "srcs_list",
+    expression = "kind(\"source file\", deps(//:srcs))",
+    scope = ["//:srcs"],
+)
+
+sh_test(
+    name = "srcs_test",
+    size = "small",
+    srcs = ["srcs_test.sh"],
+    data = [
+        ":srcs_list",
+        "@local_bazel_source_list//:sources",
+    ],
+    tags = ["no_windows"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

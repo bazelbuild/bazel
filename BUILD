@@ -22,7 +22,7 @@ filegroup(
         "//tools:srcs",
         "//third_party:srcs",
     ],
-    visibility = ["//visibility:private"],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 filegroup(
