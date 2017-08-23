@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -789,8 +790,11 @@ public class CppCompileAction extends AbstractAction
               .build());
     }
 
-    return super.getExtraActionInfo()
-        .setExtension(CppCompileInfo.cppCompileInfo, info.build());
+    try {
+      return super.getExtraActionInfo().setExtension(CppCompileInfo.cppCompileInfo, info.build());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("CppCompileAction command line expansion cannot fail.");
+    }
   }
 
   /**

@@ -23,7 +23,9 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -183,7 +185,11 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    Iterables.addAll(args, execSettings.getArgs().arguments());
+    try {
+      Iterables.addAll(args, execSettings.getArgs().arguments());
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
     return ImmutableList.copyOf(args);
   }
 

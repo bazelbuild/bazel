@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -320,28 +321,38 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   /**
-   * Constructs a command line that can be used to invoke the
-   * JavaBuilder.
+   * Constructs a command line that can be used to invoke the JavaBuilder.
    *
-   * <p>Do not use this method, except for testing (and for the in-process
-   * strategy).
+   * <p>Do not use this method, except for testing (and for the in-process strategy).
    */
   @VisibleForTesting
   public Iterable<String> buildCommandLine() {
-    return javaCompileCommandLine.arguments();
+    try {
+      return javaCompileCommandLine.arguments();
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   /** Returns the command and arguments for a java compile action. */
   public List<String> getCommand() {
-    return ImmutableList.copyOf(commandLine.arguments());
+    try {
+      return ImmutableList.copyOf(commandLine.arguments());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   @Override
   public String toString() {
-    StringBuilder result = new StringBuilder();
-    result.append("JavaBuilder ");
-    Joiner.on(' ').appendTo(result, commandLine.arguments());
-    return result.toString();
+    try {
+      StringBuilder result = new StringBuilder();
+      result.append("JavaBuilder ");
+      Joiner.on(' ').appendTo(result, commandLine.arguments());
+      return result.toString();
+    } catch (CommandLineExpansionException e) {
+      return "Error expanding command line";
+    }
   }
 
   @Override
@@ -356,8 +367,11 @@ public final class JavaCompileAction extends SpawnAction {
     info.addAllProcessorpath(Artifact.toExecPaths(getProcessorpath()));
     info.setOutputjar(getOutputJar().getExecPathString());
 
-    return super.getExtraActionInfo()
-        .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+    try {
+      return super.getExtraActionInfo().setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   /**

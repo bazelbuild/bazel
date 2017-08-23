@@ -541,8 +541,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * @param objlistName the path suffix of the filelist artifact
    * @param inputArchives path suffixes of the expected contents of the filelist
    */
-  protected void verifyObjlist(Action originalAction, String objlistName,
-      String... inputArchives) {
+  protected void verifyObjlist(Action originalAction, String objlistName, String... inputArchives)
+      throws Exception {
     Artifact filelistArtifact =
         getFirstArtifactEndingWith(originalAction.getInputs(), objlistName);
 
@@ -567,9 +567,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * @param importedFrameworks custom framework path fragments
    * @param extraLinkArgs extra link arguments expected on the link action
    */
-  protected void verifyLinkAction(Artifact binArtifact, Artifact filelistArtifact, String arch,
-      List<String> inputArchives, List<PathFragment> importedFrameworks,
-      ExtraLinkArgs extraLinkArgs) {
+  protected void verifyLinkAction(
+      Artifact binArtifact,
+      Artifact filelistArtifact,
+      String arch,
+      List<String> inputArchives,
+      List<PathFragment> importedFrameworks,
+      ExtraLinkArgs extraLinkArgs)
+      throws Exception {
     final CommandAction binAction = (CommandAction) getGeneratingAction(binArtifact);
 
     for (String inputArchive : inputArchives) {
@@ -1489,7 +1494,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .doesNotContain(protoHeaderB);
   }
 
-  private void assertCoptsAndDefinesForBundlingTarget(ConfiguredTarget topTarget) {
+  private void assertCoptsAndDefinesForBundlingTarget(ConfiguredTarget topTarget) throws Exception {
     Artifact protoObject =
         getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
     CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
@@ -2141,9 +2146,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private void checkRegistersStoryboardCompileActions(
-      ConfiguredTarget target,
-      DottedVersion minimumOsVersion,
-      ImmutableList<String> targetDevices) {
+      ConfiguredTarget target, DottedVersion minimumOsVersion, ImmutableList<String> targetDevices)
+      throws Exception {
     Artifact storyboardZip = getBinArtifact("x/1.storyboard.zip", target);
     CommandAction compileAction = (CommandAction) getGeneratingAction(storyboardZip);
     assertThat(compileAction.getInputs()).containsExactly(

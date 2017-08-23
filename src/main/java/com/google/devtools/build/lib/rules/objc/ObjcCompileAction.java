@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -78,8 +79,8 @@ public class ObjcCompileAction extends SpawnAction {
    */
   public class ObjcCompileActionSpawn extends ActionSpawn {
 
-    public ObjcCompileActionSpawn(Map<String, String> clientEnv) {
-      super(clientEnv);
+    public ObjcCompileActionSpawn(ImmutableList<String> arguments, Map<String, String> clientEnv) {
+      super(arguments, clientEnv);
     }
 
     @Override
@@ -172,7 +173,12 @@ public class ObjcCompileAction extends SpawnAction {
 
   @Override
   public final Spawn getSpawn(Map<String, String> clientEnv) {
-    return new ObjcCompileActionSpawn(clientEnv);
+    try {
+      return new ObjcCompileActionSpawn(
+          ImmutableList.copyOf(getCommandLine().arguments()), clientEnv);
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
   }
 
   @Override
@@ -296,7 +302,12 @@ public class ObjcCompileAction extends SpawnAction {
 
   @Override
   protected SpawnInfo getExtraActionSpawnInfo() {
-    SpawnInfo.Builder info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
+    SpawnInfo.Builder info = null;
+    try {
+      info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
     if (!inputsDiscovered()) {
       for (Artifact headerArtifact : filterHeaderFiles()) {
         // As in SpawnAction#getExtraActionSpawnInfo explicitly ignore middleman artifacts here.
@@ -312,7 +323,11 @@ public class ObjcCompileAction extends SpawnAction {
   public String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addString(super.computeKey());
+    try {
+      f.addString(super.computeKey());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
     f.addBoolean(dotdFile == null || dotdFile.artifact() == null);
     f.addBoolean(dotdPruningPlan == HeaderDiscovery.DotdPruningMode.USE);
     f.addBoolean(headersListFile == null);

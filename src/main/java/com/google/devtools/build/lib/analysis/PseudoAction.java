@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -71,7 +72,11 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
-    return super.getExtraActionInfo().setExtension(infoExtension, getInfo());
+    try {
+      return super.getExtraActionInfo().setExtension(infoExtension, getInfo());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("PsedoAction command line expansion cannot fail");
+    }
   }
 
   public static Artifact getDummyOutput(RuleContext ruleContext) {

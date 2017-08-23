@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -691,7 +692,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return (SpawnAction) getGeneratingAction(artifact);
   }
 
-  protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact) {
+  protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
+      throws CommandLineExpansionException {
     SpawnAction a = getGeneratingSpawnAction(artifact);
     ParameterFileWriteAction p = findParamsFileAction(a);
     return p == null

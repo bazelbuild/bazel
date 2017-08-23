@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -427,8 +428,11 @@ public final class CppLinkAction extends AbstractAction
         Artifact.toExecPaths(getLinkCommandLine().getBuildInfoHeaderArtifacts()));
     info.addAllLinkOpt(getLinkCommandLine().getRawLinkArgv());
 
-    return super.getExtraActionInfo()
-        .setExtension(CppLinkInfo.cppLinkInfo, info.build());
+    try {
+      return super.getExtraActionInfo().setExtension(CppLinkInfo.cppLinkInfo, info.build());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("CppLinkAction command line expansion cannot fail.");
+    }
   }
 
   @Override

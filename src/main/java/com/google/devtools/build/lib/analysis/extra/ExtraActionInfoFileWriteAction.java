@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -47,11 +49,15 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException {
-    return new ProtoDeterministicWriter(shadowedAction.getExtraActionInfo().build());
+    try {
+      return new ProtoDeterministicWriter(shadowedAction.getExtraActionInfo().build());
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey() throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(UUID);
     f.addString(shadowedAction.getKey());

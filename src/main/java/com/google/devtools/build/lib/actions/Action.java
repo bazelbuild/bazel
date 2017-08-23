@@ -197,8 +197,8 @@ public interface Action extends ActionExecutionMetadata, Describable {
    * Called by {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time to
    * extract information from this action into a protocol buffer to be used by extra_action rules.
    *
-   * <p>As this method is called from the ExtraAction, make sure it is ok to call this method from
-   * a different thread than the one this action is executed on.
+   * <p>As this method is called from the ExtraAction, make sure it is ok to call this method from a
+   * different thread than the one this action is executed on.
    */
-  ExtraActionInfo.Builder getExtraActionInfo();
+  ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException;
 }

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -91,10 +92,9 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "package android.binary; public class MyApp {};");
   }
 
-  /**
-   * Returns the .params file contents of a {@link JavaCompileAction}
-   */
-  private Iterable<String> getParamFileContents(JavaCompileAction action) {
+  /** Returns the .params file contents of a {@link JavaCompileAction} */
+  private Iterable<String> getParamFileContents(JavaCompileAction action)
+      throws CommandLineExpansionException {
     Artifact paramFile = getFirstArtifactEndingWith(action.getInputs(), "-2.params");
     return ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents();
   }

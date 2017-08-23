@@ -24,7 +24,7 @@ import java.util.List;
 public interface CommandAction extends Action, ExecutionInfoSpecifier {
 
   /** Returns a list of command line arguments that implements this action. */
-  List<String> getArguments();
+  List<String> getArguments() throws CommandLineExpansionException;
 
   /** 
    * Returns a map of command line variables to their values that constitute the environment

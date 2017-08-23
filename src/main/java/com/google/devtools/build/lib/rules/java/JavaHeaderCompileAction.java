@@ -29,12 +29,14 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -121,11 +123,14 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
   @Override
   protected String computeKey() {
-    return new Fingerprint()
-        .addString(GUID)
-        .addString(super.computeKey())
-        .addStrings(directCommandLine.arguments())
-        .hexDigestAndReset();
+    Fingerprint f = new Fingerprint().addString(GUID);
+    try {
+      f.addString(super.computeKey());
+      f.addStrings(directCommandLine.arguments());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaHeaderCompileAction command line expansion cannot fail");
+    }
+    return f.hexDigestAndReset();
   }
 
   @Override
@@ -137,7 +142,11 @@ public class JavaHeaderCompileAction extends SpawnAction {
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
-      context.exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
+      try {
+        context.exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
+      } catch (CommandLineExpansionException commandLineExpansionException) {
+        throw new UserExecException(commandLineExpansionException);
+      }
       // The compilation should never fail with direct deps but succeed with transitive inputs
       // unless it failed due to a strict deps error, in which case fall back to the transitive
       // classpath may allow it to succeed (Strict Java Deps errors are reported by javac,
@@ -146,17 +155,21 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   private final Spawn getDirectSpawn() {
-    return new BaseSpawn(
-        ImmutableList.copyOf(directCommandLine.arguments()),
-        ImmutableMap.<String, String>of() /*environment*/,
-        ImmutableMap.<String, String>of() /*executionInfo*/,
-        this,
-        LOCAL_RESOURCES) {
-      @Override
-      public Iterable<? extends ActionInput> getInputFiles() {
-        return directInputs;
-      }
-    };
+    try {
+      return new BaseSpawn(
+          ImmutableList.copyOf(directCommandLine.arguments()),
+          ImmutableMap.<String, String>of() /*environment*/,
+          ImmutableMap.<String, String>of() /*executionInfo*/,
+          this,
+          LOCAL_RESOURCES) {
+        @Override
+        public Iterable<? extends ActionInput> getInputFiles() {
+          return directInputs;
+        }
+      };
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaHeaderCompileAction command line expansion cannot fail");
+    }
   }
 
   /** Builder class to construct Java header compilation actions. */

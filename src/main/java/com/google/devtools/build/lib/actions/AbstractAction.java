@@ -294,16 +294,20 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   public abstract String getMnemonic();
 
   /**
-   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and
-   * {@link com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract
-   * for {@link #computeKey()}.
+   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
+   * com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract for
+   * {@link #computeKey()}.
    */
-  protected abstract String computeKey();
+  protected abstract String computeKey() throws CommandLineExpansionException;
 
   @Override
   public final synchronized String getKey() {
     if (cachedKey == null) {
-      cachedKey = computeKey();
+      try {
+        cachedKey = computeKey();
+      } catch (CommandLineExpansionException e) {
+        cachedKey = KEY_ERROR;
+      }
     }
     return cachedKey;
   }
@@ -483,7 +487,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
@@ -565,15 +569,17 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "argv",
-      doc = "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-          + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-          + "list of the arguments for the command line to be executed. Note that "
-          + "for shell actions the first two arguments will be the shell path "
-          + "and <code>\"-c\"</code>.",
-      structField = true,
-      allowReturnNones = true)
-  public SkylarkList<String> getSkylarkArgv() {
+    name = "argv",
+    doc =
+        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
+            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
+            + "list of the arguments for the command line to be executed. Note that "
+            + "for shell actions the first two arguments will be the shell path "
+            + "and <code>\"-c\"</code>.",
+    structField = true,
+    allowReturnNones = true
+  )
+  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
     return null;
   }
 

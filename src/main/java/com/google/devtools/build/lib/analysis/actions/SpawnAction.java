@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -203,13 +204,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   @Override
   @VisibleForTesting
-  public List<String> getArguments() {
+  public List<String> getArguments() throws CommandLineExpansionException {
     return ImmutableList.copyOf(argv.arguments());
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() {
+  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
     return SkylarkList.createImmutable(getArguments());
+  }
+
+  protected CommandLine getCommandLine() {
+    return argv;
   }
 
   @Override
@@ -220,16 +225,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   /** Returns command argument, argv[0]. */
   @VisibleForTesting
-  public String getCommandFilename() {
+  public String getCommandFilename() throws CommandLineExpansionException {
     return Iterables.getFirst(argv.arguments(), null);
   }
 
-  /**
-   * Returns the (immutable) list of arguments, excluding the command name,
-   * argv[0].
-   */
+  /** Returns the (immutable) list of arguments, excluding the command name, argv[0]. */
   @VisibleForTesting
-  public List<String> getRemainingArguments() {
+  public List<String> getRemainingArguments() throws CommandLineExpansionException {
     return ImmutableList.copyOf(Iterables.skip(argv.arguments(), 1));
   }
 
@@ -253,8 +255,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *
    * <p>Called by {@link #execute}.
    */
-  protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
+  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException, CommandLineExpansionException {
     getContext(actionExecutionContext)
         .exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
   }
@@ -265,7 +267,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     try {
       internalExecute(actionExecutionContext);
     } catch (ExecException e) {
-      final String failMessage;
+      String failMessage;
       if (isShellCommand()) {
         // The possible reasons it could fail are: shell executable not found, shell
         // exited non-zero, or shell died from signal.  The first is impossible
@@ -274,13 +276,24 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         // command that failed.
         //
         // 0=shell executable, 1=shell command switch, 2=command
-        failMessage = "error executing shell command: " + "'"
-            + truncate(Iterables.get(argv.arguments(), 2), 200) + "'";
+        try {
+          failMessage =
+              "error executing shell command: "
+                  + "'"
+                  + truncate(Iterables.get(argv.arguments(), 2), 200)
+                  + "'";
+        } catch (CommandLineExpansionException commandLineExpansionException) {
+          failMessage =
+              "error executing shell command, and error expanding command line: "
+                  + commandLineExpansionException;
+        }
       } else {
         failMessage = getRawProgressMessage();
       }
       throw e.toActionExecutionException(
           failMessage, actionExecutionContext.getVerboseFailures(), this);
+    } catch (CommandLineExpansionException e) {
+      throw new ActionExecutionException(e, this, false);
     }
   }
 
@@ -295,14 +308,14 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   /**
-   * Returns a Spawn that is representative of the command that this Action
-   * will execute. This function must not modify any state.
+   * Returns a Spawn that is representative of the command that this Action will execute. This
+   * function must not modify any state.
    *
-   * This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
+   * <p>This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
    * which also depends on the client environment. Subclasses that which to override the way to get
    * a spawn should override {@link #getSpawn(Map)} instead.
    */
-  public final Spawn getSpawn() {
+  public final Spawn getSpawn() throws CommandLineExpansionException {
     return getSpawn(null);
   }
 
@@ -310,12 +323,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * Return a spawn that is representative of the command that this Action will execute in the given
    * client environment.
    */
-  public Spawn getSpawn(Map<String, String> clientEnv) {
-    return new ActionSpawn(clientEnv);
+  public Spawn getSpawn(Map<String, String> clientEnv) throws CommandLineExpansionException {
+    return new ActionSpawn(ImmutableList.copyOf(argv.arguments()), clientEnv);
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey() throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addStrings(argv.arguments());
@@ -352,9 +365,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       message.append(ShellEscaper.escapeString(var));
       message.append('\n');
     }
-    for (String argument : ShellEscaper.escapeAll(argv.arguments())) {
-      message.append("  Argument: ");
-      message.append(argument);
+    try {
+      for (String argument : ShellEscaper.escapeAll(argv.arguments())) {
+        message.append("  Argument: ");
+        message.append(argument);
+        message.append('\n');
+      }
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not expand command line: ");
+      message.append(e);
       message.append('\n');
     }
     return message.toString();
@@ -374,7 +393,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo();
     if (extraActionInfoSupplier == null) {
       SpawnInfo spawnInfo = getExtraActionSpawnInfo();
@@ -392,7 +411,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * <p>Subclasses of SpawnAction may override this in order to provide action-specific behaviour.
    * This can be necessary, for example, when the action discovers inputs.
    */
-  protected SpawnInfo getExtraActionSpawnInfo() {
+  protected SpawnInfo getExtraActionSpawnInfo() throws CommandLineExpansionException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
     Spawn spawn = getSpawn();
     info.addAllArgument(spawn.getArguments());
@@ -449,8 +468,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * <p>Subclasses of ActionSpawn may subclass in order to provide action-specific values for
      * environment variables or action inputs.
      */
-    protected ActionSpawn(Map<String, String> clientEnv) {
-      super(ImmutableList.copyOf(argv.arguments()),
+    protected ActionSpawn(ImmutableList<String> arguments, Map<String, String> clientEnv) {
+      super(
+          arguments,
           ImmutableMap.<String, String>of(),
           executionInfo,
           SpawnAction.this.getRunfilesSupplier(),

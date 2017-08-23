@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.DetailedExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -177,10 +178,15 @@ public final class PrintActionCommand implements BlazeCommand {
               outputGroupProvider.getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE);
         }
         if (!filesToCompile.isEmpty()) {
-          if (compileOneDependency) {
-            gatherActionsForFiles(configuredTarget, actionGraph, targets);
-          } else {
-            gatherActionsForTarget(configuredTarget, actionGraph);
+          try {
+            if (compileOneDependency) {
+              gatherActionsForFiles(configuredTarget, actionGraph, targets);
+            } else {
+              gatherActionsForTarget(configuredTarget, actionGraph);
+            }
+          } catch (CommandLineExpansionException e) {
+            env.getReporter().handle(Event.error(null, "Error expanding command line: " + e));
+            return null;
           }
         } else {
           // TODO(rbraunstein): If a source is a member of a genrule and a cc_library don't
@@ -194,7 +200,8 @@ public final class PrintActionCommand implements BlazeCommand {
     }
 
     private BuildResult gatherActionsForFiles(
-        ConfiguredTarget configuredTarget, ActionGraph actionGraph, List<String> files) {
+        ConfiguredTarget configuredTarget, ActionGraph actionGraph, List<String> files)
+        throws CommandLineExpansionException {
       Set<String> filesDesired = new LinkedHashSet<>(files);
       ActionFilter filter = new DefaultActionFilter(filesDesired, actionMnemonicMatcher);
 
@@ -202,8 +209,8 @@ public final class PrintActionCommand implements BlazeCommand {
       return null;
     }
 
-    private void gatherActionsForTarget(ConfiguredTarget configuredTarget,
-        ActionGraph actionGraph) {
+    private void gatherActionsForTarget(ConfiguredTarget configuredTarget, ActionGraph actionGraph)
+        throws CommandLineExpansionException {
       if (!(configuredTarget.getTarget() instanceof Rule)) {
         return;
       }
@@ -227,12 +234,13 @@ public final class PrintActionCommand implements BlazeCommand {
       }
     }
 
-   /**
+    /**
      * Looks for files to compile in the given configured target and outputs the corresponding
      * extra_action if the filter evaluates to {@code true}.
      */
-    private void gatherActionsForFile(ConfiguredTarget configuredTarget, ActionFilter filter,
-        ActionGraph actionGraph) {
+    private void gatherActionsForFile(
+        ConfiguredTarget configuredTarget, ActionFilter filter, ActionGraph actionGraph)
+        throws CommandLineExpansionException {
       NestedSet<Artifact> artifacts = OutputGroupProvider.get(configuredTarget)
           .getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE);
 
