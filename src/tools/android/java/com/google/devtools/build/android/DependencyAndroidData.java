@@ -38,7 +38,7 @@ class DependencyAndroidData extends SerializedAndroidData {
   private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+:.+(:.*){0,2}");
 
   public static final String EXPECTED_FORMAT =
-      "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin:static.library.ap_";
+      "resources[#resources]:assets[#assets]:manifest:r.txt:static.library.ap_:symbols.bin";
 
   public static DependencyAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -55,15 +55,24 @@ class DependencyAndroidData extends SerializedAndroidData {
     Path rTxt = exists(fileSystem.getPath(parts[3]));
     ImmutableList<Path> assetDirs =
         parts[1].length() == 0 ? ImmutableList.<Path>of() : splitPaths(parts[1], fileSystem);
+    StaticLibrary staticLibrary = null;
+    Path symbolsBin = null;
+
+    if (parts.length == 6) { // contains symbols bin and static library
+      staticLibrary = StaticLibrary.from(exists(fileSystem.getPath(parts[4])), rTxt, assetDirs);
+      symbolsBin = exists(fileSystem.getPath(parts[5]));
+    } else if (parts.length == 5) { // contains symbols bin
+      symbolsBin = exists(fileSystem.getPath(parts[4]));
+    }
+
+
     return new DependencyAndroidData(
         splitPaths(parts[0], fileSystem),
         assetDirs,
         exists(fileSystem.getPath(parts[2])),
         rTxt,
-        parts.length > 4 ? fileSystem.getPath(parts[4]) : null,
-        parts.length > 5
-            ? StaticLibrary.from(exists(fileSystem.getPath(parts[5])), rTxt, assetDirs)
-            : null);
+        symbolsBin,
+        staticLibrary);
   }
 
   private final Path manifest;

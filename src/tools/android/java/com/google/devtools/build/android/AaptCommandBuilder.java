@@ -244,10 +244,12 @@ public class AaptCommandBuilder {
    * @throws IOException when the process cannot execute.
    */
   public String execute(String action) throws IOException {
-    StringBuilder processLog = new StringBuilder();
-    final Process process = new ProcessBuilder().command(build()).redirectErrorStream(true).start();
+    final StringBuilder processLog = new StringBuilder();
+    List<String> command = build();
+
+    final Process process = new ProcessBuilder().command(command).redirectErrorStream(true).start();
     processLog.append("Command: ");
-    Joiner.on(" ").appendTo(processLog, build());
+    Joiner.on("\n\t").appendTo(processLog, command);
     processLog.append("\n");
     final InputStreamReader stdout =
         new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8);

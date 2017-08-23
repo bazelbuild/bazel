@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import android.databinding.AndroidDataBinding;
 import android.databinding.cli.ProcessXmlOptions;
 import com.android.annotations.NonNull;
@@ -689,13 +687,8 @@ public class AndroidResourceProcessor {
     }
   }
 
-  public void writeDummyManifestForAapt(Path dummyManifest, String packageForR) throws IOException {
-    Files.createDirectories(dummyManifest.getParent());
-    Files.write(dummyManifest, String.format(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-            + " package=\"%s\">"
-            + "</manifest>", packageForR).getBytes(UTF_8));
+  public static void writeDummyManifestForAapt(Path dummyManifest, String packageForR) {
+    AndroidManifestProcessor.writeDummyManifestForAapt(dummyManifest, packageForR);
   }
 
   /**

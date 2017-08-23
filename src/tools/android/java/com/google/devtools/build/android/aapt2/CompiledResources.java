@@ -15,6 +15,8 @@ package com.google.devtools.build.android.aapt2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.ManifestContainer;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -53,13 +55,21 @@ public class CompiledResources implements ManifestContainer {
     return resources;
   }
 
+  /** Copies resources archive to a path and returns the new {@link CompiledResources} */
+  public CompiledResources copyResourcesZipTo(Path destination) throws IOException {
+    return new CompiledResources(Files.copy(resources, destination), manifest, assetsDirs);
+  }
+
   @Override
   public Path getManifest() {
     return manifest;
   }
 
   public List<String> getAssetsStrings() {
-    return assetsDirs.stream().map(Path::toString).collect(Collectors.toList());
+    return assetsDirs
+        .stream()
+        .map(Path::toString)
+        .collect(Collectors.toList());
   }
 
   public CompiledResources processManifest(Function<Path, Path> processManifest) {

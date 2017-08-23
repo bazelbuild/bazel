@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.toList;
 import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
@@ -86,12 +87,28 @@ public class Aapt2ResourcePackagingAction {
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
 
       final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
+      final Path dummyManifest = tmp.resolve("manifest-aapt-dummy/AndroidManifest.xml");
       final Path databindingResourcesRoot =
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
+      final Path databindingMetaData =
+          Files.createDirectories(tmp.resolve("android_data_binding_metadata"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
+      final Path staticLinkedOut = Files.createDirectories(tmp.resolve("static-linked"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
+      Path generatedSources = null;
+      if (options.srcJarOutput != null || options.rOutput != null || options.symbolsOut != null) {
+        generatedSources = tmp.resolve("generated_resources");
+      }
+
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
+      List<DependencyAndroidData> data =
+          ImmutableSet.<DependencyAndroidData>builder()
+              .addAll(options.directData)
+              .addAll(options.transitiveData)
+              .build()
+              .asList();
 
       // Checks for merge conflicts.
       MergedAndroidData mergedAndroidData =
@@ -125,7 +142,8 @@ public class Aapt2ResourcePackagingAction {
         CompiledResources compiled =
             options
                 .primaryData
-                .processDataBindings(options.dataBindingInfoOut, databindingResourcesRoot)
+                .processDataBindings(options.dataBindingInfoOut, options.packageForR,
+                    databindingResourcesRoot)
                 .compile(compiler, compiledResources)
                 .processManifest(
                     manifest ->

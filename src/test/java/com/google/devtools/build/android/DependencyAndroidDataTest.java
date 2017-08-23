@@ -59,7 +59,7 @@ public class DependencyAndroidDataTest {
   @Test public void flagFullParse() throws Exception{
     Truth.assertThat(
             DependencyAndroidData.valueOf(
-                "res#otherres:assets#otherassets:AndroidManifest.xml:r.txt:symbols.bin:static.library.ap_",
+                "res#otherres:assets#otherassets:AndroidManifest.xml:r.txt:static.library.ap_:symbols.bin",
                 fileSystem))
         .isEqualTo(
             new DependencyAndroidData(

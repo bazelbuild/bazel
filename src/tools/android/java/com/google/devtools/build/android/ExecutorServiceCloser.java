@@ -32,7 +32,8 @@ final class ExecutorServiceCloser implements Closeable {
   public void close() throws IOException {
     List<Runnable> unfinishedTasks = executorService.shutdownNow();
     if (!unfinishedTasks.isEmpty()) {
-      throw new IOException("Shutting down the executor with unfinished tasks:" + unfinishedTasks);
+      throw new IOException(
+          "Shutting down the executor with unfinished tasks:" + unfinishedTasks.size());
     }
   }
 

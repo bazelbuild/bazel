@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
+import com.google.devtools.build.android.Converters.UnvalidatedAndroidDirectoriesConverter;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -29,13 +28,9 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.Closeable;
-import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 /** Compiles resources using aapt2 and archives them to zip. */
@@ -46,14 +41,13 @@ public class CompileLibraryResourcesAction {
     @Option(
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      name = "resource",
-      defaultValue = "",
-      allowMultiple = true,
-      converter = ExistingPathConverter.class,
+      name = "resources",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDirectoriesConverter.class,
       category = "input",
       help = "The resources to compile with aapt2."
     )
-    public List<Path> resources;
+    public UnvalidatedAndroidDirectories resources;
 
     @Option(
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -140,72 +134,25 @@ public class CompileLibraryResourcesAction {
     Preconditions.checkNotNull(options.output);
     Preconditions.checkNotNull(options.aapt2);
 
-    try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resources_tmp")) {
+    final ListeningExecutorService defaultService = ExecutorServiceCloser.createDefaultService();
+    try (Closeable serviceCloser = ExecutorServiceCloser.createWith(defaultService);
+        ScopedTemporaryDirectory scopedTmp =
+            new ScopedTemporaryDirectory("android_resources_tmp")) {
       final Path tmp = scopedTmp.getPath();
       final Path databindingResourcesRoot =
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
-      final Path databindingMetaData =
-          Files.createDirectories(tmp.resolve("android_data_binding_metadata"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
-      // The reported availableProcessors may be higher than the actual resources
-      // (on a shared system). On the other hand, a lot of the work is I/O, so it's not completely
-      // CPU bound. As a compromise, divide by 2 the reported availableProcessors.
-      int numThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-      final ListeningExecutorService executorService =
-          MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads));
-      try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-        final ResourceCompiler compiler =
-            ResourceCompiler.create(
-                executorService, compiledResources, options.aapt2, options.buildToolsVersion);
-        for (final Path resource :
-            maybeProcessDataBindings(
-                databindingResourcesRoot,
-                databindingMetaData,
-                options.dataBindingInfoOut,
-                options.manifest,
-                options.packagePath,
-                options.resources)) {
-          compiler.queueDirectoryForCompilation(resource);
-        }
-        AndroidResourceOutputs.archiveCompiledResources(
-            options.output,
-            databindingResourcesRoot,
-            compiledResources,
-            compiler.getCompiledArtifacts());
-      }
+
+      final ResourceCompiler compiler =
+          ResourceCompiler.create(
+              defaultService, compiledResources, options.aapt2, options.buildToolsVersion);
+      options
+          .resources
+          .toData(options.manifest)
+          .processDataBindings(
+              options.dataBindingInfoOut, options.packagePath, databindingResourcesRoot)
+          .compile(compiler, compiledResources)
+          .copyResourcesZipTo(options.output);
     }
-  }
-
-  private static List<Path> maybeProcessDataBindings(
-      Path resourceRoot,
-      Path databindingMetaData,
-      Path dataBindingInfoOut,
-      Path manifest,
-      String packagePath,
-      List<Path> resources)
-      throws IOException {
-    if (dataBindingInfoOut == null) {
-      return resources;
-    }
-
-    Preconditions.checkNotNull(manifest);
-    Preconditions.checkNotNull(packagePath);
-
-    List<Path> processed = new ArrayList<>();
-    for (Path resource : resources) {
-      processed.add(
-          AndroidResourceProcessor.processDataBindings(
-              resourceRoot,
-              resource,
-              databindingMetaData,
-              VariantType.LIBRARY,
-              packagePath,
-              manifest,
-              false));
-    }
-
-    AndroidResourceOutputs.archiveDirectory(databindingMetaData, dataBindingInfoOut);
-    return processed;
   }
 }
