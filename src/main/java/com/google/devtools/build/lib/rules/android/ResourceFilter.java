@@ -76,7 +76,9 @@ public class ResourceFilter {
    */
   private static final ImmutableSet<LocaleQualifier> PSEUDOLOCATION_LOCALES =
       ImmutableSet.of(
-          LocaleQualifier.getQualifier("en-rXA"), LocaleQualifier.getQualifier("ar-rXB"));
+          LocaleQualifier.getQualifier("en-rXA"),
+          LocaleQualifier.getQualifier("ar-rXB"),
+          LocaleQualifier.getQualifier("en-rXC"));
 
   @VisibleForTesting
   static enum FilterBehavior {

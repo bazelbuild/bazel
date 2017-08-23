@@ -701,7 +701,8 @@ public class ResourceFilterTest extends ResourceTestBase {
   @Test
   public void testHasPseudolocationFilters() throws Exception {
     // Basic pseudolocation filters
-    for (String filter : ImmutableList.of("en_XA", "en-rXA", "ar_XB", "ar-rXB")) {
+    for (String filter :
+        ImmutableList.of("en_XA", "en-rXA", "ar_XB", "ar-rXB", "en_XC", "en-rXC")) {
       assertHasPseudolocationFilters(filter).isTrue();
     }
 
