@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -31,23 +32,24 @@ public class UserDefinedFunction extends BaseFunction {
   // we close over the globals at the time of definition
   private final Environment.Frame definitionGlobals;
 
-  protected UserDefinedFunction(
-      Identifier function,
+  public UserDefinedFunction(
+      String name,
+      Location loc,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements,
       Environment.Frame definitionGlobals)
       throws EvalException {
-    super(function.getName(), signature, function.getLocation());
+    super(name, signature, loc);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
   }
 
-  public FunctionSignature.WithValues<Object, SkylarkType> getFunctionSignature() {
-    return signature;
+  public ImmutableList<Statement> getStatements() {
+    return statements;
   }
 
-  ImmutableList<Statement> getStatements() {
-    return statements;
+  public Environment.Frame getDefinitionGlobals() {
+    return definitionGlobals;
   }
 
   @Override

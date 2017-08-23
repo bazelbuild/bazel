@@ -11,6 +11,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -38,7 +38,7 @@ public class FunctionTest extends EvaluationTestCase {
     UserDefinedFunction stmt = (UserDefinedFunction) lookup("func");
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getFunctionSignature().getSignature().getShape().getMandatoryPositionals())
+    assertThat(stmt.getSignature().getSignature().getShape().getMandatoryPositionals())
         .isEqualTo(3);
     assertThat(stmt.getStatements()).hasSize(2);
   }

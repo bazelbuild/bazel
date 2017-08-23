@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.devtools.build.lib.syntax.Environment.Frame;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -38,5 +41,23 @@ class TestUtils {
   static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
     return codec.deserialize(CodedInputStream.newInstance(bytes));
+  }
+
+  /**
+   * Asserts that two {@link Frame}s have the same structure. Needed because {@link Frame} doesn't
+   * override {@link Object#equals}.
+   */
+  static void assertFramesEqual(Frame frame1, Frame frame2) {
+    assertThat(frame1.mutability().getAnnotation())
+        .isEqualTo(frame2.mutability().getAnnotation());
+    assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());
+    assertThat(frame1.getTransitiveBindings())
+        .containsExactlyEntriesIn(frame2.getTransitiveBindings()).inOrder();
+    if (frame1.getParent() == null || frame2.getParent() == null) {
+      assertThat(frame1.getParent()).isNull();
+      assertThat(frame2.getParent()).isNull();
+    } else {
+      assertFramesEqual(frame1.getParent(), frame2.getParent());
+    }
   }
 }

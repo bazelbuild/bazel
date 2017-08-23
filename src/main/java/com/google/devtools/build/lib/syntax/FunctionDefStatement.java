@@ -62,7 +62,8 @@ public final class FunctionDefStatement extends Statement {
     env.update(
         identifier.getName(),
         new UserDefinedFunction(
-            identifier,
+            identifier.getName(),
+            identifier.getLocation(),
             FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/null),
             statements,
             env.getGlobals()));
