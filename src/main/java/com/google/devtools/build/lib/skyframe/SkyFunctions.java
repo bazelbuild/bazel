@@ -78,6 +78,7 @@ public final class SkyFunctions {
       SkyFunctionName.create("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
       SkyFunctionName.create("ASPECT_COMPLETION");
+  public static final SkyFunctionName TEST_EXECUTION = SkyFunctionName.create("TEST_EXECUTION");
   public static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.create("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.create("BUILD_CONFIGURATION");
