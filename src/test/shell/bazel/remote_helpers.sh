@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -euo pipefail
+
 case "${PLATFORM}" in
   darwin|freebsd)
     function nc_l() {
@@ -68,8 +70,10 @@ public class Mongoose {
 EOF
   ${bazel_javabase}/bin/javac $pkg_dir/Mongoose.java
   test_jar=$TEST_TMPDIR/libcarnivore.jar
+  test_srcjar=$TEST_TMPDIR/libcarnivore-sources.jar
   cd ${TEST_TMPDIR}
   ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
+  ${bazel_javabase}/bin/jar cf $test_srcjar carnivore/Mongoose.java
   sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
   # OS X doesn't have sha1sum, so use openssl.
   sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
@@ -168,11 +172,14 @@ function create_artifact() {
   else
     make_test_jar
     local artifact=$test_jar
+    local srcjar_artifact=$test_srcjar
   fi
   maven_path=$PWD/$(echo $group_id | sed 's/\./\//g')/$artifact_id/$version
   mkdir -p $maven_path
   openssl sha1 $artifact > $maven_path/$artifact_id-$version.$packaging.sha1
+  openssl sha1 $srcjar_artifact > $maven_path/$artifact_id-$version-sources.$packaging.sha1
   mv $artifact $maven_path/$artifact_id-$version.$packaging
+  mv $srcjar_artifact $maven_path/$artifact_id-$version-sources.$packaging
 }
 
 function serve_artifact() {

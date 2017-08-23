@@ -17,6 +17,8 @@
 # Test //external mechanisms
 #
 
+set -euo pipefail
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
@@ -83,6 +85,27 @@ EOF
 
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
   expect_log "Tra-la!"
+}
+
+# makes sure both jar and srcjar are downloaded
+function test_maven_jar_downloads() {
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$fileserver_port/',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  output_base="$(bazel info output_base)"
+  test -e "${output_base}/external/endangered/jar/carnivore-1.23.jar" \
+    || fail "jar not downloaded to expected place"
+  test -e "${output_base}/external/endangered/jar/carnivore-1.23-sources.jar" \
+    || fail "srcjar not downloaded to expected place"
 }
 
 function test_maven_jar_404() {

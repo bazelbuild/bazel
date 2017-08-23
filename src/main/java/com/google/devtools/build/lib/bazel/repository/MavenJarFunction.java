@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.MavenDownloader.JarPaths;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -98,7 +100,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    
+
     Path outputDir = getExternalRepositoryDirectory(directories).getRelative(rule.getName());
     return createOutputTree(rule, outputDir, serverValue);
   }
@@ -110,10 +112,11 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
     createDirectory(outputDirectory);
     String name = rule.getName();
-    Path repositoryJar;
+    final JarPaths repositoryJars;
     try {
-      repositoryJar = mavenDownloader.download(
-          name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue);
+      repositoryJars =
+          mavenDownloader.download(
+              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     } catch (EvalException e) {
@@ -121,13 +124,25 @@ public class MavenJarFunction extends HttpArchiveFunction {
     }
 
     // Add a WORKSPACE file & BUILD file to the Maven jar.
-    Path result = DecompressorValue.decompress(DecompressorDescriptor.builder()
+    DecompressorDescriptor jar = getDescriptorBuilder(name, repositoryJars.jar, outputDirectory);
+    DecompressorDescriptor srcjar =
+        repositoryJars.srcjar.isPresent()
+            ? getDescriptorBuilder(name, repositoryJars.srcjar.get(), outputDirectory)
+            : null;
+    JarDecompressor decompressor = (JarDecompressor) jar.getDecompressor();
+    Path result = decompressor.decompressWithSrcjar(jar, Optional.fromNullable(srcjar));
+    return RepositoryDirectoryValue.builder().setPath(result);
+  }
+
+  private DecompressorDescriptor getDescriptorBuilder(String name, Path jar, Path outputDirectory)
+      throws RepositoryFunctionException, InterruptedException {
+    return DecompressorDescriptor.builder()
         .setDecompressor(JarDecompressor.INSTANCE)
         .setTargetKind(MavenJarRule.NAME)
         .setTargetName(name)
-        .setArchivePath(repositoryJar)
-        .setRepositoryPath(outputDirectory).build());
-    return RepositoryDirectoryValue.builder().setPath(result);
+        .setArchivePath(jar)
+        .setRepositoryPath(outputDirectory)
+        .build();
   }
 
   /**
