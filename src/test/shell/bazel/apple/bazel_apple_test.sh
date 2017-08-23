@@ -554,7 +554,7 @@ function test_host_xcodes() {
 
   bazel query "attr(version, $XCODE_VERSION, \
       attr(default_ios_sdk_version, $IOS_SDK, \
-      attr(default_macosx_sdk_version, $MACOSX_SDK, \
+      attr(default_macos_sdk_version, $MACOSX_SDK, \
       labels('versions', '@local_config_xcode//:host_xcodes'))))" \
       > xcode_version_target
 
