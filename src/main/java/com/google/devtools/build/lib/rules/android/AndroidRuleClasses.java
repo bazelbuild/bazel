@@ -321,9 +321,10 @@ public final class AndroidRuleClasses {
       "cc_library",
       "java_import",
       "java_library",
+      "java_lite_proto_library",
   };
 
-  public static final boolean hasProguardSpecs(AttributeMap rule) {
+  public static boolean hasProguardSpecs(AttributeMap rule) {
     // The below is a hack to support configurable attributes (proguard_specs seems like
     // too valuable an attribute to make nonconfigurable, and we don't currently
     // have the ability to know the configuration when determining implicit outputs).
@@ -949,7 +950,7 @@ public final class AndroidRuleClasses {
   /**
    * Semantic options for the dexer's multidex behavior.
    */
-  public static enum MultidexMode {
+  public enum MultidexMode {
     // Build dexes with multidex, assuming native platform support for multidex.
     NATIVE,
     // Build dexes with multidex and implement support at the application level.
