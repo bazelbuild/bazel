@@ -317,9 +317,12 @@ public class BazelPythonSemantics implements PythonSemantics {
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
-            .addArgument("cC")
-            .addArgument(zipFile.getExecPathString())
-            .addArgument("@" + paramFile.getExecPathString())
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .add("cC")
+                    .addExecPath(zipFile)
+                    .addPrefixedExecPath("@", paramFile)
+                    .build())
             .setMnemonic("PythonZipper")
             .build(ruleContext));
   }
