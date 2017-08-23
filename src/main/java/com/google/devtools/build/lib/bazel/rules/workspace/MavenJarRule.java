@@ -65,6 +65,22 @@ public class MavenJarRule implements RuleDefinition {
          should be set before shipping.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha1", Type.STRING))
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(attach_sources) -->
+         Set this to make Bazel also pull down the sources jar from the Maven repository.
+
+         <p>The sources jar will be located in the same package as the main jar with the label
+         :sources</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("attach_sources", Type.BOOLEAN))
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sources_sha1) -->
+         A SHA-1 hash of the desired sources jar.
+
+         <p>If the downloaded jar does not match this hash, Bazel will error out. <em>It is a
+         security risk to omit the SHA-1 as remote files can change.</em> At best omitting this
+         field will make your build non-hermetic. It is optional to make development easier but
+         should be set before shipping.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sources_sha1", Type.STRING))
         .setWorkspaceOnly()
         .build();
   }

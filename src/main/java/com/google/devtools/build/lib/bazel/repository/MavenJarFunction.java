@@ -120,14 +120,38 @@ public class MavenJarFunction extends HttpArchiveFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
+    Path repositorySourcesJar = null;
+    if (shouldAttachSources(rule)) {
+      try {
+        repositorySourcesJar =
+            mavenDownloader.downloadSources(name, WorkspaceAttributeMapper.of(rule),
+                outputDirectory, serverValue);
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
+
     // Add a WORKSPACE file & BUILD file to the Maven jar.
     Path result = DecompressorValue.decompress(DecompressorDescriptor.builder()
         .setDecompressor(JarDecompressor.INSTANCE)
         .setTargetKind(MavenJarRule.NAME)
         .setTargetName(name)
         .setArchivePath(repositoryJar)
+        .setArchiveSourcesPath(repositorySourcesJar)
         .setRepositoryPath(outputDirectory).build());
     return RepositoryDirectoryValue.builder().setPath(result);
+  }
+
+  private boolean shouldAttachSources(Rule rule) throws RepositoryFunctionException {
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
+    try {
+      return mapper.isAttributeValueExplicitlySpecified("attach_sources")
+          && mapper.get("attach_sources", Type.BOOLEAN) == Boolean.TRUE;
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
   }
 
   /**
