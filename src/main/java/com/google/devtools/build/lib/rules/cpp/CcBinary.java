@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -598,9 +600,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> dwpTools = toolchain.getDwp();
     Preconditions.checkState(!dwpTools.isEmpty());
 
-    List<SpawnAction.Builder> packagers = createIntermediateDwpPackagers(
-        context, dwpOutput, cppConfiguration, dwpTools, allInputs, 1);
-
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
     //
@@ -615,25 +614,40 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // The actions form an n-ary tree with n == MAX_INPUTS_PER_DWP_ACTION. The tree is fuller
     // at the leaves than the root, but that both increases parallelism and reduces the final
     // action's input size.
-    context.registerAction(Iterables.getOnlyElement(packagers)
-        .addArgument("-o")
-        .addOutputArgument(dwpOutput)
-        .setMnemonic("CcGenerateDwp")
-        .build(context));
+    Packager packager =
+        createIntermediateDwpPackagers(
+            context, dwpOutput, cppConfiguration, dwpTools, allInputs, 1);
+    packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
+    packager.commandLine.addExecPath("-o", dwpOutput);
+    context.registerAction(packager.build(context));
+  }
+
+  private static class Packager {
+    SpawnAction.Builder spawnAction = new SpawnAction.Builder();
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
+
+    Action[] build(RuleContext context) {
+      spawnAction.setCommandLine(commandLine.build());
+      return spawnAction.build(context);
+    }
   }
 
   /**
-   * Creates the intermediate actions needed to generate this target's
-   * "debug info package" (i.e. its .dwp file).
+   * Creates the intermediate actions needed to generate this target's "debug info package" (i.e.
+   * its .dwp file).
    */
-  private static List<SpawnAction.Builder> createIntermediateDwpPackagers(RuleContext context,
-      Artifact dwpOutput, CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools,
-      Iterable<Artifact> inputs, int intermediateDwpCount) {
-    List<SpawnAction.Builder> packagers = new ArrayList<>();
+  private static Packager createIntermediateDwpPackagers(
+      RuleContext context,
+      Artifact dwpOutput,
+      CppConfiguration cppConfiguration,
+      NestedSet<Artifact> dwpTools,
+      Iterable<Artifact> inputs,
+      int intermediateDwpCount) {
+    List<Packager> packagers = new ArrayList<>();
 
     // Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
     // input counts, but we can always apply more intelligent heuristics if the need arises.
-    SpawnAction.Builder currentPackager = newDwpAction(cppConfiguration, dwpTools);
+    Packager currentPackager = newDwpAction(cppConfiguration, dwpTools);
     int inputsForCurrentPackager = 0;
 
     for (Artifact dwoInput : inputs) {
@@ -642,7 +656,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         currentPackager = newDwpAction(cppConfiguration, dwpTools);
         inputsForCurrentPackager = 0;
       }
-      currentPackager.addInputArgument(dwoInput);
+      currentPackager.spawnAction.addInput(dwoInput);
+      currentPackager.commandLine.addExecPath(dwoInput);
       inputsForCurrentPackager++;
     }
     packagers.add(currentPackager);
@@ -652,33 +667,38 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // into an additional level.
       List<Artifact> intermediateOutputs = new ArrayList<>();
 
-      for (SpawnAction.Builder packager : packagers) {
+      for (Packager packager : packagers) {
         Artifact intermediateOutput =
             getIntermediateDwpFile(context, dwpOutput, intermediateDwpCount++);
-        context.registerAction(packager
-            .addArgument("-o")
-            .addOutputArgument(intermediateOutput)
-            .setMnemonic("CcGenerateIntermediateDwp")
-            .build(context));
+        packager.spawnAction.setMnemonic("CcGenerateIntermediateDwp").addOutput(intermediateOutput);
+        packager.commandLine.addExecPath("-o", intermediateOutput);
+        context.registerAction(packager.build(context));
         intermediateOutputs.add(intermediateOutput);
       }
       return createIntermediateDwpPackagers(
-          context, dwpOutput, cppConfiguration, dwpTools, intermediateOutputs,
+          context,
+          dwpOutput,
+          cppConfiguration,
+          dwpTools,
+          intermediateOutputs,
           intermediateDwpCount);
     }
-    return packagers;
+    return Iterables.getOnlyElement(packagers);
   }
 
   /**
-   * Returns a new SpawnAction builder for generating dwp files, pre-initialized with
-   * standard settings.
+   * Returns a new SpawnAction builder for generating dwp files, pre-initialized with standard
+   * settings.
    */
-  private static SpawnAction.Builder newDwpAction(CppConfiguration cppConfiguration,
-      NestedSet<Artifact> dwpTools) {
-    return new SpawnAction.Builder()
+  private static Packager newDwpAction(
+      CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools) {
+    Packager packager = new Packager();
+    packager
+        .spawnAction
         .addTransitiveInputs(dwpTools)
         .setExecutable(cppConfiguration.getDwpExecutable())
         .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED);
+    return packager;
   }
 
   /**
