@@ -805,10 +805,13 @@ public final class JavaCompilationHelper {
               // Use default shell environment so that those can be found.
               // TODO(dslomov): revisit this. If ijar is not msys-dependent, this is not needed.
               .useDefaultShellEnvironment()
-              .addArgument(inputJar.getExecPathString())
-              .addArgument(interfaceJar.getExecPathString())
               .setProgressMessage("Extracting interface %s", ruleContext.getLabel())
               .setMnemonic("JavaIjar")
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath(inputJar)
+                      .addExecPath(interfaceJar)
+                      .build())
               .build(ruleContext));
     }
     return interfaceJar;
