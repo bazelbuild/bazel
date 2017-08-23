@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -145,12 +146,16 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               .addOutput(rawProfileArtifact)
               .useDefaultShellEnvironment()
               .setExecutable(zipperBinaryArtifact)
-              .addArguments("xf", zipProfileArtifact.getExecPathString())
-              .addArguments(
-                  "-d", rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
               .setProgressMessage(
                   "LLVMUnzipProfileAction: Generating %s", rawProfileArtifact.prettyPrint())
               .setMnemonic("LLVMUnzipProfileAction")
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("xf", zipProfileArtifact)
+                      .add(
+                          "-d",
+                          rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
+                      .build())
               .build(ruleContext));
     } else {
       rawProfileArtifact =
@@ -180,10 +185,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(cppConfiguration.getLLVMProfDataExecutable())
-            .addArguments("merge", "-o", profileArtifact.getExecPathString())
-            .addArgument(rawProfileArtifact.getExecPathString())
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .add("merge")
+                    .add("-o")
+                    .addExecPath(profileArtifact)
+                    .addExecPath(rawProfileArtifact)
+                    .build())
             .build(ruleContext));
 
     return profileArtifact;
