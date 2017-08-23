@@ -33,24 +33,25 @@ using std::wstring;
 // WARNING: do not use for HANDLE returned by FindFirstFile; those must be
 // closed with FindClose (otherwise they aren't closed properly).
 struct AutoHandle {
-  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle(_handle) {}
+  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle_(_handle) {}
 
   ~AutoHandle() {
-    ::CloseHandle(handle);  // succeeds if handle == INVALID_HANDLE_VALUE
-    handle = INVALID_HANDLE_VALUE;
+    ::CloseHandle(handle_);  // succeeds if handle == INVALID_HANDLE_VALUE
+    handle_ = INVALID_HANDLE_VALUE;
   }
 
-  bool IsValid() { return handle != INVALID_HANDLE_VALUE && handle != NULL; }
+  bool IsValid() { return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL; }
 
   AutoHandle& operator=(const HANDLE& rhs) {
-    ::CloseHandle(handle);
-    handle = rhs;
+    ::CloseHandle(handle_);
+    handle_ = rhs;
     return *this;
   }
 
-  operator HANDLE() const { return handle; }
+  operator HANDLE() const { return handle_; }
 
-  HANDLE handle;
+ private:
+  HANDLE handle_;
 };
 
 string GetLastErrorString(const string& cause);
