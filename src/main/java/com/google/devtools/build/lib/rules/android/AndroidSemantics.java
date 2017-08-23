@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
@@ -73,10 +74,14 @@ public interface AndroidSemantics {
 
   /**
    * Configures the builder for generating the output jar used to configure the main dex file.
+   *
    * @throws InterruptedException
    */
   void addMainDexListActionArguments(
-      RuleContext ruleContext, SpawnAction.Builder builder, Artifact proguardMap)
+      RuleContext ruleContext,
+      SpawnAction.Builder builder,
+      CustomCommandLine.Builder commandLine,
+      Artifact proguardMap)
       throws InterruptedException;
 
   /**

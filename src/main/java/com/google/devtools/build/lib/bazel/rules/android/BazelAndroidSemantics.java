@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
@@ -73,8 +74,10 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public void addMainDexListActionArguments(
-      RuleContext ruleContext, SpawnAction.Builder builder, Artifact proguardMap) {
-  }
+      RuleContext ruleContext,
+      SpawnAction.Builder builder,
+      CustomCommandLine.Builder commandLine,
+      Artifact proguardMap) {}
 
   @Override
   public Artifact getApkDebugSigningKey(RuleContext ruleContext) {
