@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper Statement class for return expressions.
@@ -46,17 +47,21 @@ public final class ReturnStatement extends Statement {
     }
   }
 
-  private final Expression returnExpression;
+  @Nullable private final Expression returnExpression;
 
-  public ReturnStatement(Expression returnExpression) {
+  public ReturnStatement(@Nullable Expression returnExpression) {
     this.returnExpression = returnExpression;
   }
 
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
+    if (returnExpression == null) {
+      throw new ReturnException(getLocation(), Runtime.NONE);
+    }
     throw new ReturnException(returnExpression.getLocation(), returnExpression.eval(env));
   }
 
+  @Nullable
   public Expression getReturnExpression() {
     return returnExpression;
   }
@@ -65,9 +70,7 @@ public final class ReturnStatement extends Statement {
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
     buffer.append("return");
-    // "return" with no arg is represented internally as returning the None identifier.
-    if (!(returnExpression instanceof Identifier
-          && ((Identifier) returnExpression).getName().equals("None"))) {
+    if (returnExpression != null) {
       buffer.append(' ');
       returnExpression.prettyPrint(buffer, indentLevel);
     }

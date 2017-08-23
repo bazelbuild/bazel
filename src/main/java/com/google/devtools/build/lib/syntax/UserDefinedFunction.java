@@ -80,7 +80,11 @@ public class UserDefinedFunction extends BaseFunction {
           if (stmt instanceof ReturnStatement) {
             // Performance optimization.
             // Executing the statement would throw an exception, which is slow.
-            return ((ReturnStatement) stmt).getReturnExpression().eval(env);
+            Expression returnExpr = ((ReturnStatement) stmt).getReturnExpression();
+            if (returnExpr == null) {
+              return Runtime.NONE;
+            }
+            return returnExpr.eval(env);
           } else {
             stmt.exec(env);
           }

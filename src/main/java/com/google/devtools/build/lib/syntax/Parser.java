@@ -1389,15 +1389,12 @@ public class Parser {
     int end = token.right;
     expect(TokenKind.RETURN);
 
-    Expression expression;
-    if (STATEMENT_TERMINATOR_SET.contains(token.kind)) {
-        // this None makes the AST not correspond to the source exactly anymore
-        expression = new Identifier("None");
-        setLocation(expression, start, end);
-    } else {
-        expression = parseExpression();
+    Expression expression = null;
+    if (!STATEMENT_TERMINATOR_SET.contains(token.kind)) {
+      expression = parseExpression();
+      end = expression.getLocation().getEndOffset();
     }
-    return setLocation(new ReturnStatement(expression), start, expression);
+    return setLocation(new ReturnStatement(expression), start, end);
   }
 
   // create a comment node

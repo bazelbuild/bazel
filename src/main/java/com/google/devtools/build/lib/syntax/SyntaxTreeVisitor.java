@@ -129,7 +129,9 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(ReturnStatement node) {
-    visit(node.getReturnExpression());
+    if (node.getReturnExpression() != null) {
+      visit(node.getReturnExpression());
+    }
   }
 
   public void visit(FlowStatement node) {

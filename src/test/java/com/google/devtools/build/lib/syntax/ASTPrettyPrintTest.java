@@ -393,12 +393,11 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
         new ReturnStatement(new StringLiteral("foo")),
         "return \"foo\"\n");
 
-    assertIndentedPrettyMatches(
-        new ReturnStatement(new Identifier("None")),
-        "  return\n");
-    assertTostringMatches(
-        new ReturnStatement(new Identifier("None")),
-        "return\n");
+    assertIndentedPrettyMatches(new ReturnStatement(new Identifier("None")), "  return None\n");
+    assertTostringMatches(new ReturnStatement(new Identifier("None")), "return None\n");
+
+    assertIndentedPrettyMatches(new ReturnStatement(null), "  return\n");
+    assertTostringMatches(new ReturnStatement(null), "return\n");
   }
 
   // Miscellaneous.
