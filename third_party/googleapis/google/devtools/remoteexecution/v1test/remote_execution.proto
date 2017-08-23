@@ -862,3 +862,37 @@ message GetTreeResponse {
   // If empty, signifies that this is the last page of results.
   string next_page_token = 2;
 }
+
+// Details for the tool used to call the API.
+message ToolDetails {
+  // Name of the tool, e.g. bazel.
+  string tool_name = 1;
+
+  // Version of the tool used for the request, e.g. 5.0.3.
+  string tool_version = 2;
+}
+
+// An optional Metadata to attach to a RPC request to tell the server about an
+// external context of the request.
+// If used, the header name should be remote-request-metadata-bin and the
+// contents the base64 encoded binary RequestMetadata message.
+message RequestMetadata {
+  // The details for the tool invoking the requests.
+  ToolDetails tool_details = 1;
+
+  // An identifier that ties multiple requests to the same action.
+  // For example, multiple requests to the CAS, Action Cache, and Execution
+  // API are used in order to compile foo.cc.
+  string action_id = 2;
+
+  // An identifier that ties multiple actions together to a final result.
+  // For example, multiple actions are required to build and run foo_test.
+  string tool_invocation_id = 3;
+
+  // An identifier to tie multiple tool invocations together. For
+  // example,
+  // runs of foo_test, bar_test and baz_test on a post-submit of a given
+  // patch.
+  string correlated_invocations_id = 4;
+}
+
