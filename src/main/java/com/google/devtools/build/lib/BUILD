@@ -1195,6 +1195,7 @@ java_library(
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
