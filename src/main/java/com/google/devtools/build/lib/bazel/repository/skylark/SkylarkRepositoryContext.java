@@ -714,13 +714,17 @@ public class SkylarkRepositoryContext {
     if (fileValue == null) {
       throw RepositoryFunction.restart();
     }
-    if (!fileValue.isFile()) {
-      throw new EvalException(Location.BUILTIN,
-          "Not a file: " + rootedPath.asPath().getPathString());
+    if (!fileValue.isFile() || fileValue.isSpecialFile()) {
+      throw new EvalException(
+          Location.BUILTIN, "Not a regular file: " + rootedPath.asPath().getPathString());
     }
 
-    // A label do not contains space so it safe to use as a key.
-    markerData.put("FILE:" + label, Integer.toString(fileValue.realFileStateValue().hashCode()));
+    // A label does not contains space so it safe to use as a key.
+    try {
+      markerData.put("FILE:" + label, RepositoryFunction.fileValueToMarkerValue(fileValue));
+    } catch (IOException e) {
+      throw new EvalException(Location.BUILTIN, e);
+    }
     return new SkylarkPath(rootedPath.asPath());
   }
 

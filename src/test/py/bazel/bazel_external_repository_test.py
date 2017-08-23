@@ -58,7 +58,23 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
-    # Test Repository reloading after build file changes
+    fetching_disabled_msg = 'fetching is disabled'
+
+    # Changing the mtime of the BUILD file shouldn't invalidate it.
+    os.utime(self.Path('third_party/six.BUILD'), (100, 200))
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nofetch', '@six_archive//...'])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    self.assertNotIn(fetching_disabled_msg, os.linesep.join(stderr))
+
+    # Check that --nofetch prints a warning if the BUILD file is changed.
+    self.ScratchFile('third_party/six.BUILD', build_file + ['"a noop string"'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nofetch', '@six_archive//...'])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    self.assertIn(fetching_disabled_msg, os.linesep.join(stderr))
+
+    # Test repository reloading after BUILD file changes.
     self.ScratchFile('third_party/six.BUILD', build_file + ['foobar'])
     exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
