@@ -24,6 +24,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
@@ -665,28 +666,11 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   private void actualSignerToolTests(String apkSigningMethod, String signV1, String signV2)
       throws Exception {
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    annotations_jar = 'annotations_jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
     scratch.file("java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',)");
-    useConfiguration("--android_sdk=//sdk:sdk", "--apk_signing_method=" + apkSigningMethod);
+    useConfiguration("--apk_signing_method=" + apkSigningMethod);
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
@@ -694,32 +678,22 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     SpawnAction unsignedApkAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "/hello_unsigned.apk");
     assertThat(
-            Iterables.any(
-                unsignedApkAction.getInputs(),
-                new Predicate<Artifact>() {
-                  @Override
-                  public boolean apply(Artifact artifact) {
-                    return artifact.getFilename().equals("SingleJar_deploy.jar");
-                  }
-                }))
+            Streams.stream(unsignedApkAction.getInputs())
+                .map(Artifact::getFilename)
+                .anyMatch("SingleJar_deploy.jar"::equals))
         .isTrue();
     SpawnAction compressedUnsignedApkAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "compressed_hello_unsigned.apk");
     assertThat(
-            Iterables.any(
-                compressedUnsignedApkAction.getInputs(),
-                new Predicate<Artifact>() {
-                  @Override
-                  public boolean apply(Artifact artifact) {
-                    return artifact.getFilename().equals("SingleJar_deploy.jar");
-                  }
-                }))
+            Streams.stream(compressedUnsignedApkAction.getInputs())
+                .map(Artifact::getFilename)
+                .anyMatch("SingleJar_deploy.jar"::equals))
         .isTrue();
     SpawnAction zipalignAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "zipaligned_hello.apk");
-    assertThat(zipalignAction.getCommandFilename()).endsWith("sdk/zipalign");
+    assertThat(zipalignAction.getCommandFilename()).endsWith("zipalign");
     Artifact a = ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "hello.apk");
-    assertThat(getGeneratingSpawnAction(a).getCommandFilename()).endsWith("sdk/apksigner");
+    assertThat(getGeneratingSpawnAction(a).getCommandFilename()).endsWith("ApkSignerBinary");
     List<String> args = getGeneratingSpawnActionArgs(a);
 
     assertThat(flagValue("--v1-signing-enabled", args)).isEqualTo(signV1);
