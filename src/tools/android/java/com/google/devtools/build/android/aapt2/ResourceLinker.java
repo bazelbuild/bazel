@@ -15,18 +15,43 @@ package com.google.devtools.build.android.aapt2;
 
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
+import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
 
+  /** Represents errors thrown during linking. */
+  public static class LinkError extends RuntimeException {
+    public LinkError(Throwable e) {
+      super(e);
+    }
+  }
+
+  private static final Logger logger = Logger.getLogger(ResourceLinker.class.getName());
+
   private final Path aapt2;
-  private List<StaticLibrary> libraries;
-  private Revision buildToolsVersion;
   private final Path workingDirectory;
+  private List<StaticLibrary> linkAgainst = ImmutableList.of();
+  private Revision buildToolsVersion;
+  private String density;
+  private Path androidJar;
+  private List<String> uncompressedExtensions = ImmutableList.of();
+  private List<String> resourceConfigs = ImmutableList.of();
+  private Path baseApk;
+  private List<StaticLibrary> include;
 
   private ResourceLinker(Path aapt2, Path workingDirectory) {
     this.aapt2 = aapt2;
@@ -37,14 +62,35 @@ public class ResourceLinker {
     return new ResourceLinker(aapt2, workingDirectory);
   }
 
-  /** Dependent static libraries to be linked to. */
-  public ResourceLinker dependencies(List<StaticLibrary> libraries) {
-    this.libraries = libraries;
+  /** Dependent static to be linked against. */
+  public ResourceLinker dependencies(List<StaticLibrary> linkAgainst) {
+    this.linkAgainst = linkAgainst;
+    return this;
+  }
+
+  /** Dependent static libraries to be included in the binary. */
+  public ResourceLinker include(List<StaticLibrary> include) {
+    this.include = include;
     return this;
   }
 
   public ResourceLinker buildVersion(Revision buildToolsVersion) {
     this.buildToolsVersion = buildToolsVersion;
+    return this;
+  }
+
+  public ResourceLinker baseApkToLinkAgainst(Path baseApk) {
+    this.baseApk = baseApk;
+    return this;
+  }
+
+  public ResourceLinker filterToDensity(List<String> densitiesToFilter) {
+    if (densitiesToFilter.size() > 1) {
+      throw new UnsupportedOperationException("Multiple densities not yet supported with aapt2");
+    }
+    if (densitiesToFilter.size() > 0) {
+      density = Iterables.getOnlyElement(densitiesToFilter);
+    }
     return this;
   }
 
@@ -54,20 +100,126 @@ public class ResourceLinker {
    *
    * @throws IOException
    */
-  public StaticLibrary linkStatically(CompiledResources resources) throws IOException {
+  public StaticLibrary linkStatically(CompiledResources resources) {
     final Path outPath = workingDirectory.resolve("lib.ap_");
-    new AaptCommandBuilder(aapt2)
-        .forBuildToolsVersion(buildToolsVersion)
-        .forVariantType(VariantType.LIBRARY)
-        .add("link")
-        .add("--manifest", resources.asManifest())
-        .add("--static-lib")
-        .add("--output-text-symbols", workingDirectory)
-        .add("-o", outPath)
-        .add("--auto-add-overlay")
-        .addRepeated("-I", StaticLibrary.toPathStrings(libraries))
-        .add("-R", resources.asZip())
-        .execute(String.format("Linking %s", resources));
-    return StaticLibrary.from(outPath);
+    Path rTxt = workingDirectory.resolve("R.txt");
+
+    try {
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(VariantType.LIBRARY)
+              .add("link")
+              .add("--manifest", resources.getManifest())
+              .add("--static-lib")
+              .add("--no-static-lib-packages")
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAdd("--no-version-vectors")
+              .addRepeated("-R", unzipCompiledResources(resources.getZip()))
+              .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
+              .add("--auto-add-overlay")
+              .add("-o", outPath)
+              .add("--java", workingDirectory.resolve("java")) // java needed to create R.txt
+              .add("--output-text-symbols", rTxt)
+              .execute(String.format("Statically linking %s", resources)));
+      return StaticLibrary.from(outPath, rTxt);
+    } catch (IOException e) {
+      throw new LinkError(e);
+    }
+  }
+
+  public PackagedResources link(CompiledResources compiled) {
+    final Path outPath = workingDirectory.resolve("bin.ap_");
+    Path rTxt = workingDirectory.resolve("R.txt");
+    Path proguardConfig = workingDirectory.resolve("proguard.cfg");
+    Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
+    Path javaSourceDirectory = workingDirectory.resolve("java");
+
+    try {
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(VariantType.DEFAULT)
+              .add("link")
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAdd("--no-version-vectors")
+              .add("--no-static-lib-packages")
+              .when(Level.FINE.equals(logger.getLevel()))
+              .thenAdd("-v")
+              .add("--manifest", compiled.getManifest())
+              .add("--auto-add-overlay")
+              .addRepeated("-A", compiled.getAssetsStrings())
+              .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
+              .addRepeated("-R", StaticLibrary.toPathStrings(include))
+              .addRepeated("-R", unzipCompiledResources(compiled.getZip()))
+              // Never compress apks.
+              .add("-0", "apk")
+              // Add custom no-compress extensions.
+              .addRepeated("-0", uncompressedExtensions)
+              .addRepeated("-A", StaticLibrary.toAssetPaths(include))
+              .when(density != null)
+              .thenAdd("--preferred-density", density)
+              // Filter by resource configuration type.
+              .when(!resourceConfigs.isEmpty())
+              .thenAdd("-c", Joiner.on(',').join(resourceConfigs))
+              .add("--output-text-symbols", rTxt)
+              .add("--java", javaSourceDirectory)
+              .add("--proguard", proguardConfig)
+              .add("--proguard-main-dex", mainDexProguard)
+              .add("-o", outPath)
+              .execute(String.format("Linking %s", compiled.getManifest())));
+      return PackagedResources.of(
+          outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
+    } catch (IOException e) {
+      throw new LinkError(e);
+    }
+  }
+
+  private List<String> unzipCompiledResources(Path resourceZip) throws IOException {
+    final ZipFile zipFile = new ZipFile(resourceZip.toFile());
+    return zipFile
+        .stream()
+        .map(
+            entry -> {
+              final Path resolve = workingDirectory.resolve(entry.getName());
+              try {
+                Files.createDirectories(resolve.getParent());
+                return Files.write(resolve, ByteStreams.toByteArray(zipFile.getInputStream(entry)));
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .map(Path::toString)
+        .collect(Collectors.toList());
+  }
+
+  public ResourceLinker storeUncompressed(List<String> uncompressedExtensions) {
+    this.uncompressedExtensions = uncompressedExtensions;
+    return this;
+  }
+
+  public ResourceLinker includeOnlyConfigs(List<String> resourceConfigs) {
+    this.resourceConfigs = resourceConfigs;
+    return this;
+  }
+
+  public ResourceLinker using(Path androidJar) {
+    this.androidJar = androidJar;
+    return this;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("aapt2", aapt2)
+        .add("linkAgainst", linkAgainst)
+        .add("buildToolsVersion", buildToolsVersion)
+        .add("workingDirectory", workingDirectory)
+        .add("density", density)
+        .add("androidJar", androidJar)
+        .add("uncompressedExtensions", uncompressedExtensions)
+        .add("resourceConfigs", resourceConfigs)
+        .add("baseApk", baseApk)
+        .toString();
   }
 }

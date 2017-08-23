@@ -47,7 +47,7 @@ public class SerializedAndroidData {
         splitPaths(parts[0], fileSystem),
         splitPaths(parts[1], fileSystem),
         parts[2],
-        parts.length > 3 ? fileSystem.getPath(parts[3]) : null);
+        parts.length > 3 ? exists(fileSystem.getPath(parts[3])) : null);
   }
 
   protected static ImmutableList<Path> splitPaths(String pathsString, FileSystem fileSystem) {

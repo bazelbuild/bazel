@@ -47,4 +47,15 @@ public class Aapt2ConfigOptions extends OptionsBase {
     help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2"
   )
   public Revision buildToolsVersion;
+
+  @Option(
+    name = "androidJar",
+    defaultValue = "null",
+    converter = ExistingPathConverter.class,
+    category = "tool",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Path to the android jar for resource packaging and building apks."
+  )
+  public Path androidJar;
 }

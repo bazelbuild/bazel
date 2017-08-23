@@ -15,20 +15,25 @@ package com.google.devtools.build.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.aapt2.CompiledResources;
+import com.google.devtools.build.android.aapt2.ResourceCompiler;
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 /**
  * Android data that has yet to be merged and validated, the primary data for the Processor.
  *
- * <p>The life cycle of AndroidData goes:
- * {@link UnvalidatedAndroidData} -> {@link MergedAndroidData} -> {@link DensityFilteredAndroidData}
- *      -> {@link DependencyAndroidData}
+ * <p>The life cycle of AndroidData goes: {@link UnvalidatedAndroidData} -> {@link
+ * MergedAndroidData} -> {@link DensityFilteredAndroidData} -> {@link DependencyAndroidData}
  */
 class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
+
   private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+");
 
   public static final String EXPECTED_FORMAT = "resources[#resources]:assets[#assets]:manifest";
@@ -86,4 +91,39 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
         && Objects.equals(other.manifest, manifest);
   }
 
+  public CompiledResources compile(ResourceCompiler compiler, Path workingDirectory)
+      throws IOException, ExecutionException, InterruptedException {
+    for (Path resourceDir : resourceDirs) {
+      compiler.queueDirectoryForCompilation(resourceDir);
+    }
+    return archiveCompiledResources(
+        compiler.getCompiledArtifacts(),
+        workingDirectory,
+        workingDirectory.resolve("compiled.zip"));
+  }
+
+  protected CompiledResources archiveCompiledResources(
+      List<Path> resources, Path workingDirectory, Path output) throws IOException {
+    return CompiledResources.from(
+        AndroidResourceOutputs.archiveCompiledResources(
+            output, workingDirectory, workingDirectory, resources),
+        manifest,
+        assetDirs);
+  }
+
+  public UnvalidatedAndroidData processDataBindings(
+      Path dataBindingInfoOut, Path dataBindingWorkingDirectory) {
+
+    return new UnvalidatedAndroidData(resourceDirs, assetDirs, manifest) {
+      @Override
+      protected CompiledResources archiveCompiledResources(
+          List<Path> resources, Path workingDirectory, Path output) throws IOException {
+        return CompiledResources.from(
+            AndroidResourceOutputs.archiveCompiledResources(
+                output, dataBindingWorkingDirectory, workingDirectory, resources),
+            manifest,
+            assetDirs);
+      }
+    };
+  }
 }

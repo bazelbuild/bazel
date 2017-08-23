@@ -18,7 +18,6 @@ import static java.util.logging.Level.SEVERE;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.android.AndroidManifestProcessor.MergeErrorException;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.MergeTypeConverter;
@@ -224,7 +223,7 @@ public class ManifestMergerAction {
 
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(options.manifestOutput, FileTime.fromMillis(0L));
-    } catch (MergeErrorException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       System.exit(1);
     } catch (Exception e) {
       logger.log(SEVERE, "Error during merging manifests", e);

@@ -39,10 +39,8 @@ import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-/**
- * A testing utility that allows assertions against Paths.
- */
-class PathsSubject extends Subject<PathsSubject, Path> {
+/** A testing utility that allows assertions against Paths. */
+public class PathsSubject extends Subject<PathsSubject, Path> {
 
   PathsSubject(FailureStrategy failureStrategy, @Nullable Path subject) {
     super(failureStrategy, subject);

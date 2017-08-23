@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
@@ -47,6 +48,7 @@ import java.util.zip.ZipOutputStream;
 /** Collects all the functionationality for an action to create the final output artifacts. */
 public class AndroidResourceOutputs {
 
+  @VisibleForTesting
   static class ZipBuilder implements Closeable {
     // ZIP timestamps have a resolution of 2 seconds.
     // see http://www.info-zip.org/FAQ.html#limits
@@ -88,7 +90,8 @@ public class AndroidResourceOutputs {
       // Fix the path for windows.
       String relativeName = rawName.replace('\\', '/');
       // Make sure the zip entry is not absolute.
-      Preconditions.checkArgument(!relativeName.startsWith("/"));
+      Preconditions.checkArgument(
+          !relativeName.startsWith("/"), "Cannot add absolute resources %s", relativeName);
       ZipEntry entry = new ZipEntry(relativeName);
       entry.setMethod(storageMethod);
       entry.setTime(normalizeTime(relativeName));
@@ -254,14 +257,13 @@ public class AndroidResourceOutputs {
   /**
    * Copies the AndroidManifest.xml to the specified output location.
    *
-   * @param androidData The MergedAndroidData which contains the manifest to be written to
-   *     manifestOut.
+   * @param provider The MergedAndroidData which contains the manifest to be written to manifestOut.
    * @param manifestOut The Path to write the AndroidManifest.xml.
    */
-  public static void copyManifestToOutput(MergedAndroidData androidData, Path manifestOut) {
+  public static void copyManifestToOutput(ManifestContainer provider, Path manifestOut) {
     try {
       Files.createDirectories(manifestOut.getParent());
-      Files.copy(androidData.getManifest(), manifestOut);
+      Files.copy(provider.getManifest(), manifestOut);
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
     } catch (IOException e) {
@@ -381,7 +383,7 @@ public class AndroidResourceOutputs {
   }
 
   /** Collects all the compiled resources into an archive, normalizing the paths to the root. */
-  public static void archiveCompiledResources(
+  public static Path archiveCompiledResources(
       final Path archiveOut,
       final Path databindingResourcesRoot,
       final Path compiledRoot,
@@ -389,6 +391,7 @@ public class AndroidResourceOutputs {
       throws IOException {
     final Path relativeDatabindingProcessedResources =
         databindingResourcesRoot.getRoot().relativize(databindingResourcesRoot);
+
     try (ZipBuilder builder = ZipBuilder.createFor(archiveOut)) {
       for (Path artifact : compiledArtifacts) {
         Path relativeName = artifact;
@@ -407,5 +410,6 @@ public class AndroidResourceOutputs {
         builder.addEntry(relativeName.toString(), Files.readAllBytes(artifact), ZipEntry.STORED);
       }
     }
+    return archiveOut;
   }
 }

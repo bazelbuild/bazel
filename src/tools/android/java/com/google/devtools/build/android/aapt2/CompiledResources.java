@@ -13,32 +13,56 @@
 // limitations under the License.
 package com.google.devtools.build.android.aapt2;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.ManifestContainer;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Contains reference to the aapt2 generated .flat file archive and a manifest.
  *
  * <p>This represents the state between the aapt2 compile and link actions.
  */
-public class CompiledResources {
+public class CompiledResources implements ManifestContainer {
 
   private final Path resources;
   private final Path manifest;
+  private final List<Path> assetsDirs;
 
-  private CompiledResources(Path resources, Path manifest) {
+  private CompiledResources(Path resources, Path manifest, List<Path> assetsDirs) {
     this.resources = resources;
     this.manifest = manifest;
+    this.assetsDirs = assetsDirs;
   }
 
   public static CompiledResources from(Path resources, Path manifest) {
-    return new CompiledResources(resources, manifest);
+    return from(resources, manifest, null);
   }
 
-  public Path asZip() {
+  public static CompiledResources from(
+      Path resources, Path manifest, @Nullable List<Path> assetDirs) {
+    return new CompiledResources(
+        resources, manifest, Optional.ofNullable(assetDirs).orElseGet(ImmutableList::of));
+  }
+
+  public Path getZip() {
     return resources;
   }
 
-  public Path asManifest() {
+  @Override
+  public Path getManifest() {
     return manifest;
+  }
+
+  public List<String> getAssetsStrings() {
+    return assetsDirs.stream().map(Path::toString).collect(Collectors.toList());
+  }
+
+  public CompiledResources processManifest(Function<Path, Path> processManifest) {
+    return new CompiledResources(resources, processManifest.apply(manifest), assetsDirs);
   }
 }
