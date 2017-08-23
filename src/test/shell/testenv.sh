@@ -269,7 +269,7 @@ exit 1;
 # A uniform SHA-256 commands that works accross platform
 #
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function sha256sum() {
       cat "$1" | shasum -a 256 | cut -f 1 -d " "
     }

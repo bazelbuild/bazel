@@ -452,6 +452,18 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_determinism_test",
+    timeout = "eternal",
+    srcs = ["bazel_determinism_test.sh"],
+    args = ["$(location //:bazel-distfile)"],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile",
+    ],
+    tags = ["jdk8"],
+)
+
+sh_test(
     name = "rule_test_test",
     size = "medium",
     srcs = ["rule_test_test.sh"],

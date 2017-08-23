@@ -53,12 +53,11 @@ source scripts/bootstrap/buildenv.sh
 
 function usage() {
   [ -n "${1:-compile}" ] && echo "Invalid command(s): $1" >&2
-  echo "syntax: $0 [command[,command]* [BAZEL_BIN [BAZEL_SUM]]]" >&2
+  echo "syntax: $0 [command[,command]* [BAZEL_BIN]]" >&2
   echo "  General purpose commands:" >&2
   echo "     compile       = compile the bazel binary (default)" >&2
   echo "  Commands for developers:" >&2
-  echo "     all         = compile,determinism,test" >&2
-  echo "     determinism = test for stability of Bazel builds" >&2
+  echo "     all         = compile,srcs,test" >&2
   echo "     srcs        = test that //:srcs contains all the sources" >&2
   echo "     test        = run the full test suite of Bazel" >&2
   exit 1
@@ -69,18 +68,13 @@ function parse_options() {
   COMMANDS="${1:-compile}"
   [[ "${COMMANDS}" =~ ^$keywords(,$keywords)*$ ]] || usage "$@"
   DO_COMPILE=
-  DO_CHECKSUM=
-  DO_FULL_CHECKSUM=1
   DO_TESTS=
   DO_SRCS_TEST=
   [[ "${COMMANDS}" =~ (compile|all) ]] && DO_COMPILE=1
-  [[ "${COMMANDS}" =~ (bootstrap|determinism|all) ]] && DO_CHECKSUM=1
-  [[ "${COMMANDS}" =~ (bootstrap) ]] && DO_FULL_CHECKSUM=
   [[ "${COMMANDS}" =~ (srcs|all) ]] && DO_SRCS_TEST=1
   [[ "${COMMANDS}" =~ (test|all) ]] && DO_TESTS=1
 
   BAZEL_BIN=${2:-"bazel-bin/src/bazel"}
-  BAZEL_SUM=${3:-"x"}
 }
 
 parse_options "${@}"
@@ -129,31 +123,6 @@ if [ $DO_COMPILE ]; then
     || fail "Could not copy '$bazel_bin_path' to 'output/bazel${EXE_EXT}'"
   chmod 0755 "output/bazel${EXE_EXT}"
   BAZEL="$(pwd)/output/bazel${EXE_EXT}"
-fi
-
-#
-# Output is deterministic between two bootstrapped bazel binary using the actual tools and the
-# released binary.
-#
-if [ $DO_CHECKSUM ]; then
-  new_step "Determinism test"
-  if [ ! -f ${BAZEL_SUM:-x} ]; then
-    BAZEL_SUM=bazel-out/bazel_checksum
-    log "First build"
-    bootstrap_test ${BAZEL} ${BAZEL_SUM}
-  else
-    BOOTSTRAP=${BAZEL}
-  fi
-  if [ "${BAZEL_SUM}" != "${OUTPUT_DIR}/bazel_checksum" ]; then
-    cp ${BAZEL_SUM} ${OUTPUT_DIR}/bazel_checksum
-  fi
-  if [ $DO_FULL_CHECKSUM ]; then
-    log "Second build"
-    bootstrap_test ${BOOTSTRAP} bazel-out/bazel_checksum
-    log "Comparing output"
-    (diff -U 0 ${OUTPUT_DIR}/bazel_checksum bazel-out/bazel_checksum >&2) \
-        || fail "Differences detected in outputs!"
-  fi
 fi
 
 #
