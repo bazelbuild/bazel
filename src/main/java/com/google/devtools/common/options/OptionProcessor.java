@@ -23,6 +23,7 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -76,6 +77,29 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  /**
+   * Checks that the Option variables is public and neither final nor static.
+   *
+   * <p>Private or protected fields would prevent the options parser from having full access to the
+   * fields it's expected to read, and {@link OptionsBase} equality would not work as intended.
+   *
+   * <p>Static or final fields would cause issue with correct value assigning at the end of parsing.
+   */
+  private void checkModifiers(Element annotatedElement) throws OptionProcessorException {
+    if (!annotatedElement.getModifiers().contains(Modifier.PUBLIC)) {
+      throw new OptionProcessorException(
+          annotatedElement, "@Option annotated fields should be public.");
+    }
+    if (annotatedElement.getModifiers().contains(Modifier.STATIC)) {
+      throw new OptionProcessorException(
+          annotatedElement, "@Option annotated fields should not be static.");
+    }
+    if (annotatedElement.getModifiers().contains(Modifier.FINAL)) {
+      throw new OptionProcessorException(
+          annotatedElement, "@Option annotated fields should not be final.");
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     try {
@@ -83,6 +107,7 @@ public final class OptionProcessor extends AbstractProcessor {
         // Only fields are annotated with Option, this should already be checked by the
         // @Target(ElementType.FIELD) annotation.
 
+        checkModifiers(annotatedElement);
         checkInOptionBase(annotatedElement);
       }
     } catch (OptionProcessorException e) {

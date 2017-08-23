@@ -69,29 +69,6 @@ public final class OptionsTester {
     return this;
   }
 
-  /** Tests that there are no non-public fields which would interfere with option parsing. */
-  public OptionsTester testAllOptionFieldsPublic() {
-    for (Field field : getAllFields(optionsClass)) {
-      if (field.isAnnotationPresent(Option.class)) {
-        assertWithMessage(
-                field
-                    + " is Option-annotated, but is not public; it will not be considered as part"
-                    + " of the options. Change the visibility to public.")
-            .that(Modifier.isPublic(field.getModifiers()))
-            .isTrue();
-      }
-      if (Modifier.isStatic(field.getModifiers()) || Modifier.isFinal(field.getModifiers())) {
-        assertWithMessage(
-                field
-                    + " is Option-annotated, but is either static or final; it cannot be properly"
-                    + " set by the option parser. Remove either the annotation or the modifier(s).")
-            .that(field.getAnnotation(Option.class))
-            .isNull();
-      }
-    }
-    return this;
-  }
-
   /**
    * Tests that the default values of this class were part of the test data for the appropriate
    * ConverterTester, ensuring that the defaults at least obey proper equality semantics.
