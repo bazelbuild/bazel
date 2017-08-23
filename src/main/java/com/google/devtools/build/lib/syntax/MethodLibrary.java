@@ -2107,7 +2107,7 @@ public class MethodLibrary {
     returnType = Runtime.NoneType.class,
     doc =
         "Prints <code>args</code> as output. It will be prefixed with the string <code>"
-            + "\"WARNING\"</code> and the location (file and line number) of this call. It can be "
+            + "\"DEBUG\"</code> and the location (file and line number) of this call. It can be "
             + "used for debugging."
             + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
             + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
