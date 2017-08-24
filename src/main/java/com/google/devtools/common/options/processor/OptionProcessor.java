@@ -11,8 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.common.options;
+package com.google.devtools.common.options.processor;
 
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
