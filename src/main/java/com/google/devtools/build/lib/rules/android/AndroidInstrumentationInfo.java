@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -24,24 +23,24 @@ import com.google.devtools.build.lib.packages.NativeProvider;
  * AndroidInstrumentationTest}.
  */
 @Immutable
-public class AndroidInstrumentationInfoProvider extends NativeInfo {
+public class AndroidInstrumentationInfo extends NativeInfo {
 
   private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
-  static final NativeProvider<AndroidInstrumentationInfoProvider> ANDROID_INSTRUMENTATION_INFO =
-      new NativeProvider<AndroidInstrumentationInfoProvider>(
-          AndroidInstrumentationInfoProvider.class, SKYLARK_NAME) {};
+  static final NativeProvider<AndroidInstrumentationInfo> PROVIDER =
+      new NativeProvider<AndroidInstrumentationInfo>(
+          AndroidInstrumentationInfo.class, SKYLARK_NAME) {};
 
   private final Artifact targetApk;
   private final Artifact instrumentationApk;
 
-  public AndroidInstrumentationInfoProvider(Artifact targetApk, Artifact instrumentationApk) {
-    super(ANDROID_INSTRUMENTATION_INFO, ImmutableMap.<String, Object>of());
+  public AndroidInstrumentationInfo(Artifact targetApk, Artifact instrumentationApk) {
+    super(PROVIDER);
     this.targetApk = targetApk;
     this.instrumentationApk = instrumentationApk;
   }
 
   public Artifact getTargetApk() {
-    return  targetApk;
+    return targetApk;
   }
 
   public Artifact getInstrumentationApk() {

@@ -182,10 +182,8 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   private static Iterable<Artifact> getTargetApks(RuleContext ruleContext) {
     return Iterables.transform(
         ruleContext.getPrerequisites(
-            "instrumentations",
-            Mode.TARGET,
-            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO),
-        AndroidInstrumentationInfoProvider::getTargetApk);
+            "instrumentations", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER),
+        AndroidInstrumentationInfo::getTargetApk);
   }
 
   /**
@@ -195,10 +193,8 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   private static Iterable<Artifact> getInstrumentationApks(RuleContext ruleContext) {
     return Iterables.transform(
         ruleContext.getPrerequisites(
-            "instrumentations",
-            Mode.TARGET,
-            AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO),
-        AndroidInstrumentationInfoProvider::getInstrumentationApk);
+            "instrumentations", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER),
+        AndroidInstrumentationInfo::getInstrumentationApk);
   }
 
   /** The support APKs from the {@code support_apks} and {@code fixtures} attributes. */

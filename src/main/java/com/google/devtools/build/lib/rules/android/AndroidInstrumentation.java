@@ -61,8 +61,7 @@ public class AndroidInstrumentation implements RuleConfiguredTargetFactory {
                 new Runfiles.Builder(ruleContext.getWorkspaceName())
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
-        .addNativeDeclaredProvider(
-            new AndroidInstrumentationInfoProvider(targetApk, instrumentationApk))
+        .addNativeDeclaredProvider(new AndroidInstrumentationInfo(targetApk, instrumentationApk))
         .build();
   }
 

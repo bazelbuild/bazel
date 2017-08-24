@@ -239,14 +239,10 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   }
 
   private static Artifact getInstrumentationApk(ConfiguredTarget instrumentation) {
-    return instrumentation
-        .get(AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO)
-        .getInstrumentationApk();
+    return instrumentation.get(AndroidInstrumentationInfo.PROVIDER).getInstrumentationApk();
   }
 
   private static Artifact getTargetApk(ConfiguredTarget instrumentation) {
-    return instrumentation
-        .get(AndroidInstrumentationInfoProvider.ANDROID_INSTRUMENTATION_INFO)
-        .getTargetApk();
+    return instrumentation.get(AndroidInstrumentationInfo.PROVIDER).getTargetApk();
   }
 }
