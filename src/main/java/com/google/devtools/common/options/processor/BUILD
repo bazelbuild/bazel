@@ -21,5 +21,6 @@ java_plugin(
     processor_class = "com.google.devtools.common.options.processor.OptionProcessor",
     deps = [
         "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//third_party:guava",
     ],
 )
