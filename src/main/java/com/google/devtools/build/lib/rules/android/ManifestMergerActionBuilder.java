@@ -140,9 +140,7 @@ public class ManifestMergerActionBuilder {
       // list-type and list-of-list-type flags that use such problematic separators in favor of
       // multi-value flags (to remove one level of listing) and by changing all list separators to a
       // platform-safe character (= comma).
-      spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
+      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
     }
 
     ruleContext.registerAction(
