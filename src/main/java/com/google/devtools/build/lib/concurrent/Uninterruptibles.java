@@ -27,7 +27,7 @@ public final class Uninterruptibles {
    * returns a result. Sets the {@code currentThread().interrupted()} bit if the callable threw
    * {@link InterruptedException} at least once.
    */
-  public static final <T> T callUninterruptibly(Callable<T> callable) throws Exception {
+  public static <T> T callUninterruptibly(Callable<T> callable) throws Exception {
     boolean interrupted = false;
     try {
       while (true) {

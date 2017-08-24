@@ -62,17 +62,12 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
   }
 
   public static <K extends Comparable<K>, V> ImmutableSortedKeyMap<K, V> of(K key0, V value0) {
-    return ImmutableSortedKeyMap.<K, V>builder()
-        .put(key0, value0)
-        .build();
+    return ImmutableSortedKeyMap.<K, V>builder().put(key0, value0).build();
   }
 
   public static <K extends Comparable<K>, V> ImmutableSortedKeyMap<K, V> of(
       K key0, V value0, K key1, V value1) {
-    return ImmutableSortedKeyMap.<K, V>builder()
-        .put(key0, value0)
-        .put(key1, value1)
-        .build();
+    return ImmutableSortedKeyMap.<K, V>builder().put(key0, value0).put(key1, value1).build();
   }
 
   @SuppressWarnings("unchecked")

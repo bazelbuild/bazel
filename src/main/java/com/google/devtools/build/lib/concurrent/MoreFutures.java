@@ -39,7 +39,7 @@ public class MoreFutures {
    * <ul>
    * <li>All of the given futures complete successfully.
    * <li>One of the given futures has an {@link ExecutionException}. This {@link ExecutionException}
-   *   is propagated. (N.B. If multiple futures have {@link ExecutionExceptions}s, one will be
+   *   is propagated. (N.B. If multiple futures have {@link ExecutionException}s, one will be
    *   selected non-deterministically.)
    * <li>The calling thread is interrupted. The {@link InterruptedException} is propagated.
    * </ul>
@@ -55,8 +55,6 @@ public class MoreFutures {
           future.get(1, TimeUnit.MILLISECONDS);
         } catch (TimeoutException te) {
           continue;
-        } catch (ExecutionException ee) {
-          throw ee;
         }
         numCompletedFutures++;
       }

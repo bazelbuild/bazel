@@ -116,7 +116,7 @@ public enum Order {
   private final String deprecatedSkylarkName;
   private final NestedSet<?> emptySet;
 
-  private Order(String skylarkName, String deprecatedSkylarkName) {
+  Order(String skylarkName, String deprecatedSkylarkName) {
     this.skylarkName = skylarkName;
     this.deprecatedSkylarkName = deprecatedSkylarkName;
     this.emptySet = new NestedSet<>(this);
