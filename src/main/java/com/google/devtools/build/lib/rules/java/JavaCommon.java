@@ -86,7 +86,8 @@ public class JavaCommon {
             ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
             if (action instanceof JavaCompileAction) {
               addOutputs(metadataFilesBuilder, action, JavaSemantics.COVERAGE_METADATA);
-            } else if (action != null && action.getMnemonic().equals("JavaResourceJar")) {
+            } else if (action != null
+                && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {
               // recurse on resource jar actions
               collectMetadataArtifacts(
                   action.getInputs(), analysisEnvironment, metadataFilesBuilder);
