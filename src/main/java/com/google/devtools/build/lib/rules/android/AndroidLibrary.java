@@ -70,13 +70,14 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
    * attributes are used, we can error out if an android_library is specified in a resources
    * attribute despite having information incompatible with that output.
    *
-   * TODO(b/30307842): Remove this support once the resources attribute is completely removed.
+   * <p>TODO(b/30307842): Remove this support once the resources attribute is completely removed.
    *
-   * <p>With the exception of 'resource_files', these attributes are simply those provided by both
-   * android_library and android_resources. android_resources does provide the 'resources'
-   * attribute, but its behavior is like the android_library 'resource_files' attribute, not the
-   * android_library 'resources' attribute (which indicates a dependency on an android_resources
-   * target).
+   * <p>With the exception of 'resource_files' and the generator attributes, these attributes are
+   * simply those provided by both android_library and android_resources. android_resources does
+   * provide the 'resources' attribute, but its behavior is like the android_library
+   * 'resource_files' attribute, not the android_library 'resources' attribute (which indicates a
+   * dependency on an android_resources target). The generator_* attributes are included when the
+   * rule is created by a macro.
    */
   private static final ImmutableSet<String> ATTRS_COMPATIBLE_WITH_ANDROID_RESOURCES =
       ImmutableSet.of(
@@ -98,7 +99,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           "restricted_to",
           "tags",
           "testonly",
-          "visibility");
+          "visibility",
+          "generator_name",
+          "generator_function",
+          "generator_location");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
