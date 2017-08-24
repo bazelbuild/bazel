@@ -3,16 +3,18 @@
 
 filegroup(
     name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-        "Desugar_deploy.jar",
+    srcs = ["BUILD.tools"],
+    visibility = [
+        "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
     ],
-    visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )
 
 java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+    ],
     runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
