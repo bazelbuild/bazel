@@ -1148,7 +1148,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesOldAaptLocale() throws Exception {
     testDirectResourceFiltering(
         "en_US,fr_CA",
-        /* unexepectedQualifiers= */ ImmutableList.of("en-rCA"),
+        /* unexpectedQualifiers= */ ImmutableList.of("en-rCA"),
         /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA"));
   }
 
@@ -1156,7 +1156,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesOldAaptLocaleOtherQualifiers() throws Exception {
     testDirectResourceFiltering(
         "mcc310-en_US-ldrtl,mcc311-mnc312-fr_CA",
-        /* unexepectedQualifiers= */ ImmutableList.of("en-rCA", "mcc312", "mcc311-mnc311"),
+        /* unexpectedQualifiers= */ ImmutableList.of("en-rCA", "mcc312", "mcc311-mnc311"),
         /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA", "mcc310", "mcc311-mnc312"));
   }
 
@@ -1940,19 +1940,20 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(action.getMnemonic()).isEqualTo("AndroidZipAlign");
 
     List<String> arguments = getGeneratingSpawnActionArgs(a);
-    assertThat(Iterables.frequency(arguments, "4")).isEqualTo(1);
+    assertThat(arguments).contains("-p");
+    assertThat(arguments).contains("4");
 
     Artifact zipAlignTool =
         getFirstArtifactEndingWith(action.getInputs(), "/zipalign");
-    assertThat(Iterables.frequency(arguments, zipAlignTool.getExecPathString())).isEqualTo(1);
+    assertThat(arguments).contains(zipAlignTool.getExecPathString());
 
     Artifact unsignedApk =
         getFirstArtifactEndingWith(action.getInputs(), "/app_unsigned.apk");
-    assertThat(Iterables.frequency(arguments, unsignedApk.getExecPathString())).isEqualTo(1);
+    assertThat(arguments).contains(unsignedApk.getExecPathString());
 
     Artifact zipalignedApk =
         getFirstArtifactEndingWith(action.getOutputs(), "/zipaligned_app.apk");
-    assertThat(Iterables.frequency(arguments, zipalignedApk.getExecPathString())).isEqualTo(1);
+    assertThat(arguments).contains(zipalignedApk.getExecPathString());
   }
 
   @Test

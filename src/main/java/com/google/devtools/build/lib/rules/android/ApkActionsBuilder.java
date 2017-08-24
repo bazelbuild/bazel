@@ -358,6 +358,7 @@ public class ApkActionsBuilder {
             .addOutput(zipAlignedApk)
             .setCommandLine(
                 CustomCommandLine.builder()
+                    .add("-p") // memory page aligment for stored shared object files
                     .add("4")
                     .addExecPath(inputApk)
                     .addExecPath(zipAlignedApk)
