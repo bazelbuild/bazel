@@ -461,7 +461,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     name = "single_arch_platform",
     doc = "The platform of the current configuration. This should only be invoked in a context "
         + "where only a single architecture may be supported; consider "
-        + "<a href='#multi_arch_platform'>mutli_arch_platform</a> for other cases.",
+        + "<a href='#multi_arch_platform'>multi_arch_platform</a> for other cases.",
     structField = true
   )
   public ApplePlatform getSingleArchPlatform() {

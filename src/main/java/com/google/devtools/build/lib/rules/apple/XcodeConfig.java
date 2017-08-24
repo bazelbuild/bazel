@@ -152,7 +152,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(xcodeVersions)
+        .addNativeDeclaredProvider(xcodeVersions)
         .addNativeDeclaredProvider(xcodeVersionProperties)
         .build();
   }
@@ -337,7 +337,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     XcodeConfigProvider versions = ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
         RuleConfiguredTarget.Mode.TARGET,
-        XcodeConfigProvider.class);
+        XcodeConfigProvider.PROVIDER);
     DottedVersion fromProvider = versions.getMinimumOsForPlatformType(platformType);
     DottedVersion fromConfig = config.getMinimumOsForPlatformType(platformType);
     // This sanity check is there to keep this provider in sync with AppleConfiguration until the
@@ -355,7 +355,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     XcodeConfigProvider versions = ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
         RuleConfiguredTarget.Mode.TARGET,
-        XcodeConfigProvider.class);
+        XcodeConfigProvider.PROVIDER);
     DottedVersion fromProvider = versions.getSdkVersionForPlatform(platform);
     DottedVersion fromConfig = ruleContext.getFragment(AppleConfiguration.class)
         .getSdkVersionForPlatform(platform);
@@ -373,7 +373,8 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   public static DottedVersion getXcodeVersion(RuleContext ruleContext) {
     XcodeConfigProvider versions = ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        RuleConfiguredTarget.Mode.TARGET, XcodeConfigProvider.class);
+        RuleConfiguredTarget.Mode.TARGET,
+        XcodeConfigProvider.PROVIDER);
     DottedVersion fromProvider = versions.getXcodeVersion();
     DottedVersion fromConfig = ruleContext.getFragment(AppleConfiguration.class).getXcodeVersion();
     // This sanity check is there to keep this provider in sync with AppleConfiguration until the

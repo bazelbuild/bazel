@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -148,6 +149,15 @@ public class AppleSkylarkCommon {
   )
   public Provider getXcodeVersionPropertiesConstructor() {
     return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+      name = XcodeConfigProvider.SKYLARK_NAME,
+      doc = "The constructor/key for the <code>XcodeVersionConfig</code> provider.",
+      structField =  true
+  )
+  public Provider getXcodeVersionConfigConstructor() {
+    return XcodeConfigProvider.PROVIDER;
   }
 
   @SkylarkCallable(

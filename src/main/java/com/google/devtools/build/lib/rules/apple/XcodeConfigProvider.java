@@ -14,15 +14,29 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import javax.annotation.Nullable;
 
 /**
  * The set of Apple versions computed from command line options and the {@code xcode_config} rule.
  */
 @Immutable
-public class XcodeConfigProvider implements TransitiveInfoProvider {
+@SkylarkModule(
+    name = XcodeConfigProvider.SKYLARK_NAME,
+    doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
+public class XcodeConfigProvider extends NativeInfo {
+  /** Skylark name for this provider. */
+  public static final String SKYLARK_NAME = "XcodeVersionConfig";
+
+  /** Provider identifier for {@link XcodeConfigProvider}. */
+  public static final NativeProvider<XcodeConfigProvider> PROVIDER =
+      new NativeProvider<XcodeConfigProvider>(XcodeConfigProvider.class, SKYLARK_NAME) {};
+
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOsVersion;
   private final DottedVersion watchosSdkVersion;
@@ -39,6 +53,7 @@ public class XcodeConfigProvider implements TransitiveInfoProvider {
       DottedVersion tvosSdkVersion, DottedVersion tvosMinimumOsVersion,
       DottedVersion macosSdkVersion, DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion) {
+    super(PROVIDER, ImmutableMap.of());
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);
@@ -50,10 +65,18 @@ public class XcodeConfigProvider implements TransitiveInfoProvider {
     this.xcodeVersion = xcodeVersion;
   }
 
+  @SkylarkCallable(name = "xcode_version",
+      doc = "Returns the Xcode version that is being used to build.<p>"
+          + "This will return <code>None</code> if no Xcode versions are available.",
+      allowReturnNones = true)
   public DottedVersion getXcodeVersion() {
     return xcodeVersion;
   }
 
+  @SkylarkCallable(
+      name = "minimum_os_for_platform_type",
+      doc = "The minimum compatible OS version for target simulator and devices for a particular "
+          + "platform type.")
   public DottedVersion getMinimumOsForPlatformType(ApplePlatform.PlatformType platformType) {
     // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
     // apple_platform_type.
@@ -71,6 +94,10 @@ public class XcodeConfigProvider implements TransitiveInfoProvider {
     }
   }
 
+  @SkylarkCallable(
+      name = "sdk_version_for_platform",
+      doc = "The version of the platform SDK that will be used to build targets for the given "
+          + "platform.")
   public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
