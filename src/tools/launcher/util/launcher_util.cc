@@ -76,6 +76,15 @@ bool DoesFilePathExist(const char* path) {
           !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
+bool DoesDirectoryPathExist(const char* path) {
+  // TODO(laszlocsomor): convert `path` to (const wchar_t*), add longpath-prefix
+  // and use GetFileAttributesW.
+  DWORD dwAttrib = GetFileAttributesA(path);
+
+  return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
+          (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+}
+
 string GetBinaryPathWithoutExtension(const string& binary) {
   if (binary.find(".exe", binary.size() - 4) != string::npos) {
     return binary.substr(0, binary.length() - 4);
@@ -118,6 +127,23 @@ string GetEscapedArgument(const string& argument) {
     escaped_arg << '\"';
   }
   return escaped_arg.str();
+}
+
+// An environment variable has a maximum size limit of 32,767 characters
+// https://msdn.microsoft.com/en-us/library/ms683188.aspx
+static const int BUFFER_SIZE = 32767;
+
+bool GetEnv(const string& env_name, string* value) {
+  char buffer[BUFFER_SIZE];
+  if (!GetEnvironmentVariableA(env_name.c_str(), buffer, BUFFER_SIZE)) {
+    return false;
+  }
+  *value = buffer;
+  return true;
+}
+
+bool SetEnv(const string& env_name, const string& value) {
+  return SetEnvironmentVariableA(env_name.c_str(), value.c_str());
 }
 
 }  // namespace launcher

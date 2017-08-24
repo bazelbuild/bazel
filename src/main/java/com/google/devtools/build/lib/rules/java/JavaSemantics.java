@@ -300,6 +300,10 @@ public interface JavaSemantics {
    * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
    * is created and returned by this method) which shells out to a shell script (the {@code
    * executable} argument).
+   *
+   * <p>In Blaze, this method considers {@code javaExecutable} as a substitution that can be
+   * directly used to replace %javabin% in stub script, but in Bazel this method considers {@code
+   * javaExecutable} as a file path for the JVM binary (java).
    */
   Artifact createStubAction(
       RuleContext ruleContext,
@@ -308,6 +312,12 @@ public interface JavaSemantics {
       Artifact executable,
       String javaStartClass,
       String javaExecutable);
+
+  /**
+   * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
+   * Returns false if {@code createStubAction} considers {@code javaExecutable} as a file path.
+   */
+  boolean isJavaExecutableSubstitution();
 
   /**
    * Optionally creates a file containing the relative classpaths within the runfiles tree. If

@@ -126,15 +126,18 @@ class TestBase(unittest.TestCase):
     Raises:
       ArgumentError: if `path` is absolute or contains uplevel references
       IOError: if an I/O error occurs
+    Returns:
+      The absolute path of the directory created.
     """
     if not path:
-      return
+      return None
     abspath = self.Path(path)
     if os.path.exists(abspath):
       if os.path.isdir(abspath):
-        return
+        return abspath
       raise IOError('"%s" (%s) exists and is not a directory' % (path, abspath))
     os.makedirs(abspath)
+    return abspath
 
   def ScratchFile(self, path, lines=None):
     """Creates a file under the test's scratch directory.

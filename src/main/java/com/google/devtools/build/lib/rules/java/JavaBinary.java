@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnfo
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -154,7 +155,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact executableForRunfiles = null;
     if (createExecutable) {
       // This artifact is named as the rule itself, e.g. //foo:bar_bin -> bazel-bin/foo/bar_bin
-      executableForRunfiles = ruleContext.createOutputArtifact();
+      // On Windows, it's going to be bazel-bin/foo/bar_bin.exe
+      if (OS.getCurrent() == OS.WINDOWS
+          && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+        executableForRunfiles =
+            ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
+      } else {
+        executableForRunfiles = ruleContext.createOutputArtifact();
+      }
       filesBuilder.add(classJar).add(executableForRunfiles);
 
       if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
@@ -238,6 +246,12 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     Artifact executableToRun = executableForRunfiles;
     if (createExecutable) {
+      String javaExecutable;
+      if (semantics.isJavaExecutableSubstitution()) {
+        javaExecutable = JavaCommon.getJavaBinSubstitution(ruleContext, launcher);
+      } else {
+        javaExecutable = JavaCommon.getJavaExecutableForStub(ruleContext, launcher);
+      }
       // Create a shell stub for a Java application
       executableToRun =
           semantics.createStubAction(
@@ -246,7 +260,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               jvmFlags,
               executableForRunfiles,
               mainClass,
-              JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+              javaExecutable);
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);

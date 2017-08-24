@@ -49,9 +49,17 @@ class BinaryLauncherBase {
   const std::vector<std::string>& GetCommandlineArguments() const;
 
   // Map a runfile path to its absolute path.
-  std::string Rlocation(const std::string& path) const;
+  //
+  // If need_workspace_name is true, then this method prepend workspace name to
+  // path before doing rlocation.
+  // If need_workspace_name is false, then this method uses path directly.
+  // The default value of need_workspace_name is true.
+  std::string Rlocation(const std::string& path,
+                        bool need_workspace_name = true) const;
 
   // Lauch a process with given executable and command line arguments.
+  // If --print_launcher_command exists in arguments, then we print the full
+  // command line instead of launching the real process.
   //
   // exectuable: the binary to be executed.
   // arguments:  the command line arguments to be passed to the exectuable,
@@ -61,6 +69,12 @@ class BinaryLauncherBase {
 
   // A launch function to be implemented for a specific language.
   virtual ExitCode Launch() = 0;
+
+  // Return the runfiles directory of this binary.
+  //
+  // The method appends ".exe.runfiles" to the first command line argument,
+  // converts forward slashes to back slashes, then returns that.
+  std::string GetRunfilesPath() const;
 
  private:
   // A map to store all the launch information.
@@ -78,6 +92,14 @@ class BinaryLauncherBase {
 
   // A map to store all entries of the manifest file.
   std::unordered_map<std::string, std::string> manifest_file_map;
+
+  // If --print_launcher_command is presented in arguments,
+  // then print the command line.
+  //
+  // Return true if command line is printed.
+  bool PrintLauncherCommandLine(
+      const std::string& executable,
+      const std::vector<std::string>& arguments) const;
 
   // Create a command line to be passed to Windows CreateProcessA API.
   //

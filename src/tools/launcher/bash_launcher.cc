@@ -26,6 +26,8 @@ using std::ostringstream;
 using std::string;
 using std::vector;
 
+static constexpr const char* BASH_BIN_PATH = "bash_bin_path";
+
 ExitCode BashBinaryLauncher::Launch() {
   string bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
   // If specified bash binary path doesn't exist, then fall back to

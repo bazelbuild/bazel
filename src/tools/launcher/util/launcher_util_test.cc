@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <windows.h>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -88,6 +89,23 @@ TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
   CreateEmptyFile(file1);
   ASSERT_TRUE(DoesFilePathExist(file1.c_str()));
   ASSERT_FALSE(DoesFilePathExist(file2.c_str()));
+}
+
+TEST_F(LaunchUtilTest, DoesDirectoryPathExistTest) {
+  string dir1 = GetTmpDir() + "/dir1";
+  string dir2 = GetTmpDir() + "/dir2";
+  CreateDirectory(dir1.c_str(), NULL);
+  ASSERT_TRUE(DoesDirectoryPathExist(dir1.c_str()));
+  ASSERT_FALSE(DoesDirectoryPathExist(dir2.c_str()));
+}
+
+TEST_F(LaunchUtilTest, SetAndGetEnvTest) {
+  ASSERT_TRUE(SetEnv("foo", "bar"));
+  string value;
+  ASSERT_TRUE(GetEnv("foo", &value));
+  ASSERT_EQ(value, "bar");
+  SetEnv("FOO", "");
+  ASSERT_FALSE(GetEnv("FOO", &value));
 }
 
 }  // namespace launcher

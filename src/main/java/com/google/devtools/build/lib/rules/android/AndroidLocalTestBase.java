@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.SingleJarActionBuilder;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -127,7 +128,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             attributesBuilder);
     Artifact instrumentationMetadata =
         helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
-    Artifact executable = ruleContext.createOutputArtifact(); // the artifact for the rule itself
+    Artifact executable; // the artifact for the rule itself
+    if (OS.getCurrent() == OS.WINDOWS
+        && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      executable =
+          ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
+    } else {
+      executable = ruleContext.createOutputArtifact();
+    }
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().add(classJar).add(executable);
 
@@ -181,13 +189,20 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     Artifact launcher = JavaHelper.launcherArtifactForTarget(javaSemantics, ruleContext);
 
+    String javaExecutable;
+    if (javaSemantics.isJavaExecutableSubstitution()) {
+      javaExecutable = JavaCommon.getJavaBinSubstitution(ruleContext, launcher);
+    } else {
+      javaExecutable = JavaCommon.getJavaExecutableForStub(ruleContext, launcher);
+    }
+
     javaSemantics.createStubAction(
         ruleContext,
         javaCommon,
         getJvmFlags(ruleContext, testClass),
         executable,
         mainClass,
-        JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+        javaExecutable);
 
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);

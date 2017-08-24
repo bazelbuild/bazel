@@ -50,6 +50,20 @@ std::string GetEscapedArgument(const std::string& argument);
 // Check if a file exists at a given path.
 bool DoesFilePathExist(const char* path);
 
+// Check if a directory exists at a given path.
+bool DoesDirectoryPathExist(const char* path);
+
+// Get the value of a specific environment variable
+//
+// Return true if succeeded and the result is stored in buffer.
+// Return false if the environment variable doesn't exist or the value is empty.
+bool GetEnv(const std::string& env_name, std::string* buffer);
+
+// Set the value of a specific environment variable
+//
+// Return true if succeeded, otherwise false.
+bool SetEnv(const std::string& env_name, const std::string& value);
+
 }  // namespace launcher
 }  // namespace bazel
 

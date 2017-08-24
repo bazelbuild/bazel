@@ -21,48 +21,23 @@ from src.test.py.bazel import test_base
 
 class LauncherTest(test_base.TestBase):
 
-  def testJavaBinaryLauncher(self):
-    self.ScratchFile('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'java_binary(',
-        '  name = "foo",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
-    self.ScratchFile('foo/Main.java', [
-        'public class Main {',
-        '  public static void main(String[] args) {'
-        '    System.out.println("hello java");',
-        '    System.out.println("java_runfiles=" + ',
-        '        System.getenv("JAVA_RUNFILES"));',
-        '    System.out.println("runfiles_manifest_only=" + ',
-        '        System.getenv("RUNFILES_MANIFEST_ONLY"));',
-        '    System.out.println("runfiles_manifest_file=" + ',
-        '        System.getenv("RUNFILES_MANIFEST_FILE"));',
-        '  }',
-        '}',
-    ])
-    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
-    self.ScratchFile('bar/bar.txt', ['hello'])
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+  def _buildJavaTargets(self, bazel_bin, launcher_flag, binary_suffix):
+    exit_code, _, stderr = self.RunBazel(['build', '//foo'] + launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
-    bazel_bin = stdout[0]
-
-    exit_code, _, stderr = self.RunBazel(['build', '//foo'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    main_binary = os.path.join(bazel_bin,
-                               'foo/foo%s' % ('.cmd'
-                                              if self.IsWindows() else ''))
+    if '--windows_exe_launcher=0' in launcher_flag and self.IsWindows():
+      main_binary = os.path.join(bazel_bin, 'foo/foo%s' % '.cmd')
+    else:
+      main_binary = os.path.join(bazel_bin, 'foo/foo%s' % binary_suffix)
     self.assertTrue(os.path.isfile(main_binary))
-    self.assertTrue(os.path.isdir(os.path.join(bazel_bin, 'foo/foo.runfiles')))
+    self.assertTrue(
+        os.path.isdir(
+            os.path.join(bazel_bin, 'foo/foo%s.runfiles' % binary_suffix)))
 
     if self.IsWindows():
       self.assertTrue(os.path.isfile(main_binary))
       self.AssertRunfilesManifestContains(
-          os.path.join(bazel_bin, 'foo/foo.runfiles/MANIFEST'),
+          os.path.join(bazel_bin,
+                       'foo/foo%s.runfiles/MANIFEST' % binary_suffix),
           '__main__/bar/bar.txt')
     else:
       self.assertTrue(
@@ -74,7 +49,8 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(len(stdout), 4)
     self.assertEqual(stdout[0], 'hello java')
     if self.IsWindows():
-      self.assertRegexpMatches(stdout[1], r'java_runfiles=.*foo\\foo.runfiles')
+      self.assertRegexpMatches(
+          stdout[1], r'java_runfiles=.*foo\\foo%s.runfiles' % binary_suffix)
       self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
       self.assertRegexpMatches(
           stdout[3], r'^runfiles_manifest_file=[a-zA-Z]:[/\\].*MANIFEST$')
@@ -212,6 +188,41 @@ class LauncherTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['test', '//foo:test'] + launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testJavaBinaryLauncher(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'java_binary(',
+        '  name = "foo",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        '  data = ["//bar:bar.txt"],',
+        ')',
+    ])
+    self.ScratchFile('foo/Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {'
+        '    System.out.println("hello java");',
+        '    System.out.println("java_runfiles=" + ',
+        '        System.getenv("JAVA_RUNFILES"));',
+        '    System.out.println("runfiles_manifest_only=" + ',
+        '        System.getenv("RUNFILES_MANIFEST_ONLY"));',
+        '    System.out.println("runfiles_manifest_file=" + ',
+        '        System.getenv("RUNFILES_MANIFEST_FILE"));',
+        '  }',
+        '}',
+    ])
+    self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
+    self.ScratchFile('bar/bar.txt', ['hello'])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+    self._buildJavaTargets(bazel_bin, ['--windows_exe_launcher=0'], '')
+    exit_code, _, stderr = self.RunBazel(['clean'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self._buildJavaTargets(bazel_bin, ['--windows_exe_launcher=1'], '.exe'
+                           if self.IsWindows() else '')
+
   def testShBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile(
@@ -257,7 +268,9 @@ class LauncherTest(test_base.TestBase):
 
     self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd'
                                if self.IsWindows() else '')
-    self._buildShBinaryTargets(bazel_bin, [], '.exe'
+    exit_code, _, stderr = self.RunBazel(['clean'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self._buildShBinaryTargets(bazel_bin, ['--windows_exe_launcher=1'], '.exe'
                                if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
@@ -286,7 +299,7 @@ class LauncherTest(test_base.TestBase):
     bazel_bin = stdout[0]
 
     exit_code, _, stderr = self.RunBazel(
-        ['build', '--windows_exe_launcher', '//foo:bin'])
+        ['build', '--windows_exe_launcher=1', '//foo:bin'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     bin_suffix = '.exe' if self.IsWindows() else ''
@@ -358,7 +371,134 @@ class LauncherTest(test_base.TestBase):
 
     self._buildPyTargets(bazel_bin, ['--windows_exe_launcher=0'], '.cmd'
                          if self.IsWindows() else '')
-    self._buildPyTargets(bazel_bin, [], '.exe' if self.IsWindows() else '')
+    exit_code, _, stderr = self.RunBazel(['clean'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self._buildPyTargets(bazel_bin, ['--windows_exe_launcher=1'], '.exe'
+                         if self.IsWindows() else '')
+
+  def testWindowsJavaExeLauncher(self):
+    # Skip this test on non-Windows platforms
+    if not self.IsWindows():
+      return
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'java_binary(',
+        '  name = "foo",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        '  jvm_flags = ["--flag1", "--flag2"],',
+        ')',
+    ])
+    self.ScratchFile('foo/Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {'
+        '    System.out.println("helloworld");',
+        '  }',
+        '}',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--windows_exe_launcher=1', '//foo:foo'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    binary = os.path.join(bazel_bin, 'foo', 'foo.exe')
+    self.assertTrue(os.path.exists(binary))
+
+    # Add this flag to make launcher print the command it generated instead of
+    # launching the real program.
+    print_cmd = '--print_launcher_command'
+
+    exit_code, stdout, stderr = self.RunProgram([binary, '--debug', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005',
+        stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--debug', print_cmd],
+        env_add={'DEFAULT_JVM_DEBUG_PORT': '12345'})
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=12345',
+        stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--debug=12345', print_cmd],
+        env_add={
+            'DEFAULT_JVM_DEBUG_SUSPEND': 'n',
+            'PERSISTENT_TEST_RUNNER': 'true'
+        })
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=12345'
+        ',quiet=y', stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--main_advice=MyMain', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('MyMain', stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--main_advice_classpath=foo/bar', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('-classpath', stdout)
+    classpath = stdout[stdout.index('-classpath') + 1]
+    self.assertIn('foo/bar', classpath)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--jvm_flag="--some_path="./a b/c""', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('--some_path="./a b/c"', stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--jvm_flags="--path1=a --path2=b"', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('--path1=a', stdout)
+    self.assertIn('--path2=b', stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, print_cmd], env_add={'JVM_FLAGS': '--foo --bar'})
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('--flag1', stdout)
+    self.assertIn('--flag2', stdout)
+    self.assertIn('--foo', stdout)
+    self.assertIn('--bar', stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--singlejar', print_cmd])
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('foo_deploy.jar does not exist', ''.join(stderr))
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:foo_deploy.jar'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--singlejar', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('-classpath', stdout)
+    classpath = stdout[stdout.index('-classpath') + 1]
+    self.assertIn('foo_deploy.jar', classpath)
+
+    exit_code, stdout, stderr = self.RunProgram([binary, '--print_javabin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('local_jdk/bin/java.exe', ''.join(stdout))
+
+    my_tmp_dir = self.ScratchDir('my/temp/dir')
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, print_cmd], env_add={'TEST_TMPDIR': my_tmp_dir})
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('-Djava.io.tmpdir=%s' % my_tmp_dir, stdout)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--classpath_limit=0', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('-classpath', stdout)
+    classpath = stdout[stdout.index('-classpath') + 1]
+    self.assertIn('foo-classpath.jar', classpath)
+    classpath_jar = os.path.join(bazel_bin, 'foo', 'foo-classpath.jar')
+    self.assertTrue(os.path.exists(classpath_jar))
 
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:

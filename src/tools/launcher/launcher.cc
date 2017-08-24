@@ -67,6 +67,13 @@ string BinaryLauncherBase::FindManifestFile(const char* argv0) {
   die("Couldn't find MANIFEST file under %s.runfiles\\", binary.c_str());
 }
 
+string BinaryLauncherBase::GetRunfilesPath() const {
+  string runfiles_path =
+      GetBinaryPathWithExtension(this->commandline_arguments[0]) + ".runfiles";
+  std::replace(runfiles_path.begin(), runfiles_path.end(), '/', '\\');
+  return runfiles_path;
+}
+
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
                                            const string& manifest_path) {
   // TODO(laszlocsomor): prefix manifest_path with the longpath prefix.
@@ -90,11 +97,16 @@ void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
   }
 }
 
-string BinaryLauncherBase::Rlocation(const string& path) const {
-  auto entry = manifest_file_map.find(this->workspace_name + "/" + path);
+string BinaryLauncherBase::Rlocation(const string& path,
+                                     bool need_workspace_name) const {
+  string query_path = path;
+  if (need_workspace_name) {
+    query_path = this->workspace_name + "/" + path;
+  }
+  auto entry = manifest_file_map.find(query_path);
   if (entry == manifest_file_map.end()) {
     die("Rlocation failed on %s, path doesn't exist in MANIFEST file",
-        path.c_str());
+        query_path.c_str());
   }
   return entry->second;
 }
@@ -132,10 +144,28 @@ void BinaryLauncherBase::CreateCommandLine(
   result->cmdline[MAX_CMDLINE_LENGTH - 1] = 0;
 }
 
+bool BinaryLauncherBase::PrintLauncherCommandLine(
+    const string& executable, const vector<string>& arguments) const {
+  bool has_print_cmd_flag = false;
+  for (const auto& arg : arguments) {
+    has_print_cmd_flag |= (arg == "--print_launcher_command");
+  }
+  if (has_print_cmd_flag) {
+    printf("%s\n", executable.c_str());
+    for (const auto& arg : arguments) {
+      printf("%s\n", arg.c_str());
+    }
+  }
+  return has_print_cmd_flag;
+}
+
 ExitCode BinaryLauncherBase::LaunchProcess(
     const string& executable, const vector<string>& arguments) const {
-  SetEnvironmentVariableA("RUNFILES_MANIFEST_ONLY", "1");
-  SetEnvironmentVariableA("RUNFILES_MANIFEST_FILE", manifest_file.c_str());
+  if (PrintLauncherCommandLine(executable, arguments)) {
+    return 0;
+  }
+  SetEnv("RUNFILES_MANIFEST_ONLY", "1");
+  SetEnv("RUNFILES_MANIFEST_FILE", manifest_file);
   CmdLine cmdline;
   CreateCommandLine(&cmdline, executable, arguments);
   PROCESS_INFORMATION processInfo = {0};

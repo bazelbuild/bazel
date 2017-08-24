@@ -24,6 +24,8 @@ namespace launcher {
 using std::string;
 using std::vector;
 
+static constexpr const char* PYTHON_BIN_PATH = "python_bin_path";
+
 ExitCode PythonBinaryLauncher::Launch() {
   string python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
   // If specified python binary path doesn't exist, then fall back to

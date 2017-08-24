@@ -480,10 +480,11 @@ public class JavaCommon {
   }
 
   /**
-   * Returns the string that the stub should use to determine the JVM
+   * Returns the path of the java executable that the java stub should use.
+   *
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
-  public static String getJavaBinSubstitution(
+  public static String getJavaExecutableForStub(
       RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
@@ -501,8 +502,16 @@ public class JavaCommon {
       javaExecutable =
           PathFragment.create(PathFragment.create(ruleContext.getWorkspaceName()), javaExecutable);
     }
-    javaExecutable = javaExecutable.normalize();
+    return javaExecutable.normalize().getPathString();
+  }
 
+  /**
+   * Returns the shell command that computes `JAVABIN`.
+   * The command derives the JVM location from a given Java executable path.
+   */
+  public static String getJavaBinSubstitutionFromJavaExecutable(
+      RuleContext ruleContext, String javaExecutableStr) {
+    PathFragment javaExecutable = PathFragment.create(javaExecutableStr);
     if (ruleContext.getConfiguration().runfilesEnabled()) {
       String prefix = "";
       if (!javaExecutable.isAbsolute()) {
@@ -512,6 +521,13 @@ public class JavaCommon {
     } else {
       return "JAVABIN=${JAVABIN:-$(rlocation " + javaExecutable.getPathString() + ")}";
     }
+  }
+
+  /** Returns the string that the stub should use to determine the JVM binary (java) path */
+  public static String getJavaBinSubstitution(
+      RuleContext ruleContext, @Nullable Artifact launcher) {
+    return getJavaBinSubstitutionFromJavaExecutable(
+        ruleContext, getJavaExecutableForStub(ruleContext, launcher));
   }
 
   /**

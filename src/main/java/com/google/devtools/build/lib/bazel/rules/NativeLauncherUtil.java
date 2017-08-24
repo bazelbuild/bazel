@@ -32,12 +32,42 @@ public final class NativeLauncherUtil {
 
   private NativeLauncherUtil() {}
 
+  /** Write a string to launch info buffer. */
+  public static void writeLaunchInfo(ByteArrayOutputStream launchInfo, String value)
+      throws IOException {
+    launchInfo.write(value.getBytes(UTF_8));
+  }
+
   /** Write a key-value pair launch info to buffer. */
   public static void writeLaunchInfo(ByteArrayOutputStream launchInfo, String key, String value)
       throws IOException {
     launchInfo.write(key.getBytes(UTF_8));
     launchInfo.write('=');
     launchInfo.write(value.getBytes(UTF_8));
+    launchInfo.write('\0');
+  }
+
+  /**
+   * Write a key-value pair launch info to buffer. The method construct the value from a list of
+   * String separated by delimiter.
+   */
+  public static void writeLaunchInfo(
+      ByteArrayOutputStream launchInfo,
+      String key,
+      final Iterable<String> valueList,
+      char delimiter)
+      throws IOException {
+    launchInfo.write(key.getBytes(UTF_8));
+    launchInfo.write('=');
+    boolean isFirst = true;
+    for (String value : valueList) {
+      if (!isFirst) {
+        launchInfo.write(delimiter);
+      } else {
+        isFirst = false;
+      }
+      launchInfo.write(value.getBytes(UTF_8));
+    }
     launchInfo.write('\0');
   }
 
@@ -64,15 +94,17 @@ public final class NativeLauncherUtil {
    */
   public static void createNativeLauncherActions(
       RuleContext ruleContext, Artifact launcher, ByteArrayOutputStream launchInfo) {
+    createNativeLauncherActions(ruleContext, launcher, ByteSource.wrap(launchInfo.toByteArray()));
+  }
+
+  public static void createNativeLauncherActions(
+      RuleContext ruleContext, Artifact launcher, ByteSource launchInfo) {
     Artifact launchInfoFile =
         ruleContext.getRelatedArtifact(launcher.getRootRelativePath(), ".launch_info");
 
     ruleContext.registerAction(
         new BinaryFileWriteAction(
-            ruleContext.getActionOwner(),
-            launchInfoFile,
-            ByteSource.wrap(launchInfo.toByteArray()),
-            /*makeExecutable=*/ false));
+            ruleContext.getActionOwner(), launchInfoFile, launchInfo, /*makeExecutable=*/ false));
 
     Artifact baseLauncherBinary = ruleContext.getPrerequisiteArtifact("$launcher", Mode.HOST);
 
