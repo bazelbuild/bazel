@@ -63,7 +63,6 @@ public class ResourceLinker {
     return new ResourceLinker(aapt2, workingDirectory);
   }
 
-
   /** Dependent static libraries to be linked to. */
   public ResourceLinker dependencies(List<StaticLibrary> libraries) {
     this.linkAgainst = libraries;
@@ -158,7 +157,8 @@ public class ResourceLinker {
               .addRepeated("-A", compiled.getAssetsStrings())
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
               .addRepeated("-R", StaticLibrary.toPathStrings(include))
-              .addRepeated("-R", unzipCompiledResources(compiled.getZip()))
+              .addParameterableRepeated(
+                  "-R", unzipCompiledResources(compiled.getZip()), workingDirectory)
               // Never compress apks.
               .add("-0", "apk")
               // Add custom no-compress extensions.

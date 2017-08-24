@@ -23,9 +23,11 @@ import com.google.common.io.CharStreams;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -106,6 +108,29 @@ public class AaptCommandBuilder {
     Preconditions.checkNotNull(flag);
     for (String value : values) {
       add(flag, value);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a flag to the builder multiple times, once for each value in the given collection. {@code
+   * null} values will be skipped. If the collection is empty, nothing will be added. The values
+   * will be added in the source collection's iteration order. See {@link
+   * AaptCommandBuilder#addRepeated(String, Collection)} for more information. If the collection
+   * exceed 200 items, the values will be written to a file and passed as &lt;flag&gt @&lt;file&gt;.
+   */
+  public AaptCommandBuilder addParameterableRepeated(
+      final String flag, Collection<String> values, Path workingDirectory) throws IOException {
+    Preconditions.checkNotNull(flag);
+    Preconditions.checkNotNull(workingDirectory);
+    if (values.size() > 200) {
+      add(
+          flag,
+          "@" + Files.write(
+              Files.createDirectories(workingDirectory).resolve("params" + flag),
+              ImmutableList.of(values.stream().collect(Collectors.joining(" ")))));
+    } else {
+      addRepeated(flag, values);
     }
     return this;
   }
