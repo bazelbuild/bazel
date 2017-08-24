@@ -110,7 +110,7 @@ def _simple_aspect_impl(target, ctx):
             output=aspect_out,
             content = "Hello from aspect")
     return struct(output_groups={
-        "aspect-out" : set([aspect_out]) })
+        "aspect-out" : depset([aspect_out]) })
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -124,7 +124,7 @@ def _failing_aspect_impl(target, ctx):
             command = "false",
         )
     return struct(output_groups={
-        "aspect-out" : set([aspect_out]) })
+        "aspect-out" : depset([aspect_out]) })
 
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF

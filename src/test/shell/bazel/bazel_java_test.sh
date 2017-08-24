@@ -183,7 +183,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 
@@ -300,7 +300,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 
@@ -377,7 +377,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 

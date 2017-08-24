@@ -261,7 +261,7 @@ function test_action_conflict() {
 
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
 def _create(ctx):
-  files_to_build = set(ctx.outputs.outs)
+  files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
   action_cmd = "touch " + list(files_to_build)[0].path
