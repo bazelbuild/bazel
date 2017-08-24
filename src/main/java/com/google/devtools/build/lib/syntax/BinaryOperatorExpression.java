@@ -259,6 +259,11 @@ public final class BinaryOperatorExpression extends Expression {
     visitor.visit(this);
   }
 
+  @Override
+  public Kind kind() {
+    return Kind.BINARY_OPERATOR;
+  }
+
   /** Implements Operator.PLUS. */
   private static Object plus(
       Object lval, Object rval, Environment env, Location location, boolean isAugmented)

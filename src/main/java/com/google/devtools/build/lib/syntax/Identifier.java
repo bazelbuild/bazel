@@ -85,6 +85,11 @@ public final class Identifier extends Expression {
     visitor.visit(this);
   }
 
+  @Override
+  public Kind kind() {
+    return Kind.IDENTIFIER;
+  }
+
   EvalException createInvalidIdentifierException(Set<String> symbols) {
     if (name.equals("$error$")) {
       return new EvalException(getLocation(), "contains syntax error(s)", true);

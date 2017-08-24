@@ -107,4 +107,9 @@ public final class LoadStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.LOAD;
+  }
 }

@@ -110,4 +110,9 @@ public final class FunctionDefStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.FUNCTION_DEF;
+  }
 }

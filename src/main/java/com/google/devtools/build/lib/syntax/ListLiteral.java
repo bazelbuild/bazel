@@ -32,6 +32,7 @@ public final class ListLiteral extends Expression {
   /**
    * Types of the ListLiteral.
    */
+  // TODO(laurentlb): This conflicts with Expression.Kind, maybe remove it?
   public enum Kind {LIST, TUPLE}
 
   private final Kind kind;
@@ -111,5 +112,10 @@ public final class ListLiteral extends Expression {
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  @Override
+  public Expression.Kind kind() {
+    return Expression.Kind.LIST_LITERAL;
   }
 }

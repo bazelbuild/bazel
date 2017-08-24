@@ -47,4 +47,9 @@ public final class ExpressionStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.EXPRESSION;
+  }
 }

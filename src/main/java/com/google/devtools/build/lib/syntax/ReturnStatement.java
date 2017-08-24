@@ -81,4 +81,9 @@ public final class ReturnStatement extends Statement {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.RETURN;
+  }
 }

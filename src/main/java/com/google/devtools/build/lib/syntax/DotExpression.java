@@ -124,4 +124,9 @@ public final class DotExpression extends Expression {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.DOT;
+  }
 }

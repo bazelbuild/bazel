@@ -65,4 +65,9 @@ public final class ConditionalExpression extends Expression {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.CONDITIONAL;
+  }
 }

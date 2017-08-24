@@ -761,6 +761,11 @@ public final class FuncallExpression extends Expression {
   }
 
   @Override
+  public Kind kind() {
+    return Kind.FUNCALL;
+  }
+
+  @Override
   protected boolean isNewScope() {
     return true;
   }

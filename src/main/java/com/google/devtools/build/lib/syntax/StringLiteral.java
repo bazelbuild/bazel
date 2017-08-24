@@ -43,4 +43,9 @@ public final class StringLiteral extends Expression {
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
+
+  @Override
+  public Kind kind() {
+    return Kind.STRING_LITERAL;
+  }
 }

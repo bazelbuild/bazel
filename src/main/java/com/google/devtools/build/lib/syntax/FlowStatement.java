@@ -19,6 +19,7 @@ import java.io.IOException;
  * A class for flow statements (e.g. break and continue)
  */
 public final class FlowStatement extends Statement {
+  // TODO(laurentlb): This conflicts with Statement.Kind, maybe remove it?
   public enum Kind {
     BREAK("break"),
     CONTINUE("continue");
@@ -66,6 +67,11 @@ public final class FlowStatement extends Statement {
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  @Override
+  public Statement.Kind kind() {
+    return Statement.Kind.FLOW;
   }
 
   /**

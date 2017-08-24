@@ -62,6 +62,11 @@ public final class IfStatement extends Statement {
       visitor.visit(this);
     }
 
+    @Override
+    public Kind kind() {
+      return Kind.CONDITIONAL;
+    }
+
     public Expression getCondition() {
       return condition;
     }
@@ -132,5 +137,10 @@ public final class IfStatement extends Statement {
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  @Override
+  public Kind kind() {
+    return Kind.IF;
   }
 }

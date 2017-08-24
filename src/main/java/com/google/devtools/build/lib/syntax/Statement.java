@@ -20,6 +20,23 @@ package com.google.devtools.build.lib.syntax;
 public abstract class Statement extends ASTNode {
 
   /**
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
+   */
+  public enum Kind {
+    ASSIGNMENT,
+    AUGMENTED_ASSIGNMENT,
+    CONDITIONAL,
+    EXPRESSION,
+    FLOW,
+    FOR,
+    FUNCTION_DEF,
+    IF,
+    LOAD,
+    RETURN,
+  }
+
+  /**
    * Executes the statement in the specified build environment, which may be
    * modified.
    *
@@ -44,4 +61,10 @@ public abstract class Statement extends ASTNode {
    * @throws InterruptedException may be thrown in a sub class.
    */
   abstract void doExec(Environment env) throws EvalException, InterruptedException;
+
+  /**
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
+   */
+  public abstract Kind kind();
 }
