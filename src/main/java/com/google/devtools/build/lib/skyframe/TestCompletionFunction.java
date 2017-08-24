@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -32,20 +35,35 @@ public final class TestCompletionFunction implements SkyFunction {
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
     LabelAndConfiguration lac = key.labelAndConfiguration();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    env.getValue(
-        TargetCompletionValue.key(
-            lac, ctx, TestExecutionFunction.key(lac, key.exclusiveTesting())));
-    if (env.valuesMissing()) {
+    if (env.getValue(TargetCompletionValue.key(lac, ctx)) == null) {
       return null;
+    }
+
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
+        env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
+    if (ctValue == null) {
+      return null;
+    }
+
+    ConfiguredTarget ct = ctValue.getConfiguredTarget();
+    if (key.exclusiveTesting()) {
+      // Request test artifacts iteratively if testing exclusively.
+      for (Artifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
+        if (env.getValue(ArtifactSkyKey.key(testArtifact, /*isMandatory=*/ true)) == null) {
+          return null;
+        }
+      }
+    } else {
+      env.getValues(ArtifactSkyKey.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)));
+      if (env.valuesMissing()) {
+        return null;
+      }
     }
     return TestCompletionValue.TEST_COMPLETION_MARKER;
   }
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(
-        ((TestCompletionValue.TestCompletionKey) skyKey.argument())
-            .labelAndConfiguration()
-            .getLabel());
+    return Label.print(((LabelAndConfiguration) skyKey.argument()).getLabel());
   }
 }

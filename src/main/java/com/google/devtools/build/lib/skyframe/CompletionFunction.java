@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -54,13 +53,6 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     /** Obtains an analysis result value from environment. */
     TValue getValueFromSkyKey(SkyKey skyKey, Environment env) throws InterruptedException;
-
-    /**
-     * Gets any additional {@link SkyKey}s that should be requested in this {@link SkyFunction} for
-     * increased parallelism, together with the owner for each. The owner is only used in case of a
-     * {@link MissingInputFileException} thrown when trying to retrieve the key.
-     */
-    ImmutableMap<SkyKey, Label> getExtraSkyKeysWithOwnersToRequest(SkyKey skyKey);
 
     /**
      * Returns the options which determine the artifacts to build for the top-level targets.
@@ -112,15 +104,6 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       LabelAndConfiguration lac = tcKey.labelAndConfiguration();
       return (ConfiguredTargetValue)
           env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
-    }
-
-    @Override
-    public ImmutableMap<SkyKey, Label> getExtraSkyKeysWithOwnersToRequest(SkyKey skyKey) {
-      TargetCompletionKey tcKey = (TargetCompletionKey) skyKey.argument();
-      SkyKey testExecutionSkyKey = tcKey.testExecutionSkyKey();
-      return testExecutionSkyKey == null
-          ? ImmutableMap.of()
-          : ImmutableMap.of(testExecutionSkyKey, tcKey.labelAndConfiguration().getLabel());
     }
 
     @Override
@@ -179,11 +162,6 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       AspectCompletionKey acKey = (AspectCompletionKey) skyKey.argument();
       AspectKey aspectKey = acKey.aspectKey();
       return (AspectValue) env.getValue(aspectKey.getSkyKey());
-    }
-
-    @Override
-    public ImmutableMap<SkyKey, Label> getExtraSkyKeysWithOwnersToRequest(SkyKey skyKey) {
-      return ImmutableMap.of();
     }
 
     @Override
@@ -263,14 +241,10 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return null;
     }
 
-    ImmutableMap<SkyKey, Label> extraSkyKeysToOwner =
-        completor.getExtraSkyKeysWithOwnersToRequest(skyKey);
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(
-            Iterables.concat(
-                ArtifactSkyKey.mandatoryKeys(
-                    completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts()),
-                extraSkyKeysToOwner.keySet()),
+            ArtifactSkyKey.mandatoryKeys(
+                completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts()),
             MissingInputFileException.class,
             ActionExecutionException.class);
 
@@ -280,14 +254,12 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
         depsEntry : inputDeps.entrySet()) {
+      Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
         depsEntry.getValue().get();
       } catch (MissingInputFileException e) {
         missingCount++;
-        Label inputOwner = extraSkyKeysToOwner.get(depsEntry.getKey());
-        if (inputOwner == null) {
-          inputOwner = ArtifactSkyKey.artifact(depsEntry.getKey()).getOwner();
-        }
+        final Label inputOwner = input.getOwner();
         if (inputOwner != null) {
           Cause cause = new LabelCause(inputOwner);
           rootCausesBuilder.add(cause);
