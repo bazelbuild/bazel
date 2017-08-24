@@ -26,7 +26,7 @@ import java.nio.file.FileSystems;
  * Provides an entry point for the resource processing stages.
  *
  * <p>A single entry point simplifies the build tool binary configuration and keeps the size of tool
- * jar small, as opposed to multiple tools for each prosess step. It also makes it easy to prototype
+ * jar small, as opposed to multiple tools for each process step. It also makes it easy to prototype
  * changes in the resource processing system.
  *
  * <pre>
