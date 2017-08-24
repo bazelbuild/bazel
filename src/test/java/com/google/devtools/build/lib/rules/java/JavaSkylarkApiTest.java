@@ -295,18 +295,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    Info info = target.get(JavaInfo.PROVIDER);
+    JavaInfo info = target.get(JavaInfo.PROVIDER);
 
-    SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
+    SkylarkNestedSet compileJars = info.getCompileTimeJars();
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
-    SkylarkNestedSet transitiveCompileTimeJars =
-        (SkylarkNestedSet) info.getValue("transitive_compile_time_jars");
+    SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
     assertThat(prettyJarNames(
         transitiveCompileTimeJars.getSet(Artifact.class))).containsExactly("foo/libc.jar");
 
-    SkylarkNestedSet transitiveRuntimeJars =
-        (SkylarkNestedSet) info.getValue("transitive_runtime_jars");
+    SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
     assertThat(prettyJarNames(
         transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
   }
@@ -335,17 +333,15 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    transitive_runtime_jars = ['libd.jar'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    Info info = target.get(JavaInfo.PROVIDER);
+    JavaInfo info = target.get(JavaInfo.PROVIDER);
 
-    SkylarkNestedSet compileJars = (SkylarkNestedSet) info.getValue("compile_jars");
+    SkylarkNestedSet compileJars = info.getCompileTimeJars();
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
-    SkylarkNestedSet transitiveCompileTimeJars =
-        (SkylarkNestedSet) info.getValue("transitive_compile_time_jars");
+    SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
     assertThat(prettyJarNames(transitiveCompileTimeJars.getSet(Artifact.class))).isEmpty();
 
-    SkylarkNestedSet transitiveRuntimeJars =
-        (SkylarkNestedSet) info.getValue("transitive_runtime_jars");
+    SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
     assertThat(prettyJarNames(
         transitiveRuntimeJars.getSet(Artifact.class))).containsExactly("foo/libd.jar");
   }
