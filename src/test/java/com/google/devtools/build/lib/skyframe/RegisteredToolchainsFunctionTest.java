@@ -57,9 +57,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(toolchainsKey).isNotNull();
 
     RegisteredToolchainsValue value = result.get(toolchainsKey);
-    assertThat(value.registeredToolchains()).hasSize(2);
+    // We have two registered toolchains, and one default for c++
+    assertThat(value.registeredToolchains()).hasSize(3);
 
-    DeclaredToolchainInfo registeredToolchain1 = value.registeredToolchains().get(0);
+    DeclaredToolchainInfo registeredToolchain1 = value.registeredToolchains().get(1);
     assertThat(registeredToolchain1).isNotNull();
 
     assertThat(registeredToolchain1.toolchainType()).isEqualTo(testToolchainType);
@@ -68,7 +69,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThat(registeredToolchain1.toolchainLabel())
         .isEqualTo(makeLabel("//toolchain:test_toolchain_1"));
 
-    DeclaredToolchainInfo registeredToolchain2 = value.registeredToolchains().get(1);
+    DeclaredToolchainInfo registeredToolchain2 = value.registeredToolchains().get(2);
     assertThat(registeredToolchain2).isNotNull();
 
     assertThat(registeredToolchain2.toolchainType()).isEqualTo(testToolchainType);
@@ -137,7 +138,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .containsExactly(makeLabel("//toolchain:test_toolchain_1"));
+        .contains(makeLabel("//toolchain:test_toolchain_1"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_2')");
@@ -146,7 +147,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .containsExactly(makeLabel("//toolchain:test_toolchain_2"));
+        .contains(makeLabel("//toolchain:test_toolchain_2"));
   }
 
   @Test

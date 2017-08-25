@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Helper class to manage rules' use of platforms. */
 public class PlatformSemantics {
@@ -40,19 +41,22 @@ public class PlatformSemantics {
         @Override
         public List<Label> resolve(
             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
-            return null;
+          // rule may be null for tests
+          if (rule == null || rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
+            return ImmutableList.of();
           }
           return configuration.getFragment(PlatformConfiguration.class).getTargetPlatforms();
         }
       };
 
   /** Implementation for the :execution_platform attribute. */
+  @Nullable
   public static final Attribute.LateBoundLabel<BuildConfiguration> EXECUTION_PLATFORM =
       new Attribute.LateBoundLabel<BuildConfiguration>(PlatformConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
+          // rule may be null for tests
+          if (rule == null || rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
             return null;
           }
           return configuration.getFragment(PlatformConfiguration.class).getExecutionPlatform();
