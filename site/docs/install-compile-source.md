@@ -7,12 +7,13 @@ title: Compile Bazel from Source
 
 You can build Bazel from source following these steps:
 
-1.  Ensure that JDK 8 and Python are installed on your system.
+1.  Ensure that JDK 8, Python, bash, zip, and the usual C build toolchain
+    are installed on your system.
     *   On systems based on Debian packages (Debian, Ubuntu): you can install
         OpenJDK 8 and Python by running the following command in a terminal:
 
         ```sh
-        sudo apt-get install openjdk-8-jdk python
+        sudo apt-get install build-essential openjdk-8-jdk python zip
         ```
     *   On Windows: you need additional software. See the [requirements
         page](windows.html#requirements).
