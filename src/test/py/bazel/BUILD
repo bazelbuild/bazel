@@ -17,6 +17,10 @@ py_library(
     testonly = 1,
     srcs = ["test_base.py"],
     data = [":test-deps"],
+    visibility = [
+        "//src/test/py/bazel:__pkg__",
+        "//third_party/def_parser:__pkg__",
+    ],
 )
 
 py_test(
