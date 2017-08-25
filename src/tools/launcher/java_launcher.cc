@@ -153,8 +153,7 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
   // Create the command for generating classpath jar.
   // We pass the command to cmd.exe to use redirection for suppressing output.
   string manifest_jar_path = binary_base_path + "-classpath.jar";
-  string jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH),
-                                   /*need_workspace_name =*/false);
+  string jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
   vector<string> arguments;
   arguments.push_back("/c");
 
