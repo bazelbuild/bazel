@@ -80,6 +80,10 @@ public final class Jvm extends BuildConfiguration.Fragment {
     return jvmLabel;
   }
 
+  public PathFragment getJavaHome() {
+    return javaHome;
+  }
+
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.put("JAVABASE", javaHome.getPathString());
