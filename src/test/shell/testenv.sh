@@ -47,6 +47,10 @@ if is_windows; then
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
   export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
   if [ ! -d "$BAZEL_VC" ]; then
+    # Maybe Visual C++ Build Tools 2017 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
+  fi
+  if [ ! -d "$BAZEL_VC" ]; then
     # OK, well, maybe Visual C++ 2015 then?
     export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
   fi
