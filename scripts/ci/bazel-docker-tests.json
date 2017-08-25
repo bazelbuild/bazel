@@ -2,11 +2,22 @@
     {
         "node": "docker",
         "variation": "",
+        "shard": "1",
         "parameters": {
             "targets": [],
             "tests": [
-                "//tools/cpp/...",
-                "filter(\"^//src/test/docker\", //src/test/...)"
+                "filter(ubuntu, //src/test/docker/...)"
+            ]
+        }
+    },
+    {
+        "node": "docker",
+        "variation": "",
+        "shard": "2",
+        "parameters": {
+            "targets": [],
+            "tests": [
+                "//src/test/docker/... - filter(ubuntu, //src/test/docker/...)"
             ]
         }
     }
