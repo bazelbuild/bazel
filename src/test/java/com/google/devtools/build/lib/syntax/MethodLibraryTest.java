@@ -1602,14 +1602,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStr() throws Exception {
-    new BothModesTest()
+    new BothModesTest("--incompatible_descriptive_string_representations=true")
         .testStatement("str(1)", "1")
         .testStatement("str(-2)", "-2")
         .testStatement("str([1, 2])", "[1, 2]")
         .testStatement("str(True)", "True")
         .testStatement("str(False)", "False")
         .testStatement("str(None)", "None")
-        .testStatement("str(str)", "<function str>");
+        .testStatement("str(str)", "<built-in function str>");
   }
 
   @Test

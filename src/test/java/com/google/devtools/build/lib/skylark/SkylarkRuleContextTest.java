@@ -498,6 +498,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void existingRuleWithSelect() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
     scratch.file(
         "test/existing_rule.bzl",
         "def macro():",
@@ -510,7 +511,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "macro()",
         "cc_library(name = 'a', srcs = [])");
     getConfiguredTarget("//test:a");
-    assertContainsEvent("selector({\"//foo:foo\": [\"//bar:bar\"]})");
+    assertContainsEvent("select({Label(\"//foo:foo\"): [Label(\"//bar:bar\")]})");
   }
 
   @Test
@@ -667,13 +668,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
     Iterable<?> result = (Iterable<?>) evalRuleContextCode(ruleContext, "ruleContext.outputs.outs");
     assertThat(((Artifact) Iterables.getOnlyElement(result)).getFilename()).isEqualTo("d.txt");
-  }
-
-  @Test
-  public void testSkylarkRuleContextStr() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(ruleContext, "'%s' % ruleContext");
-    assertThat(result).isEqualTo("//foo:foo");
   }
 
   @Test
