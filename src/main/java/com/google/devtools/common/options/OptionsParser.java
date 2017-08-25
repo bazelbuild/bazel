@@ -33,7 +33,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -623,22 +625,30 @@ public class OptionsParser implements OptionsProvider {
    * more details on the format for the flag completion.
    */
   public String getOptionsCompletion() {
-    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
 
+    visitOptions(
+        optionDefinition ->
+            optionDefinition.getDocumentationCategory() != OptionDocumentationCategory.UNDOCUMENTED,
+        optionDefinition -> OptionsUsage.getCompletion(optionDefinition, desc));
+
+    return desc.toString();
+  }
+
+  public void visitOptions(
+      Predicate<OptionDefinition> predicate, Consumer<OptionDefinition> visitor) {
+    Preconditions.checkNotNull(predicate, "Missing predicate.");
+    Preconditions.checkNotNull(visitor, "Missing visitor.");
+
+    OptionsData data = impl.getOptionsData();
     data.getOptionsClasses()
         // List all options
         .stream()
         .flatMap(optionsClass -> data.getOptionDefinitionsFromClass(optionsClass).stream())
         // Sort field for deterministic ordering
         .sorted(OptionDefinition.BY_OPTION_NAME)
-        .filter(
-            optionDefinition ->
-                optionDefinition.getDocumentationCategory()
-                    != OptionDocumentationCategory.UNDOCUMENTED)
-        .forEach(optionDefinition -> OptionsUsage.getCompletion(optionDefinition, desc));
-
-    return desc.toString();
+        .filter(predicate)
+        .forEach(visitor);
   }
 
   /**

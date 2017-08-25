@@ -39,8 +39,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -2131,5 +2134,84 @@ public class OptionsParserTest {
     byte[] data2 = bos2.toByteArray();
 
     assertThat(data1).isEqualTo(data2);
+  }
+
+  /** Dummy options for testing getHelpCompletion() and visitOptions(). */
+  public static class CompletionOptions extends OptionsBase implements Serializable {
+    @Option(
+      name = "secret",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean secret;
+
+    @Option(
+        name = "b",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false"
+      )
+      public boolean b;
+
+    @Option(
+      name = "a",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean a;
+  }
+
+  @Test
+  public void getOptionsCompletionShouldFilterUndocumentedOptions() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(CompletionOptions.class);
+    assertThat(parser.getOptionsCompletion().split("\n"))
+        .isEqualTo(new String[] {"--a", "--noa", "--b", "--nob"});
+  }
+
+  @Test
+  public void visitOptionsShouldFailWithoutPredicate() throws Exception {
+    checkThatVisitOptionsThrowsNullPointerException(null, option -> {}, "Missing predicate.");
+  }
+
+  @Test
+  public void visitOptionsShouldFailWithoutVisitor() throws Exception {
+    checkThatVisitOptionsThrowsNullPointerException(option -> true, null, "Missing visitor.");
+  }
+
+  private void checkThatVisitOptionsThrowsNullPointerException(
+      Predicate<OptionDefinition> predicate,
+      Consumer<OptionDefinition> visitor,
+      String expectedMessage)
+      throws Exception {
+    try {
+      OptionsParser.newOptionsParser(CompletionOptions.class).visitOptions(predicate, visitor);
+      fail("Expected a NullPointerException.");
+    } catch (NullPointerException ex) {
+      assertThat(ex).hasMessageThat().isEqualTo(expectedMessage);
+    }
+  }
+
+  @Test
+  public void visitOptionsShouldReturnAllOptionsInOrder() throws Exception {
+    assertThat(visitOptionsToCollectTheirNames(option -> true)).containsExactly("a", "b", "secret");
+  }
+
+  @Test
+  public void visitOptionsShouldObeyPredicate() throws Exception {
+    assertThat(visitOptionsToCollectTheirNames(option -> false)).isEmpty();
+    assertThat(visitOptionsToCollectTheirNames(option -> option.getOptionName().length() > 1))
+        .containsExactly("secret");
+  }
+
+  private List<String> visitOptionsToCollectTheirNames(Predicate<OptionDefinition> predicate) {
+    List<String> names = new LinkedList<>();
+    Consumer<OptionDefinition> visitor = option -> names.add(option.getOptionName());
+
+    OptionsParser parser = OptionsParser.newOptionsParser(CompletionOptions.class);
+    parser.visitOptions(predicate, visitor);
+
+    return names;
   }
 }
