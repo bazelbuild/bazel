@@ -62,7 +62,7 @@ sh_test(
 
 sh_test(
     name = "java_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["java_integration_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
