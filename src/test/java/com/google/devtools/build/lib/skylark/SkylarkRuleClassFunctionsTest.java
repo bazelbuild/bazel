@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -1464,6 +1465,89 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(p).isEqualTo(p1);
     assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
     assertThat(p1.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
+  }
+
+  @Test
+  public void providerWithFields() throws Exception {
+    evalAndExport(
+        "p = provider(fields = ['x', 'y'])",
+        "p1 = p(x = 1, y = 2)",
+        "x = p1.x",
+        "y = p1.y"
+    );
+    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+
+
+    assertThat(p1.getProvider()).isEqualTo(p);
+    assertThat(lookup("x")).isEqualTo(1);
+    assertThat(lookup("y")).isEqualTo(2);
+  }
+
+  @Test
+  public void providerWithFieldsDict() throws Exception {
+    evalAndExport(
+        "p = provider(fields = { 'x' : 'I am x', 'y' : 'I am y'})",
+        "p1 = p(x = 1, y = 2)",
+        "x = p1.x",
+        "y = p1.y"
+    );
+    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+
+
+    assertThat(p1.getProvider()).isEqualTo(p);
+    assertThat(lookup("x")).isEqualTo(1);
+    assertThat(lookup("y")).isEqualTo(2);
+  }
+
+  @Test
+  public void providerWithFieldsOptional() throws Exception {
+    evalAndExport(
+        "p = provider(fields = ['x', 'y'])",
+        "p1 = p(y = 2)",
+        "y = p1.y"
+    );
+    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+
+
+    assertThat(p1.getProvider()).isEqualTo(p);
+    assertThat(lookup("y")).isEqualTo(2);
+  }
+
+  @Test
+  public void providerWithFieldsOptionalError() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        "p = provider(fields = ['x', 'y'])",
+        "p1 = p(y = 2)",
+        "x = p1.x"
+    );
+    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
+        " 'p' object has no attribute 'x'");
+  }
+
+  @Test
+  public void providerWithExtraFieldsError() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        "p = provider(fields = ['x', 'y'])",
+        "p1 = p(x = 1, y = 2, z = 3)"
+    );
+    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
+        "unexpected keyword 'z' in call to p(*, x = ?, y = ?)");
+  }
+
+  @Test
+  public void providerWithEmptyFieldsError() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        "p = provider(fields = [])",
+        "p1 = p(x = 1, y = 2, z = 3)"
+    );
+    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
+        "unexpected keywords 'x', 'y', 'z' in call to p()");
   }
 
 

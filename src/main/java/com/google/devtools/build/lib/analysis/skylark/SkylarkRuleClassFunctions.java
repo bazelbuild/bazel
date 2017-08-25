@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -90,6 +91,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -288,15 +290,53 @@ public class SkylarkRuleClassFunctions {
         defaultValue = "''",
         doc =
             "A description of the provider that can be extracted by documentation generating tools."
+      ),
+      @Param(
+        name = "fields",
+        doc = "If specified, restricts the set of allowed fields. <br>"
+            + "Possible values are:"
+            + "<ul>"
+            + "  <li> list of fields:<br>"
+            + "       <pre class=\"language-python\">provider(fields = ['a', 'b'])</pre><p>"
+            + "  <li> dictionary field name -> documentation:<br>"
+            + "       <pre class=\"language-python\">provider(\n"
+            + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b' })</pre>"
+            + "</ul>"
+            + "All fields are optional.",
+        allowedTypes = {
+            @ParamType(type = SkylarkList.class, generic1 = String.class),
+            @ParamType(type = SkylarkDict.class)
+        },
+        noneable = true,
+        named = true,
+        positional = false,
+        defaultValue = "None"
       )
     },
     useLocation = true
   )
   private static final BuiltinFunction provider =
       new BuiltinFunction("provider") {
-        public Provider invoke(String doc, Location location) {
+        public Provider invoke(String doc, Object fields, Location location) throws EvalException {
+          Iterable<String> fieldNames = null;
+          if (fields instanceof SkylarkList<?>) {
+            @SuppressWarnings("unchecked")
+            SkylarkList<String> list = (SkylarkList<String>)
+                    SkylarkType.cast(
+                        fields,
+                        SkylarkList.class, String.class, location,
+                        "Expected list of strings or dictionary of string -> string for 'fields'");
+            fieldNames = list;
+          }  else  if (fields instanceof SkylarkDict) {
+            Map<String, String> dict = SkylarkType.castMap(
+                fields,
+                String.class, String.class,
+                "Expected list of strings or dictionary of string -> string for 'fields'");
+            fieldNames = dict.keySet();
+          }
           return new SkylarkProvider(
               "<no name>", // name is set on export.
+              fieldNames,
               location);
         }
       };
@@ -342,7 +382,7 @@ public class SkylarkRuleClassFunctions {
                 + "implicitly added and must not be specified. Attributes "
                 + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
                 + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                + "cannot be overriden."
+                + "cannot be overridden."
       ),
       // TODO(bazel-team): need to give the types of these builtin attributes
       @Param(
