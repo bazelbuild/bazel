@@ -440,8 +440,11 @@ public class BazelCppRuleClasses {
              included by a published header. See <a href="#hdrs">"Header inclusion
              checking"</a> for a more detailed description. </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
-              .allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(
+              attr("hdrs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(strip_include_prefix) -->
           The prefix to strip from the paths of the headers of this rule.
 
@@ -461,7 +464,7 @@ public class BazelCppRuleClasses {
           <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
           at is the value of this attribute prepended to their repository-relative path.
 
-          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed beforethis
+          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
           prefix is added.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
@@ -472,8 +475,11 @@ public class BazelCppRuleClasses {
              that is, they always need to be textually included by other source files to build valid
              code.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("textual_hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
-              .legacyAllowAnyFileType())
+          .add(
+              attr("textual_hdrs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .legacyAllowAnyFileType())
           // TODO(bazel-team): document or remove.
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
