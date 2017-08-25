@@ -579,15 +579,25 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
   lock.l_len = 4096;
 
-  uint64_t wait_time = 0;
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
+  // Take the exclusive server lock.  If we fail, we busy-wait until the lock
+  // becomes available.
+  //
+  // We used to rely on fcntl(F_SETLKW) to lazy-wait for the lock to become
+  // available, which is theoretically fine, but doing so prevents us from
+  // determining if the PID of the server holding the lock has changed under the
+  // hood.  There have been multiple bug reports where users (especially macOS
+  // ones) mention that the Blaze invocation hangs on a non-existent PID.  This
+  // should help troubleshoot those scenarios in case there really is a bug
+  // somewhere.
+  size_t attempts = 0;
+  pid_t other_pid = 0;
+  const uint64_t start_time = GetMillisecondsMonotonic();
+  while (fcntl(lockfd, F_SETLK, &lock) == -1) {
     if (errno != EACCES && errno != EAGAIN) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "unexpected result from F_SETLK");
     }
 
-    // We didn't get the lock.  Find out who has it.
     struct flock probe = lock;
     probe.l_pid = 0;
     if (fcntl(lockfd, F_GETLK, &probe) == -1) {
@@ -599,26 +609,29 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
           "Another command is running (pid=%d). Exiting immediately.",
           probe.l_pid);
     }
-    fprintf(stderr, "Another command is running (pid = %d).  "
-            "Waiting for it to complete...", probe.l_pid);
-    fflush(stderr);
-
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = GetMillisecondsMonotonic();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
+    if (other_pid != probe.l_pid) {
+      if (attempts > 0) {
+        fprintf(stderr, " lock taken by another command\n");
+      }
+      fprintf(stderr, "Another command (pid=%d) is running.  "
+              "Waiting for it to complete on the client...", probe.l_pid);
+      fflush(stderr);
+      other_pid = probe.l_pid;
     }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = GetMillisecondsMonotonic();
-    wait_time = et - st;
+
+    TrySleep(500);
+    attempts += 1;
   }
+  if (attempts > 0) {
+    fprintf(stderr, " done!\n");
+  }
+  const uint64_t end_time = GetMillisecondsMonotonic();
+
+  // If we took the lock on the first try, force the reported wait time to 0 to
+  // avoid unnecessary noise in the logs.  In this metric, we are only
+  // interested in knowing how long it took for other commands to complete, not
+  // how fast acquiring a lock is.
+  const uint64_t wait_time = attempts == 0 ? 0 : end_time - start_time;
 
   // Identify ourselves in the lockfile.
   (void) ftruncate(lockfd, 0);

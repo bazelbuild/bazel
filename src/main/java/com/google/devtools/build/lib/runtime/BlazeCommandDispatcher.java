@@ -295,21 +295,29 @@ public class BlazeCommandDispatcher {
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     }
 
-
-    long waitTimeInMs = 0;
+    // Take the exclusive server lock.  If we fail, we busy-wait until the lock becomes available.
+    //
+    // We used to rely on commandLock.wait() to lazy-wait for the lock to become available, which is
+    // theoretically fine, but doing so prevents us from determining if the PID of the server
+    // holding the lock has changed under the hood.  There have been multiple bug reports where
+    // users (especially macOS ones) mention that the Blaze invocation hangs on a non-existent PID.
+    // This should help troubleshoot those scenarios in case there really is a bug somewhere.
+    int attempts = 0;
+    long clockBefore = BlazeClock.nanoTime();
+    String otherClientDescription = "";
     synchronized (commandLock) {
-      boolean warningPrinted = false;
       while (currentClientDescription != null) {
         switch (lockingMode) {
           case WAIT:
-            if (!warningPrinted) {
-              outErr.printErrLn("Another command (" + currentClientDescription + ") is running. "
-                  + " Waiting for it to complete...");
-              warningPrinted = true;
+            if (otherClientDescription != currentClientDescription) {
+              if (attempts > 0) {
+                outErr.printErrLn(" lock taken by another command");
+              }
+              outErr.printErr("Another command (" + currentClientDescription + ") is running. "
+                  + " Waiting for it to complete on the server...");
+              otherClientDescription = currentClientDescription;
             }
-            long clockBefore = BlazeClock.nanoTime();
-            commandLock.wait();
-            waitTimeInMs = (BlazeClock.nanoTime() - clockBefore) / (1000L * 1000L);
+            commandLock.wait(500);
             break;
 
           case ERROR_OUT:
@@ -320,10 +328,19 @@ public class BlazeCommandDispatcher {
           default:
             throw new IllegalStateException();
         }
+
+        attempts += 1;
       }
       Verify.verify(currentClientDescription == null);
       currentClientDescription = clientDescription;
     }
+    if (attempts > 0) {
+      outErr.printErrLn(" done!");
+    }
+    // If we took the lock on the first try, force the reported wait time to 0 to avoid unnecessary
+    // noise in the logs.  In this metric, we are only interested in knowing how long it took for
+    // other commands to complete, not how fast acquiring a lock is.
+    long waitTimeInMs = attempts == 0 ? 0 : (BlazeClock.nanoTime() - clockBefore) / (1000L * 1000L);
 
     try {
       if (shutdownReason != null) {
