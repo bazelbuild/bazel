@@ -222,4 +222,21 @@ public class AarImportTest extends BuildViewTestCase {
         "    aar = 'a.aar',",
         ")");
   }
+
+  @Test
+  public void testExportsManifest() throws Exception {
+    Artifact binaryMergedManifest =
+        getConfiguredTarget("//java:app").getProvider(ApkProvider.class).getMergedManifest();
+    assertThat(getGeneratingAction(binaryMergedManifest).getInputs())
+        .containsAllOf(getAndroidManifest("//a:foo"), getAndroidManifest("//a:bar"));
+  }
+
+  private Artifact getAndroidManifest(String aarImport) throws Exception {
+    return getConfiguredTarget(aarImport)
+        .getProvider(AndroidResourcesProvider.class)
+        .getDirectAndroidResources()
+        .toList()
+        .get(0)
+        .getManifest();
+  }
 }
