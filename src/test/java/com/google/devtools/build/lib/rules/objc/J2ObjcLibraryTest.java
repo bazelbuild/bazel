@@ -83,7 +83,6 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     MockObjcSupport.setupIosTest(mockToolsConfig);
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
 
     useConfiguration("--proto_toolchain_for_java=//tools/proto/toolchains:java");
 

@@ -71,7 +71,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   @Before
   public final void initializeToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
   }
 
   @Test

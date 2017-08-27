@@ -81,7 +81,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     ConfiguredTarget target =
         createLibraryTargetWriter("//objc:One")
             .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -93,7 +92,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilesSources() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//objc/lib1")
         .setAndCreateFiles("srcs", "a.m")
         .setAndCreateFiles("hdrs", "hdr.h")
@@ -122,8 +120,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testObjcPlusPlusCompile() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386",
         "--ios_minimum_os=9.10.11");
@@ -138,7 +134,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testObjcPlusPlusCompileDarwin() throws Exception {
     useConfiguration(ObjcCrosstoolMode.ALL,
-        "--experimental_disable_go",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=9.10.11",
         // TODO(b/36126423): Darwin should imply macos, so the
@@ -155,8 +150,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationModeDbg() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386",
         "--compilation_mode=dbg");
@@ -180,8 +173,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationModeFastbuild() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386",
         "--compilation_mode=fastbuild");
@@ -205,8 +196,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationModeOpt() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386",
         "--compilation_mode=opt");
@@ -408,8 +397,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActions_simulator() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386");
 
@@ -462,8 +449,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActions_device() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_armv7",
         "--ios_cpu=armv7");
 
@@ -558,11 +543,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--cpu=ios_i386",
-        "--ios_cpu=i386",
-        "--experimental_disable_go");
+    useConfiguration("--cpu=ios_i386", "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -711,8 +692,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testArchiveAction_simulator() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
@@ -743,8 +722,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testArchiveAction_device() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_armv7",
         "--ios_cpu=armv7");
     createLibraryTargetWriter("//objc:lib")
@@ -775,8 +752,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testFullyLinkArchiveAction_simulator() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib_dep")
@@ -815,8 +790,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testFullyLinkArchiveAction_device() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_armv7",
         "--ios_cpu=armv7");
     createLibraryTargetWriter("//objc:lib_dep")
@@ -886,8 +859,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64");
     createLibraryTargetWriter("//lib1:lib1")
@@ -1352,9 +1323,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
-    useConfiguration(
-        "--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
-        "--crosstool_top=//tools/osx/crosstool:crosstool");
+    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
 
     scratch.file("package/BUILD",
         "cc_library(",
@@ -1483,8 +1452,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithIQuotesInCopts() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go",
         "--cpu=ios_i386",
         "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
@@ -1552,7 +1519,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     MockObjcSupport.setup(mockToolsConfig, "default_grte_top : '//x'");
     useConfiguration(
         ObjcCrosstoolMode.ALL,
-        "--experimental_disable_go",
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64");
     scratch.file(
@@ -1584,7 +1550,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "}");
     useConfiguration(
         ObjcCrosstoolMode.ALL,
-        "--experimental_disable_go",
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64");
     scratch.file(

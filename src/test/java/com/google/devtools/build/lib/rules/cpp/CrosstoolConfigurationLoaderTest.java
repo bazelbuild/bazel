@@ -682,7 +682,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         PackageIdentifier.create(
             TestConstants.TOOLS_REPOSITORY,
             PathFragment.create(
-                PathFragment.create(TestConstants.TOOLS_REPOSITORY_PATH),
+                PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH),
                 PathFragment.create(path)));
     return packageIdentifier.getPathUnderExecRoot();
   }

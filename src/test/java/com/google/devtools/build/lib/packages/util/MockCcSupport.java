@@ -676,7 +676,7 @@ public abstract class MockCcSupport {
     try {
       return PackageIdentifier.create(
           RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
-          PathFragment.create(TestConstants.TOOLS_REPOSITORY_PATH));
+          PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
     } catch (LabelSyntaxException e) {
       Verify.verify(false);
       throw new AssertionError();

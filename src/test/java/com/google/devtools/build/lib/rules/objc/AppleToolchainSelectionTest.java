@@ -94,9 +94,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
-    useConfiguration(
-        "--experimental_disable_jvm",
-        "--experimental_disable_go");
+    useConfiguration("--experimental_disable_jvm");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")

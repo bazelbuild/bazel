@@ -56,7 +56,7 @@ public class IosTestTest extends ObjcRuleTestCase {
     MockObjcSupport.setupIosTest(mockToolsConfig);
     MockObjcSupport.setupIosSimDevice(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
 
     invalidatePackages();
   }

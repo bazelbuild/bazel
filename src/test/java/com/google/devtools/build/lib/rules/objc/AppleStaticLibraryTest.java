@@ -242,7 +242,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     useConfiguration(
         "--ios_multi_cpus=i386,x86_64",
-        "--experimental_disable_go",
         "--experimental_disable_jvm",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
@@ -594,7 +593,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
         "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
 
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm");
+    useConfiguration("--experimental_disable_jvm");
     CommandAction action = linkLibAction("//package:test");
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
         "package/libobjcLib.a");
@@ -617,7 +616,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ])",
         "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
 
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm");
+    useConfiguration("--experimental_disable_jvm");
     CommandAction action = linkLibAction("//package:test");
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
         "package/libobjcLib.a");

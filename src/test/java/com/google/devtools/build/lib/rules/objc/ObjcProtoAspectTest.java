@@ -36,7 +36,7 @@ public final class ObjcProtoAspectTest extends BuildViewTestCase {
   @Before
   public final void initializeToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
   }
 
   @Test

@@ -39,6 +39,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",

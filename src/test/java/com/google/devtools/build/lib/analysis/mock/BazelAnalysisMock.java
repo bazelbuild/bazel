@@ -64,12 +64,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "bind(",
             "  name = 'objc_proto_lib',",
-            "  actual = '//objcproto:ProtocolBuffers_lib',",
+            "  actual = '@bazel_tools//objcproto:ProtocolBuffers_lib',",
             ")",
             "bind(",
             "  name = 'objc_protobuf_lib',",
-            "  actual = '//objcproto:protobuf_lib',",
+            "  actual = '@bazel_tools//objcproto:protobuf_lib',",
             ")",
+            "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
+            "local_repository(name = 'com_google_protobuf_java', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "bind(name = 'tools/python', actual='//tools/python')"));
   }
@@ -79,7 +81,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     List<String> workspaceContents = getWorkspaceContents(config);
     config.create(
         "/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
+    config.create(
+        "/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc', 'cc_toolchain'])");
     config.create("/local_config_xcode/WORKSPACE");
+    config.create("/protobuf/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     config.create(
@@ -158,6 +163,28 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/launcher/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
+
+    config.create(
+        "/bazel_tools_workspace/objcproto/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "objc_library(",
+        "  name = 'ProtocolBuffers_lib',",
+        "  srcs = ['empty.m'],",
+        ")",
+        "objc_library(",
+        "  name = 'protobuf_lib',",
+        "  srcs = ['empty.m'],",
+        "  hdrs = ['include/header.h'],",
+        "  includes = ['include'],",
+        ")",
+        "exports_files(['well_known_type.proto'])",
+        "proto_library(",
+        "  name = 'well_known_type_proto',",
+        "  srcs = ['well_known_type.proto'],",
+        ")");
+    config.create("/bazel_tools_workspace/objcproto/empty.m");
+    config.create("/bazel_tools_workspace/objcproto/empty.cc");
+    config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
 
     ccSupport().setup(config);
   }
