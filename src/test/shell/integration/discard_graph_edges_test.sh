@@ -145,16 +145,20 @@ EOF
 load(":foo.bzl", "foo")
 load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
+cc_library(name = 'cclib', srcs = ['cclib.cc'])
 genrule(name = 'histodump',
         srcs = glob(["*.in"]),
         outs = ['histo.txt'],
         local = 1,
+        tools = [':cclib'],
         cmd = 'server_pid=\$\$(cat $server_pid_fifo) ; ' +
               '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
               '\$(location histo.txt) ' +
               '|| echo "server_pid in genrule: \$\$server_pid"'
        )
 EOF
+
+  touch histodump/cclib.cc
   rm -f "$server_pid_fifo"
   mkfifo "$server_pid_fifo"
   histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
@@ -187,6 +191,10 @@ function test_packages_cleared() {
       'Environment\$Extension$')"
   [[ "$env_count" -ge 3 ]] \
       || fail "env extension count $env_count too low: did you move/rename the class?"
+  local ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "ct_count" -ge 40 ]] \
+      || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
@@ -202,6 +210,10 @@ function test_packages_cleared() {
   # a regression in. Fix.
   [[ "$env_count" -le 7 ]] \
       || fail "env extension count $env_count too high"
+  ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "$ct_count" -le 1 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
 }
 
 function test_actions_deleted_after_execution() {
