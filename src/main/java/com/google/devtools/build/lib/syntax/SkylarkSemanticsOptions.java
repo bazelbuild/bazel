@@ -224,7 +224,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
     name = "incompatible_descriptive_string_representations",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
