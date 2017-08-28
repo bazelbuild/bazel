@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,7 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -421,21 +422,39 @@ public class JavaSkylarkCommon {
     return JavaInfo.merge(providers);
   }
 
+  // TODO(b/65113771): Remove this method because it's incorrect.
   @SkylarkCallable(
-      name = "make_non_strict",
-      doc = "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-          + " indirect jars of the given Java provider.",
-      // There's only one mandatory positional, the Java provider.
-      mandatoryPositionals = 1
+    name = "make_non_strict",
+    doc =
+        "Returns a new Java provider whose direct-jars part is the union of both the direct and"
+            + " indirect jars of the given Java provider.",
+    // There's only one mandatory positional, the Java provider.
+    mandatoryPositionals = 1
   )
   public static JavaInfo makeNonStrict(JavaInfo javaInfo) {
     JavaCompilationArgsProvider directCompilationArgs =
-        StrictDepsUtils.makeNonStrict(javaInfo.getProvider(JavaCompilationArgsProvider.class));
+        makeNonStrict(javaInfo.getProvider(JavaCompilationArgsProvider.class));
 
     return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
         .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
         .build();
+  }
+
+  /**
+   * Returns a new JavaCompilationArgsProvider whose direct-jars part is the union of both the
+   * direct and indirect jars of 'provider'.
+   */
+  private static JavaCompilationArgsProvider makeNonStrict(JavaCompilationArgsProvider provider) {
+    JavaCompilationArgs.Builder directCompilationArgs = JavaCompilationArgs.builder();
+    directCompilationArgs
+        .addTransitiveArgs(provider.getJavaCompilationArgs(), BOTH)
+        .addTransitiveArgs(provider.getRecursiveJavaCompilationArgs(), BOTH);
+    return JavaCompilationArgsProvider.create(
+        directCompilationArgs.build(),
+        provider.getRecursiveJavaCompilationArgs(),
+        provider.getCompileTimeJavaDependencyArtifacts(),
+        provider.getRunTimeJavaDependencyArtifacts());
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
