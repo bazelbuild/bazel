@@ -15,6 +15,9 @@ java_library(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**/*.java"]) + [
+        "BUILD",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
+    ],
 )

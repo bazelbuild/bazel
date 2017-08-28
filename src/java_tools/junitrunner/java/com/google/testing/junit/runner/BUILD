@@ -61,6 +61,12 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**/*.java"]) + [
+        "BUILD",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
+    ],
 )

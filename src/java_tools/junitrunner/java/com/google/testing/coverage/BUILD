@@ -1,21 +1,10 @@
-package(
-    default_visibility = ["//visibility:legacy_public"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 licenses(["notice"])
 
 filegroup(
-    name = "bazel-srcs",
-    testonly = 0,
-    srcs = glob(
-        ["**"],
-        exclude = ["BUILD"],
-    ),
-    visibility = ["//third_party/bazel:__subpackages__"],
-)
-
-filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
 )
 
@@ -24,6 +13,7 @@ filegroup(
     srcs = [
         "JacocoCoverage_jarjar_deploy.jar",
     ],
+    tags = ["manual"],
 )
 
 filegroup(
@@ -80,6 +70,7 @@ genrule(
         "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",
     ]),
+    tags = ["manual"],
     tools = [
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//third_party/java/jarjar:jarjar_bin_deploy.jar",

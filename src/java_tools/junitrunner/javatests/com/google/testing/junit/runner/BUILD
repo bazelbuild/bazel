@@ -1,6 +1,4 @@
-DEFAULT_VISIBILITY = [
-    "//src/java_tools/junitrunner:__subpackages__",
-]
+package(default_visibility = ["//src:__subpackages__"])
 
 # Libraries
 # =========================================================
@@ -12,7 +10,6 @@ java_library(
         exclude = ["testbed/*.java"],
     ),
     deps = [
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
@@ -22,7 +19,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//third_party:dagger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
@@ -51,6 +47,13 @@ java_test(
     main_class = "com.google.testing.junit.runner.TestRunner",
     use_testrunner = 0,
     runtime_deps = [":tests"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
+    ],
 )
 
 # BazelTestRunner integration tests
@@ -118,12 +121,6 @@ sh_test(
         "//src/test/shell:unittest.bash",
         "//tools/defaults:jdk",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
 )
 
 exports_files([
