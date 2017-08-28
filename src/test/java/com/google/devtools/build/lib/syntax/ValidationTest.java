@@ -105,6 +105,14 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDefinitionByItself() throws Exception {
+    checkError("name 'a' is not defined", "a = a");
+    checkError("name 'a' is not defined", "a += a");
+    checkError("name 'a' is not defined", "[[] for a in a]");
+    checkError("name 'a' is not defined", "def f():", "  for a in a: pass");
+  }
+
+  @Test
   public void testLocalValidationEnvironmentsAreSeparated() throws Exception {
     parse("def func1():", "  a = 1", "def func2():", "  a = 'abc'\n");
   }
