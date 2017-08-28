@@ -682,8 +682,6 @@ public class ObjcRuleClasses {
               attr("runtime_deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses("objc_framework")
-                  // TODO(b/28637288): ios_framework is experimental and not fully implemented.
-                  .allowedRuleClassesWithWarning("ios_framework")
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
           The list of targets that are required in order to build this target,
