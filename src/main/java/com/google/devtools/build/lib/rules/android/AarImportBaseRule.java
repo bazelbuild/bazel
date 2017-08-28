@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -32,15 +31,18 @@ import com.google.devtools.build.lib.util.FileType;
 /** Rule definition for the aar_import rule. */
 public class AarImportBaseRule implements RuleDefinition {
 
+  static final String AAR_EMBEDDED_JARS_EXTACTOR = "$aar_embedded_jars_extractor";
+  static final String AAR_NATIVE_LIBS_ZIP_CREATOR = "$aar_native_libs_zip_creator";
+  static final String AAR_RESOURCES_EXTRACTOR = "$aar_resources_extractor";
+  static final String ZIPPER = "$zipper";
+
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         /* <!-- #BLAZE_RULE($aar_import_base).ATTRIBUTE(aar) -->
         The <code>.aar</code> file to provide to the Android targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("aar", LABEL)
-            .mandatory()
-            .allowedFileTypes(FileType.of(".aar")))
+        .add(attr("aar", LABEL).mandatory().allowedFileTypes(FileType.of(".aar")))
         /* <!-- #BLAZE_RULE(aar_import).ATTRIBUTE(exports) -->
         Targets to export to rules that depend on this rule.
         See <a href="${link java_library.exports}">java_library.exports.
@@ -49,26 +51,22 @@ public class AarImportBaseRule implements RuleDefinition {
             .allowedRuleClasses("aar_import", "java_import")
             .allowedFileTypes()
             .validityPredicate(ANY_EDGE))
-        .add(attr("$aar_embedded_jars_extractor", LABEL)
+        .add(attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
             .cfg(HOST)
             .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/android:aar_embedded_jars_extractor")))
-        .add(attr("$aar_native_libs_zip_creator", LABEL)
+            .value(env.getToolsLabel("//tools/android:aar_embedded_jars_extractor")))
+        .add(attr(AAR_NATIVE_LIBS_ZIP_CREATOR, LABEL)
             .cfg(HOST)
             .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/android:aar_native_libs_zip_creator")))
-        .add(attr("$zip_manifest_creator", LABEL)
+            .value(env.getToolsLabel("//tools/android:aar_native_libs_zip_creator")))
+        .add(attr(AAR_RESOURCES_EXTRACTOR, LABEL)
             .cfg(HOST)
             .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/android:zip_manifest_creator")))
-        .add(attr("$zipper", LABEL)
+            .value(env.getToolsLabel("//tools/android:aar_resources_extractor")))
+        .add(attr(ZIPPER, LABEL)
             .cfg(HOST)
             .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/zip:zipper")))
+            .value(env.getToolsLabel("//tools/zip:zipper")))
         .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }

@@ -120,23 +120,6 @@ py_test(
     ],
 )
 
-sh_binary(
-    name = "zip_manifest_creator",
-    srcs = ["zip_manifest_creator.sh"],
-    data = ["//tools/zip:zipper"],
-)
-
-sh_test(
-    name = "zip_manifest_creator_test",
-    size = "small",
-    srcs = ["zip_manifest_creator_test.sh"],
-    args = ["$(location //tools/zip:zipper)"],
-    data = [
-        ":zip_manifest_creator",
-        "//tools/zip:zipper",
-    ],
-)
-
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
@@ -147,6 +130,18 @@ py_test(
     name = "aar_embedded_jars_extractor_test",
     srcs = ["aar_embedded_jars_extractor_test.py"],
     deps = [":aar_embedded_jars_extractor"],
+)
+
+py_binary(
+    name = "aar_resources_extractor",
+    srcs = ["aar_resources_extractor.py"],
+    deps = ["//third_party/py/gflags"],
+)
+
+py_test(
+    name = "aar_resources_extractor_test",
+    srcs = ["aar_resources_extractor_test.py"],
+    deps = [":aar_resources_extractor"],
 )
 
 py_binary(

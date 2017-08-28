@@ -360,8 +360,7 @@ public final class ApplicationManifest {
       Artifact rTxt,
       Artifact symbols,
       Artifact manifestOut,
-      Artifact mergedResources,
-      boolean alwaysExportManifest) throws InterruptedException, RuleErrorException {
+      Artifact mergedResources) throws InterruptedException, RuleErrorException {
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -369,16 +368,14 @@ public final class ApplicationManifest {
         ResourceContainer.builderFromRule(ruleContext)
             .setRTxt(rTxt)
             .setSymbols(symbols)
-            .setJavaPackageFrom(JavaPackageSource.MANIFEST);
-    if (alwaysExportManifest) {
-      builder.setManifestExported(true);
-    }
+            .setJavaPackageFrom(JavaPackageSource.MANIFEST)
+            .setManifestExported(true);
 
     return createApk(
         ruleContext,
         true, /* isLibrary */
         resourceDeps,
-        ImmutableList.<String>of(), /* List<String> uncompressedExtensions */
+        ImmutableList.of(), /* List<String> uncompressedExtensions */
         false, /* crunchPng */
         false, /* incremental */
         builder,
@@ -788,7 +785,7 @@ public final class ApplicationManifest {
     List<String> uncompressedExtensions =
         ruleContext.getTokenizedStringListAttr("nocompress_extensions");
 
-    ImmutableList.Builder<String> additionalAaptOpts = ImmutableList.<String>builder();
+    ImmutableList.Builder<String> additionalAaptOpts = ImmutableList.builder();
 
     for (String extension : uncompressedExtensions) {
       additionalAaptOpts.add("-0").add(extension);

@@ -151,15 +151,15 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
-sh_binary(
-    name = "zip_manifest_creator",
-    srcs = ["zip_manifest_creator.sh"],
-    data = ["//tools/zip:zipper"],
-)
-
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
+    deps = ["//third_party/py/gflags"],
+)
+
+py_binary(
+    name = "aar_resources_extractor",
+    srcs = ["aar_resources_extractor.py"],
     deps = ["//third_party/py/gflags"],
 )
 

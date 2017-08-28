@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -83,6 +85,31 @@ public class AarImportTest extends BuildViewTestCase {
     Artifact resourceTreeArtifact = resourceArtifacts.iterator().next();
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
+  }
+
+  @Test
+  public void testResourcesExtractor() throws Exception {
+    AndroidResourcesProvider resourcesProvider =
+        getConfiguredTarget("//a:foo").getProvider(AndroidResourcesProvider.class);
+
+    Artifact resourceTreeArtifact =
+        stream(resourcesProvider.getDirectAndroidResources())
+            .flatMap(resourceContainer -> resourceContainer.getResources().stream())
+            .findFirst()
+            .get();
+    Artifact aarResourcesExtractor =
+        getHostConfiguredTarget(
+            ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
+        .getProvider(FilesToRunProvider.class)
+        .getExecutable();
+
+    assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
+        .containsExactly(
+            aarResourcesExtractor.getExecPathString(),
+            "--input_aar",
+            "a/foo.aar",
+            "--output_res_dir",
+            resourceTreeArtifact.getExecPathString());
   }
 
   @Test
