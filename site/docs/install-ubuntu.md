@@ -109,9 +109,3 @@ export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.
-
-Once installed, you can upgrade to a newer version of Bazel with:
-
-```bash
-sudo apt-get upgrade bazel
-```
