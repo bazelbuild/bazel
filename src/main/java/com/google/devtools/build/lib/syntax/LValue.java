@@ -196,30 +196,32 @@ public final class LValue extends ASTNode {
   }
 
   /**
-   *  Returns all names bound by this LValue.
+   * Returns all names bound by this LValue.
    *
-   *  Examples:
-   *  <ul>
-   *  <li><{@code x = ...} binds x.</li>
-   *  <li><{@code x, [y,z] = ..} binds x, y, z.</li>
-   *  <li><{@code x[5] = ..} does not bind any names.</li>
-   *  </ul>
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li><{@code x = ...} binds x.
+   *   <li><{@code x, [y,z] = ..} binds x, y, z.
+   *   <li><{@code x[5] = ..} does not bind any names.
+   * </ul>
    */
-  public ImmutableSet<String> boundNames() {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    collectBoundNames(expr, result);
+  public ImmutableSet<Identifier> boundIdentifiers() {
+    ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
+    collectBoundIdentifiers(expr, result);
     return result.build();
   }
 
-  private static void collectBoundNames(Expression lhs, ImmutableSet.Builder<String> result) {
+  private static void collectBoundIdentifiers(
+      Expression lhs, ImmutableSet.Builder<Identifier> result) {
     if (lhs instanceof Identifier) {
-      result.add(((Identifier) lhs).getName());
+      result.add((Identifier) lhs);
       return;
     }
     if (lhs instanceof ListLiteral) {
       ListLiteral variables = (ListLiteral) lhs;
       for (Expression expression : variables.getElements()) {
-        collectBoundNames(expression, result);
+        collectBoundIdentifiers(expression, result);
       }
     }
   }

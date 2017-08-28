@@ -291,8 +291,8 @@ public abstract class AbstractComprehension extends Expression {
       // Check if a loop variable conflicts with another local variable.
       LValue lvalue = clause.getLValue();
       if (lvalue != null) {
-        for (String name : lvalue.boundNames()) {
-          env.removeLocalBinding(name);
+        for (Identifier ident : lvalue.boundIdentifiers()) {
+          env.removeLocalBinding(ident.getName());
         }
       }
     }

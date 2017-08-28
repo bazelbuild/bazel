@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
@@ -417,14 +418,14 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       return;
     }
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
-    ImmutableSet<String> boundNames = assignmentStatement.getLValue().boundNames();
-    for (String name : boundNames) {
-      Object lookup = extensionEnv.lookup(name);
+    ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
+    for (Identifier ident : boundIdentifiers) {
+      Object lookup = extensionEnv.lookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;
           if (!exportable.isExported()) {
-            exportable.export(extensionLabel, name);
+            exportable.export(extensionLabel, ident.getName());
           }
         } catch (EvalException e) {
           eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
