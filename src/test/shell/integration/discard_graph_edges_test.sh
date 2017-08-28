@@ -235,8 +235,10 @@ genrule(name = 'action${i}',
         srcs = [':action${iminus}'],
         outs = ['histo.${i}'],
         local = 1,
-        cmd = '${bazel_javabase}/bin/jmap -histo:live '
-              + '\$\$(cat ${server_pid_file}) > \$(location histo.${i})'
+        cmd = 'server_pid=\$\$(cat $server_pid_file) ; ' +
+              '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
+              '\$(location histo.${i}) ' +
+              '|| echo "server_pid in genrule: \$\$server_pid"'
        )
 EOF
   done
@@ -244,9 +246,13 @@ EOF
   local readonly histo_root="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo."
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $BUILD_FLAGS //histodump:action3 >& "$TEST_log" &
+  bazel $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
+      //histodump:action3 >> "$TEST_log" 2>&1 &
   server_pid=$!
+  echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_file"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
   echo "" > "$wait_fifo"
   # Wait for previous command to finish.
   wait "$server_pid" || fail "Bazel command failed"
