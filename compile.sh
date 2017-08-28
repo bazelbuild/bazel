@@ -36,8 +36,8 @@ esac
 
 # Check that the bintools can be found, otherwise we would see very confusing
 # error messages.
-which [ >&/dev/null || {
-  echo >&2 "ERROR: cannot locate GNU bintools; check your PATH."
+hash tr >&/dev/null || {
+  echo >&2 "ERROR: cannot locate GNU coreutils; check your PATH."
   echo >&2 "       (You may need to run 'export PATH=/bin:/usr/bin:\$PATH)'"
   exit 1
 }
