@@ -142,8 +142,6 @@ public class ToolchainContext {
         prerequisiteMap
             .keys()
             .stream()
-            // Keys in prerequisiteMap can be null, see {@link DependencyResolver#dependentNodeMap}.
-            .filter(attribute -> attribute != null)
             .filter(attribute -> attribute.getName().equals(PlatformSemantics.TOOLCHAINS_ATTR))
             .findFirst();
     Preconditions.checkState(

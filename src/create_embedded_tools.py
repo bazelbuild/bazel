@@ -29,8 +29,8 @@ from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
     ('*tools/jdk/BUILD*', lambda x: 'tools/jdk/BUILD'),
-    ('*tools/platforms/platforms.BUILD', lambda x: 'tools/platforms/BUILD'),
-    ('*tools/platforms/*', lambda x: 'tools/platforms/' + os.path.basename(x)),
+    ('*tools/platforms/platforms.BUILD', lambda x: 'platforms/BUILD'),
+    ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*JavaBuilder*_deploy.jar', lambda x: 'tools/jdk/' + os.path.basename(x)),
     ('*JacocoCoverage*_deploy.jar',
      lambda x: 'tools/jdk/JacocoCoverage_deploy.jar'),
