@@ -37,13 +37,13 @@ public abstract class Statement extends ASTNode {
   }
 
   /**
-   * Executes the statement in the specified build environment, which may be
-   * modified.
+   * Executes the statement in the specified build environment, which may be modified.
    *
    * @throws EvalException if execution of the statement could not be completed.
    * @throws InterruptedException may be thrown in a sub class.
    */
-  final void exec(Environment env) throws EvalException, InterruptedException   {
+  @Deprecated // use Eval class instead
+  final void exec(Environment env) throws EvalException, InterruptedException {
     try {
       doExec(env);
     } catch (EvalException ex) {
@@ -60,7 +60,10 @@ public abstract class Statement extends ASTNode {
    * @throws EvalException if execution of the statement could not be completed.
    * @throws InterruptedException may be thrown in a sub class.
    */
-  abstract void doExec(Environment env) throws EvalException, InterruptedException;
+  @Deprecated
+  final void doExec(Environment env) throws EvalException, InterruptedException {
+    new Eval(env).exec(this);
+  }
 
   /**
    * Kind of the statement. This is similar to using instanceof, except that it's more efficient and

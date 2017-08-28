@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.FlowStatement.FlowException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.List;
@@ -66,30 +65,6 @@ public final class ForStatement extends Statement {
   @Override
   public String toString() {
     return "for " + variable + " in " + collection + ": ...\n";
-  }
-
-  @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    Object o = collection.eval(env);
-    Iterable<?> col = EvalUtils.toIterable(o, getLocation(), env);
-    EvalUtils.lock(o, getLocation());
-    try {
-      for (Object it : col) {
-        variable.assign(it, env, getLocation());
-
-        try {
-          for (Statement stmt : block) {
-            stmt.exec(env);
-          }
-        } catch (FlowException ex) {
-          if (ex.mustTerminateLoop()) {
-            return;
-          }
-        }
-      }
-    } finally {
-      EvalUtils.unlock(o, getLocation());
-    }
   }
 
   @Override

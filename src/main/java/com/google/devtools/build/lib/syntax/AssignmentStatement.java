@@ -57,12 +57,6 @@ public final class AssignmentStatement extends Statement {
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    Object rvalue = expression.eval(env);
-    lvalue.assign(rvalue, env, getLocation());
-  }
-
-  @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }

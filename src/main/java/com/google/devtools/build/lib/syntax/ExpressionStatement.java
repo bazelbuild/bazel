@@ -39,11 +39,6 @@ public final class ExpressionStatement extends Statement {
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    expression.eval(env);
-  }
-
-  @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }

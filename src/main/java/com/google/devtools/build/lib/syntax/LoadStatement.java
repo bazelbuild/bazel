@@ -73,37 +73,6 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    if (env.getSemantics().incompatibleLoadArgumentIsLabel) {
-      String s = imp.getValue();
-      if (!s.startsWith("//") && !s.startsWith(":")) {
-        throw new EvalException(
-            getLocation(),
-            "First argument of 'load' must be a label and start with either '//' or ':'. "
-                + "Use --incompatible_load_argument_is_label=false to temporarily disable this "
-                + "check.");
-      }
-    }
-
-    for (Map.Entry<Identifier, String> entry : symbolMap.entrySet()) {
-      try {
-        Identifier name = entry.getKey();
-        Identifier declared = new Identifier(entry.getValue());
-
-        if (declared.isPrivate()) {
-          throw new EvalException(getLocation(),
-              "symbol '" + declared.getName() + "' is private and cannot be imported.");
-        }
-        // The key is the original name that was used to define the symbol
-        // in the loaded bzl file.
-        env.importSymbol(imp.getValue(), name, declared.getName());
-      } catch (Environment.LoadFailedException e) {
-        throw new EvalException(getLocation(), e.getMessage());
-      }
-    }
-  }
-
-  @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
