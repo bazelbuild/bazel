@@ -18,24 +18,34 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 /** The main class for the skylint binary. */
 public class Skylint {
   public static void main(String[] args) throws IOException {
-    String content =
-        new String(
-            Files.readAllBytes(Paths.get(args[0]).toAbsolutePath()), StandardCharsets.ISO_8859_1);
+    Path path = Paths.get(args[0]).toAbsolutePath();
+    String content = new String(Files.readAllBytes(path), StandardCharsets.ISO_8859_1);
     BuildFileAST ast =
         BuildFileAST.parseSkylarkString(
             event -> {
               System.err.println(event);
             },
             content);
-    List<Issue> issues = NamingConventionsChecker.check(ast);
+    List<Issue> issues = new ArrayList<>();
+    issues.addAll(NamingConventionsChecker.check(ast));
+    issues.addAll(ControlFlowChecker.check(ast));
+    issues.sort(Issue::compare);
+    if (!issues.isEmpty()) {
+      System.out.println(path);
+    }
     for (Issue issue : issues) {
       System.out.println(issue);
+    }
+    if (!issues.isEmpty()) {
+      System.exit(1);
     }
   }
 }

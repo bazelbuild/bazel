@@ -31,4 +31,14 @@ public class Issue {
   public String toString() {
     return location + ": " + message;
   }
+
+  public static int compare(Issue i1, Issue i2) {
+    Location l1 = i1.location;
+    Location l2 = i2.location;
+    int pathComparison = l1.getPath().compareTo(l2.getPath());
+    if (pathComparison != 0) {
+      return pathComparison;
+    }
+    return l1.getStartOffset() - l2.getStartOffset();
+  }
 }
