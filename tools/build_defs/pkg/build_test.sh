@@ -97,36 +97,34 @@ function get_changes() {
 }
 
 function assert_content() {
-  local listing="./
-./etc/
-./etc/nsswitch.conf
-./usr/
-./usr/titi
-./usr/bin/
-./usr/bin/java -> /path/to/bin/java"
+  local listing="etc/
+etc/nsswitch.conf
+usr/
+usr/titi
+usr/bin/
+usr/bin/java -> /path/to/bin/java"
   check_eq "$listing" "$(get_tar_listing $1)"
-  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
-  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
-  check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/)"
-  check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/nsswitch.conf)"
-  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/)"
-  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/titi)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 usr/titi)"
+  check_eq "-rw-r--r--" "$(get_tar_permission $1 etc/nsswitch.conf)"
+  check_eq "24/42" "$(get_numeric_tar_owner $1 etc/)"
+  check_eq "24/42" "$(get_numeric_tar_owner $1 etc/nsswitch.conf)"
+  check_eq "42/24" "$(get_numeric_tar_owner $1 usr/)"
+  check_eq "42/24" "$(get_numeric_tar_owner $1 usr/titi)"
   if [ -z "${2-}" ]; then
-    check_eq "tata/titi" "$(get_tar_owner $1 ./etc/)"
-    check_eq "tata/titi" "$(get_tar_owner $1 ./etc/nsswitch.conf)"
-    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/)"
-    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/titi)"
+    check_eq "tata/titi" "$(get_tar_owner $1 etc/)"
+    check_eq "tata/titi" "$(get_tar_owner $1 etc/nsswitch.conf)"
+    check_eq "titi/tata" "$(get_tar_owner $1 usr/)"
+    check_eq "titi/tata" "$(get_tar_owner $1 usr/titi)"
   fi
 }
 
 function test_tar() {
-  local listing="./
-./etc/
-./etc/nsswitch.conf
-./usr/
-./usr/titi
-./usr/bin/
-./usr/bin/java -> /path/to/bin/java"
+  local listing="etc/
+etc/nsswitch.conf
+usr/
+usr/titi
+usr/bin/
+usr/bin/java -> /path/to/bin/java"
   for i in "" ".gz" ".bz2" ".xz"; do
     assert_content "test-tar-${i:1}.tar$i"
     # Test merging tar files
@@ -135,18 +133,13 @@ function test_tar() {
     assert_content "test-tar-inclusion-${i:1}.tar" "true"
   done;
 
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-etc.tar)"
-  check_eq "./
-./etc/
-./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
-  check_eq "./
-./not-etc/
-./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
+  check_eq "nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
+  check_eq "nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
+  check_eq "nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-etc.tar)"
+  check_eq "etc/
+etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
+  check_eq "not-etc/
+not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
 }
 
 function test_deb() {
@@ -154,16 +147,15 @@ function test_deb() {
     echo "Unable to run test for debian, no dpkg-deb!" >&2
     return 0
   fi
-  local listing="./
-./etc/
-./etc/nsswitch.conf
-./usr/
-./usr/titi
-./usr/bin/
-./usr/bin/java -> /path/to/bin/java"
+  local listing="etc/
+etc/nsswitch.conf
+usr/
+usr/titi
+usr/bin/
+usr/bin/java -> /path/to/bin/java"
   check_eq "$listing" "$(get_deb_listing test-deb.deb)"
-  check_eq "-rwxr-xr-x" "$(get_deb_permission test-deb.deb ./usr/titi)"
-  check_eq "-rw-r--r--" "$(get_deb_permission test-deb.deb ./etc/nsswitch.conf)"
+  check_eq "-rwxr-xr-x" "$(get_deb_permission test-deb.deb usr/titi)"
+  check_eq "-rw-r--r--" "$(get_deb_permission test-deb.deb etc/nsswitch.conf)"
   get_deb_description test-deb.deb >$TEST_log
   expect_log "Description: toto"
   expect_log "Package: titi"
