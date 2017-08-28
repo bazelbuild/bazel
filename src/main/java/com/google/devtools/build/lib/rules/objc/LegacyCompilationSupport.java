@@ -598,10 +598,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
           ? StrippingType.DYNAMIC_LIB
           : StrippingType.DEFAULT;
     } catch (CommandLineExpansionException e) {
-      // TODO(b/64941219): This code should be rewritten to not expand the command line
-      // in the analysis phase
       // This can't actually happen, because the command lines used by this class do
-      // not throw.
+      // not throw. This class is slated for deletion, so throwing an assertion is good enough.
       throw new AssertionError("Cannot fail to expand command line but did.", e);
     }
   }
