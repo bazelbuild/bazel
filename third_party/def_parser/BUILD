@@ -23,3 +23,9 @@ py_test(
   data = [":def_parser"],
   deps = ["//src/test/py/bazel:test_base"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
