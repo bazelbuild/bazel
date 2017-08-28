@@ -100,10 +100,7 @@
         "parameters": {
             "build_opts": [
                 "--copt=-w",
-                "--host_copt=-w",
-                // TODO(pcloudy):.
-                // Remove it after wrapper-less CROSSTOOL becomes default
-                "--action_env=NO_MSVC_WRAPPER=1"
+                "--host_copt=-w"
             ],
             "test_opts": [
                 // TODO(pcloudy): Remove this after TEMP is properly set.

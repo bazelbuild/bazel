@@ -40,9 +40,6 @@ fi
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
-# TODO(pcloudy): Remove this after wrapper-less CROSSTOOL becomes default
-export NO_MSVC_WRAPPER=1
-
 echo "BOOTSTRAP_BAZEL version:"
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc version
 
