@@ -151,6 +151,19 @@ public class CppOptions extends FragmentOptions {
   )
   public String cppCompiler;
 
+  // This is different from --platform_suffix in that that one is designed to facilitate the
+  // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
+  // form the output directory path.
+  @Option(
+      name = "cc_output_directory_tag",
+      defaultValue = "",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies a suffix to be added to the configuration directory."
+  )
+  public String outputDirectoryTag;
+
   @Option(
     name = "glibc",
     defaultValue = "null",

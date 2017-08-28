@@ -1874,8 +1874,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     } else {
       lipoSuffix = "";
     }
-    String toolchainPrefix = toolchainIdInOutputDirectory
-        ? toolchainIdentifier : desiredCpu;
+    String toolchainPrefix;
+    if (toolchainIdInOutputDirectory) {
+      toolchainPrefix = toolchainIdentifier;
+    } else {
+      toolchainPrefix = desiredCpu;
+      if (!cppOptions.outputDirectoryTag.isEmpty()) {
+        toolchainPrefix += "-" + cppOptions.outputDirectoryTag;
+      }
+    }
+
     return toolchainPrefix + lipoSuffix;
   }
 
