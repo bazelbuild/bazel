@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -660,10 +661,10 @@ public class CppHelper {
             .addOutput(output)
             .useDefaultShellEnvironment()
             .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
-            .addArguments(commandLine)
             .setExecutionInfo(executionInfoBuilder.build())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")
+            .setCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
             .build(context);
     context.registerAction(stripAction);
   }
