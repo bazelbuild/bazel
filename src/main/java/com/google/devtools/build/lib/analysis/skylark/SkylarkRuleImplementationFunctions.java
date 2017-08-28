@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory.Args;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -117,12 +118,16 @@ public class SkylarkRuleImplementationFunctions {
       ),
       @Param(
         name = "arguments",
-        type = SkylarkList.class,
-        generic1 = String.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class),
+          @ParamType(type = Args.class),
+        },
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "command line arguments of the action."
+        doc =
+            "command line arguments of the action."
+                + "May be either a list or an actions.args() object."
       ),
       @Param(
         name = "mnemonic",
@@ -213,7 +218,7 @@ public class SkylarkRuleImplementationFunctions {
             SkylarkList outputs,
             Object inputs,
             Object executableUnchecked,
-            SkylarkList arguments,
+            Object arguments,
             Object mnemonicUnchecked,
             Object commandUnchecked,
             Object progressMessage,
@@ -224,8 +229,8 @@ public class SkylarkRuleImplementationFunctions {
             Location loc,
             Environment env)
             throws EvalException {
-          checkDeprecated("ctx.actions.run or ctx.actions.run_shell", "ctx.action", loc,
-              env.getSemantics());
+          checkDeprecated(
+              "ctx.actions.run or ctx.actions.run_shell", "ctx.action", loc, env.getSemantics());
           ctx.checkMutable("action");
           if ((commandUnchecked == Runtime.NONE) == (executableUnchecked == Runtime.NONE)) {
             throw new EvalException(
@@ -233,31 +238,32 @@ public class SkylarkRuleImplementationFunctions {
           }
           boolean hasCommand = commandUnchecked != Runtime.NONE;
           if (!hasCommand) {
-            ctx.actions().run(
-                outputs,
-                inputs,
-                executableUnchecked,
-                arguments,
-                mnemonicUnchecked,
-                progressMessage,
-                useDefaultShellEnv,
-                envUnchecked,
-                executionRequirementsUnchecked,
-                inputManifestsUnchecked);
+            ctx.actions()
+                .run(
+                    outputs,
+                    inputs,
+                    executableUnchecked,
+                    arguments,
+                    mnemonicUnchecked,
+                    progressMessage,
+                    useDefaultShellEnv,
+                    envUnchecked,
+                    executionRequirementsUnchecked,
+                    inputManifestsUnchecked);
 
           } else {
-            ctx.actions().runShell(
-                outputs,
-                inputs,
-                arguments,
-                mnemonicUnchecked,
-                commandUnchecked,
-                progressMessage,
-                useDefaultShellEnv,
-                envUnchecked,
-                executionRequirementsUnchecked,
-                inputManifestsUnchecked
-            );
+            ctx.actions()
+                .runShell(
+                    outputs,
+                    inputs,
+                    arguments,
+                    mnemonicUnchecked,
+                    commandUnchecked,
+                    progressMessage,
+                    useDefaultShellEnv,
+                    envUnchecked,
+                    executionRequirementsUnchecked,
+                    inputManifestsUnchecked);
           }
           return Runtime.NONE;
         }

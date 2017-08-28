@@ -202,7 +202,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       @Nullable AspectDescriptor aspectDescriptor,
       SkylarkSemanticsOptions skylarkSemantics)
       throws EvalException, InterruptedException {
-    this.actionFactory = new SkylarkActionFactory(this, ruleContext);
+    this.actionFactory = new SkylarkActionFactory(this, skylarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
