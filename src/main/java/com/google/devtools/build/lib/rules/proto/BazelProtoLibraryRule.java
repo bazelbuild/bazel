@@ -93,9 +93,12 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 </p>
 
 <p>When compiled on the command-line, a <code>proto_library</code> creates a file named
-<code>foo-descriptor-set.proto.bin</code>, which is the descriptor set for the
-messages the rule srcs. The file is a serialized <code>FileDescriptorSet</code>, which is described
-in https://developers.google.com/protocol-buffers/docs/techniques#self-description.</p>
+   <code>foo-descriptor-set.proto.bin</code>, which is the descriptor set for the
+   messages the rule srcs. The file is a serialized <code>FileDescriptorSet</code>, which is
+   described in
+   <a href="https://developers.google.com/protocol-buffers/docs/techniques#self-description">
+   https://developers.google.com/protocol-buffers/docs/techniques#self-description</a>.
+</p>
 
 <p>It only contains information about the <code>.proto</code> files directly mentioned by a
 <code>proto_library</code> rule; the collection of transitive descriptor sets is available through
