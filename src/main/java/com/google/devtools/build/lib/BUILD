@@ -1198,6 +1198,7 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",

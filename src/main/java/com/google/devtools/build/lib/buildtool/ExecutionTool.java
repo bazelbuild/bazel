@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -97,6 +96,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -469,7 +469,7 @@ public class ExecutionTool {
       Profiler.instance().markPhase(ProfilePhase.FINISH);
 
       if (buildCompleted) {
-        saveCaches(actionCache);
+        saveActionCache(actionCache);
       }
 
       try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
@@ -716,24 +716,23 @@ public class ExecutionTool {
   }
 
   /**
-   * Writes the cache files to disk, reporting any errors that occurred during
-   * writing.
+   * Writes the action cache files to disk, reporting any errors that occurred during writing and
+   * capturing statistics.
    */
-  private void saveCaches(ActionCache actionCache) {
-    long actionCacheSizeInBytes = 0;
-    long actionCacheSaveTimeInMs;
+  private void saveActionCache(ActionCache actionCache) {
+    ActionCacheStatistics.Builder builder = ActionCacheStatistics.builder();
 
     AutoProfiler p = AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, log);
     try {
-      actionCacheSizeInBytes = actionCache.save();
+      builder.setSizeInBytes(actionCache.save());
     } catch (IOException e) {
+      builder.setSizeInBytes(0);
       getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
     } finally {
-      actionCacheSaveTimeInMs =
-          MILLISECONDS.convert(p.completeAndGetElapsedTimeNanos(), NANOSECONDS);
+      builder.setSaveTime(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()));
     }
-    env.getEventBus().post(new CachesSavedEvent(
-        actionCacheSaveTimeInMs, actionCacheSizeInBytes));
+
+    env.getEventBus().post(builder.build());
   }
 
   private Reporter getReporter() {
