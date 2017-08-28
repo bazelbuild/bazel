@@ -142,8 +142,8 @@ public class ConfigRuleClasses {
              <i>any</i> of those settings match.
           <p>
 
-          <p>This and <a href="${link config_setting.define_values}"><code>values</code></a> cannot
-             both be empty.
+          <p>This and <a href="${link config_setting.define_values}"><code>define_values</code></a>
+             cannot both be empty.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
