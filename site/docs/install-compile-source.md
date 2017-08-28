@@ -7,27 +7,35 @@ title: Compile Bazel from Source
 
 ## <a name="unix"></a> On Linux or macOS
 
+Prerequisites:
+
 1. Ensure that you have OpenJDK 8 and python installed on your system.
    For a system based on debian packages (e.g. Debian, Ubuntu), install
    OpenJDK 8 and python by running the command `sudo apt-get install
    openjdk-8-jdk python`.
+   
+2. If installing on CentOS (Linux), install the `which` command.
 
-2. The standard way of compiling a release version of Bazel from source is to
-   use a distribution archive. Download `bazel-<VERSION>-dist.zip` from the
-   [release page](https://github.com/bazelbuild/bazel/releases) for the desired
-   version. We recommend to also verify the signature made by our
-   [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+To compile Bazel on Linux or macOS:
+
+1. From the [release page](https://github.com/bazelbuild/bazel/releases),
+   download the distribution archive for the desired released version
+   and distrubution.
+   
    The distribution archive also contains generated files in addition to the
    versioned sources, so this step _cannot_ be short cut by using a checkout
    of the source tree.
-
-3. Unzip the archive and call `bash ./compile.sh`; this will create a bazel
+   
+2. Verify the signature made by the
+   [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+   
+4. Unzip the archive and call `bash ./compile.sh`. This script will create a bazel
    binary in `output/bazel`. This binary is self-contained, so it can be copied
    to a directory on the PATH (such as `/usr/local/bin`) or used in-place.
 
 ## <a name="windows"></a> On Windows
 
-Windows support is in beta. Known issues are [marked with label
+Known issues with Bazel and Windows are [marked with label
 "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
