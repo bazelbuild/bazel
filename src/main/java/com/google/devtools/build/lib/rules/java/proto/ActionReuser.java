@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class ActionReuser {
 
@@ -61,26 +59,11 @@ public class ActionReuser {
       return false;
     }
 
-    boolean correctRollupTransitiveProtoRuntimes =
-        ruleContext
-            .getConfiguration()
-            .getFragment(ProtoConfiguration.class)
-            .correctRollupTransitiveProtoRuntimes();
-
     JavaCompilationArgs.Builder transitiveJars =
         JavaCompilationArgs.builder()
             .addTransitiveArgs(javaApi.getTransitiveJavaCompilationArgsImmutable(), BOTH)
+            .addTransitiveArgs(javaApi.getTransitiveProtoRuntimeImmutable(), BOTH)
             .merge(directJars);
-    if (correctRollupTransitiveProtoRuntimes) {
-      transitiveJars.addTransitiveArgs(javaApi.getTransitiveProtoRuntimeImmutable(), BOTH);
-    } else {
-      for (TransitiveInfoCollection t : javaApi.getProtoRuntimeImmutable()) {
-        JavaCompilationArgsProvider p = t.getProvider(JavaCompilationArgsProvider.class);
-        if (p != null) {
-          transitiveJars.addTransitiveArgs(p.getRecursiveJavaCompilationArgs(), BOTH);
-        }
-      }
-    }
 
     Artifact outputJar = getOnlyElement(directJars.getRuntimeJars());
     Artifact compileTimeJar = getOnlyElement(directJars.getCompileTimeJars());
@@ -92,7 +75,7 @@ public class ActionReuser {
             transitiveJars.build(),
             NestedSetBuilder.create(
                 Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()),
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
     TransitiveInfoProviderMapBuilder javaProvidersBuilder =
         new TransitiveInfoProviderMapBuilder()
