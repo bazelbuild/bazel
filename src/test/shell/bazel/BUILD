@@ -480,9 +480,10 @@ sh_test(
 
 sh_test(
     name = "toolchain_test",
-    size = "medium",
+    size = "large",
     srcs = ["toolchain_test.sh"],
     data = [":test-deps"],
+    shard_count = 5,
 )
 
 sh_test(
