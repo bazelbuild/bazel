@@ -153,15 +153,6 @@ class TarFileWriterTest(unittest.TestCase):
     self.assertSimpleFileContent(["./a", "./ab"])
     self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
-  def testAddFileNoLeadingDotSlash(self):
-    # If we don't use ./ when adding files, there shouldn't be a directory entry
-    # for .
-    with archive.TarFileWriter(self.tempfile) as f:
-      f.add_file("a", content="a")
-      f.add_file("b", content="b")
-    content = [{"name": "a"}, {"name": "b"}]
-    self.assertTarFileContent(self.tempfile, content)
-
   def testDottedFiles(self):
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_file("a")
@@ -171,47 +162,10 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_file("..e")
       f.add_file(".f")
     content = [
-        {
-            "name": "a"
-        },
-        {
-            "name": "/b"
-        },
-        {
-            "name": "."
-        },
-        {
-            "name": "./c"
-        },
-        {
-            "name": "./.d"
-        },
-        {
-            "name": "..e"
-        },
-        {
-            "name": ".f"
-        },
+        {"name": "."}, {"name": "./a"}, {"name": "/b"}, {"name": "./c"},
+        {"name": "./.d"}, {"name": "./..e"}, {"name": "./.f"}
     ]
     self.assertTarFileContent(self.tempfile, content)
-
-  def testSubdirectories(self):
-    with archive.TarFileWriter(self.tempfile) as f:
-      f.add_file("a")
-      f.add_file("b/c")
-      f.add_file("c/d/e")
-      f.add_file("./d")
-      f.add_file("./e/f")
-      f.add_file("./f/g/h")
-      f.add_file("/g")
-      f.add_file("/h/i")
-      f.add_file("/i/j/k")
-    expected_names = [
-        "a", "b", "b/c", "c", "c/d", "c/d/e", ".", "./d", "./e", "./e/f", "./f",
-        "./f/g", "./f/g/h", "/g", "/h", "/h/i", "/i", "/i/j", "/i/j/k"
-    ]
-    expected_content = [{"name": n} for n in expected_names]
-    self.assertTarFileContent(self.tempfile, expected_content)
 
   def testAddDir(self):
     # For some strange reason, ending slash is stripped by the test
@@ -237,77 +191,36 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testMergeTar(self):
     content = [
-        {
-            "name": "a",
-            "data": "a"
-        },
-        {
-            "name": "ab",
-            "data": "ab"
-        },
-    ]
+        {"name": "./a", "data": "a"},
+        {"name": "./ab", "data": "ab"},
+        ]
     for ext in ["", ".gz", ".bz2", ".xz"]:
       with archive.TarFileWriter(self.tempfile) as f:
-        f.add_tar(
-            os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
-            name_filter=lambda n: n != "b")
+        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
+                  name_filter=lambda n: n != "./b")
       self.assertTarFileContent(self.tempfile, content)
 
   def testMergeTarRelocated(self):
     content = [
-        {
-            "name": "foo",
-            "mode": 0o755
-        },
-        {
-            "name": "foo/a",
-            "data": "a"
-        },
-        {
-            "name": "foo/ab",
-            "data": "ab"
-        },
-    ]
+        {"name": ".", "mode": 0o755},
+        {"name": "./foo", "mode": 0o755},
+        {"name": "./foo/a", "data": "a"},
+        {"name": "./foo/ab", "data": "ab"},
+        ]
     with archive.TarFileWriter(self.tempfile) as f:
-      f.add_tar(
-          os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
-          name_filter=lambda n: n != "b",
-          root="foo")
-    self.assertTarFileContent(self.tempfile, content)
-
-  def testMergeTarRelocatedAbsolute(self):
-    content = [
-        {
-            "name": "/bar",
-            "mode": 0o755
-        },
-        {
-            "name": "/bar/a",
-            "data": "a"
-        },
-        {
-            "name": "/bar/ab",
-            "data": "ab"
-        },
-    ]
-    with archive.TarFileWriter(self.tempfile) as f:
-      f.add_tar(
-          os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
-          name_filter=lambda n: n != "b",
-          root="/bar")
+      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
+                name_filter=lambda n: n != "./b", root="/foo")
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddingDirectoriesForFile(self):
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_file("d/f")
     content = [
-        {
-            "name": "d",
-            "mode": 0o755
-        },
-        {
-            "name": "d/f"
-        },
+        {"name": ".",
+         "mode": 0o755},
+        {"name": "./d",
+         "mode": 0o755},
+        {"name": "./d/f"},
     ]
     self.assertTarFileContent(self.tempfile, content)
 
@@ -328,30 +241,18 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_dir("a", a_dir)
       f.add_file("a/b/f")
     content = [
-        {
-            "name": "d",
-            "mode": 0o755
-        },
-        {
-            "name": "d/dir_file"
-        },
-        {
-            "name": "d/f"
-        },
-        {
-            "name": "a",
-            "mode": 0o755
-        },
-        {
-            "name": "a/dir_file"
-        },
-        {
-            "name": "a/b",
-            "mode": 0o755
-        },
-        {
-            "name": "a/b/f"
-        },
+        {"name": ".",
+         "mode": 0o755},
+        {"name": "./d",
+         "mode": 0o755},
+        {"name": "./d/dir_file"},
+        {"name": "./d/f"},
+        {"name": "./a",
+         "mode": 0o755},
+        {"name": "./a/dir_file"},
+        {"name": "./a/b",
+         "mode": 0o755},
+        {"name": "./a/b/f"},
     ]
     self.assertTarFileContent(self.tempfile, content)
 
@@ -369,39 +270,23 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_file("x/y/f")
       f.add_file("x", tarfile.DIRTYPE)
     content = [
-        {
-            "name": "d",
-            "mode": 0o755
-        },
-        {
-            "name": "d/f"
-        },
-        {
-            "name": "a",
-            "mode": 0o755
-        },
-        {
-            "name": "a/b",
-            "mode": 0o755
-        },
-        {
-            "name": "a/b/c",
-            "mode": 0o755
-        },
-        {
-            "name": "a/b/c/f"
-        },
-        {
-            "name": "x",
-            "mode": 0o755
-        },
-        {
-            "name": "x/y",
-            "mode": 0o755
-        },
-        {
-            "name": "x/y/f"
-        },
+        {"name": ".",
+         "mode": 0o755},
+        {"name": "./d",
+         "mode": 0o755},
+        {"name": "./d/f"},
+        {"name": "./a",
+         "mode": 0o755},
+        {"name": "./a/b",
+         "mode": 0o755},
+        {"name": "./a/b/c",
+         "mode": 0o755},
+        {"name": "./a/b/c/f"},
+        {"name": "./x",
+         "mode": 0o755},
+        {"name": "./x/y",
+         "mode": 0o755},
+        {"name": "./x/y/f"},
     ]
     self.assertTarFileContent(self.tempfile, content)
 
