@@ -121,6 +121,7 @@ sh_test(
         "//src/test/shell:unittest.bash",
         "//tools/defaults:jdk",
     ],
+    toolchains = ["//tools/jdk:current_java_runtime"],
 )
 
 exports_files([
