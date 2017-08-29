@@ -180,7 +180,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       Digest stdout = uploadFileContents(outErr.getOutputPath());
       result.setStdoutDigest(stdout);
     }
-    blobStore.put(
+    blobStore.putActionResult(
         actionKey.getDigest().getHash(), new ByteArrayInputStream(result.build().toByteArray()));
   }
 
@@ -269,7 +269,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
     return digest;
   }
 
-  public void downloadBlob(Digest digest, OutputStream out)
+  private void downloadBlob(Digest digest, OutputStream out)
       throws IOException, InterruptedException {
     if (digest.getSizeBytes() == 0) {
       return;
@@ -300,18 +300,31 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   public ActionResult getCachedActionResult(ActionKey actionKey)
       throws IOException, InterruptedException {
     try {
-      byte[] data = downloadBlob(actionKey.getDigest());
+      byte[] data = downloadActionResult(actionKey.getDigest());
       return ActionResult.parseFrom(data);
-    } catch (InvalidProtocolBufferException e) {
-      return null;
-    } catch (CacheNotFoundException e) {
+    } catch (InvalidProtocolBufferException | CacheNotFoundException e) {
       return null;
     }
   }
 
+  private byte[] downloadActionResult(Digest digest) throws IOException, InterruptedException {
+    if (digest.getSizeBytes() == 0) {
+      return new byte[0];
+    }
+    // This unconditionally downloads the whole blob into memory!
+    checkBlobSize(digest.getSizeBytes() / 1024, "Download Action Result");
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    boolean success = blobStore.getActionResult(digest.getHash(), out);
+    if (!success) {
+      throw new CacheNotFoundException(digest);
+    }
+    return out.toByteArray();
+  }
+
   public void setCachedActionResult(ActionKey actionKey, ActionResult result)
       throws IOException, InterruptedException {
-    blobStore.put(actionKey.getDigest().getHash(), new ByteArrayInputStream(result.toByteArray()));
+    blobStore.putActionResult(actionKey.getDigest().getHash(),
+        new ByteArrayInputStream(result.toByteArray()));
   }
 
   @Override

@@ -32,18 +32,21 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  * Implementation of {@link SimpleBlobStore} with a REST service. The REST service needs to
  * support the following HTTP methods.
  *
- * <p>PUT /cache/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key. In this
- * example the key is 1234. Valid status codes are 200, 201, 202 and 204.
+ * <p>PUT /{actioncache,cas}/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key.
+ * In this example the key is 1234. Valid status codes are 200, 201, 202 and 204.
  *
- * <p>GET /cache/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this example
- * the key is 1234. A status code of 200 should be followed by the content of blob. Status code of
- * 404 or 204 means the key cannot be found.
+ * <p>GET /{actioncache,cas}/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this
+ * example the key is 1234. A status code of 200 should be followed by the content of blob. Status
+ * code of 404 or 204 means the key cannot be found.
  *
- * <p>HEAD /cache/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in the blob
- * store. A status code of 200 indicates the key is found in the blob store. A status code of 404
- * indicates the key is not found in the blob store.
+ * <p>HEAD /{actioncache,cas}/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in
+ * the blob store. A status code of 200 indicates the key is found in the blob store. A status code
+ * of 404 indicates the key is not found in the blob store.
  */
 public final class RestBlobStore implements SimpleBlobStore {
+
+  private static final String ACTION_CACHE_PREFIX = "ac";
+  private static final String CAS_PREFIX = "cas";
 
   private final String baseUrl;
   private final PoolingHttpClientConnectionManager connMan;
@@ -85,8 +88,18 @@ public final class RestBlobStore implements SimpleBlobStore {
 
   @Override
   public boolean get(String key, OutputStream out) throws IOException {
+    return get(CAS_PREFIX, key, out);
+  }
+
+  @Override
+  public boolean getActionResult(String key, OutputStream out)
+      throws IOException, InterruptedException {
+    return get(ACTION_CACHE_PREFIX, key, out);
+  }
+
+  private boolean get(String urlPrefix, String key, OutputStream out) throws IOException {
     HttpClient client = clientFactory.build();
-    HttpGet get = new HttpGet(baseUrl + "/" + key);
+    HttpGet get = new HttpGet(baseUrl + "/" + urlPrefix + "/" + key);
     return client.execute(
         get,
         response -> {
@@ -105,8 +118,17 @@ public final class RestBlobStore implements SimpleBlobStore {
 
   @Override
   public void put(String key, InputStream in) throws IOException {
+    put(CAS_PREFIX, key, in);
+  }
+
+  @Override
+  public void putActionResult(String key, InputStream in) throws IOException, InterruptedException {
+    put(ACTION_CACHE_PREFIX, key, in);
+  }
+
+  private void put(String urlPrefix, String key, InputStream in) throws IOException {
     HttpClient client = clientFactory.build();
-    HttpPut put = new HttpPut(baseUrl + "/" + key);
+    HttpPut put = new HttpPut(baseUrl + "/" + urlPrefix + "/" + key);
     // For now, upload a byte array instead of a stream, due to Hazelcast crashing on the stream.
     // See https://github.com/hazelcast/hazelcast/issues/10878.
     put.setEntity(new ByteArrayEntity(ByteStreams.toByteArray(in)));

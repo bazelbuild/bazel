@@ -19,24 +19,41 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * A simple interface for storing blobs (in the form of byte arrays) each one indexed by a
- * hexadecimal string. Implementation must be thread-safe.
+ * An interface for storing BLOBs each one indexed by a string (hash in hexadecimal).
+ *
+ * <p>Implementations must be thread-safe.
  */
 public interface SimpleBlobStore {
-  /** Returns true if the provided {@code key} is stored in the blob store. */
+  /**
+   * Returns {@code key} if the provided {@code key} is stored in the CAS.
+   */
   boolean containsKey(String key) throws IOException, InterruptedException;
 
   /**
-   * Returns the blob (in the form of a byte array) indexed by {@code key}. Returns null if the
-   * {@code key} cannot be found.
+   * Fetches the BLOB associated with the {@code key} from the CAS and writes it to {@code out}.
+   *
+   * @return {@code true} if the {@code key} was found. {@code false} otherwise.
    */
   boolean get(String key, OutputStream out) throws IOException, InterruptedException;
 
   /**
-   * Uploads a blob (as {@code value}) indexed by {@code key} to the blob store. Existing blob
-   * indexed by the same {@code key} will be overwritten.
+   * Fetches the BLOB associated with the {@code key} from the Action Cache and writes it to
+   * {@code out}.
+   *
+   * @return {@code true} if the {@code key} was found. {@code false} otherwise.
+   */
+  boolean getActionResult(String actionKey, OutputStream out) throws IOException,
+      InterruptedException;
+
+  /**
+   * Uploads a BLOB (as {@code in}) indexed by {@code key} to the CAS.
    */
   void put(String key, InputStream in) throws IOException, InterruptedException;
+
+  /**
+   * Uploads a BLOB (as {@code in}) indexed by {@code key} to the Action Cache.
+   */
+  void putActionResult(String actionKey, InputStream in) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();

@@ -43,9 +43,21 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
+  public boolean getActionResult(String key, OutputStream out)
+      throws IOException, InterruptedException {
+    return get(key, out);
+  }
+
+  @Override
   public void put(String key, InputStream in) throws IOException {
     byte[] value = ByteStreams.toByteArray(in);
     map.put(key, value);
+  }
+
+  @Override
+  public void putActionResult(String key, InputStream in)
+      throws IOException, InterruptedException {
+    put(key, in);
   }
 
   @Override
