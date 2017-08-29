@@ -38,7 +38,6 @@ public class StandaloneActionContextConsumer implements ActionContextConsumer {
   public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
     // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
     // necessarily the default.
-    return ImmutableMultimap.<Class<? extends ActionContext>, String>of(
-        SpawnActionContext.class, "standalone");
+    return ImmutableMultimap.of(SpawnActionContext.class, "standalone");
   }
 }

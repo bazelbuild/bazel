@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.graph;
 
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingLong;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import com.google.common.primitives.Ints;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -76,7 +77,7 @@ public final class Digraph<T> implements Cloneable {
   /**
    * Maps labels to nodes, which are in strict 1:1 correspondence.
    */
-  private final HashMap<T, Node<T>> nodes = Maps.newHashMap();
+  private final HashMap<T, Node<T>> nodes = new HashMap<>();
 
   /**
    * A source of unique, deterministic hashCodes for {@link Node} instances.
@@ -93,7 +94,7 @@ public final class Digraph<T> implements Cloneable {
    * another one.  Perform this check whenever a function is supplied a node by
    * the user.
    */
-  private final void checkNode(Node<T> node) {
+  private void checkNode(Node<T> node) {
     if (getNode(node.getLabel()) != node) {
       throw new IllegalArgumentException("node " + node
                                          + " is not a member of this graph");
@@ -248,7 +249,7 @@ public final class Digraph<T> implements Cloneable {
    */
   @Override
   public Digraph<T> clone() {
-    final Digraph<T> that = new Digraph<T>();
+    final Digraph<T> that = new Digraph<>();
     visitNodesBeforeEdges(
         new AbstractGraphVisitor<T>() {
           @Override
@@ -288,26 +289,22 @@ public final class Digraph<T> implements Cloneable {
    * any "root".
    */
   public Set<Node<T>> getRoots() {
-    Set<Node<T>> roots = new HashSet<>();
-    for (Node<T> node: nodes.values()) {
-      if (!node.hasPredecessors()) {
-        roots.add(node);
-      }
-    }
-    return roots;
+    return nodes
+        .values()
+        .stream()
+        .filter(node -> !node.hasPredecessors())
+        .collect(toCollection(HashSet::new));
   }
 
   /**
    * @return the set of leaf nodes: those with no successors.
    */
   public Set<Node<T>> getLeaves() {
-    Set<Node<T>> leaves = new HashSet<>();
-    for (Node<T> node: nodes.values()) {
-      if (!node.hasSuccessors()) {
-        leaves.add(node);
-      }
-    }
-    return leaves;
+    return nodes
+        .values()
+        .stream()
+        .filter(node -> !node.hasSuccessors())
+        .collect(toCollection(HashSet::new));
   }
 
   /**
@@ -362,11 +359,8 @@ public final class Digraph<T> implements Cloneable {
    * Note: expensive! Useful when asserting against mutations though.
    */
   public int getEdgeCount() {
-    int edges = 0;
-    for (Node<T> node: nodes.values()) {
-      edges += node.getSuccessors().size();
-    }
-    return edges;
+    return Ints.saturatedCast(
+        nodes.values().stream().mapToLong(node -> node.getSuccessors().size()).sum());
   }
 
   /**
@@ -422,14 +416,11 @@ public final class Digraph<T> implements Cloneable {
     }
 
     CycleDetector detector = new CycleDetector();
-    for (Node<T> node: nodes.values()) {
-      if (nodeToColor.get(node) == WHITE) {
-        if (detector.visit(node)) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return nodes
+        .values()
+        .stream()
+        .filter(node -> nodeToColor.get(node) == WHITE)
+        .anyMatch(detector::visit);
   }
 
   /**
@@ -453,11 +444,9 @@ public final class Digraph<T> implements Cloneable {
    * one strongly-connected component of the graph.
    */
   public Collection<Set<Node<T>>> getStronglyConnectedComponents() {
-    final List<Set<Node<T>>> sccs = new ArrayList<>();
-    NodeSetReceiver<T> r = sccs::add;
-    SccVisitor<T> v = new SccVisitor<>();
+    List<Set<Node<T>>> sccs = new ArrayList<>();
     for (Node<T> node : nodes.values()) {
-      v.visit(r, node);
+      new SccVisitor<T>().visit(sccs::add, node);
     }
     return sccs;
   }
@@ -663,7 +652,7 @@ public final class Digraph<T> implements Cloneable {
    */
   public Set<Node<T>> getFwdReachable(Collection<Node<T>> startNodes) {
     // This method is intentionally not static, to permit future expansion.
-    DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, false);
+    DFS<T> dfs = new DFS<>(DFS.Order.PREORDER, false);
     for (Node<T> n : startNodes) {
       dfs.visit(n, new AbstractGraphVisitor<>());
     }
@@ -684,7 +673,7 @@ public final class Digraph<T> implements Cloneable {
    */
   public Set<Node<T>> getBackReachable(Collection<Node<T>> startNodes) {
     // This method is intentionally not static, to permit future expansion.
-    DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, true);
+    DFS<T> dfs = new DFS<>(DFS.Order.PREORDER, true);
     for (Node<T> n : startNodes) {
       dfs.visit(n, new AbstractGraphVisitor<>());
     }
@@ -883,7 +872,7 @@ public final class Digraph<T> implements Cloneable {
    * pushed onto the visitation stack and put them in a strongly connected
    * component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this component.
    */
-  private class SccVisitor<T> {
+  private static class SccVisitor<T> {
     // Nodes already assigned to a strongly connected component.
     private final Set<Node<T>> assigned = new HashSet<>();
 

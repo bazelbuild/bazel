@@ -26,7 +26,7 @@ import com.google.devtools.common.options.OptionsBase;
 public final class SsdModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
-    return ImmutableList.<Class<? extends OptionsBase>>of(SsdOptions.class);
+    return ImmutableList.of(SsdOptions.class);
   }
 
   @Override

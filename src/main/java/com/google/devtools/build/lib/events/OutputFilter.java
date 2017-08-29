@@ -22,20 +22,10 @@ import java.util.regex.Pattern;
 public interface OutputFilter {
 
   /** An output filter that matches everything. */
-  public static final OutputFilter OUTPUT_EVERYTHING = new OutputFilter() {
-    @Override
-    public boolean showOutput(String tag) {
-      return true;
-    }
-  };
+  OutputFilter OUTPUT_EVERYTHING = tag -> true;
 
   /** An output filter that matches nothing. */
-  public static final OutputFilter OUTPUT_NOTHING = new OutputFilter() {
-    @Override
-    public boolean showOutput(String tag) {
-      return false;
-    }
-  };
+  OutputFilter OUTPUT_NOTHING = tag -> false;
 
   /**
    * Returns true iff the given tag matches the output filter.
@@ -45,7 +35,7 @@ public interface OutputFilter {
   /**
    * An output filter using regular expression matching.
    */
-  public static final class RegexOutputFilter implements OutputFilter {
+  final class RegexOutputFilter implements OutputFilter {
     /** Returns an output filter for the given regex (by compiling it). */
     public static OutputFilter forRegex(String regex) {
       return new RegexOutputFilter(Pattern.compile(regex));

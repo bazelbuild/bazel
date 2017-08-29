@@ -32,21 +32,21 @@ public final class EventCollector extends AbstractEventHandler implements Iterab
    * This collector will collect all events that match the event mask.
    */
   public EventCollector(Set<EventKind> mask) {
-    this(mask, new ArrayList<Event>());
+    this(mask, new ArrayList<>());
   }
 
   /**
    * This collector will collect all events.
    */
   public EventCollector() {
-    this(EventKind.ALL_EVENTS, new ArrayList<Event>());
+    this(EventKind.ALL_EVENTS, new ArrayList<>());
   }
 
   /**
    * This collector will collect all events that match the event mask.
    */
   public EventCollector(EventKind... mask) {
-    this(ImmutableSet.copyOf(mask), new ArrayList<Event>());
+    this(ImmutableSet.copyOf(mask), new ArrayList<>());
   }
 
   /**
