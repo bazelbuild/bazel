@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
@@ -27,6 +28,7 @@ namespace launcher {
 
 using std::ostringstream;
 using std::string;
+using std::wstring;
 using std::stringstream;
 
 string GetLastErrorString() {
@@ -67,19 +69,23 @@ void PrintError(const char* format, ...) {
   fputc('\n', stderr);
 }
 
+wstring AsAbsoluteWindowsPath(const char* path) {
+  wstring wpath;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
+    die("Couldn't convert %s to absoulte Windows path.", path);
+  }
+  return wpath;
+}
+
 bool DoesFilePathExist(const char* path) {
-  // TODO(laszlocsomor): convert `path` to (const wchar_t*), add longpath-prefix
-  // and use GetFileAttributesW.
-  DWORD dwAttrib = GetFileAttributesA(path);
+  DWORD dwAttrib = GetFileAttributesW(AsAbsoluteWindowsPath(path).c_str());
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
 bool DoesDirectoryPathExist(const char* path) {
-  // TODO(laszlocsomor): convert `path` to (const wchar_t*), add longpath-prefix
-  // and use GetFileAttributesW.
-  DWORD dwAttrib = GetFileAttributesA(path);
+  DWORD dwAttrib = GetFileAttributesW(AsAbsoluteWindowsPath(path).c_str());
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));

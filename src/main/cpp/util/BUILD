@@ -52,6 +52,7 @@ cc_library(
     visibility = [
         ":ijar",
         "//src/test/cpp/util:__pkg__",
+        "//src/tools/launcher:__subpackages__",
         "//src/tools/singlejar:__pkg__",
         "//third_party/def_parser:__pkg__",
     ],

@@ -47,6 +47,10 @@ std::string GetBinaryPathWithExtension(const std::string& binary);
 // Escape " to \"
 std::string GetEscapedArgument(const std::string& argument);
 
+// Convert a path to an absolute Windows path with \\?\ prefix.
+// This method will print an error and exit if it cannot convert the path.
+std::wstring AsAbsoluteWindowsPath(const char* path);
+
 // Check if a file exists at a given path.
 bool DoesFilePathExist(const char* path);
 

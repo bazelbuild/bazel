@@ -76,10 +76,7 @@ string BinaryLauncherBase::GetRunfilesPath() const {
 
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
                                            const string& manifest_path) {
-  // TODO(laszlocsomor): prefix manifest_path with the longpath prefix.
-  // std::ifstream supports long paths, but only if they are in the correct
-  // format, e.g. "\\\\?\\c:\\imagine\\some\\very\\long\\path.txt".
-  ifstream manifest_file(manifest_path.c_str());
+  ifstream manifest_file(AsAbsoluteWindowsPath(manifest_path.c_str()).c_str());
 
   if (!manifest_file) {
     die("Couldn't open MANIFEST file: %s", manifest_path.c_str());
