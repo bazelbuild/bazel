@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
+import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystem;
@@ -67,6 +68,7 @@ import javax.annotation.Nullable;
  */
 public class OptionsParser implements OptionsProvider {
 
+  // TODO(b/65049598) make ConstructionException checked.
   /**
    * An unchecked exception thrown when there is a problem constructing a parser, e.g. an error
    * while validating an {@link OptionDefinition} in one of its {@link OptionsBase} subclasses.
@@ -228,50 +230,24 @@ public class OptionsParser implements OptionsProvider {
     }
   }
 
-  // TODO(b/64904491) remove this once the converter and default information is in OptionDefinition
-  // and cached.
-  /** The metadata about an option. */
+  /** The metadata about an option, in the context of this options parser. */
   public static final class OptionDescription {
 
-    private final String name;
-
-    // For valued flags
-    private final Object defaultValue;
-    private final Converter<?> converter;
-    private final boolean allowMultiple;
-
+    private final OptionDefinition optionDefinition;
     private final OptionsData.ExpansionData expansionData;
     private final ImmutableList<OptionValueDescription> implicitRequirements;
 
     OptionDescription(
-        String name,
-        Object defaultValue,
-        Converter<?> converter,
-        boolean allowMultiple,
+        OptionDefinition definition,
         OptionsData.ExpansionData expansionData,
         ImmutableList<OptionValueDescription> implicitRequirements) {
-      this.name = name;
-      this.defaultValue = defaultValue;
-      this.converter = converter;
-      this.allowMultiple = allowMultiple;
+      this.optionDefinition = definition;
       this.expansionData = expansionData;
       this.implicitRequirements = implicitRequirements;
     }
 
-    public String getName() {
-      return name;
-    }
-
-    public Object getDefaultValue() {
-      return defaultValue;
-    }
-
-    public Converter<?> getConverter() {
-      return converter;
-    }
-
-    public boolean getAllowMultiple() {
-      return allowMultiple;
+    public OptionDefinition getOptionDefinition() {
+      return optionDefinition;
     }
 
     public ImmutableList<OptionValueDescription> getImplicitRequirements() {
@@ -926,7 +902,7 @@ public class OptionsParser implements OptionsProvider {
           try {
             optionDefinition = OptionDefinition.extractOptionDefinition(field);
             extraNamesFromMap.add("'" + optionDefinition.getOptionName() + "'");
-          } catch (ConstructionException e) {
+          } catch (NotAnOptionException e) {
             extraNamesFromMap.add("<non-Option field>");
           }
         }

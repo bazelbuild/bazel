@@ -101,8 +101,8 @@ class OptionsUsage {
       StringBuilder usage,
       OptionsParser.HelpVerbosity helpVerbosity,
       OptionsData optionsData) {
-    String flagName = getFlagName(optionDefinition, optionsData);
-    String typeDescription = getTypeDescription(optionDefinition, optionsData);
+    String flagName = getFlagName(optionDefinition);
+    String typeDescription = getTypeDescription(optionDefinition);
     usage.append("  --").append(flagName);
     if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) { // just the name
       usage.append('\n');
@@ -163,12 +163,12 @@ class OptionsUsage {
       Escaper escaper,
       OptionsData optionsData) {
     String plainFlagName = optionDefinition.getOptionName();
-    String flagName = getFlagName(optionDefinition, optionsData);
+    String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
-    String typeDescription = getTypeDescription(optionDefinition, optionsData);
+    String typeDescription = getTypeDescription(optionDefinition);
     usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
     usage.append(flagName);
-    if (optionsData.isBooleanField(optionDefinition) || optionDefinition.isVoidField()) {
+    if (optionDefinition.isBooleanField() || optionDefinition.isVoidField()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));
@@ -279,12 +279,12 @@ class OptionsUsage {
     }
   }
 
-  private static String getTypeDescription(OptionDefinition optionsField, OptionsData optionsData) {
-    return optionsData.getConverter(optionsField).getTypeDescription();
+  private static String getTypeDescription(OptionDefinition optionsDefinition) {
+    return optionsDefinition.getConverter().getTypeDescription();
   }
 
-  static String getFlagName(OptionDefinition optionDefinition, OptionsData optionsData) {
+  static String getFlagName(OptionDefinition optionDefinition) {
     String name = optionDefinition.getOptionName();
-    return optionsData.isBooleanField(optionDefinition) ? "[no]" + name : name;
+    return optionDefinition.isBooleanField() ? "[no]" + name : name;
   }
 }

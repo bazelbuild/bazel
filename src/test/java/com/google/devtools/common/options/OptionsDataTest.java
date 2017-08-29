@@ -250,53 +250,6 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy options class. */
-  public static class InvalidOptionConverter extends OptionsBase {
-    @Option(
-      name = "foo",
-      converter = StringConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public Integer foo;
-  }
-
-  @Test
-  public void errorForInvalidOptionConverter() throws Exception {
-    try {
-      construct(InvalidOptionConverter.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
-  /** Dummy options class. */
-  public static class InvalidListOptionConverter extends OptionsBase {
-    @Option(
-      name = "foo",
-      converter = StringConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1",
-      allowMultiple = true
-    )
-    public List<Integer> foo;
-  }
-
-  @Test
-  public void errorForInvalidListOptionConverter() throws Exception {
-    try {
-      construct(InvalidListOptionConverter.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
   /** Dummy options class using deprecated category. */
   public static class InvalidUndocumentedCategory extends OptionsBase {
     @Option(

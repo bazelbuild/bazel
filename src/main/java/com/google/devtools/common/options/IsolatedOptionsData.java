@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -25,7 +26,6 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,28 +74,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       allOptionsFields;
 
   /**
-   * Mapping from each {@code Option}-annotated field to the default value for that field
-   * (unordered).
-   *
-   * <p>(This is immutable like the others, but uses {@code Collections.unmodifiableMap} to support
-   * null values.)
-   */
-  private final Map<OptionDefinition, Object> optionDefaults;
-
-  /**
-   * Mapping from each {@code Option}-annotated field to the proper converter (unordered).
-   *
-   * @see #findConverter
-   */
-  private final ImmutableMap<OptionDefinition, Converter<?>> converters;
-
-  /**
-   * Mapping from each {@code Option}-annotated field to a boolean for whether that field allows
-   * multiple values (unordered).
-   */
-  private final ImmutableMap<OptionDefinition, Boolean> allowMultiple;
-
-  /**
    * Mapping from each options class to whether or not it has the {@link UsesOnlyCoreTypes}
    * annotation (unordered).
    */
@@ -110,18 +88,11 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       Map<String, OptionDefinition> nameToField,
       Map<Character, OptionDefinition> abbrevToField,
       Map<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>> allOptionsFields,
-      Map<OptionDefinition, Object> optionDefaults,
-      Map<OptionDefinition, Converter<?>> converters,
-      Map<OptionDefinition, Boolean> allowMultiple,
       Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes) {
     this.optionsClasses = ImmutableMap.copyOf(optionsClasses);
     this.nameToField = ImmutableMap.copyOf(nameToField);
     this.abbrevToField = ImmutableMap.copyOf(abbrevToField);
     this.allOptionsFields = ImmutableMap.copyOf(allOptionsFields);
-    // Can't use an ImmutableMap here because of null values.
-    this.optionDefaults = Collections.unmodifiableMap(optionDefaults);
-    this.converters = ImmutableMap.copyOf(converters);
-    this.allowMultiple = ImmutableMap.copyOf(allowMultiple);
     this.usesOnlyCoreTypes = ImmutableMap.copyOf(usesOnlyCoreTypes);
   }
 
@@ -131,9 +102,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         other.nameToField,
         other.abbrevToField,
         other.allOptionsFields,
-        other.optionDefaults,
-        other.converters,
-        other.allowMultiple,
         other.usesOnlyCoreTypes);
   }
 
@@ -176,133 +144,27 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     return allOptionsFields.get(optionsClass);
   }
 
-  public Object getDefaultValue(OptionDefinition optionDefinition) {
-    return optionDefaults.get(optionDefinition);
-  }
-
-  public Converter<?> getConverter(OptionDefinition optionDefinition) {
-    return converters.get(optionDefinition);
-  }
-
-  public boolean getAllowMultiple(OptionDefinition optionDefinition) {
-    return allowMultiple.get(optionDefinition);
-  }
-
   public boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
     return usesOnlyCoreTypes.get(optionsClass);
   }
 
-  /**
-   * For an option that does not use {@link Option#allowMultiple}, returns its type. For an option
-   * that does use it, asserts that the type is a {@code List<T>} and returns its element type
-   * {@code T}.
-   */
-  private static Type getFieldSingularType(OptionDefinition optionDefinition) {
-    Type fieldType = optionDefinition.getField().getGenericType();
-    if (optionDefinition.allowsMultiple()) {
-      // If the type isn't a List<T>, this is an error in the option's declaration.
-      if (!(fieldType instanceof ParameterizedType)) {
-        throw new ConstructionException("Type of multiple occurrence option must be a List<...>");
-      }
-      ParameterizedType pfieldType = (ParameterizedType) fieldType;
-      if (pfieldType.getRawType() != List.class) {
-        throw new ConstructionException("Type of multiple occurrence option must be a List<...>");
-      }
-      fieldType = pfieldType.getActualTypeArguments()[0];
-    }
-    return fieldType;
-  }
-
-  /**
-   * Returns whether a field should be considered as boolean.
-   *
-   * <p>Can be used for usage help and controlling whether the "no" prefix is allowed.
-   */
-  boolean isBooleanField(OptionDefinition optionDefinition) {
-    return isBooleanField(optionDefinition, getConverter(optionDefinition));
-  }
-
-  private static boolean isBooleanField(OptionDefinition optionDefinition, Converter<?> converter) {
-    return optionDefinition.getType().equals(boolean.class)
-        || optionDefinition.getType().equals(TriState.class)
-        || converter instanceof BoolOrEnumConverter;
-  }
-
-  /**
-   * Given an {@code @Option}-annotated field, retrieves the {@link Converter} that will be used,
-   * taking into account the default converters if an explicit one is not specified.
-   */
-  private static Converter<?> findConverter(OptionDefinition optionDefinition) {
-    if (optionDefinition.getProvidedConverter() == Converter.class) {
-      // No converter provided, use the default one.
-      Type type = getFieldSingularType(optionDefinition);
-      Converter<?> converter = Converters.DEFAULT_CONVERTERS.get(type);
-      if (converter == null) {
-        throw new ConstructionException(
-            "No converter found for "
-                + type
-                + "; possible fix: add "
-                + "converter=... to @Option annotation for "
-                + optionDefinition.getField().getName());
-      }
-      return converter;
-    }
-    try {
-      // Instantiate the given Converter class.
-      Class<?> converter = optionDefinition.getProvidedConverter();
-      Constructor<?> constructor = converter.getConstructor();
-      return (Converter<?>) constructor.newInstance();
-    } catch (Exception e) {
-      // This indicates an error in the Converter, and should be discovered the first time it is
-      // used.
-      throw new ConstructionException(e);
-    }
-  }
   /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
   private static ImmutableList<OptionDefinition> getAllOptionDefinitionsSorted(
       Class<? extends OptionsBase> optionsClass) {
     return Arrays.stream(optionsClass.getFields())
-        .map(field -> {
-          try {
-            return OptionDefinition.extractOptionDefinition(field);
-          } catch (ConstructionException e) {
-            // Ignore non-@Option annotated fields. Requiring all fields in the OptionsBase to be
-            // @Option-annotated requires a depot cleanup.
-            return null;
-          }
-        })
+        .map(
+            field -> {
+              try {
+                return OptionDefinition.extractOptionDefinition(field);
+              } catch (NotAnOptionException e) {
+                // Ignore non-@Option annotated fields. Requiring all fields in the OptionsBase to
+                // be @Option-annotated requires a depot cleanup.
+                return null;
+              }
+            })
         .filter(Objects::nonNull)
         .sorted(OptionDefinition.BY_OPTION_NAME)
         .collect(ImmutableList.toImmutableList());
-  }
-
-  private static Object retrieveDefaultValue(OptionDefinition optionDefinition) {
-    Converter<?> converter = findConverter(optionDefinition);
-    String defaultValueAsString = optionDefinition.getUnparsedDefaultValue();
-    // Special case for "null"
-    if (optionDefinition.isSpecialNullDefault()) {
-      return null;
-    }
-    boolean allowsMultiple = optionDefinition.allowsMultiple();
-    // If the option allows multiple values then we intentionally return the empty list as
-    // the default value of this option since it is not always the case that an option
-    // that allows multiple values will have a converter that returns a list value.
-    if (allowsMultiple) {
-      return Collections.emptyList();
-    }
-    // Otherwise try to convert the default value using the converter
-    Object convertedValue;
-    try {
-      convertedValue = converter.convert(defaultValueAsString);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(
-          "OptionsParsingException while "
-              + "retrieving default for "
-              + optionDefinition.getField().getName()
-              + ": "
-              + e.getMessage());
-    }
-    return convertedValue;
   }
 
   private static <A> void checkForCollisions(
@@ -351,9 +213,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         new HashMap<>();
     Map<String, OptionDefinition> nameToFieldBuilder = new LinkedHashMap<>();
     Map<Character, OptionDefinition> abbrevToFieldBuilder = new HashMap<>();
-    Map<OptionDefinition, Object> optionDefaultsBuilder = new HashMap<>();
-    Map<OptionDefinition, Converter<?>> convertersBuilder = new HashMap<>();
-    Map<OptionDefinition, Boolean> allowMultipleBuilder = new HashMap<>();
 
     // Maps the negated boolean flag aliases to the original option name.
     Map<String, String> booleanAliasMap = new HashMap<>();
@@ -391,7 +250,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
                   + "\" is disallowed.");
         }
 
-        Type fieldType = getFieldSingularType(optionDefinition);
+        Type fieldType = optionDefinition.getFieldSingularType();
         // For simple, static expansions, don't accept non-Void types.
         if (optionDefinition.getOptionExpansion().length != 0 && !optionDefinition.isVoidField()) {
           throw new ConstructionException(
@@ -429,8 +288,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           throw new ConstructionException(
               "A known converter object doesn't implement the convert method");
         }
-        Converter<?> converter = findConverter(optionDefinition);
-        convertersBuilder.put(optionDefinition, converter);
 
         if (optionDefinition.allowsMultiple()) {
           if (GenericTypeHelper.getRawType(converterResultType) == List.class) {
@@ -467,7 +324,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           }
         }
 
-        if (isBooleanField(optionDefinition, converter)) {
+        if (optionDefinition.isBooleanField()) {
           checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, optionName);
         }
 
@@ -482,7 +339,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           nameToFieldBuilder.put(optionDefinition.getOldOptionName(), optionDefinition);
 
           // If boolean, repeat the alias dance for the old name.
-          if (isBooleanField(optionDefinition, converter)) {
+          if (optionDefinition.isBooleanField()) {
             checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, oldName);
           }
         }
@@ -491,9 +348,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
               abbrevToFieldBuilder, optionDefinition.getAbbreviation(), "option abbreviation");
           abbrevToFieldBuilder.put(optionDefinition.getAbbreviation(), optionDefinition);
         }
-
-        optionDefaultsBuilder.put(optionDefinition, retrieveDefaultValue(optionDefinition));
-        allowMultipleBuilder.put(optionDefinition, optionDefinition.allowsMultiple());
       }
 
       boolean usesOnlyCoreTypes = parsedOptionsClass.isAnnotationPresent(UsesOnlyCoreTypes.class);
@@ -523,9 +377,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         nameToFieldBuilder,
         abbrevToFieldBuilder,
         allOptionsFieldsBuilder,
-        optionDefaultsBuilder,
-        convertersBuilder,
-        allowMultipleBuilder,
         usesOnlyCoreTypesBuilder);
   }
 

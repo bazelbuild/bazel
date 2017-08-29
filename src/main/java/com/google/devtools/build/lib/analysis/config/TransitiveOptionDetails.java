@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -47,7 +47,7 @@ public final class TransitiveOptionDetails implements Serializable {
           OptionDefinition optionDefinition;
           try {
             optionDefinition = OptionDefinition.extractOptionDefinition(field);
-          } catch (ConstructionException e) {
+          } catch (NotAnOptionException e) {
             // Skip non @Option fields.
             continue;
           }

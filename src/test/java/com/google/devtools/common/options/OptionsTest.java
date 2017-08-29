@@ -491,12 +491,11 @@ public class OptionsTest {
       Options.parse(K.class, NO_ARGS).getOptions();
       fail();
     } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(IllegalStateException.class);
+      assertThat(e).hasCauseThat().isInstanceOf(OptionsParsingException.class);
       assertThat(e)
-          .hasCauseThat()
           .hasMessageThat()
           .isEqualTo(
-              "OptionsParsingException while retrieving default for "
+              "OptionsParsingException while retrieving the default value for "
                   + "int1: 'null' is not an int");
     }
   }

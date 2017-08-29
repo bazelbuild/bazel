@@ -76,11 +76,11 @@ import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
@@ -659,7 +659,7 @@ public final class BlazeRuntime {
         if (field.getType() == boolean.class || field.getType() == TriState.class) {
           prefixes.add("--no" + optionDefinition.getOptionName());
         }
-      } catch (ConstructionException e) {
+      } catch (NotAnOptionException e) {
         // Do nothing, just ignore fields that are not actually options. OptionsBases technically
         // shouldn't have fields that are not @Options, but this is a requirement that isn't yet
         // being enforced, so this should not cause a failure here.

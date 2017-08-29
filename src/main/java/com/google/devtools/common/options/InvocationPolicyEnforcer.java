@@ -515,7 +515,8 @@ public final class InvocationPolicyEnforcer {
     }
 
     // Flag must allow multiple values if multiple values are specified by the policy.
-    if (setValue.getFlagValueCount() > 1 && !optionDescription.getAllowMultiple()) {
+    if (setValue.getFlagValueCount() > 1
+        && !optionDescription.getOptionDefinition().allowsMultiple()) {
       throw new OptionsParsingException(
           String.format(
               "SetValue operation from invocation policy sets multiple values for flag '%s' which "
@@ -546,7 +547,7 @@ public final class InvocationPolicyEnforcer {
           logInApplySetValueOperation(
               "Setting value for flag '%s' from invocation "
                   + "policy to '%s', overriding the default value '%s'",
-              flagName, flagValue, optionDescription.getDefaultValue());
+              flagName, flagValue, optionDescription.getOptionDefinition().getDefaultValue());
         } else {
           logInApplySetValueOperation(
               "Setting value for flag '%s' from invocation "
@@ -570,7 +571,7 @@ public final class InvocationPolicyEnforcer {
       OptionDescription desc = parser.getOptionDescription(clearedFlagName);
       Object clearedFlagDefaultValue = null;
       if (desc != null) {
-        clearedFlagDefaultValue = desc.getDefaultValue();
+        clearedFlagDefaultValue = desc.getOptionDefinition().getDefaultValue();
       }
       log.info(
           String.format(
@@ -640,15 +641,18 @@ public final class InvocationPolicyEnforcer {
       // can be arbitrarily complex.
       Set<Object> convertedPolicyValues = new HashSet<>();
       for (String value : policyValues) {
-        Object convertedValue = optionDescription.getConverter().convert(value);
+        Object convertedValue =
+            optionDescription.getOptionDefinition().getConverter().convert(value);
         // Some converters return lists, and if the flag is a repeatable flag, the items in the
         // list from the converter should be added, and not the list itself. Otherwise the items
         // from invocation policy will be compared to lists, which will never work.
         // See OptionsParserImpl.ParsedOptionEntry.addValue.
-        if (optionDescription.getAllowMultiple() && convertedValue instanceof List<?>) {
+        if (optionDescription.getOptionDefinition().allowsMultiple()
+            && convertedValue instanceof List<?>) {
           convertedPolicyValues.addAll((List<?>) convertedValue);
         } else {
-          convertedPolicyValues.add(optionDescription.getConverter().convert(value));
+          convertedPolicyValues.add(
+              optionDescription.getOptionDefinition().getConverter().convert(value));
         }
       }
 
@@ -656,18 +660,17 @@ public final class InvocationPolicyEnforcer {
       // does not also set use_default. Otherwise the default value would will still be set if the
       // user uses a disallowed value. This doesn't apply to repeatable flags since the default
       // value for repeatable flags is always the empty list.
-      if (!optionDescription.getAllowMultiple()) {
+      if (!optionDescription.getOptionDefinition().allowsMultiple()) {
 
         boolean defaultValueAllowed =
-            isFlagValueAllowed(convertedPolicyValues, optionDescription.getDefaultValue());
+            isFlagValueAllowed(
+                convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue());
         if (!defaultValueAllowed && useDefault) {
           throw new OptionsParsingException(
               String.format(
                   "%sValues policy disallows the default value '%s' for flag '%s' but also "
                       + "specifies to use the default value",
-                  policyType,
-                  optionDescription.getDefaultValue(),
-                  flagName));
+                  policyType, optionDescription.getOptionDefinition().getDefaultValue(), flagName));
         }
       }
 
@@ -706,14 +709,15 @@ public final class InvocationPolicyEnforcer {
         Set<Object> convertedPolicyValues)
         throws OptionsParsingException {
 
-      if (!isFlagValueAllowed(convertedPolicyValues, optionDescription.getDefaultValue())) {
+      if (!isFlagValueAllowed(
+          convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue())) {
         if (newValue != null) {
           // Use the default value from the policy.
           log.info(
               String.format(
                   "Overriding default value '%s' for flag '%s' with value '%s' "
                       + "specified by invocation policy. %sed values are: %s",
-                  optionDescription.getDefaultValue(),
+                  optionDescription.getOptionDefinition().getDefaultValue(),
                   flagName,
                   newValue,
                   policyType,
@@ -727,7 +731,7 @@ public final class InvocationPolicyEnforcer {
                   "Default flag value '%s' for flag '%s' is not allowed by invocation policy, but "
                       + "the policy does not provide a new value. "
                       + "%sed values are: %s",
-                  optionDescription.getDefaultValue(),
+                  optionDescription.getOptionDefinition().getDefaultValue(),
                   flagName,
                   policyType,
                   policyValues));
@@ -746,7 +750,7 @@ public final class InvocationPolicyEnforcer {
         Set<Object> convertedPolicyValues)
         throws OptionsParsingException {
 
-      if (optionDescription.getAllowMultiple()) {
+      if (optionDescription.getOptionDefinition().allowsMultiple()) {
         // allowMultiple requires that the type of the option be List<T>, so cast from Object
         // to List<?>.
         List<?> optionValues = (List<?>) valueDescription.getValue();
