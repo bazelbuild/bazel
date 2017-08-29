@@ -80,9 +80,8 @@ import javax.annotation.Nullable;
 /**
  * Constructs command lines for objc compilation, archiving, and linking.  Uses hard-coded
  * command line templates.
- * 
- * TODO(b/28403953): Deprecate in favor of {@link CrosstoolCompilationSupport} in all objc rules.
  */
+// TODO(b/65163377): Remove this implementation.
 public class LegacyCompilationSupport extends CompilationSupport {
 
   /**

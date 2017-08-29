@@ -74,10 +74,8 @@ import javax.annotation.Nullable;
  * Constructs command lines for objc compilation, archiving, and linking. Uses the crosstool
  * infrastructure to register {@link CppCompileAction} and {@link CppLinkAction} instances, making
  * use of a provided toolchain.
- *
- * <p>TODO(b/28403953): Deprecate LegacyCompilationSupport in favor of this implementation for all
- * objc rules.
  */
+// TODO(b/65163377): Remove LegacyCompilationSupport and use only this implementation.
 public class CrosstoolCompilationSupport extends CompilationSupport {
 
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
