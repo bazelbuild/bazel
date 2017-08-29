@@ -16,8 +16,8 @@ java_binary(
     main_class = "com.google.devtools.build.benchmark.Main",
     deps = [
         ":build_data_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",
@@ -33,8 +33,8 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         ":build_data_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",

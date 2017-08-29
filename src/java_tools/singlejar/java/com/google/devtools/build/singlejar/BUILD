@@ -42,7 +42,7 @@ java_library(
     # the world, even including commons.
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:jsr305",
     ],
@@ -54,7 +54,7 @@ java_binary(
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:jsr305",
     ],
@@ -86,6 +86,6 @@ bootstrap_java_binary(
     tags = ["manual"],
     deps = [
         ":skylark-deps",
-        "//src/main/java/com/google/devtools/build/lib:shell-skylark",
+        "//src/main/java/com/google/devtools/build/lib/shell:shell-skylark",
     ],
 )

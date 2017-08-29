@@ -4,44 +4,38 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-java_library(
-    name = "shell",
-    srcs = glob(["shell/*.java"]),
-    deps = [
-        "//third_party:guava",
-    ],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
+        "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/shell:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
@@ -53,19 +47,6 @@ filegroup(
     visibility = [
         "//src:__pkg__",
         "//src/test/shell/bazel:__pkg__",
-    ],
-)
-
-# This package provides a general-purpose directed graph utility class with
-# implementations of numerous textbook graph algorithms and code to read and
-# write AT&T GraphViz files.
-
-java_library(
-    name = "graph",
-    srcs = glob(["graph/*.java"]),
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -86,8 +67,8 @@ java_library(
         ":concurrent",
         ":os_util",
         ":preconditions",
-        ":shell",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//third_party:guava",
     ],
 )
@@ -104,8 +85,8 @@ java_library(
         ":concurrent",
         ":os_util",
         ":preconditions",
-        ":shell",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -153,7 +134,7 @@ java_library(
         ":concurrent",
         ":os_util",
         ":preconditions",
-        ":shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -309,9 +290,9 @@ java_library(
         ":exitcode-external",
         ":os_util",
         ":preconditions",
-        ":shell",
         ":unix",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -549,7 +530,7 @@ java_library(
     deps = [
         ":concurrent",
         ":preconditions",
-        ":shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -623,11 +604,9 @@ java_library(
         ":concurrent",
         ":events",
         ":exitcode-external",
-        ":graph",
         ":io",
         ":os_util",
         ":packages-internal",
-        ":shell",
         ":skylark-provider-collection",
         ":skylarkinterface",
         ":syntax",
@@ -641,6 +620,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -759,7 +740,6 @@ java_library(
         ":events",
         ":io",
         ":packages-internal",
-        ":shell",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -767,6 +747,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/ssd",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
@@ -830,11 +811,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -958,12 +939,12 @@ java_library(
         ":java-implicit-attributes",
         ":packages-internal",
         ":proto-rules",
-        ":shell",
         ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:auto_value",
@@ -1042,13 +1023,13 @@ java_library(
         ":events",
         ":java-implicit-attributes",
         ":packages-internal",
-        ":shell",
         ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:auto_value",
@@ -1174,7 +1155,6 @@ java_library(
         ":process_util",
         ":profiler-output",
         ":shared-base-rules",
-        ":shell",
         ":unix",
         ":util",
         ":vfs",
@@ -1188,6 +1168,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
         "//src/main/java/com/google/devtools/build/lib/query2:query-output",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -1236,11 +1217,11 @@ java_library(
     exports = [
         ":build-base",
         ":concurrent",
-        ":graph",
         ":packages-internal",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -1270,10 +1251,10 @@ java_library(
         ":concurrent",
         ":events",
         ":foundation",
-        ":graph",
         ":packages",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
@@ -1375,16 +1356,6 @@ genrule(
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
-)
-
-# Bootstrapping SingleJar using Skylark rules
-#
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
-
-bootstrap_java_library(
-    name = "shell-skylark",
-    srcs = glob(["shell/*.java"]),
-    jars = ["//third_party:bootstrap_guava_and_error_prone-jars"],
 )
 
 ########################################################################

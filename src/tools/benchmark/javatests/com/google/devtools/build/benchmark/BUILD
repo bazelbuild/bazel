@@ -36,7 +36,7 @@ java_test(
         "local",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_java_proto",
         "//third_party:guava",
