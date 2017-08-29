@@ -36,8 +36,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheBlockingStub;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
@@ -48,12 +46,10 @@ import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
-import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import io.grpc.protobuf.StatusProto;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -151,27 +147,11 @@ public class GrpcRemoteCache implements RemoteActionCache {
     repository.getDataFromDigests(missingDigests, missingActionInputs, missingTreeNodes);
 
     if (!missingTreeNodes.isEmpty()) {
-      // TODO(olaola): split this into multiple requests if total size is > 10MB.
-      BatchUpdateBlobsRequest.Builder treeBlobRequest =
-          BatchUpdateBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
+      List<Chunker> toUpload = new ArrayList<>(missingTreeNodes.size());
       for (Directory d : missingTreeNodes) {
-        byte[] data = d.toByteArray();
-        treeBlobRequest
-            .addRequestsBuilder()
-            .setContentDigest(Digests.computeDigest(data))
-            .setData(ByteString.copyFrom(data));
+        toUpload.add(new Chunker(d.toByteArray()));
       }
-      retrier.execute(
-          () -> {
-            BatchUpdateBlobsResponse response =
-                casBlockingStub().batchUpdateBlobs(treeBlobRequest.build());
-            for (BatchUpdateBlobsResponse.Response r : response.getResponsesList()) {
-              if (!Status.fromCodeValue(r.getStatus().getCode()).isOk()) {
-                throw StatusProto.toStatusRuntimeException(r.getStatus());
-              }
-            }
-            return null;
-          });
+      uploader.uploadBlobs(toUpload);
     }
     uploadBlob(command.toByteArray());
     if (!missingActionInputs.isEmpty()) {
