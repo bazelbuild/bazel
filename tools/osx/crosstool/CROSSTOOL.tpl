@@ -1373,7 +1373,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -2876,7 +2876,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -4381,7 +4381,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -5915,7 +5915,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -7420,7 +7420,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -8911,7 +8911,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -10404,7 +10404,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -11926,7 +11926,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -13419,7 +13419,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
@@ -14916,7 +14916,7 @@ toolchain {
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
-        iterate_over: "weak_framwork_names"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
