@@ -561,7 +561,7 @@ static void VerifyJavaVersionAndSetJvm() {
     string jvm_version = GetJvmVersion(exe);
 
     // Compare that jvm_version is found and at least the one specified.
-    if (jvm_version.size() == 0) {
+    if (jvm_version.empty()) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Java version not detected while at least %s is needed.\n"
           "Please set JAVA_HOME.",
@@ -641,7 +641,7 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
         globals->options->product_name.c_str(), product.c_str());
   }
   vector<string> jvm_args_vector = GetArgumentArray();
-  if (command != "") {
+  if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(&jvm_args_vector);
   }
@@ -1629,7 +1629,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   vector<string> arg_vector;
   string command = globals->option_processor->GetCommand();
-  if (command != "") {
+  if (!command.empty()) {
     arg_vector.push_back(command);
     AddLoggingArgs(&arg_vector);
   }
@@ -1726,7 +1726,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       Cancel();
     }
 
-    if (!command_id_set && response.command_id().size() > 0) {
+    if (!command_id_set && !response.command_id().empty()) {
       std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
       command_id_ = response.command_id();
       command_id_set = true;
