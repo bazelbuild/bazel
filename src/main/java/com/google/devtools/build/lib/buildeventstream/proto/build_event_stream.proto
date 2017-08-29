@@ -267,6 +267,7 @@ message OptionsParsed {
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
   blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
+  string tool_tag = 6;
 }
 
 // Payload of an event indicating that an external resource was fetched. This

@@ -177,13 +177,15 @@ function test_basic() {
   # - the target_kind is reported
   # - for single-configuration builds, there is precisely one configuration
   #   event reported; also make variables are shown
-  bazel test --build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log --tool_tag=MyFancyTool pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
   # Command line
   expect_log 'args: "test"'
   expect_log 'args: "--build_event_text_file='
   expect_log 'args: "pkg:true"'
+  # Options parsed
+  expect_log 'tool_tag: "MyFancyTool"'
   # Build Finished
   expect_log 'build_finished'
   expect_log 'SUCCESS'
