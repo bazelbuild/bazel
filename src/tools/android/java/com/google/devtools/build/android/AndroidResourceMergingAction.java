@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.internal.PngException;
@@ -214,10 +215,15 @@ public class AndroidResourceMergingAction {
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       VariantType packageType = VariantType.LIBRARY;
+      String packageForR = options.packageForR;
+      if (packageForR == null) {
+        packageForR =
+            Strings.nullToEmpty(
+                VariantConfiguration.getManifestPackage(options.primaryManifest.toFile()));
+      }
       AndroidResourceClassWriter resourceClassWriter =
-          AndroidResourceClassWriter.createWith(aaptConfigOptions.androidJar,
-              generatedSources,
-              Strings.nullToEmpty(options.packageForR));
+          AndroidResourceClassWriter.createWith(
+              aaptConfigOptions.androidJar, generatedSources, packageForR);
       resourceClassWriter.setIncludeClassFile(true);
       resourceClassWriter.setIncludeJavaFile(false);
 
