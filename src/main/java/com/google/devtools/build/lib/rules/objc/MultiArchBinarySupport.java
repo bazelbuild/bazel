@@ -309,7 +309,6 @@ public class MultiArchBinarySupport {
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
-        // TODO(b/29152500): Enable module map generation.
         .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
