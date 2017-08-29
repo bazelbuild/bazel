@@ -429,8 +429,6 @@ public final class ObjcCommon {
 
       for (ObjcProvider provider : runtimeDepObjcProviders) {
         objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
-        // TODO(b/28637288): Remove STATIC_FRAMEWORK_FILE and MERGE_ZIP when they are
-        // no longer provided by ios_framework.
         objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
