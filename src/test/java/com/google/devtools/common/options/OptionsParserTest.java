@@ -397,6 +397,46 @@ public class OptionsParserTest {
   }
 
   @Test
+  public void parseWithParamsFileSingleQuotesUnescaping()
+      throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo", "'fuzzy '\\''foo'", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("fuzzy 'foo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFilePartiallyQuotedNoUnescaping()
+      throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo", "'fuzzy 'foo", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("'fuzzy 'foo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
   public void parseWithParamsFileUnmatchedQuote() throws IOException {
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
@@ -445,7 +485,7 @@ public class OptionsParserTest {
     assertThat(foo.foo).isEqualTo("hello\\\nworld");
     assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+    assertThat(baz.baz).isEqualTo("hello\nworld");
   }
 
   @Test
@@ -463,7 +503,7 @@ public class OptionsParserTest {
     parser.enableParamsFileSupport(FileSystems.getDefault());
     parser.parse("@" + params);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+    assertThat(baz.baz).isEqualTo("hello\nworld");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("hello\\\nworld");
     assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
