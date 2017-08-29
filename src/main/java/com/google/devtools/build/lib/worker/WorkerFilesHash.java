@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -72,9 +73,12 @@ class WorkerFilesHash {
       for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          workerFilesMap.put(
-              root.getRelative(mapping.getKey()),
-              HashCode.fromBytes(actionInputFileCache.getMetadata(localArtifact).getDigest()));
+          Metadata metadata = actionInputFileCache.getMetadata(localArtifact);
+          if (metadata.isFile()) {
+            workerFilesMap.put(
+                root.getRelative(mapping.getKey()),
+                HashCode.fromBytes(metadata.getDigest()));
+          }
         }
       }
     }
