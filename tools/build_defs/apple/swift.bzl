@@ -112,7 +112,6 @@ def _swift_lib_dir(ctx):
 
     # We cannot use non Xcode-packaged toolchains, and the only one non-default
     # toolchain known to exist (as of Xcode 8.1) is this one.
-    # TODO(b/29338444): Write an integration test when Xcode 8 is available.
     if toolchain == "com.apple.dt.toolchain.Swift_2_3":
       toolchain_name = "Swift_2.3"
 
