@@ -20,7 +20,7 @@ same repository.
       *  [Guava project example](#guava-1)
    *  [2. Create one BUILD file](#2-build)
       *  [Guava project example](#guava-2)
-   *  [3. Create more BUILD files](#3-build)
+   *  [3. Create more BUILD files  (Optional)](#3-build)
    *  [4. Build using Bazel](#4-build)
 
 ## Before you begin
@@ -248,12 +248,21 @@ java_library(
 )
 ```
 
-### <a name="3-build"></a>3. Create more BUILD files
+### <a name="3-build"></a>3. Create more BUILD files (Optional)
 
+Bazel does work with just one BUILD file, as you saw after completing your first
+build. You should still consider breaking the build into smaller chunks by
+adding more BUILD files with granular targets.
 
-Add more BUILD files to create packages within your workspace. The targets
-in these multiple BUILD files will give the build increased granularity,
-allowing incremental builds of the project.
+Multiple BUILD files with multiple targets will give the build increased
+granularity, allowing:
+
+*  increased incremental builds of the project,
+*  increased parallel execution of the build,
+*  better maintainability of the build for future users, and
+*  control over visibility of targets between packages, which can prevent
+   issues such as libraries containing implementation details leaking into
+   public APIs.
 
 Tips for adding more BUILD files:
 
@@ -270,9 +279,6 @@ Tips for adding more BUILD files:
 *  To simplify troubleshooting errors in your setup of BUILD files, ensure
    that the project continues to build with Bazel as you add each build
    file. Run `bazel build //...` to ensure all of your targets still build.
-
-To complete the migration, more BUILD files would be added to refine the
-granlularity of the build.
 
 ### <a name="4-build"></a>4. Build using Bazel
 
