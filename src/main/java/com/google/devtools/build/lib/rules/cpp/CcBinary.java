@@ -291,7 +291,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       linkActionBuilder.setLtoIndexing(true);
       linkActionBuilder.setUsePicForLtoBackendActions(usePic);
-      linkActionBuilder.setUseFissionForLtoBackendActions(cppConfiguration.useFission());
       CppLinkAction indexAction = linkActionBuilder.build();
       ruleContext.registerAction(indexAction);
 

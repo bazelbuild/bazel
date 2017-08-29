@@ -237,8 +237,6 @@ public abstract class NativeDepsHelper {
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       builder.setLtoIndexing(true);
       builder.setUsePicForLtoBackendActions(CppHelper.usePic(ruleContext, false));
-      builder.setUseFissionForLtoBackendActions(
-          ruleContext.getFragment(CppConfiguration.class).useFission());
       CppLinkAction indexAction = builder.build();
       ruleContext.registerAction(indexAction);
       builder.setLtoIndexing(false);

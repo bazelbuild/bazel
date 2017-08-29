@@ -1290,12 +1290,6 @@ public final class CppModel {
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       dynamicLinkActionBuilder.setLtoIndexing(true);
       dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePicForSharedLibs);
-      // If support is ever added for generating a dwp file for shared
-      // library targets (e.g. when linkstatic=0), then this should change
-      // to generate dwo files when cppConfiguration.useFission(),
-      // and the dwp generating action for the shared library should
-      // include all of the resulting dwo files.
-      dynamicLinkActionBuilder.setUseFissionForLtoBackendActions(false);
       CppLinkAction indexAction = dynamicLinkActionBuilder.build();
       env.registerAction(indexAction);
 
