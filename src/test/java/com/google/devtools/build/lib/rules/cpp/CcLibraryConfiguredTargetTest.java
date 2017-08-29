@@ -289,8 +289,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         action.getLinkCommandLine().getBuildInfoHeaderArtifacts());
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
-    assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
+    assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
   }
 
   @Test
@@ -324,8 +323,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         action.getLinkCommandLine().getBuildInfoHeaderArtifacts());
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
-    assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
+    assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
   }
 
   @Test
@@ -340,7 +338,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
 
-    assertThat(action.getArgv()).contains(archive.getExecPathString());
+    assertThat(action.getArguments()).contains(archive.getExecPathString());
   }
 
   @Test

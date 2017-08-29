@@ -128,7 +128,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableList.<LibraryToLink>of(),
                 featureConfiguration)
             .build();
-    assertThat(linkAction.getArgv()).contains("some_flag");
+    assertThat(linkAction.getArguments()).contains("some_flag");
   }
 
   @Test

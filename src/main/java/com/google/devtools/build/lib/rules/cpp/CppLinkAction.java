@@ -264,19 +264,9 @@ public final class CppLinkAction extends AbstractAction
     return result.build();
   }
   
-  @VisibleForTesting
-  public List<String> getRawLinkArgv() {
-    return linkCommandLine.getRawLinkArgv();
-  }
-
-  @VisibleForTesting
-  public List<String> getArgv() {
-    return linkCommandLine.arguments();
-  }
-  
   @Override
   public List<String> getArguments() {
-    return getArgv();
+    return linkCommandLine.arguments();
   }
 
   /**
