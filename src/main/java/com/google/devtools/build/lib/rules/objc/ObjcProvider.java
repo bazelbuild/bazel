@@ -585,7 +585,7 @@ public final class ObjcProvider extends NativeInfo {
    * @param avoidObjcProviders objc providers which contain the dependency subtrees to subtract
    * @param avoidCcProviders cc providers which contain the dependency subtrees to subtract
    */
-  // TODO(b/19795062): Investigate subtraction generalized to NestedSet.
+  // TODO(b/65156211): Investigate subtraction generalized to NestedSet.
   @SuppressWarnings("unchecked") // Due to depending on Key types, when the keys map erases type.
   public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidObjcProviders,
       Iterable<CcLinkParamsInfo> avoidCcProviders) {
