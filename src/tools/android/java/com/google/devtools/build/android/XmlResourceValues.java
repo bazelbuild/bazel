@@ -178,12 +178,16 @@ public class XmlResourceValues {
   static XmlResourceValue parseId(
       XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
       throws XMLStreamException {
-    if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
-      return IdXmlResourceValue.of();
-    } else {
-      return IdXmlResourceValue.of(
-          readContentsAsString(
-              eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+    try {
+      if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
+        return IdXmlResourceValue.of();
+      } else {
+        return IdXmlResourceValue.of(
+            readContentsAsString(
+                eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+      }
+    } catch (IllegalArgumentException e) {
+      throw new XMLStreamException(e);
     }
   }
 
