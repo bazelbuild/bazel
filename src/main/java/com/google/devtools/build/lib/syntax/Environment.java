@@ -95,19 +95,50 @@ public final class Environment implements Freezable {
    * was defined. When the function is called from other {@code Environment}s (possibly
    * simultaneously), that global frame must already be frozen; a new local {@code Frame} is created
    * to represent the lexical scope of the function.
+   *
+   * A {@code Frame} can also be constructed in a two-phase process. To do this, call the nullary
+   * constructor to create an uninitialized {@code Frame}, then call {@link #initialize}. It is
+   * illegal to use any other method in-between these two calls, or to call {@link #initialize} on
+   * an already initialized {@code Frame}.
    */
   public static final class Frame implements Freezable {
 
-    private final Mutability mutability;
-
+    /**
+     * Final, except that it may be initialized after instantiation. Null mutability indicates that
+     * this Frame is uninitialized.
+     */
     @Nullable
-    private final Frame parent;
+    private Mutability mutability;
 
-    // If this frame is a global frame, the label for the corresponding target, e.g. //foo:bar.bzl.
+    /** Final, except that it may be initialized after instantiation. */
     @Nullable
-    private final Label label;
+    private Frame parent;
+
+    /**
+     * If this frame is a global frame, the label for the corresponding target, e.g. {@code
+     * //foo:bar.bzl}.
+     *
+     * <p>Final, except that it may be initialized after instantiation.
+     */
+    @Nullable
+    private Label label;
 
     private final Map<String, Object> bindings;
+
+    /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
+    public Frame() {
+      this.mutability = null;
+      this.parent = null;
+      this.label = null;
+      this.bindings = new LinkedHashMap<>();
+    }
+
+    public Frame(Mutability mutability, @Nullable Frame parent, @Nullable Label label) {
+      this.mutability = Preconditions.checkNotNull(mutability);
+      this.parent = parent;
+      this.label = label;
+      this.bindings = new LinkedHashMap<>();
+    }
 
     public Frame(Mutability mutability) {
       this(mutability, null, null);
@@ -117,15 +148,18 @@ public final class Environment implements Freezable {
       this(mutability, parent, null);
     }
 
-    public Frame(Mutability mutability, Frame parent, Label label) {
-      this.mutability = mutability;
-      this.parent = parent;
-      this.label = label;
-      this.bindings = new LinkedHashMap<>();
+    private void checkInitialized() {
+      Preconditions.checkNotNull(mutability, "Attempted to use Frame before initializing it");
     }
 
-    public Frame(Mutability mutability, Frame parent, Label label, Map<String, Object> bindings) {
-      this(mutability, parent, label);
+    public void initialize(
+        Mutability mutability, @Nullable Frame parent,
+        @Nullable Label label, Map<String, Object> bindings) {
+      Preconditions.checkState(this.mutability == null,
+          "Attempted to initialize an already initialized Frame");
+      this.mutability = Preconditions.checkNotNull(mutability);
+      this.parent = parent;
+      this.label = label;
       this.bindings.putAll(bindings);
     }
 
@@ -134,6 +168,7 @@ public final class Environment implements Freezable {
      * given value.
      */
     public Frame withLabel(Label label) {
+      checkInitialized();
       return new Frame(mutability, this, label);
     }
 
@@ -143,12 +178,14 @@ public final class Environment implements Freezable {
      */
     @Override
     public Mutability mutability() {
+      checkInitialized();
       return mutability;
     }
 
     /** Returns the parent {@code Frame}, if it exists. */
     @Nullable
     public Frame getParent() {
+      checkInitialized();
       return parent;
     }
 
@@ -160,6 +197,7 @@ public final class Environment implements Freezable {
      */
     @Nullable
     public Label getLabel() {
+      checkInitialized();
       return label;
     }
 
@@ -169,6 +207,7 @@ public final class Environment implements Freezable {
      */
     @Nullable
     public Label getTransitiveLabel() {
+      checkInitialized();
       if (label != null) {
         return label;
       } else if (parent != null) {
@@ -185,6 +224,7 @@ public final class Environment implements Freezable {
      * invalidated by any subsequent modification to the {@code Frame}'s bindings.
      */
     public Map<String, Object> getBindings() {
+      checkInitialized();
       return Collections.unmodifiableMap(bindings);
     }
 
@@ -193,6 +233,7 @@ public final class Environment implements Freezable {
      * taking into account shadowing precedence.
      */
     public Map<String, Object> getTransitiveBindings() {
+      checkInitialized();
       // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
       HashMap<String, Object> collectedBindings = new HashMap<>();
       accumulateTransitiveBindings(collectedBindings);
@@ -200,6 +241,7 @@ public final class Environment implements Freezable {
     }
 
     private void accumulateTransitiveBindings(Map<String, Object> accumulator) {
+      checkInitialized();
       // Put parents first, so child bindings take precedence.
       if (parent != null) {
         parent.accumulateTransitiveBindings(accumulator);
@@ -217,6 +259,7 @@ public final class Environment implements Freezable {
      * @return the value bound to the variable, or null if no binding is found
      */
     public Object get(String varname) {
+      checkInitialized();
       if (bindings.containsKey(varname)) {
         return bindings.get(varname);
       }
@@ -238,6 +281,7 @@ public final class Environment implements Freezable {
      */
     public void put(Environment env, String varname, Object value)
         throws MutabilityException {
+      checkInitialized();
       Mutability.checkMutable(this, env.mutability());
       bindings.put(varname, value);
     }
@@ -247,13 +291,18 @@ public final class Environment implements Freezable {
      * be part of the public interface.
      */
     void remove(Environment env, String varname) throws MutabilityException {
+      checkInitialized();
       Mutability.checkMutable(this, env.mutability());
       bindings.remove(varname);
     }
 
     @Override
     public String toString() {
-      return String.format("<Frame%s>", mutability());
+      if (mutability == null) {
+        return "<Uninitialized Frame>";
+      } else {
+        return String.format("<Frame%s>", mutability());
+      }
     }
   }
 
