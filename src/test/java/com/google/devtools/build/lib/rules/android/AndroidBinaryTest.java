@@ -1261,7 +1261,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testDensityFilteredResourcesMultipleDensities() throws Exception {
     testDensityResourceFiltering(
-        "ldpi,hdpi', 'xhdpi",
+        "hdpi,ldpi,xhdpi",
         ImmutableList.of("mdpi", "xxhdpi"),
         ImmutableList.of("ldpi", "hdpi", "xhdpi"));
   }
@@ -1335,7 +1335,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testQualifierAndDensityFilteredResources() throws Exception {
     testDirectResourceFiltering(
         "en,fr-mdpi",
-        "ldpi,hdpi",
+        "hdpi,ldpi",
         ImmutableList.of("mdpi", "es-ldpi", "en-xxxhdpi", "fr-mdpi"),
         ImmutableList.of("ldpi", "hdpi", "en-xhdpi", "fr-hdpi"),
         /* expectUnqualifiedResource= */ false,
@@ -1446,9 +1446,16 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     }
 
     // Validate resource filters are not passed to execution, since they were applied in analysis
-    assertThat(resourceArguments(directResources))
+    List<String> args = resourceArguments(directResources);
+    assertThat(args)
         .doesNotContain(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
-    assertThat(resourceArguments(directResources)).doesNotContain(ResourceFilter.DENSITIES_NAME);
+    assertThat(args).doesNotContain(ResourceFilter.DENSITIES_NAME);
+    if (densities.isEmpty()) {
+      assertThat(args).doesNotContain("--densitiesForManifest");
+    } else {
+      // We still expect densities only for the purposes of adding information to manifests
+      assertThat(args).containsAllOf("--densitiesForManifest", densities);
+    }
   }
 
   @Test

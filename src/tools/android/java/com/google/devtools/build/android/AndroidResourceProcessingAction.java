@@ -247,6 +247,21 @@ public class AndroidResourceProcessingAction {
     public List<String> densities;
 
     @Option(
+      name = "densitiesForManifest",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Densities to specify in the manifest. If 'densities' is specified, that value will be"
+              + " used instead and this flag will be ignored. However, if resources were filtered"
+              + " in analysis, this flag can be used to specify densities in the manifest without"
+              + " repeating the filtering process."
+    )
+    public List<String> densitiesForManifest;
+
+    @Option(
       name = "packageForR",
       defaultValue = "null",
       category = "config",
@@ -366,12 +381,16 @@ public class AndroidResourceProcessingAction {
           options.prefilteredResources.isEmpty()
               ? options.densities
               : Collections.<String>emptyList();
+      final List<String> densitiesForManifest =
+          densitiesToFilter.isEmpty()
+              ? options.densitiesForManifest
+              : densitiesToFilter;
 
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
               new DensitySpecificResourceFilter(
                   densitiesToFilter, filteredResources, mergedResources),
-              new DensitySpecificManifestProcessor(options.densities, densityManifest));
+              new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
 
       logger.fine(
           String.format(

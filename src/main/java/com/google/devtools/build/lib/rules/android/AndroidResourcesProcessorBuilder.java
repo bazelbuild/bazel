@@ -453,8 +453,14 @@ public class AndroidResourcesProcessorBuilder {
     if (resourceFilter.shouldPropagateConfigs(ruleContext)) {
       builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
-    if (resourceFilter.hasDensities() && !resourceFilter.isPrefiltering()) {
-      builder.add("--densities", resourceFilter.getDensityString());
+    if (resourceFilter.hasDensities()) {
+      // If we did not filter by density in analysis, filter in execution. Otherwise, don't filter
+      // in execution, but still pass the densities so they can be added to the manifest.
+      if (resourceFilter.isPrefiltering()) {
+        builder.add("--densitiesForManifest", resourceFilter.getDensityString());
+      } else {
+        builder.add("--densities", resourceFilter.getDensityString());
+      }
     }
     ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
