@@ -38,6 +38,17 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   @Override
   public Attribute.Transition buildTransitionFor(Rule rule) {
+    PatchTransition transition1 = (PatchTransition) rtf1.buildTransitionFor(rule);
+    PatchTransition transition2 = (PatchTransition) rtf2.buildTransitionFor(rule);
+
+    if (transition1 == null) {
+      return transition2;
+    }
+
+    if (transition2 == null) {
+      return transition1;
+    }
+
     return new ComposingPatchTransition(
         (PatchTransition) rtf1.buildTransitionFor(rule),
         (PatchTransition) rtf2.buildTransitionFor(rule));

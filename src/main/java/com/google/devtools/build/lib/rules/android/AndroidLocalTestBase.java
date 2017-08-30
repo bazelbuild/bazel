@@ -305,8 +305,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar);
     javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
-    // No need to use the flag map here - just confirming that dynamic configurations are in use.
-    // TODO(mstaib): remove when static configurations are removed.
+    // Just confirming that there are no aliases being used here.
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
 
     if (oneVersionOutputArtifact != null) {
