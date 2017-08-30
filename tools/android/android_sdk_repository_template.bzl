@@ -113,7 +113,6 @@ def create_android_sdk_rules(
             ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
             "//conditions:default": ":zipalign_binary",
         }),
-        resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
   native.alias(
