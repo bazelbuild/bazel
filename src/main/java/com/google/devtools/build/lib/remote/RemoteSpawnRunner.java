@@ -45,6 +45,8 @@ import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import io.grpc.Status.Code;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -207,7 +209,23 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (options.remoteLocalFallback) {
       return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
     }
+    if (cause instanceof TimeoutException) {
+      return handleTimeout(policy.getFileOutErr());
+    }
     throw new EnvironmentalExecException(errorMessage(cause), cause, true);
+  }
+
+  private SpawnResult handleTimeout(FileOutErr outErr) throws IOException {
+    // TODO(buchgr): Once the remote execution protocol allows it, also provide stdout/stderr
+    // from the action that timed out.
+    try (OutputStream out = outErr.getOutputStream()) {
+      // This is a hack to ensure that the test.log file gets created, as else the action
+      // will complain that one of its outputs has not been created.
+      String msg = "Log output for timeouts is not yet supported in remote execution.";
+      out.write(msg.getBytes(StandardCharsets.UTF_8));
+      out.flush();
+    }
+    return new SpawnResult.Builder().setStatus(Status.TIMEOUT).build();
   }
 
   private String errorMessage(IOException e) {

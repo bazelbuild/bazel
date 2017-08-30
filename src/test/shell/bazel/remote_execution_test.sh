@@ -355,6 +355,31 @@ EOF
       || fail "Failed to run //a:test with remote execution"
 }
 
+function test_timeout() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "sleep",
+  timeout = "short",
+  srcs = ["sleep.sh"],
+)
+EOF
+
+  cat > a/sleep.sh <<'EOF'
+#!/bin/bash
+sleep 2
+EOF
+  chmod +x a/sleep.sh
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=errors \
+      --test_timeout=1,1,1,1 \
+      //a:sleep >& $TEST_log \
+      && fail "Test failure (timeout) expected" || true
+  expect_log "TIMEOUT"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

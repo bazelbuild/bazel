@@ -73,8 +73,7 @@ class GrpcRemoteExecutor {
       if (e.getStatus().getCode() == Code.DEADLINE_EXCEEDED) {
         // This was caused by the command itself exceeding the timeout,
         // therefore it is not retriable.
-        // TODO(olaola): this should propagate a timeout SpawnResult instead of raising.
-        throw new IOException("Remote execution time out");
+        throw new TimeoutException();
       }
       throw e;
     }

@@ -383,6 +383,40 @@ public class RemoteSpawnRunnerTest {
     verify(executor).executeRemotely(any(ExecuteRequest.class));
   }
 
+  @Test
+  public void testRemoteExecutionTimeout() throws Exception {
+    // If remote execution times out the SpawnResult status should be TIMEOUT.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
+            cache, executor);
+
+    ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new TimeoutException());
+
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ ImmutableList.of(),
+            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            ResourceSet.ZERO);
+
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.TIMEOUT);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class));
+    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+  }
+
   // TODO(buchgr): Extract a common class to be used for testing.
   class FakeSpawnExecutionPolicy implements SpawnExecutionPolicy {
 
