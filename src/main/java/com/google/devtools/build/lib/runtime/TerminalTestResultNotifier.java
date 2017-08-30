@@ -122,7 +122,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printShortSummary(Set<TestSummary> summaries, boolean showPassingTests) {
     boolean withConfig = duplicateLabels(summaries);
     for (TestSummary summary : summaries) {
-      if (summary.getStatus() != BlazeTestStatus.PASSED || showPassingTests) {
+      if ((summary.getStatus() != BlazeTestStatus.PASSED
+              && summary.getStatus() != BlazeTestStatus.NO_STATUS)
+          || showPassingTests) {
         TestSummaryPrinter.print(summary, printer, summaryOptions.verboseSummary, false,
             withConfig);
       }

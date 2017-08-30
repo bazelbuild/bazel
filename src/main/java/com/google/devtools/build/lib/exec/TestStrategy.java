@@ -118,7 +118,7 @@ public abstract class TestStrategy implements TestActionContext {
 
   public enum TestSummaryFormat {
     SHORT, // Print information only about tests.
-    TERSE, // Like "SHORT", but even shorter: Do not print PASSED tests.
+    TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
     DETAILED, // Print information only about failed test cases.
     NONE; // Do not print summary.
 

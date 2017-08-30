@@ -185,8 +185,8 @@ public class ExecutionOptions extends OptionsBase {
     help =
         "Specifies the desired format ot the test summary. Valid values are 'short' to print "
             + "information only about tests executed, 'terse', to print information only about "
-            + "unsuccessful tests, 'detailed' to print detailed information about failed "
-            + "test cases, and 'none' to omit the summary."
+            + "unsuccessful tests that were run, 'detailed' to print detailed information about "
+            + "failed test cases, and 'none' to omit the summary."
   )
   public TestSummaryFormat testSummary;
 
