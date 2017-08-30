@@ -846,7 +846,9 @@ public class CppLinkActionBuilder {
             toolchain,
             fdoSupport,
             usePicForLtoBackendActions,
-            cppConfiguration.useFission());
+            cppConfiguration.useFission(),
+            configuration,
+            linkArtifactFactory);
       }
     }
 
