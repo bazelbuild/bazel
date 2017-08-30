@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -27,7 +26,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
@@ -159,6 +157,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
         useDeps,
         outputGroupCollector,
         toolchain,
+        ImmutableList.builder(),
         isTestRule,
         usePch);
   }
@@ -676,14 +675,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addPath(xcrunwrapper(ruleContext).getExecutable().getExecPath());
-    if (objcProvider.is(USES_CPP)) {
-      commandLine
-        .add(CLANG_PLUSPLUS)
-        .add("-stdlib=libc++")
-        .add("-std=gnu++11");
-    } else {
-      commandLine.add(CLANG);
-    }
+    commandLine.add(CLANG);
 
     // TODO(b/36562173): Replace the "!isTestRule" condition with the presence of "-bundle" in
     // the command line.

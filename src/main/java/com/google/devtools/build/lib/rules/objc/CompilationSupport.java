@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -302,6 +303,7 @@ public abstract class CompilationSupport {
   protected final boolean useDeps;
   protected final Map<String, NestedSet<Artifact>> outputGroupCollector;
   protected final CcToolchainProvider toolchain;
+  protected final ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector;
   protected final boolean isTestRule;
   protected final boolean usePch;
 
@@ -326,6 +328,7 @@ public abstract class CompilationSupport {
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
       CcToolchainProvider toolchain,
+      ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector,
       boolean isTestRule,
       boolean usePch) {
     this.ruleContext = ruleContext;
@@ -337,6 +340,7 @@ public abstract class CompilationSupport {
     this.useDeps = useDeps;
     this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
+    this.providerCollector = providerCollector;
     this.usePch = usePch;
     // TODO(b/62143697): Remove this check once all rules are using the crosstool support.
     if (ruleContext
@@ -360,6 +364,8 @@ public abstract class CompilationSupport {
     private CompilationAttributes compilationAttributes;
     private boolean useDeps = true;
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
+    private ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector =
+        ImmutableList.builder();
     private boolean isObjcLibrary = false;
     private CcToolchainProvider toolchain;
     private boolean isTestRule = false;
@@ -449,6 +455,16 @@ public abstract class CompilationSupport {
     }
 
     /**
+     * Causes the provided list to be updated with providers that should be exported by this target.
+     */
+    public Builder setProviderCollector(
+        ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector) {
+      Preconditions.checkNotNull(providerCollector);
+      this.providerCollector = providerCollector;
+      return this;
+    }
+
+    /**
      * Returns a {@link CompilationSupport} instance. This is either a {@link
      * CrosstoolCompilationSupport} or {@link LegacyCompilationSupport} depending on the value of
      * --experimental_objc_crosstool.
@@ -485,6 +501,7 @@ public abstract class CompilationSupport {
             useDeps,
             outputGroupCollector,
             toolchain,
+            providerCollector,
             isTestRule,
             usePch);
       } else {

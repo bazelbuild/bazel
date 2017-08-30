@@ -866,6 +866,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, or an empty list of that attribute is not defined.
+   */
+  public <C extends TransitiveInfoProvider> Iterable<C> getPrerequisitesSafe(
+      String attributeName, Mode mode, final Class<C> classType) {
+    return attributes().has(attributeName)
+        ? getPrerequisites(attributeName, mode, classType)
+        : ImmutableList.of();
+  }
+
+  /**
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */

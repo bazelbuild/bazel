@@ -365,4 +365,7 @@ public class CppRuleClasses {
 
   /** A string constant for the match-clif feature. */
   public static final String MATCH_CLIF = "match_clif";
+
+  /** A string constant for the contains_objc_source feature. */
+  public static final String CONTAINS_OBJC_SOURCE = "contains_objc_source";
 }

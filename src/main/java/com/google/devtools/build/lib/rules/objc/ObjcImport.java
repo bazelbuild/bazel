@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
@@ -56,8 +58,10 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     Iterable<Artifact> publicHeaders = compilationAttributes.hdrs();
     CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
 
+    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     new CompilationSupport.Builder()
         .setRuleContext(ruleContext)
+        .setProviderCollector(providerCollector)
         .build()
         .registerGenerateModuleMapAction(moduleMap, publicHeaders)
         .validateAttributes();
@@ -66,6 +70,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
+        .addProviderMaps(providerCollector.build())
         .build();
   }
 }

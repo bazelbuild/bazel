@@ -230,6 +230,14 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
+  /** Adds a group of {@link TransitiveInfoProviderMap} instances. */
+  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviderMaps(
+      Iterable<TransitiveInfoProviderMap> providerMaps) {
+    for (TransitiveInfoProviderMap providerMap : providerMaps) {
+      addProviders(providerMap);
+    }
+    return this;
+  }
 
   /**
    * Add a specific provider with a given value.

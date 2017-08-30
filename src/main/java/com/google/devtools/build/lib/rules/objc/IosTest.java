@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -158,8 +159,13 @@ public final class IosTest implements RuleConfiguredTargetFactory {
                 ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
             .build();
 
+    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     CompilationSupport compilationSupport =
-        new CompilationSupport.Builder().setRuleContext(ruleContext).setIsTestRule().build();
+        new CompilationSupport.Builder()
+            .setProviderCollector(providerCollector)
+            .setRuleContext(ruleContext)
+            .setIsTestRule()
+            .build();
 
     compilationSupport
         .registerLinkActions(
@@ -231,6 +237,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(new ExecutionInfo(execInfoMapBuilder.build()))
         .addNativeDeclaredProviders(testSupport.getExtraProviders())
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+        .addProviderMaps(providerCollector.build())
         .setRunfilesSupport(runfilesSupport, executable)
         .build();
   }

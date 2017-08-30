@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.TransitiveSourcesProvider.SourceUsage;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -57,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -219,12 +223,22 @@ public final class CcCommon {
     return new TransitiveLipoInfoProvider(scannableBuilder.build());
   }
 
+  /** Returns true if the given rule has sources in the target configuration. */
+  static boolean hasSourcesInTargetConfig(RuleContext ruleContext) {
+    return (ruleContext.attributes().has("srcs")
+        && ruleContext.attributes().getAttributeDefinition("srcs").getConfigurationTransition()
+            == ConfigurationTransition.NONE);
+  }
+
   /**
-   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input
-   * source file and the label of the rule that generates it (or the label of the source file
-   * itself if it is an input file).
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
    */
-  List<Pair<Artifact, Label>> getSources() {
+  static List<Pair<Artifact, Label>> getSources(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has("srcs")) {
+      return ImmutableList.of();
+    }
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
@@ -252,6 +266,15 @@ public final class CcCommon {
       result.add(Pair.of(entry.getKey(), entry.getValue()));
     }
     return result.build();
+  }
+
+  /**
+   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
+   * file and the label of the rule that generates it (or the label of the source file itself if it
+   * is an input file).
+   */
+  List<Pair<Artifact, Label>> getSources() {
+    return getSources(ruleContext);
   }
 
   /**
@@ -568,6 +591,40 @@ public final class CcCommon {
     }
   }
 
+  /** Computes the {@link TransitiveSourcesProvider} for this target using the given target. */
+  public static TransitiveSourcesProvider getTransitiveSourcesProvider(RuleContext ruleContext) {
+    List<String> sources =
+        getSources(ruleContext)
+            .stream()
+            .map(pair -> pair.getSecond().getCanonicalForm())
+            .collect(Collectors.toList());
+    return getTransitiveSourcesProvider(ruleContext, sources);
+  }
+
+  /** Computes the {@link TransitiveSourcesProvider} for this target using the given target. */
+  public static TransitiveSourcesProvider getTransitiveSourcesProvider(
+      RuleContext ruleContext, List<String> sources) {
+    TransitiveSourcesProvider.Builder result = new TransitiveSourcesProvider.Builder();
+    Iterable<TransitiveSourcesProvider> depTransitiveSourcesProviders =
+        ruleContext.getPrerequisitesSafe("deps", Mode.TARGET, TransitiveSourcesProvider.class);
+    for (SourceUsage sourceUsage : SourceUsage.values()) {
+      boolean sourceIsUsed = false;
+      // If dependencies use this source type, then the source type is used.
+      sourceIsUsed |=
+          (Lists.newArrayList(depTransitiveSourcesProviders)
+              .stream()
+              .anyMatch(provider -> provider.uses(sourceUsage)));
+
+      // If this target uses this source type, then the source type is used.
+      sourceIsUsed |= (sources.stream().anyMatch(source -> sourceUsage.matches(source)));
+
+      if (sourceIsUsed) {
+        result.doesUse(sourceUsage);
+      }
+    }
+    return result.build();
+  }
+
   /**
    * Creates the feature configuration for a given rule.
    *
@@ -610,6 +667,13 @@ public final class CcCommon {
     requestedFeatures.addAll(featureSpecification.getRequestedFeatures());
 
     requestedFeatures.addAll(sourceCategory.getActionConfigSet());
+
+    // We check that this target has "srcs" in the target configuration to prevent failing in
+    // getSources() for rules like cc_embed_data, which have "srcs" in the data configuration.
+    if (hasSourcesInTargetConfig(ruleContext)
+        && getTransitiveSourcesProvider(ruleContext).uses(SourceUsage.OBJC)) {
+      requestedFeatures.add(CppRuleClasses.CONTAINS_OBJC_SOURCE);
+    }
 
     FeatureSpecification currentFeatureSpecification =
         FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);

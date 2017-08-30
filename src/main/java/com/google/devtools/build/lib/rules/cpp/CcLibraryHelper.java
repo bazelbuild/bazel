@@ -68,6 +68,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -1085,6 +1086,18 @@ public final class CcLibraryHelper {
           new CcLinkParamsInfo(
               createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }
+
+    if (CcCommon.hasSourcesInTargetConfig(ruleContext)) {
+      List<String> sources =
+          compilationUnitSources
+              .stream()
+              .map(cppSource -> cppSource.getSource().getExecPathString())
+              .collect(Collectors.toList());
+      providers.put(
+          TransitiveSourcesProvider.class,
+          CcCommon.getTransitiveSourcesProvider(ruleContext, sources));
+    }
+
     return new Info(
         providers.build(),
         outputGroups,

@@ -223,4 +223,9 @@ public class IosExtensionBinaryTest extends ObjcRuleTestCase {
   public void testCompilesSources() throws Exception {
     checkCompilesSources(RULE_TYPE);
   }
+
+  @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, EXTRA_LINK_ARGS);
+  }
 }

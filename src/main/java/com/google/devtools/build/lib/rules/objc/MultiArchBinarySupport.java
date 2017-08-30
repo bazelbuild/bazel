@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -128,6 +129,8 @@ public class MultiArchBinarySupport {
    *     this support
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
+   * @param providerCollector a list to which provider maps created by compile and link action
+   *     generation are added
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public void registerActions(
@@ -137,7 +140,8 @@ public class MultiArchBinarySupport {
       Iterable<Artifact> extraLinkInputs,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       Artifact outputLipoBinary,
-      Map<String, NestedSet<Artifact>> outputMapCollector)
+      Map<String, NestedSet<Artifact>> outputMapCollector,
+      ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector)
       throws RuleErrorException, InterruptedException {
 
     NestedSetBuilder<Artifact> binariesToLipo =
@@ -179,6 +183,7 @@ public class MultiArchBinarySupport {
               .setRuleContext(ruleContext)
               .setConfig(dependencySpecificConfiguration.config())
               .setOutputGroupCollector(outputMapCollector)
+              .setProviderCollector(providerCollector)
               .build();
 
       compilationSupport

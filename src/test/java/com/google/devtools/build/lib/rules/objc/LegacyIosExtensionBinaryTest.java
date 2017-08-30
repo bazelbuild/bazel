@@ -29,9 +29,10 @@ public class LegacyIosExtensionBinaryTest extends IosExtensionBinaryTest {
     return ObjcCrosstoolMode.OFF;
   }
 
+  @Override
   @Test
   public void testLinkActionWithTransitiveCppDependency() throws Exception {
-    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, EXTRA_LINK_ARGS);
+    // Transitive source data is not known to the legacy rules.
   }
 
   @Test
