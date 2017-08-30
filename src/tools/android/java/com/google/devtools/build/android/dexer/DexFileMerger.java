@@ -63,6 +63,9 @@ import java.util.zip.ZipOutputStream;
  */
 class DexFileMerger {
 
+  /** File name prefix of a {@code .dex} file automatically loaded in an archive. */
+  private static final String DEX_PREFIX = "classes";
+
   /**
    * Commandline options.
    */
@@ -156,6 +159,17 @@ class DexFileMerger {
       help = "Limit on fields and methods in a single dex file."
     )
     public int maxNumberOfIdxPerDex;
+
+    @Option(
+      name = "dex_prefix",
+      defaultValue = DEX_PREFIX, // dx's default
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = false,
+      help = "Dex file output prefix."
+    )
+    public String dexPrefix;
   }
 
   public static class MultidexStrategyConverter extends EnumConverter<MultidexStrategy> {
@@ -266,7 +280,8 @@ class DexFileMerger {
         executor,
         options.multidexMode,
         options.maxNumberOfIdxPerDex,
-        options.wasteThresholdPerDex);
+        options.wasteThresholdPerDex,
+        options.dexPrefix);
   }
 
   /**

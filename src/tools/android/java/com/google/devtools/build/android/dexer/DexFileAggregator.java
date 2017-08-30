@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dex.Dex;
-import com.android.dex.DexFormat;
 import com.android.dex.FieldId;
 import com.android.dex.MethodId;
 import com.android.dex.ProtoId;
@@ -26,7 +25,6 @@ import com.android.dx.command.dexer.DxContext;
 import com.android.dx.merge.CollisionPolicy;
 import com.android.dx.merge.DexMerger;
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -53,12 +51,6 @@ class DexFileAggregator implements Closeable {
    */
   private static final String DEX_EXTENSION = ".dex";
 
-  /**
-   * File name prefix of a {@code .dex} file automatically loaded in an
-   * archive.
-   */
-  private static final String DEX_PREFIX = "classes";
-
   private final ArrayList<Dex> currentShard = new ArrayList<>();
   private final HashSet<FieldDescriptor> fieldsInCurrentShard = new HashSet<>();
   private final HashSet<MethodDescriptor> methodsInCurrentShard = new HashSet<>();
@@ -68,6 +60,7 @@ class DexFileAggregator implements Closeable {
   private final DxContext context;
   private final ListeningExecutorService executor;
   private final DexFileArchive dest;
+  private final String dexPrefix;
 
   private int nextDexFileIndex = 0;
   private ListenableFuture<Void> lastWriter = Futures.<Void>immediateFuture(null);
@@ -78,13 +71,15 @@ class DexFileAggregator implements Closeable {
       ListeningExecutorService executor,
       MultidexStrategy multidex,
       int maxNumberOfIdxPerDex,
-      int wasteThresholdPerDex) {
+      int wasteThresholdPerDex,
+      String dexPrefix) {
     this.context = context;
     this.dest = dest;
     this.executor = executor;
     this.multidex = multidex;
     this.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
     this.wasteThresholdPerDex = wasteThresholdPerDex;
+    this.dexPrefix = dexPrefix;
   }
 
   public DexFileAggregator add(Dex dexFile) {
@@ -200,9 +195,8 @@ class DexFileAggregator implements Closeable {
   }
 
   // More or less copied from from com.android.dx.command.dexer.Main
-  @VisibleForTesting
-  static String getDexFileName(int i) {
-    return i == 0 ? DexFormat.DEX_IN_JAR_NAME : DEX_PREFIX + (i + 1) + DEX_EXTENSION;
+  private String getDexFileName(int i) {
+    return dexPrefix + (i == 0 ? "" : i + 1) + DEX_EXTENSION;
   }
 
   private static String typeName(Dex dex, int typeIndex) {
