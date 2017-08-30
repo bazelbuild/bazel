@@ -182,60 +182,41 @@ public class BaseRuleClasses {
    * Share common attributes across both base and Skylark base rules.
    */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
-    return PlatformSemantics.platformAttributes(builder)
+    return builder
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
         // Package groups always have the null configuration so that they are not duplicated
         // needlessly.
-        .add(
-            attr("visibility", NODEP_LABEL_LIST)
-                .orderIndependent()
-                .cfg(HOST)
-                .nonconfigurable(
-                    "special attribute integrated more deeply into Bazel's core logic"))
-        .add(
-            attr("deprecation", STRING)
-                .value(deprecationDefault)
-                .nonconfigurable("Used in core loading phase logic with no access to configs"))
-        .add(
-            attr("tags", STRING_LIST)
-                .orderIndependent()
-                .taggable()
-                .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
-        .add(
-            attr("generator_name", STRING)
-                .undocumented("internal")
-                .nonconfigurable("static structure of a rule"))
-        .add(
-            attr("generator_function", STRING)
-                .undocumented("internal")
-                .nonconfigurable("static structure of a rule"))
-        .add(
-            attr("generator_location", STRING)
-                .undocumented("internal")
-                .nonconfigurable("static structure of a rule"))
-        .add(
-            attr("testonly", BOOLEAN)
-                .value(testonlyDefault)
-                .nonconfigurable("policy decision: rules testability should be consistent"))
+        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
+            .nonconfigurable("special attribute integrated more deeply into Bazel's core logic"))
+        .add(attr("deprecation", STRING).value(deprecationDefault)
+            .nonconfigurable("Used in core loading phase logic with no access to configs"))
+        .add(attr("tags", STRING_LIST).orderIndependent().taggable()
+            .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
+        .add(attr("generator_name", STRING).undocumented("internal")
+            .nonconfigurable("static structure of a rule"))
+        .add(attr("generator_function", STRING).undocumented("internal")
+            .nonconfigurable("static structure of a rule"))
+        .add(attr("generator_location", STRING).undocumented("internal")
+            .nonconfigurable("static structure of a rule"))
+        .add(attr("testonly", BOOLEAN).value(testonlyDefault)
+            .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())
         .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
-        .add(
-            attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-                .cfg(Attribute.ConfigurationTransition.HOST)
-                .allowedFileTypes(FileTypeSet.NO_FILE)
-                .dontCheckConstraints()
-                .nonconfigurable(
-                    "special logic for constraints and select: see ConstraintSemantics"))
-        .add(
-            attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-                .cfg(Attribute.ConfigurationTransition.HOST)
-                .allowedFileTypes(FileTypeSet.NO_FILE)
-                .dontCheckConstraints()
-                .nonconfigurable(
-                    "special logic for constraints and select: see ConstraintSemantics"));
+        .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
+            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+            .cfg(Attribute.ConfigurationTransition.HOST)
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints()
+            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
+        )
+        .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
+            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+            .cfg(Attribute.ConfigurationTransition.HOST)
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints()
+            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
+        );
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {

@@ -193,7 +193,7 @@ function test_packages_cleared() {
       || fail "env extension count $env_count too low: did you move/rename the class?"
   local ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
-  [[ "ct_count" -ge 40 ]] \
+  [[ "ct_count" -ge 28 ]] \
       || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
