@@ -3234,8 +3234,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    resource_extractor = 'resource_extractor')");
+        "    zipalign = 'zipalign')");
 
     scratch.file(
         "java/a/BUILD",
@@ -3274,8 +3273,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    resource_extractor = 'resource_extractor')");
+        "    zipalign = 'zipalign')");
 
     scratch.file(
         "java/b/BUILD",
