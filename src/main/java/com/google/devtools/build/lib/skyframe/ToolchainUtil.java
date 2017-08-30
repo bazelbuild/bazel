@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.ValueOrException4;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Common code to create a {@link ToolchainContext} given a set of required toolchain type labels.
@@ -48,6 +49,7 @@ public class ToolchainUtil {
    * Returns a new {@link ToolchainContext}, with the correct toolchain labels based on the results
    * of the {@link ToolchainResolutionFunction}.
    */
+  @Nullable
   public static ToolchainContext createToolchainContext(
       Environment env,
       String targetDescription,
@@ -56,6 +58,9 @@ public class ToolchainUtil {
       throws ToolchainContextException, InterruptedException {
     ImmutableBiMap<Label, Label> resolvedLabels =
         resolveToolchainLabels(env, requiredToolchains, configuration);
+    if (resolvedLabels == null) {
+      return null;
+    }
     ToolchainContext toolchainContext =
         ToolchainContext.create(targetDescription, requiredToolchains, resolvedLabels);
     return toolchainContext;
@@ -76,6 +81,7 @@ public class ToolchainUtil {
     }
   }
 
+  @Nullable
   private static PlatformDescriptors loadPlatformDescriptors(
       Environment env, BuildConfiguration configuration)
       throws InterruptedException, ToolchainContextException {
@@ -108,12 +114,22 @@ public class ToolchainUtil {
       PlatformInfo execPlatform = PlatformProviderUtils.platform(executionPlatformTarget);
       PlatformInfo targetPlatform = PlatformProviderUtils.platform(targetPlatformTarget);
 
+      if (execPlatform == null) {
+        throw new ToolchainContextException(
+            new InvalidPlatformException("execution platform", executionPlatformTarget));
+      }
+      if (targetPlatform == null) {
+        throw new ToolchainContextException(
+            new InvalidPlatformException("target platform", targetPlatformTarget));
+      }
+
       return PlatformDescriptors.create(execPlatform, targetPlatform);
     } catch (ConfiguredValueCreationException e) {
       throw new ToolchainContextException(e);
     }
   }
 
+  @Nullable
   private static ImmutableBiMap<Label, Label> resolveToolchainLabels(
       Environment env, List<Label> requiredToolchains, BuildConfiguration configuration)
       throws InterruptedException, ToolchainContextException {
@@ -186,6 +202,16 @@ public class ToolchainUtil {
     return builder.build();
   }
 
+  /** Exception used when a platform label is not a valid platform. */
+  public static final class InvalidPlatformException extends Exception {
+    public InvalidPlatformException(String platformType, ConfiguredTarget resolvedTarget) {
+      super(
+          String.format(
+              "Target %s was found as the %s, but does not provide PlatformInfo",
+              resolvedTarget.getTarget(), platformType));
+    }
+  }
+
   /** Exception used when a toolchain type is required but no matching toolchain is found. */
   public static final class UnresolvedToolchainsException extends Exception {
     private final ImmutableList<Label> missingToolchainTypes;
@@ -205,6 +231,10 @@ public class ToolchainUtil {
 
   /** Exception used to wrap exceptions during toolchain resolution. */
   public static class ToolchainContextException extends Exception {
+    public ToolchainContextException(InvalidPlatformException e) {
+      super(e);
+    }
+
     public ToolchainContextException(UnresolvedToolchainsException e) {
       super(e);
     }

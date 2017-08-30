@@ -478,11 +478,9 @@ EOF
   expect_log "While resolving toolchains for target //demo:use: invalid registered toolchain '//demo:invalid': target does not provide the DeclaredToolchainInfo provider"
 }
 
-
 function test_toolchain_error_invalid_target() {
   write_test_toolchain
   write_test_rule
-#  write_toolchains
 
   # Write toolchain with an invalid target.
   mkdir -p invalid
@@ -511,6 +509,34 @@ EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:use: no such target '//toolchain:does_not_exist': target 'does_not_exist' not declared in package 'toolchain'"
+}
+
+
+function test_toolchain_error_invalid_target() {
+  write_test_toolchain
+  write_test_rule
+  write_toolchains
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  # Write and invalid rule to be the platform.
+  mkdir -p platform
+  cat >> platform/BUILD <<EOF
+  filegroup(name = 'not_a_platform')
+EOF
+
+  bazel build --experimental_platforms=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the target platform, but does not provide PlatformInfo"
+
+  bazel build --experimental_host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the execution platform, but does not provide PlatformInfo"
 }
 
 run_suite "toolchain tests"
