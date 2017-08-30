@@ -35,6 +35,13 @@ public class ControlFlowCheckerTest {
   }
 
   @Test
+  public void testAnalyzerToleratesTopLevelFail() throws Exception {
+    Truth.assertThat(
+            findIssues("fail(\"fail is considered a return, but not at the top level\")"))
+        .isEmpty();
+  }
+
+  @Test
   public void testIfElseReturnMissing() throws Exception {
     Truth.assertThat(
             findIssues(
