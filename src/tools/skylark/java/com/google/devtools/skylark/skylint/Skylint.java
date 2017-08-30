@@ -37,6 +37,7 @@ public class Skylint {
     List<Issue> issues = new ArrayList<>();
     issues.addAll(NamingConventionsChecker.check(ast));
     issues.addAll(ControlFlowChecker.check(ast));
+    issues.addAll(StatementWithoutEffectChecker.check(ast));
     issues.sort(Issue::compare);
     if (!issues.isEmpty()) {
       System.out.println(path);
