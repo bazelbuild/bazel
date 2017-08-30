@@ -2672,10 +2672,15 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android:foo");
-    MoreAsserts.assertContainsSublist(
-        getGeneratingSpawnActionArgs(artifactByPath(getFilesToBuild(ct), "_proguard.jar")),
-        "-applymapping",
-        "java/com/google/android/proguard.map");
+
+    Artifact artifact = artifactByPath(getFilesToBuild(ct), "_proguard.jar");
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(Artifact.toExecPaths(generatingAction.getInputs()))
+        .contains("java/com/google/android/proguard.map");
+    // Cannot use assertThat().containsAllOf().inOrder() as that does not assert that the elements
+    // are consecutive.
+    MoreAsserts.assertContainsSublist(getGeneratingSpawnActionArgs(artifact),
+        "-applymapping", "java/com/google/android/proguard.map");
   }
 
   @Test
@@ -2689,6 +2694,46 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  name = 'foo',",
         "  srcs = ['foo.java'],",
         "  proguard_apply_mapping = 'proguard.map',",
+        "  manifest = 'AndroidManifest.xml',",
+        ")");
+  }
+
+  @Test
+  public void testApplyProguardDictionary() throws Exception {
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  proguard_apply_dictionary = 'dictionary.txt',",
+        "  proguard_specs = ['foo.pro'],",
+        "  manifest = 'AndroidManifest.xml',",
+        ")");
+
+    ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android:foo");
+
+    Artifact artifact = artifactByPath(getFilesToBuild(ct), "_proguard.jar");
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(Artifact.toExecPaths(generatingAction.getInputs()))
+        .contains("java/com/google/android/dictionary.txt");
+    // Cannot use assertThat().containsAllOf().inOrder() as that does not assert that the elements
+    // are consecutive.
+    MoreAsserts.assertContainsSublist(getGeneratingSpawnActionArgs(artifact),
+        "-obfuscationdictionary", "java/com/google/android/dictionary.txt");
+  }
+
+  @Test
+  public void testApplyProguardDictionaryWithNoSpec() throws Exception {
+    checkError(
+        "java/com/google/android",
+        "foo",
+        // messages:
+        "'proguard_apply_dictionary' can only be used when 'proguard_specs' is also set",
+        // build file:
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  proguard_apply_dictionary = 'dictionary.txt',",
         "  manifest = 'AndroidManifest.xml',",
         ")");
   }

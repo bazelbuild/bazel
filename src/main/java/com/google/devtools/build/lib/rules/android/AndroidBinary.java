@@ -143,6 +143,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.throwWithAttributeError("proguard_apply_mapping",
           "'proguard_apply_mapping' can only be used when 'proguard_specs' is also set");
     }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proguard_apply_dictionary")
+        && ruleContext.attributes()
+            .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+            .isEmpty()) {
+      ruleContext.throwWithAttributeError("proguard_apply_mapping",
+          "'proguard_apply_dictionary' can only be used when 'proguard_specs' is also set");
+    }
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rex_package_map")
         && !ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN)) {
       ruleContext.throwWithAttributeError(
@@ -396,6 +403,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact proguardMapping = ruleContext.getPrerequisiteArtifact(
         "proguard_apply_mapping", Mode.TARGET);
+    Artifact proguardDictionary = ruleContext.getPrerequisiteArtifact(
+        "proguard_apply_dictionary", Mode.TARGET);
 
     return createAndroidBinary(
         ruleContext,
@@ -418,6 +427,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
         proguardMapping,
+        proguardDictionary,
         oneVersionOutputArtifact);
   }
 
@@ -442,6 +452,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
       Artifact proguardMapping,
+      Artifact proguardDictionary,
       @Nullable Artifact oneVersionEnforcementArtifact)
       throws InterruptedException, RuleErrorException {
 
@@ -476,6 +487,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             binaryJar,
             proguardSpecs,
             proguardMapping,
+            proguardDictionary,
             proguardOutputMap);
 
     if (shrinkResources) {
@@ -1089,6 +1101,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact deployJarArtifact,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardMapping,
+      Artifact proguardDictionary,
       @Nullable Artifact proguardOutputMap) throws InterruptedException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
@@ -1121,6 +1134,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardSeeds,
         proguardUsage,
         proguardMapping,
+        proguardDictionary,
         libraryJars,
         proguardOutputJar,
         javaSemantics,

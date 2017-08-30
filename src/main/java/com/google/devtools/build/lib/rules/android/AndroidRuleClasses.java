@@ -844,6 +844,12 @@ public final class AndroidRuleClasses {
           re-used to apply the same mapping to a new build.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_apply_mapping", LABEL).legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_apply_dictionary) -->
+          File to be used as a mapping for proguard.
+          A line separated file of "words" to pull from when renaming classes and members during
+          obfuscation.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("proguard_apply_dictionary", LABEL).legacyAllowAnyFileType())
           // TODO(mstaib): Remove this attribute and the matching flag after some cleanup of users
           .add(
               attr("legacy_native_support", TRISTATE)
