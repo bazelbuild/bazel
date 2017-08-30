@@ -1487,12 +1487,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         for (BuildOptions toOptions : ConfiguredTargetFunction.getDynamicTransitionOptions(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
           SkyKey configKey = BuildConfigurationValue.key(depFragments, toOptions);
-          builder.put(key,
-              ((BuildConfigurationValue) configsResult.get(configKey)).getConfiguration());
+          BuildConfigurationValue configValue =
+              ((BuildConfigurationValue) configsResult.get(configKey));
+          // configValue will be null here if there was an exception thrown during configuration
+          // creation. This will be reported elsewhere.
+          if (configValue != null) {
+            builder.put(key, configValue.getConfiguration());
+          }
         }
       }
     }
-
     return builder;
   }
 

@@ -69,6 +69,7 @@ java_test(
         "//src/main/protobuf:android_deploy_info_java_proto",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",

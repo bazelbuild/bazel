@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -74,6 +76,42 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java",
         "package android; public class A {};");
+  }
+
+  @Test
+  public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "def impl(ctx): ",
+        "  return struct(",
+        "    split_attr_deps = ctx.split_attr.deps,",
+        "    split_attr_dep = ctx.split_attr.dep,",
+        "    k8_deps = ctx.split_attr.deps.get('k8', None),",
+        "    attr_deps = ctx.attr.deps,",
+        "    attr_dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(cfg = android_common.multi_cpu_configuration),",
+        "    'dep':  attr.label(cfg = android_common.multi_cpu_configuration),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/my_rule', 'my_rule')",
+        "my_rule(name = 'test', deps = [':main'], dep = ':main')",
+        "cc_binary(name = 'main', srcs = ['main.c'])");
+    BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+
+    // --android_cpu with --android_crosstool_top also triggers the split transition.
+    useConfiguration("--fat_apk_cpu=doesnotexist",
+        "--android_crosstool_top=//android/crosstool:everything");
+    try {
+      getConfiguredTarget("//test/skylark:test");
+      fail("Expected an error that no toolchain matched.");
+    } catch (AssertionError e) {
+      assertThat(e.getMessage()).contains("No toolchain found for cpu 'doesnotexist'");
+    }
   }
 
   @Test

@@ -305,6 +305,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
       } else if (e.getCause() instanceof InvalidConfigurationException) {
         InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
+        env.getListener().handle(Event.error(cause.getMessage()));
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
       } else {

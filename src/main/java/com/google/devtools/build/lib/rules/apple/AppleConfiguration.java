@@ -468,6 +468,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     return ApplePlatform.forTarget(applePlatformType, getSingleArchitecture());
   }
 
+  private boolean hasValidSingleArchPlatform() {
+    return ApplePlatform.isApplePlatform(
+        ApplePlatform.cpuStringForTarget(applePlatformType, getSingleArchitecture()));
+  }
+
   /**
    * Gets the current configuration {@link ApplePlatform} for the given {@link PlatformType}.
    * ApplePlatform is determined via a combination between the given platform type and the
@@ -581,7 +586,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     structField = true
   )
   public AppleBitcodeMode getBitcodeMode() {
-    if (getSingleArchPlatform().isDevice()) {
+    if (hasValidSingleArchPlatform() && getSingleArchPlatform().isDevice()) {
       return bitcodeMode;
     } else {
       return AppleBitcodeMode.NONE;
