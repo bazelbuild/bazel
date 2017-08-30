@@ -308,10 +308,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.1.0.jar",
-        "error_prone/error_prone_core-2.1.0.jar",
-        "error_prone/error_prone_annotations-2.1.0.jar",
-        "error_prone/error_prone_annotation-2.1.0.jar",
+        "error_prone/error_prone_check_api-2.1.1.jar",
+        "error_prone/error_prone_core-2.1.1.jar",
+        "error_prone/error_prone_annotations-2.1.1.jar",
+        "error_prone/error_prone_annotation-2.1.1.jar",
     ],
     deps = [
         ":auto_common",
@@ -351,10 +351,10 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.1.0.jar",
-        "error_prone/error_prone_annotations-2.1.0.jar",
-        "error_prone/error_prone_check_api-2.1.0.jar",
-        "error_prone/error_prone_core-2.1.0.jar",
+        "error_prone/error_prone_annotation-2.1.1.jar",
+        "error_prone/error_prone_annotations-2.1.1.jar",
+        "error_prone/error_prone_check_api-2.1.1.jar",
+        "error_prone/error_prone_core-2.1.1.jar",
         "guava/guava-21.0.jar",
         "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",

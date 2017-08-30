@@ -92,7 +92,7 @@ a minimal set of extra dependencies.
 
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.1.0
+* Version: 2.1.1
 * License: Apache License 2.0
 
 ## [Hungarian Algorithm](https://github.com/KevinStern/software-and-algorithms)
