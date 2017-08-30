@@ -36,7 +36,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "experimental_host_platform",
     converter = BuildConfiguration.LabelConverter.class,
-    defaultValue = "@bazel_tools//platforms:host_platform",
+    defaultValue = "@bazel_tools//tools/platforms:host_platform",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -49,7 +49,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "experimental_platforms",
     converter = BuildConfiguration.LabelListConverter.class,
-    defaultValue = "@bazel_tools//platforms:target_platform",
+    defaultValue = "@bazel_tools//tools/platforms:target_platform",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -98,6 +98,8 @@ public class PlatformOptions extends FragmentOptions {
   public PlatformOptions getHost(boolean fallback) {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms = ImmutableList.of(this.hostPlatform);
+    host.hostPlatform = this.hostPlatform;
+    host.extraToolchains = this.extraToolchains;
     return host;
   }
 

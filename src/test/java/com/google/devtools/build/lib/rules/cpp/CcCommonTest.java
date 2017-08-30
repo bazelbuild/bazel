@@ -977,6 +977,7 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
+          BazelRuleClassProvider.PLATFORM_RULES.init(builder);
           BazelRuleClassProvider.GENERIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
           builder.addRuleDefinition(new OnlyCppToolchainTypeRule());
