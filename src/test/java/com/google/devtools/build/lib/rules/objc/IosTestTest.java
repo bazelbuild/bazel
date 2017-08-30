@@ -1167,7 +1167,22 @@ public class IosTestTest extends ObjcRuleTestCase {
      // Usually, an ios_test would depend on apple_binary through a skylark_ios_application in its
      // 'binary' attribute.  Since we don't have skylark_ios_application here, we use the 'deps'
      // attribute instead.
+    scratch.file("skylarkstub/BUILD");
+    scratch.file("skylarkstub/skylark_stub.bzl",
+        "def skylark_ios_application_stub_impl(ctx):",
+        "  bin_provider = ctx.attr.binary[apple_common.AppleExecutableBinary]",
+        "  return struct(objc=bin_provider.objc)",
+        "skylark_ios_application_stub = rule(",
+        "    skylark_ios_application_stub_impl,",
+        // Both 'binary' and 'deps' are needed because ObjcProtoAspect is applied transitively
+        // along attribute 'deps' only.
+        "    attrs = {'binary': attr.label(mandatory=True,",
+        "                                  providers=[apple_common.AppleExecutableBinary])},",
+        "    fragments = ['apple', 'objc'],",
+        ")");
+
      scratch.file("x/BUILD",
+       "load('//skylarkstub:skylark_stub.bzl', 'skylark_ios_application_stub')",
         "genrule(",
         "    name = 'gen_hdrs',",
         "    outs = ['generated.h'],",
@@ -1178,6 +1193,10 @@ public class IosTestTest extends ObjcRuleTestCase {
         "    srcs = ['apple_bin.m'],",
         "    platform_type = 'ios',",
         "    hdrs = ['generated.h'],",
+        ")",
+        "skylark_ios_application_stub(",
+        "    name = 'stub_application',",
+        "    binary = ':apple_bin',",
         ")",
         "objc_binary(",
         "    name = 'bin',",
@@ -1192,7 +1211,7 @@ public class IosTestTest extends ObjcRuleTestCase {
         "    srcs = ['test.m'],",
         "    xctest = 1,",
         "    xctest_app = ':testApp',",
-        "    deps = [':apple_bin']",
+        "    deps = [':stub_application']",
         ")");
      CommandAction compileAction = compileAction("//x:test", "test.o");
      // The genfiles root for child configurations must be present in the compile action so that
