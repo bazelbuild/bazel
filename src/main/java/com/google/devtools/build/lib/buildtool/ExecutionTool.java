@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -96,7 +97,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -107,6 +107,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -720,7 +721,7 @@ public class ExecutionTool {
    * capturing statistics.
    */
   private void saveActionCache(ActionCache actionCache) {
-    ActionCacheStatistics.Builder builder = ActionCacheStatistics.builder();
+    ActionCacheStatistics.Builder builder = ActionCacheStatistics.newBuilder();
 
     AutoProfiler p = AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, log);
     try {
@@ -729,7 +730,8 @@ public class ExecutionTool {
       builder.setSizeInBytes(0);
       getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
     } finally {
-      builder.setSaveTime(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()));
+      builder.setSaveTimeInMs(
+          TimeUnit.MILLISECONDS.convert(p.completeAndGetElapsedTimeNanos(), TimeUnit.NANOSECONDS));
     }
 
     env.getEventBus().post(builder.build());

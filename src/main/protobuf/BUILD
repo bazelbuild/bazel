@@ -6,6 +6,7 @@ load("//third_party/protobuf/3.2.0:protobuf.bzl", "cc_proto_library", "py_proto_
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 FILES = [
+    "action_cache",
     "android_deploy_info",
     "apk_manifest",
     "build",
