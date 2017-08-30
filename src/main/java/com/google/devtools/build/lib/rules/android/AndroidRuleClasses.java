@@ -295,8 +295,8 @@ public final class AndroidRuleClasses {
   }
 
   /**
-   * Turns of dynamic resource filtering for non-Android targets. This prevents unnecessary
-   * build graph bloat. For example, there's no point analyzing distinct cc_library tarets for
+   * Turns off dynamic resource filtering for non-Android targets. This prevents unnecessary
+   * build graph bloat. For example, there's no point analyzing distinct cc_library targets for
    * different resource filter configurations because cc_library semantics doesn't care about
    * filters.
    */
