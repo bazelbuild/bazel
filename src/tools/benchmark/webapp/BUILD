@@ -9,7 +9,7 @@ filegroup(
 
 pkg_tar(
     name = "site",
-    files = [
+    srcs = [
         "draw_chart.js",
         "index.html",
     ],
