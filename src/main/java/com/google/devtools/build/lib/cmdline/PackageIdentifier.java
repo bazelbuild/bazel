@@ -63,6 +63,7 @@ public final class PackageIdentifier
    * Tries to infer the package identifier from the given exec path. This method does not perform
    * any I/O, but looks solely at the structure of the exec path. The resulting identifier may
    * actually be a subdirectory of a package rather than a package, e.g.:
+   *
    * <pre><code>
    * + WORKSPACE
    * + foo/BUILD
@@ -72,8 +73,8 @@ public final class PackageIdentifier
    * In this case, this method returns a package identifier for foo/bar, even though that is not a
    * package. Callers need to look up the actual package if needed.
    *
-   * @throws LabelSyntaxException if the exec path seems to be for an external repository that doe
-   *         not have a valid repository name (see {@link RepositoryName#create})
+   * @throws LabelSyntaxException if the exec path seems to be for an external repository that does
+   *     not have a valid repository name (see {@link RepositoryName#create})
    */
   public static PackageIdentifier discoverFromExecPath(PathFragment execPath, boolean forFiles)
       throws LabelSyntaxException {
