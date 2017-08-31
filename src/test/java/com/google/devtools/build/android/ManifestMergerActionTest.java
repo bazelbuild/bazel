@@ -167,7 +167,7 @@ public class ManifestMergerActionTest {
     final Path libBarManifest = AndroidDataBuilder.of(working.resolve("libBar"))
         .createManifest("AndroidManifest.xml", "com.google.bar",
             "<application android:name=\"${applicationId}\">",
-            "<activity android:name=\"com.google.bar.activityFoo\" />",
+            "<activity android:name=\".activityFoo\" />",
             "</application>")
         .buildUnvalidated()
         .getManifest();
@@ -192,14 +192,13 @@ public class ManifestMergerActionTest {
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(libBarOutput, UTF_8))
         .replaceAll("\\s+", " ").trim()).contains(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-            + " package=\"com.google.libbar\">"
-            + "<application android:name=\"${applicationId}\">"
-            + " <activity android:name=\"com.google.bar.activityFoo\">"
-            + "</activity>"
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+            + " <manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
+            + " package=\"com.google.libbar\" >"
+            + " <application android:name=\"${applicationId}\" >"
+            + " <activity android:name=\"com.google.bar.activityFoo\" />"
             + " </application>"
-            + "</manifest>");
+            + " </manifest>");
 
     // binary manifest merging
     args = generateArgs(

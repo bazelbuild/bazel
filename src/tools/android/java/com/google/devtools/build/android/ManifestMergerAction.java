@@ -192,32 +192,26 @@ public class ManifestMergerAction {
     try {
       Path mergedManifest;
       AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
-      if (options.mergeType == MergeType.APPLICATION) {
-        // Remove uses-permission tags from mergees before the merge.
-        Path tmp = Files.createTempDirectory("manifest_merge_tmp");
-        tmp.toFile().deleteOnExit();
-        ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
-        for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-          mergeeManifests.put(
-              removePermissions(mergeeManifest.getKey(), tmp),
-              mergeeManifest.getValue());
-        }
 
-        // Ignore custom package at the binary level.
-        mergedManifest =
-            manifestProcessor.mergeManifest(
-                options.manifest,
-                mergeeManifests.build(),
-                options.mergeType,
-                options.manifestValues,
-                options.manifestOutput,
-                options.log);
-      } else {
-        // Only need to stamp custom package into the library level.
-        mergedManifest =
-            manifestProcessor.writeManifestPackage(
-                options.manifest, options.customPackage, options.manifestOutput);
+      // Remove uses-permission tags from mergees before the merge.
+      Path tmp = Files.createTempDirectory("manifest_merge_tmp");
+      tmp.toFile().deleteOnExit();
+      ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
+      for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
+        mergeeManifests.put(
+            removePermissions(mergeeManifest.getKey(), tmp),
+            mergeeManifest.getValue());
       }
+
+      mergedManifest =
+          manifestProcessor.mergeManifest(
+              options.manifest,
+              mergeeManifests.build(),
+              options.mergeType,
+              options.manifestValues,
+              options.customPackage,
+              options.manifestOutput,
+              options.log);
 
       if (!mergedManifest.equals(options.manifestOutput)) {
         Files.copy(options.manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
