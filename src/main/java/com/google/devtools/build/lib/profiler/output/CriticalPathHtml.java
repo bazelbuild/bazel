@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
-import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics.MiddleManStatistics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TimeUtilities;
-
 import java.io.PrintStream;
 
 /**
