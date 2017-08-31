@@ -444,9 +444,11 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "command line arguments of the action."
-                + "May be either a list or an actions.args() object."
-                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
+            "command line arguments of the action. "
+                + "May be either a list or an actions.args() object.<br><br>"
+                + "Blaze passes the elements in this attribute as arguments to the command."
+                + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
+                + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
       ),
       @Param(
         name = "mnemonic",
@@ -469,8 +471,14 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "shell command to execute. "
-                + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."
+            "shell command to execute.<br><br>"
+                + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze may "
+                + "stop accepting such values in the future.</b><br><br>"
+                + "The command can access the elements of the <code>arguments</code> object via "
+                + "<code>$1</code>, <code>$2</code>, etc.<br>"
+                + "When this argument is a string, it must be a valid shell command. For example: "
+                + "\"<code>echo foo > $1</code>\". Blaze uses the same shell to execute the "
+                + "command as it does for genrules."
       ),
       @Param(
         name = "progress_message",
@@ -760,7 +768,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     category = SkylarkModuleCategory.BUILTIN,
     doc =
         "Module providing methods to build memory-efficient command lines.<br><br>"
-            + "The command lines are memory-efficient because Bazel doesn't fully construct them"
+            + "The command lines are memory-efficient because Blaze doesn't fully construct them"
             + " until just before executing the action. "
             + "See <a href=\"actions.html#run\">ctx.actions.run()</a> or "
             + "<a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>.<br>"
