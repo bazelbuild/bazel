@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
+import com.google.devtools.build.lib.syntax.ForStatement;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.syntax.ReturnStatement;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Stream;
@@ -80,6 +82,13 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
       outputs.add(cfi);
     }
     cfi = ControlFlowInfo.join(outputs);
+  }
+
+  @Override
+  public void visit(ForStatement node) {
+    ControlFlowInfo noIteration = ControlFlowInfo.copy(cfi);
+    super.visit(node);
+    cfi = ControlFlowInfo.join(Arrays.asList(noIteration, cfi));
   }
 
   @Override

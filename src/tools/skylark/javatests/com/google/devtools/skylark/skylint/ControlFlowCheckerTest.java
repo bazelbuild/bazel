@@ -127,6 +127,19 @@ public class ControlFlowCheckerTest {
   }
 
   @Test
+  public void testForAndFallOffEnd() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                    "def some_function():",
+                    "  for x in []:",
+                    "    return x",
+                    "  print('foo')",
+                    "  # return missing here")
+                .toString())
+        .contains("some but not all execution paths of 'some_function' return a value");
+  }
+
+  @Test
   public void testAlwaysReturnButSometimesWithoutValue() throws Exception {
     String messages =
         findIssues(
