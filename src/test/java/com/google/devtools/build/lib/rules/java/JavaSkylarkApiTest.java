@@ -182,7 +182,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "java/test/extension.bzl",
         "result = provider()",
         "def impl(ctx):",
-        "   java_provider = ctx.attr.dep[java_common.provider]",
+        "   java_provider = ctx.attr.dep[JavaInfo]",
         "   return [result(",
         "             compile_jars = java_provider.compile_jars,",
         "             transitive_runtime_jars = java_provider.transitive_runtime_jars,",
@@ -406,7 +406,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "def _impl(ctx):",
         "  transitive_provider = java_common.merge(",
-        "      [dep[java_common.provider] for dep in ctx.attr.deps])",
+        "      [dep[JavaInfo] for dep in ctx.attr.deps])",
         "  my_provider = java_common.create_provider(",
         "        compile_time_jars = depset(ctx.files.compile_time_jars),",
         "        runtime_jars = depset(ctx.files.runtime_jars))",
@@ -487,7 +487,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "my_provider = provider()",
         "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
         "  return [my_provider(p = dep_params)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
@@ -511,7 +511,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
         "  return [dep_params]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
@@ -544,7 +544,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
         "  return struct(providers = [dep_params])",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
@@ -585,7 +585,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
         "  return struct(providers = [dep_params])",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
@@ -612,7 +612,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
         "  return struct(providers = [dep_params])",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
@@ -640,7 +640,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_library.bzl",
         "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[java_common.provider] for dep in ctx.attr.deps])",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
         "  if not ctx.attr.strict_deps:",
         "    java_provider = java_common.make_non_strict(java_provider)",
         "  return [java_provider]",
@@ -673,7 +673,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_library.bzl",
         "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[java_common.provider] for dep in ctx.attr.deps])",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
         "  if not ctx.attr.strict_deps:",
         "    java_provider = java_common.make_non_strict(java_provider)",
         "  return [java_provider]",

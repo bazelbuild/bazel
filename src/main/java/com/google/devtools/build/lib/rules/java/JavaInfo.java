@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @SkylarkModule(
-    name = "java_common.provider",
+    name = "JavaInfo",
     doc = "Encapsulates all information provided by Java rules",
     category = SkylarkModuleCategory.PROVIDER
 )
@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
 public final class JavaInfo extends NativeInfo {
 
   public static final NativeProvider<JavaInfo> PROVIDER =
-      new NativeProvider<JavaInfo>(JavaInfo.class, "java_common.provider") {};
+      new NativeProvider<JavaInfo>(JavaInfo.class, "JavaInfo") {};
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(

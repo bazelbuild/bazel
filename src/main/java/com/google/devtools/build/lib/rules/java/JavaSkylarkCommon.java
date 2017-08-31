@@ -49,7 +49,9 @@ public class JavaSkylarkCommon {
   @SkylarkCallable(
     name = "provider",
     structField = true,
-    doc = "Returns the Java declared provider."
+    doc = "Returns the Java declared provider. <br>"
+        + "The same value is accessible as <code>JavaInfo</code>. <br>"
+        + "Prefer using <code>JavaInfo</code> in new code."
   )
   public Provider getJavaProvider() {
     return JavaInfo.PROVIDER;
@@ -58,7 +60,7 @@ public class JavaSkylarkCommon {
   @SkylarkCallable(
     name = "create_provider",
     documented = false,
-    doc = "Create a java_common.provider from pre-built jars. Note that compile_time_jars and "
+    doc = "Create JavaInfo from pre-built jars. Note that compile_time_jars and "
         + "runtime_jars are not automatically merged into the recursive jars - if this is the "
         + "desired behaviour the user should merge the jars before creating the provider. "
         + "The recursive (compile/runtime) jars are the jars usually collected transitively from "
@@ -414,7 +416,7 @@ public class JavaSkylarkCommon {
 
   @SkylarkCallable(
     name = "merge",
-    doc = "Merges the given providers into a single java_common.provider.",
+    doc = "Merges the given providers into a single JavaInfo.",
     // We have one positional argument: the list of providers to merge.
     mandatoryPositionals = 1
   )

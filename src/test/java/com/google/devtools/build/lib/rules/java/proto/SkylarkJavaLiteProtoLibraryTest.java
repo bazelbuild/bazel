@@ -361,7 +361,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "proto/extensions.bzl",
         "def _impl(ctx):",
-        "  print (ctx.attr.dep[java_common.provider])",
+        "  print (ctx.attr.dep[JavaInfo])",
         "custom_rule = rule(",
         "  implementation=_impl,",
         "  attrs={",
