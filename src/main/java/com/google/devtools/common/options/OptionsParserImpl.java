@@ -700,7 +700,7 @@ class OptionsParserImpl {
 
     // Set the fields
     for (OptionDefinition optionDefinition :
-        optionsData.getOptionDefinitionsFromClass(optionsClass)) {
+        OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
       Object value;
       OptionValueDescription entry = parsedValues.get(optionDefinition);
       if (entry == null) {

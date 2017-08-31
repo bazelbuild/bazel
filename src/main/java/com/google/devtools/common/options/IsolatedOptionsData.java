@@ -46,6 +46,40 @@ import javax.annotation.concurrent.Immutable;
 public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
+   * Cache for the options in an OptionsBase.
+   *
+   * <p>Mapping from options class to a list of all {@code OptionFields} in that class. The map
+   * entries are unordered, but the fields in the lists are ordered alphabetically. This caches the
+   * work of reflection done for the same {@code optionsBase} across multiple {@link OptionsData}
+   * instances, and must be used through the thread safe {@link
+   * #getAllOptionDefinitionsForClass(Class)}
+   */
+  private static final Map<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
+      allOptionsFields = new HashMap<>();
+
+  /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
+  public static synchronized ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
+      Class<? extends OptionsBase> optionsClass) {
+    return allOptionsFields.computeIfAbsent(
+        optionsClass,
+        optionsBaseClass ->
+            Arrays.stream(optionsBaseClass.getFields())
+                .map(
+                    field -> {
+                      try {
+                        return OptionDefinition.extractOptionDefinition(field);
+                      } catch (NotAnOptionException e) {
+                        // Ignore non-@Option annotated fields. Requiring all fields in the
+                        // OptionsBase to be @Option-annotated requires a depot cleanup.
+                        return null;
+                      }
+                    })
+                .filter(Objects::nonNull)
+                .sorted(OptionDefinition.BY_OPTION_NAME)
+                .collect(ImmutableList.toImmutableList()));
+  }
+
+  /**
    * Mapping from each options class to its no-arg constructor. Entries appear in the same order
    * that they were passed to {@link #from(Collection)}.
    */
@@ -61,12 +95,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
   /** Mapping from option abbreviation to {@code OptionDefinition} (unordered). */
   private final ImmutableMap<Character, OptionDefinition> abbrevToField;
 
-  /**
-   * Mapping from options class to a list of all {@code OptionFields} in that class. The map entries
-   * are unordered, but the fields in the lists are ordered alphabetically.
-   */
-  private final ImmutableMap<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
-      allOptionsFields;
 
   /**
    * Mapping from each options class to whether or not it has the {@link UsesOnlyCoreTypes}
@@ -82,12 +110,10 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       Map<Class<? extends OptionsBase>, Constructor<?>> optionsClasses,
       Map<String, OptionDefinition> nameToField,
       Map<Character, OptionDefinition> abbrevToField,
-      Map<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>> allOptionsFields,
       Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes) {
     this.optionsClasses = ImmutableMap.copyOf(optionsClasses);
     this.nameToField = ImmutableMap.copyOf(nameToField);
     this.abbrevToField = ImmutableMap.copyOf(abbrevToField);
-    this.allOptionsFields = ImmutableMap.copyOf(allOptionsFields);
     this.usesOnlyCoreTypes = ImmutableMap.copyOf(usesOnlyCoreTypes);
   }
 
@@ -96,7 +122,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         other.optionsClasses,
         other.nameToField,
         other.abbrevToField,
-        other.allOptionsFields,
         other.usesOnlyCoreTypes);
   }
 
@@ -130,38 +155,9 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     return abbrevToField.get(abbrev);
   }
 
-  /**
-   * Returns a list of all {@link Field} objects for options in the given options class, ordered
-   * alphabetically by option name.
-   */
-  public ImmutableList<OptionDefinition> getOptionDefinitionsFromClass(
-      Class<? extends OptionsBase> optionsClass) {
-    return allOptionsFields.get(optionsClass);
-  }
-
   public boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
     return usesOnlyCoreTypes.get(optionsClass);
   }
-
-  /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
-  private static ImmutableList<OptionDefinition> getAllOptionDefinitionsSorted(
-      Class<? extends OptionsBase> optionsClass) {
-    return Arrays.stream(optionsClass.getFields())
-        .map(
-            field -> {
-              try {
-                return OptionDefinition.extractOptionDefinition(field);
-              } catch (NotAnOptionException e) {
-                // Ignore non-@Option annotated fields. Requiring all fields in the OptionsBase to
-                // be @Option-annotated requires a depot cleanup.
-                return null;
-              }
-            })
-        .filter(Objects::nonNull)
-        .sorted(OptionDefinition.BY_OPTION_NAME)
-        .collect(ImmutableList.toImmutableList());
-  }
-
   private static <A> void checkForCollisions(
       Map<A, OptionDefinition> aFieldMap, A optionName, String description) {
     if (aFieldMap.containsKey(optionName)) {
@@ -204,8 +200,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
   static IsolatedOptionsData from(Collection<Class<? extends OptionsBase>> classes) {
     // Mind which fields have to preserve order.
     Map<Class<? extends OptionsBase>, Constructor<?>> constructorBuilder = new LinkedHashMap<>();
-    Map<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>> allOptionsFieldsBuilder =
-        new HashMap<>();
     Map<String, OptionDefinition> nameToFieldBuilder = new LinkedHashMap<>();
     Map<Character, OptionDefinition> abbrevToFieldBuilder = new HashMap<>();
 
@@ -225,8 +219,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
             + " lacks an accessible default constructor");
       }
       ImmutableList<OptionDefinition> optionDefinitions =
-          getAllOptionDefinitionsSorted(parsedOptionsClass);
-      allOptionsFieldsBuilder.put(parsedOptionsClass, optionDefinitions);
+          getAllOptionDefinitionsForClass(parsedOptionsClass);
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
         String optionName = optionDefinition.getOptionName();
@@ -297,7 +290,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         constructorBuilder,
         nameToFieldBuilder,
         abbrevToFieldBuilder,
-        allOptionsFieldsBuilder,
         usesOnlyCoreTypesBuilder);
   }
 

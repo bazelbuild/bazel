@@ -32,8 +32,8 @@ import java.util.Comparator;
 public class OptionDefinition {
 
   // TODO(b/65049598) make ConstructionException checked, which will make this checked as well.
-  public static class NotAnOptionException extends ConstructionException {
-    public NotAnOptionException(Field field) {
+  static class NotAnOptionException extends ConstructionException {
+    NotAnOptionException(Field field) {
       super(
           "The field "
               + field.getName()
@@ -44,8 +44,11 @@ public class OptionDefinition {
   /**
    * If the {@code field} is annotated with the appropriate @{@link Option} annotation, returns the
    * {@code OptionDefinition} for that option. Otherwise, throws a {@link NotAnOptionException}.
+   *
+   * <p>These values are cached in the {@link OptionsData} layer and should be accessed through
+   * {@link OptionsParser#getOptionDefinitions(Class)}.
    */
-  public static OptionDefinition extractOptionDefinition(Field field) {
+  static OptionDefinition extractOptionDefinition(Field field) {
     Option annotation = field == null ? null : field.getAnnotation(Option.class);
     if (annotation == null) {
       throw new NotAnOptionException(field);

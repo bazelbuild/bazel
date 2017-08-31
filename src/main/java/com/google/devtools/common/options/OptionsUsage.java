@@ -39,7 +39,7 @@ class OptionsUsage {
   static void getUsage(Class<? extends OptionsBase> optionsClass, StringBuilder usage) {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     List<OptionDefinition> optionDefinitions =
-        new ArrayList<>(data.getOptionDefinitionsFromClass(optionsClass));
+        new ArrayList<>(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
     optionDefinitions.sort(OptionDefinition.BY_OPTION_NAME);
     for (OptionDefinition optionDefinition : optionDefinitions) {
       getUsage(optionDefinition, usage, OptionsParser.HelpVerbosity.LONG, data);

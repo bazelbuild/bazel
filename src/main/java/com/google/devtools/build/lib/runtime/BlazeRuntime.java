@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -87,7 +86,7 @@ import com.google.devtools.common.options.TriState;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -646,23 +645,17 @@ public final class BlazeRuntime {
   static CommandLineOptions splitStartupOptions(
       Iterable<BlazeModule> modules, String... args) {
     List<String> prefixes = new ArrayList<>();
-    List<Field> startupFields = Lists.newArrayList();
+    List<OptionDefinition> startupOptions = Lists.newArrayList();
     for (Class<? extends OptionsBase> defaultOptions
       : BlazeCommandUtils.getStartupOptions(modules)) {
-      startupFields.addAll(ImmutableList.copyOf(defaultOptions.getFields()));
+      startupOptions.addAll(OptionsParser.getOptionDefinitions(defaultOptions));
     }
 
-    for (Field field : startupFields) {
-      try {
-        OptionDefinition optionDefinition = OptionDefinition.extractOptionDefinition(field);
-        prefixes.add("--" + optionDefinition.getOptionName());
-        if (field.getType() == boolean.class || field.getType() == TriState.class) {
-          prefixes.add("--no" + optionDefinition.getOptionName());
-        }
-      } catch (NotAnOptionException e) {
-        // Do nothing, just ignore fields that are not actually options. OptionsBases technically
-        // shouldn't have fields that are not @Options, but this is a requirement that isn't yet
-        // being enforced, so this should not cause a failure here.
+    for (OptionDefinition optionDefinition : startupOptions) {
+      Type optionType = optionDefinition.getField().getType();
+      prefixes.add("--" + optionDefinition.getOptionName());
+      if (optionType == boolean.class || optionType == TriState.class) {
+        prefixes.add("--no" + optionDefinition.getOptionName());
       }
     }
 
