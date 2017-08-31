@@ -102,7 +102,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 <p>It only contains information about the <code>.proto</code> files directly mentioned by a
 <code>proto_library</code> rule; the collection of transitive descriptor sets is available through
-the <code>proto.transitivedescriptorsets</code> Skylark provider.
+the <code>proto.transitive_descriptor_sets</code> Skylark provider.
 See documentation in <code>ProtoSourcesProvider.java</code>.</p>
 
 <!-- #END_BLAZE_RULE -->*/
