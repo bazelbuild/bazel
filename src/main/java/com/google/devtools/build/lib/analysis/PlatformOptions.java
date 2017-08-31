@@ -60,7 +60,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "extra_toolchains",
     converter = LabelListConverter.class,
-    defaultValue = "@bazel_tools//tools/cpp:dummy_cc_toolchain",
+    defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.HIDDEN},
