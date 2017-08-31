@@ -87,6 +87,11 @@ public class CppHelper {
   private static final ImmutableList<String> LINKOPTS_PREREQUISITE_LABEL_KINDS =
       ImmutableList.of("deps", "srcs");
 
+  /** Returns label used to select resolved cc_toolchain instances based on platform. */
+  public static Label getCcToolchainType(String toolsRepository) {
+    return Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:toolchain_type");
+  }
+
   private CppHelper() {
     // prevents construction
   }
