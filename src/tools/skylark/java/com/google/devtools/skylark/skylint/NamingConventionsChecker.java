@@ -47,7 +47,7 @@ public class NamingConventionsChecker extends SyntaxTreeVisitor {
 
   public static List<Issue> check(BuildFileAST ast) {
     NamingConventionsChecker checker = new NamingConventionsChecker();
-    ast.accept(checker);
+    checker.visit(ast);
     return checker.issues;
   }
 
@@ -84,7 +84,10 @@ public class NamingConventionsChecker extends SyntaxTreeVisitor {
 
   @Override
   public void visit(Parameter<Expression, Expression> node) {
-    checkLowerSnakeCase(node.getName(), node.getLocation());
+    String name = node.getName();
+    if (name != null) {
+      checkLowerSnakeCase(name, node.getLocation());
+    }
   }
 
   @Override
