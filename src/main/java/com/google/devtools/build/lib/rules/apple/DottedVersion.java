@@ -97,6 +97,9 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
    * @throws IllegalArgumentException if the passed string is not a valid dotted version
    */
   public static DottedVersion fromString(String version) {
+    if (Strings.isNullOrEmpty(version)) {
+      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+    }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
       components.add(toComponent(component, version));

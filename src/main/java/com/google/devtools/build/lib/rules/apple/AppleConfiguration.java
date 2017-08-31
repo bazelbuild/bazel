@@ -102,7 +102,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
-  private final DottedVersion xcodeVersionCommandLineFlag;
   private final boolean enableAppleCrosstool;
   private final AppleCommandLineOptions options;
   @Nullable private final String xcodeToolchain;
@@ -157,7 +156,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.bitcodeMode = options.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    this.xcodeVersionCommandLineFlag = options.xcodeVersion;
     this.enableAppleCrosstool = options.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
     this.xcodeToolchain = options.xcodeToolchain;
@@ -601,13 +599,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the explicit Xcode version specified on the command line.
-   */
-  public DottedVersion getXcodeVersionCommandLineFlag() {
-    return xcodeVersionCommandLineFlag;
-  }
-
-  /**
    * Returns the unique identifier distinguishing configurations that are otherwise the same.
    *
    * <p>Use this value for situations in which two configurations create two outputs that are the
@@ -676,7 +667,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     ImmutableMap.Builder<String, Object> mapBuilder = ImmutableMap.builder();
 
     if (xcodeVersion != null) {
-      mapBuilder.put("xcode_version", xcodeVersion);
+      mapBuilder.put("xcode_version", xcodeVersion.toString());
     }
     return mapBuilder
         .put("ios_sdk_version", iosSdkVersion)

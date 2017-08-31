@@ -67,16 +67,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "xcode_version",
     defaultValue = "null",
     category = "build",
-    converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help =
         "If specified, uses Xcode of the given version for relevant build actions. "
             + "If unspecified, uses the executor default version of Xcode."
   )
-  // TODO(bazel-team): This should be of String type, to allow referencing an alias based
-  // on an xcode_config target.
-  public DottedVersion xcodeVersion;
+  public String xcodeVersion;
 
   @Option(
     name = "ios_sdk_version",
@@ -507,7 +504,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   void serialize(CodedOutputStream out) throws IOException, SerializationException {
     out.writeBoolNoTag(mandatoryMinimumVersion);
-    serializeNullable(xcodeVersion, out, DottedVersion.CODEC);
+    serializeNullable(xcodeVersion, out, FastStringCodec.INSTANCE);
     serializeNullable(iosSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(watchOsSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(tvOsSdkVersion, out, DottedVersion.CODEC);
@@ -537,7 +534,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       throws IOException, SerializationException {
     AppleCommandLineOptions result = new AppleCommandLineOptions();
     result.mandatoryMinimumVersion = in.readBool();
-    result.xcodeVersion = deserializeNullable(in, DottedVersion.CODEC);
+    result.xcodeVersion = deserializeNullable(in, FastStringCodec.INSTANCE);
     result.iosSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.watchOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.tvOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);

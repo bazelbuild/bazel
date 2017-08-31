@@ -83,7 +83,7 @@ public class AppleConfigurationSerializationTest
     firstOptions.appleBitcodeMode = AppleCommandLineOptions.AppleBitcodeMode.EMBEDDED_MARKERS;
     firstOptions.enableAppleCrosstoolTransition = false;
     firstOptions.targetUsesAppleCrosstool = true;
-    firstOptions.xcodeVersion = DottedVersion.fromString("1.0");
+    firstOptions.xcodeVersion = "1.0";
     try {
       return new AppleConfiguration[] {
         new AppleConfiguration(
