@@ -276,42 +276,6 @@ filegroup(
     srcs = ["auto/auto-value-1.4.jar"],
 )
 
-java_library(
-    name = "dagger",
-    exported_plugins = [":dagger_plugin"],
-    exports = [
-        ":dagger_api",
-        ":jsr330_inject",
-    ],
-)
-
-java_plugin(
-    name = "dagger_plugin",
-    processor_class = "dagger.internal.codegen.ComponentProcessor",
-    deps = [
-        ":dagger_api",
-        ":dagger_compiler",
-        ":dagger_producers",
-        ":guava",
-        ":jsr330_inject",
-    ],
-)
-
-java_import(
-    name = "dagger_api",
-    jars = ["dagger/dagger-2.5.jar"],
-)
-
-java_import(
-    name = "dagger_compiler",
-    jars = ["dagger/dagger-compiler-2.5.jar"],
-)
-
-java_import(
-    name = "dagger_producers",
-    jars = ["dagger/dagger-producers-2.5.jar"],
-)
-
 java_import(
     name = "bytebuddy",
     jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
