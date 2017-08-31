@@ -238,7 +238,7 @@ public final class BlazeWorkspace {
                       + ". Corrupted files were renamed to '"
                       + getCacheDirectory()
                       + "/*.bad'. "
-                      + "Blaze will now reset action cache data, causing a full rebuild"));
+                      + "Bazel will now reset action cache data, causing a full rebuild"));
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         }
       }
