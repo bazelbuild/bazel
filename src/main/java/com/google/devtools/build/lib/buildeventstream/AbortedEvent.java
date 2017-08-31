@@ -15,21 +15,36 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
+
+import javax.annotation.Nullable;
 
 /** A {@link BuildEvent} reporting an event not coming due to the build being aborted. */
 public class AbortedEvent extends GenericBuildEvent {
   private final BuildEventStreamProtos.Aborted.AbortReason reason;
   private final String description;
+  @Nullable private final Label label;
 
   public AbortedEvent(
-      BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description) {
+      BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description,
+      @Nullable Label label) {
     super(id, ImmutableList.<BuildEventId>of());
     this.reason = reason;
     this.description = description;
+    this.label = label;
+  }
+
+  public AbortedEvent(
+      BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description) {
+    this(id, reason, description, null);
   }
 
   public AbortedEvent(BuildEventId id) {
-    this(id, BuildEventStreamProtos.Aborted.AbortReason.UNKNOWN, "");
+    this(id, BuildEventStreamProtos.Aborted.AbortReason.UNKNOWN, "", null);
+  }
+
+  @Nullable public Label getLabel() {
+    return label;
   }
 
   @Override

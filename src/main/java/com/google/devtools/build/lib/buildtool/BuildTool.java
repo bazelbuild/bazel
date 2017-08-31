@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
@@ -91,7 +92,7 @@ import java.util.regex.Pattern;
  */
 public final class BuildTool {
 
-  private static final Logger LOG = Logger.getLogger(BuildTool.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildTool.class.getName());
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -142,7 +143,7 @@ public final class BuildTool {
     boolean catastrophe = false;
     try {
       env.getEventBus().post(new BuildStartingEvent(env, request));
-      LOG.info("Build identifier: " + request.getId());
+      logger.info("Build identifier: " + request.getId());
 
       // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
@@ -208,7 +209,7 @@ public final class BuildTool {
         env.getEventBus().post(new MakeEnvironmentEvent(
             configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
       }
-      LOG.info("Configurations created");
+      logger.info("Configurations created");
 
       if (request.getBuildOptions().performAnalysisPhase) {
         AnalysisResult analysisResult = runAnalysisPhase(request, loadingResult, configurations);
@@ -220,9 +221,9 @@ public final class BuildTool {
 
         for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
           BuildConfiguration config = target.getConfiguration();
+          Label label = target.getLabel();
           env.getEventBus().post(new AbortedEvent(config.getEventId(), AbortReason.SKIPPED,
-            String.format(
-                "Target %s build was skipped.", target.getLabel())));
+              String.format("Target %s build was skipped.", label), label));
         }
 
         // TODO(janakr): this query will operate over the graph as constructed by analysis, but will
@@ -257,7 +258,7 @@ public final class BuildTool {
         }
       } else {
         getReporter().handle(Event.progress("Loading complete."));
-        LOG.info("No analysis requested, so finished");
+        logger.info("No analysis requested, so finished");
         String errorMessage = BuildView.createErrorMessage(loadingResult, null);
         if (errorMessage != null) {
           throw new BuildFailedException(errorMessage);
