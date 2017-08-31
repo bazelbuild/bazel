@@ -128,7 +128,10 @@ _bazel__get_cword() {
   wordbreaks="${wordbreaks//\"/}"
   wordbreaks="${wordbreaks//:/}"
   wordbreaks="${wordbreaks//=/}"
-  local word_start=$(expr "$cur" : '.*[^\]['"${wordbreaks}"']')
+  local word_start=0
+  if [[ ! -z "$wordbreaks" ]]; then
+    word_start=$(expr "$cur" : '.*[^\]['"${wordbreaks}"']')
+  fi
   echo "${cur:$word_start}"
 }
 
@@ -319,7 +322,7 @@ _bazel__expand_target_pattern() {
 }
 
 _bazel__get_command() {
-  for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
+  for word in "${COMP_WORDS[@]:1:$COMP_CWORD-1}"; do
     if echo "$BAZEL_COMMAND_LIST" | "grep" -wsq -e "$word"; then
       echo $word
       break
