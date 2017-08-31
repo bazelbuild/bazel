@@ -224,7 +224,6 @@ android_sdk(
     main_dex_classes = ":error_message",
     apksigner = ":error_message",
     zipalign = ":error_message",
-    resource_extractor = "error_message",
 )
 
 genrule(
