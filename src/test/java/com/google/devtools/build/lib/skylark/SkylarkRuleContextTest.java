@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1673,6 +1674,91 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(argv.isImmutable()).isTrue();
     Object result = eval("action.argv[2].startswith('echo foo123')");
     assertThat((Boolean) result).isTrue();
+  }
+
+  @Test
+  public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
+    // createRuleContext() gives us the context for a rule upon entry into its analysis function.
+    // But we need to inspect the result of calling created_actions() after the rule context has
+    // been modified by creating actions. So we'll call created_actions() from within the analysis
+    // function and pass it along as a provider.
+    scratch.file(
+        "test/rules.bzl",
+        "def _undertest_impl(ctx):",
+        "  out1 = ctx.outputs.out1",
+        "  out2 = ctx.outputs.out2",
+        "  out3 = ctx.outputs.out3",
+        "  ctx.actions.run_shell(outputs=[out1],",
+        "                        command='( %s ; ) > $1' % (",
+        "                            ' ; '.join(['echo xxx%d' % i for i in range(0, 7000)])),",
+        "                        mnemonic='mnemonic1',",
+        "                        arguments=[out1.path])",
+        "  ctx.actions.run_shell(outputs=[out2],",
+        "                        command='echo foo > ' + out2.path,",
+        "                        mnemonic='mnemonic2')",
+        "  ctx.actions.run_shell(outputs=[out3],",
+        "                        command='( %s ; ) > $1' % (",
+        "                            ' ; '.join(['echo yyy%d' % i for i in range(0, 7000)])),",
+        "                        mnemonic='mnemonic3',",
+        "                        arguments=[out3.path])",
+        "  v = ctx.created_actions().by_file",
+        "  return struct(v=v, out1=out1, out2=out2, out3=out3)",
+        "",
+        "undertest_rule = rule(",
+        "    implementation=_undertest_impl,",
+        "    outputs={'out1': '%{name}1.txt',",
+        "             'out2': '%{name}2.txt',",
+        "             'out3': '%{name}3.txt'},",
+        "    _skylark_testable = True,",
+        ")",
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+
+    Object mapUnchecked = evalRuleContextCode(ruleContext, "ruleContext.attr.dep.v");
+    assertThat(mapUnchecked).isInstanceOf(SkylarkDict.class);
+    SkylarkDict<?, ?> map = (SkylarkDict<?, ?>) mapUnchecked;
+    Object out1 = eval("ruleContext.attr.dep.out1");
+    Object out2 = eval("ruleContext.attr.dep.out2");
+    Object out3 = eval("ruleContext.attr.dep.out3");
+    // 5 actions in total: 3 SpawnActions and 2 FileWriteActions for the two long commands.
+    assertThat(map).hasSize(5);
+    assertThat(map).containsKey(out1);
+    assertThat(map).containsKey(out2);
+    assertThat(map).containsKey(out3);
+    Object action1Unchecked = map.get(out1);
+    Object action2Unchecked = map.get(out2);
+    Object action3Unchecked = map.get(out3);
+    assertThat(action1Unchecked).isInstanceOf(ActionAnalysisMetadata.class);
+    assertThat(action2Unchecked).isInstanceOf(ActionAnalysisMetadata.class);
+    assertThat(action3Unchecked).isInstanceOf(ActionAnalysisMetadata.class);
+    ActionAnalysisMetadata spawnAction1 = (ActionAnalysisMetadata) action1Unchecked;
+    ActionAnalysisMetadata spawnAction2 = (ActionAnalysisMetadata) action2Unchecked;
+    ActionAnalysisMetadata spawnAction3 = (ActionAnalysisMetadata) action3Unchecked;
+    assertThat(spawnAction1.getMnemonic()).isEqualTo("mnemonic1");
+    assertThat(spawnAction2.getMnemonic()).isEqualTo("mnemonic2");
+    assertThat(spawnAction3.getMnemonic()).isEqualTo("mnemonic3");
+    Artifact helper1 =
+        Iterables.getOnlyElement(
+            Iterables.filter(
+                spawnAction1.getInputs(), a -> a.getFilename().equals("undertest.run_shell_0.sh")));
+    assertThat(
+            Iterables.filter(spawnAction2.getInputs(), a -> a.getFilename().contains("run_shell_")))
+        .isEmpty();
+    Artifact helper3 =
+        Iterables.getOnlyElement(
+            Iterables.filter(
+                spawnAction3.getInputs(), a -> a.getFilename().equals("undertest.run_shell_2.sh")));
+    assertThat(map).containsKey(helper1);
+    assertThat(map).containsKey(helper3);
+    Object action4Unchecked = map.get(helper1);
+    Object action5Unchecked = map.get(helper3);
+    assertThat(action4Unchecked).isInstanceOf(FileWriteAction.class);
+    assertThat(action5Unchecked).isInstanceOf(FileWriteAction.class);
+    FileWriteAction fileWriteAction1 = (FileWriteAction) action4Unchecked;
+    FileWriteAction fileWriteAction2 = (FileWriteAction) action5Unchecked;
+    assertThat(fileWriteAction1.getFileContents()).contains("echo xxx6999 ;");
+    assertThat(fileWriteAction2.getFileContents()).contains("echo yyy6999 ;");
   }
 
   @Test
