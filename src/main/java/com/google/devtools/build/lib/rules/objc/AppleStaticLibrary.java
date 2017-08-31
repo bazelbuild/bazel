@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -107,7 +106,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
       ProtobufSupport protoSupport =
@@ -145,7 +143,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               .setRuleContext(ruleContext)
               .setConfig(childConfig)
               .setOutputGroupCollector(outputGroupCollector)
-              .setProviderCollector(providerCollector)
               .build();
 
       compilationSupport
@@ -183,8 +180,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     targetBuilder
         .addNativeDeclaredProvider(
             new AppleStaticLibraryProvider(
-                ruleIntermediateArtifacts.combinedArchitectureArchive(), objcProvider))
-        .addProviderMaps(providerCollector.build())
+                ruleIntermediateArtifacts.combinedArchitectureArchive(),
+                objcProvider))
         .addOutputGroups(outputGroupCollector);
     return targetBuilder.build();
   }

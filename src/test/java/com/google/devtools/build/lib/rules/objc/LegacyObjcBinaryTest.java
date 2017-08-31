@@ -37,10 +37,9 @@ public class LegacyObjcBinaryTest extends ObjcBinaryTest {
     return ObjcCrosstoolMode.OFF;
   }
 
-  @Override
   @Test
   public void testLinkActionWithTransitiveCppDependency() throws Exception {
-    // Transitive sources data is not available to the legacy rules.
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
   }
 
   @Test

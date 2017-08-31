@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -69,12 +67,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addAll(common.getCompiledArchive().asSet());
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setOutputGroupCollector(outputGroupCollector)
-            .setProviderCollector(providerCollector)
             .setIsObjcLibrary()
             .build();
 
@@ -100,8 +96,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
-        .addNativeDeclaredProvider(new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
-        .addProviderMaps(providerCollector.build())
+        .addNativeDeclaredProvider(
+            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
   }

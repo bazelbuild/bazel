@@ -343,8 +343,19 @@ public final class ObjcProvider extends NativeInfo {
    * flag. If the item is included in the key {@link #FLAG}, then the flag is considered set.
    */
   public enum Flag {
+    /**
+     * Indicates that C++ (or Objective-C++) is used in any source file. This affects how the linker
+     * is invoked.
+     */
+    USES_CPP,
+
+    /**
+     * Indicates that Objective-C (or Objective-C++) is used in any source file. This affects how
+     * the linker is invoked.
+     */
+    USES_OBJC,
+
     /** Indicates that Swift dependencies are present. This affects bundling actions. */
-    // TODO(b/65016770): Move to TransitiveSourcesProvider.
     USES_SWIFT,
 
     /**

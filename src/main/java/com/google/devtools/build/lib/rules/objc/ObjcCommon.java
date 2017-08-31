@@ -23,7 +23,10 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEBUG_SYMBOL
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_OBJC;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -68,8 +71,10 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
@@ -516,6 +521,24 @@ public final class ObjcCommon {
         if (artifacts.getArchive().isPresent()
             && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
           objcProvider.addAll(J2OBJC_LIBRARY, artifacts.getArchive().asSet());
+        }
+
+        boolean usesCpp = false;
+        boolean usesObjc = false;
+        for (Artifact sourceFile :
+            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
+          usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+          usesObjc =
+              usesObjc
+                  || FileTypeSet.of(CppFileTypes.OBJC_SOURCE, CppFileTypes.OBJCPP_SOURCE)
+                      .matches(sourceFile.getExecPath().getPathString());
+        }
+
+        if (usesCpp) {
+          objcProvider.add(FLAG, USES_CPP);
+        }
+        if (usesObjc) {
+          objcProvider.add(FLAG, USES_OBJC);
         }
       }
 

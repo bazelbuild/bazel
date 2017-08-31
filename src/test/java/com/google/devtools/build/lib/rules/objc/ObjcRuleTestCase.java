@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
@@ -643,10 +644,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch, "srcs", "['c.m']", "deps", "['//lib2:lib2']");
 
     CommandAction action = linkAction("//x:x");
-    String commandLine = Joiner.on(" ").join(action.getArguments());
-    assertThat(commandLine).contains("wrapped_clang++");
-    assertThat(commandLine).contains("-stdlib=libc++");
-    assertThat(commandLine).contains("-std=gnu++11");
+    assertThat(action.getArguments().get(2))
+        .startsWith(
+            MOCK_XCRUNWRAPPER_PATH + " " + CLANG_PLUSPLUS + " -stdlib=libc++ -std=gnu++11");
   }
 
   protected Map<String, String> mobileProvisionProfiles(BundleMergeProtos.Control control) {

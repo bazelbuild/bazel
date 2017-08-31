@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -126,12 +125,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .build();
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setOutputGroupCollector(outputGroupCollector)
-            .setProviderCollector(providerCollector)
             .build();
 
     compilationSupport
@@ -191,7 +188,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addProvider(
                 InstrumentedFilesProvider.class,
                 compilationSupport.getInstrumentedFilesProvider(common))
-            .addProviderMaps(providerCollector.build())
             .addOutputGroups(outputGroupCollector);
 
     if (xcTestAppProvider.isPresent()) {

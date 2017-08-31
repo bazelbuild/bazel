@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -142,7 +141,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             getDylibProtoProviders(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     multiArchBinarySupport.registerActions(
         platform,
         getExtraLinkArgs(ruleContext),
@@ -150,8 +148,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         getExtraLinkInputs(ruleContext),
         configToDepsCollectionMap,
         outputArtifact,
-        outputGroupCollector,
-        providerCollector);
+        outputGroupCollector);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -213,10 +210,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    targetBuilder
-        .addNativeDeclaredProvider(builder.build())
-        .addProviderMaps(providerCollector.build())
-        .addOutputGroups(outputGroupCollector);
+    targetBuilder.addNativeDeclaredProvider(builder.build()).addOutputGroups(outputGroupCollector);
 
     InstrumentedFilesProvider instrumentedFilesProvider =
         InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");

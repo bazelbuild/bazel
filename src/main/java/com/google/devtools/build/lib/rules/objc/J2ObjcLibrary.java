@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -95,10 +94,8 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
             .build();
 
-    ImmutableList.Builder<TransitiveInfoProviderMap> providerCollector = ImmutableList.builder();
     new CompilationSupport.Builder()
         .setRuleContext(ruleContext)
-        .setProviderCollector(providerCollector)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .doNotUsePch()
         .build()
@@ -113,7 +110,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .addProviderMaps(providerCollector.build())
         .addNativeDeclaredProvider(objcProvider)
         .build();
   }

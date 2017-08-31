@@ -935,9 +935,4 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   public void testGenruleDependency() throws Exception {
     checkGenruleDependency(RULE_TYPE);
   }
-
-  @Test
-  public void testLinkActionWithTransitiveCppDependency() throws Exception {
-    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
-  }
 }
