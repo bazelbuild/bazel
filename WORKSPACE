@@ -33,6 +33,13 @@ bind(
     actual = "//third_party/py/six",
 )
 
+http_archive(
+    name = "bazel_j2objc",
+    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
+    sha256 = "529ee99e6f0e3f88edef61aeae4f13dc6e5eb8183993ced191338422b0e1fbeb",
+    strip_prefix = "j2objc-2.0.3",
+)
+
 # For src/test/docker/...
 load("//src/test/docker:docker_repository.bzl", "docker_repository")
 docker_repository()
