@@ -165,7 +165,8 @@ public class BazelCppRuleClasses {
           <p>
             Each string in this attribute is added in the given order to <code>COPTS</code> before
             compiling the binary target. The flags take effect only for compiling this target, not
-            its dependencies, so be careful about header files included elsewhere.
+            its dependencies, so be careful about header files included elsewhere.  All paths should
+            be relative to the workspace, not to the current package.
           </p>
           <p>
             If the package declares the <a href="${link package.features}">feature</a>
