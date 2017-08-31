@@ -86,7 +86,10 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -121,9 +124,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected final Path workspaceDir;
     protected RuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected Reporter reporter = new Reporter(new EventBus());
-    protected ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
-    protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of();
-    protected String defaultsPackageContents = getDefaultDefaulsPackageContents();
+    protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
+    protected List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
+    protected String defaultsPackageContents = getDefaultDefaultPackageContents();
     protected int legacyGlobbingThreads = 1;
     int skyframeThreads = 1;
 
@@ -136,25 +139,24 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setDefaultsPackageContents(String defaultsPackageContents) {
-      this.defaultsPackageContents = defaultsPackageContents;
-      return this;
-    }
-
     public Builder setReporter(Reporter reporter) {
       this.reporter = reporter;
       return this;
     }
 
-    public Builder setExtraSkyFunctions(
+    public Builder addExtraSkyFunctions(
         ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
-      this.extraSkyFunctions = extraSkyFunctions;
+      this.extraSkyFunctions.putAll(extraSkyFunctions);
       return this;
     }
 
-    public Builder setExtraPrecomputedValues(
-        ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-      this.extraPrecomputedValues = extraPrecomputedValues;
+    public Builder addExtraPrecomputedValues(PrecomputedValue.Injected... extraPrecomputedValues) {
+      return this.addExtraPrecomputedValues(Arrays.asList(extraPrecomputedValues));
+    }
+
+    public Builder addExtraPrecomputedValues(
+        List<PrecomputedValue.Injected> extraPrecomputedValues) {
+      this.extraPrecomputedValues.addAll(extraPrecomputedValues);
       return this;
     }
 
@@ -172,7 +174,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     protected abstract RuleClassProvider getDefaultRuleClassProvider();
 
-    protected abstract String getDefaultDefaulsPackageContents();
+    protected abstract String getDefaultDefaultPackageContents();
   }
 
   protected AbstractPackageLoader(Builder builder) {
@@ -181,7 +183,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new PathPackageLocator(null, ImmutableList.of(workspaceDir));
     this.ruleClassProvider = builder.ruleClassProvider;
     this.reporter = builder.reporter;
-    this.extraSkyFunctions = builder.extraSkyFunctions;
+    this.extraSkyFunctions = ImmutableMap.copyOf(builder.extraSkyFunctions);
     this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
     this.skyframeThreads = builder.skyframeThreads;
@@ -204,11 +206,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             UnixGlob.DEFAULT_SYSCALLS_REF);
       }
     };
-    this.preinjectedDiff = makePreinjectedDiff(
-        pkgLocator,
-        builder.defaultsPackageContents,
-        builder.extraPrecomputedValues,
-        directories);
+    this.preinjectedDiff =
+        makePreinjectedDiff(
+            pkgLocator,
+            builder.defaultsPackageContents,
+            ImmutableList.copyOf(builder.extraPrecomputedValues),
+            directories);
   }
 
   private static ImmutableDiff makePreinjectedDiff(
@@ -312,7 +315,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       getCrossRepositoryLabelViolationStrategy();
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
-  protected abstract ImmutableMap<SkyFunctionName, SkyFunction> getExtraExtraSkyFunctions();
 
   protected final ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
     AtomicReference<TimestampGranularityMonitor> tsgm =
@@ -374,8 +376,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*skylarkImportLookupFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile()))
-        .putAll(extraSkyFunctions)
-        .putAll(getExtraExtraSkyFunctions());
+        .putAll(extraSkyFunctions);
     return builder.build();
   }
 }
