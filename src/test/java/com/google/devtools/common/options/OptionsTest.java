@@ -472,37 +472,8 @@ public class OptionsTest {
     assertThat(options.string).isNull();
   }
 
-  public static class K extends OptionsBase {
-    @Option(
-      name = "1",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public int int1;
-  }
   @Test
-  public void nullDefaultForPrimitiveTypeOption() throws Exception {
-    // defaultValue() = "null" is not treated specially for primitive types, so
-    // we get an NumberFormatException from the converter (not a
-    // ClassCastException from casting null to int), just as we would for any
-    // other non-integer-literal string default.
-    try {
-      Options.parse(K.class, NO_ARGS).getOptions();
-      fail();
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(OptionsParsingException.class);
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo(
-              "OptionsParsingException while retrieving the default value for "
-                  + "int1: 'null' is not an int");
-    }
-  }
-
-  @Test
-  public void nullIsntInterpretedSpeciallyExceptAsADefaultValue()
-      throws Exception {
+  public void nullIsNotInterpretedSpeciallyExceptAsADefaultValue() throws Exception {
     HttpOptions options =
         Options.parse(HttpOptions.class,
                       new String[] { "--host", "null" }).getOptions();

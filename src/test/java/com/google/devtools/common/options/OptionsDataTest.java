@@ -416,38 +416,6 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class InvalidExpansionOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public int foo;
-
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1",
-      expansion = {"--foo=42"}
-    )
-    public int bar;
-  }
-
-  @Test
-  public void staticExpansionOptionsShouldNotHaveValues() {
-    try {
-      construct(InvalidExpansionOptions.class);
-      fail();
-    } catch (ConstructionException e) {
-      // Expected exception
-      assertThat(e).hasMessageThat().contains(
-          "Option bar is an expansion flag with a static expansion, but does not have Void type.");
-    }
-  }
-
-  /** Dummy options class. */
   public static class ValidExpansionOptions extends OptionsBase {
     @Option(
       name = "foo",

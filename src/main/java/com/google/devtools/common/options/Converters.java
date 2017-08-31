@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.time.Duration;
 import java.util.Iterator;
@@ -167,7 +168,7 @@ public final class Converters {
   public static class VoidConverter implements Converter<Void> {
     @Override
     public Void convert(String input) throws OptionsParsingException {
-      if (input == null) {
+      if (input == null || input.equals("null")) {
         return null; // expected input, return is unused so null is fine.
       }
       throw new OptionsParsingException("'" + input + "' unexpected");
@@ -220,24 +221,23 @@ public final class Converters {
     }
   }
 
+  // 1:1 correspondence with UsesOnlyCoreTypes.CORE_TYPES.
   /**
    * The converters that are available to the options parser by default. These are used if the
    * {@code @Option} annotation does not specify its own {@code converter}, and its type is one of
    * the following.
    */
-  static final Map<Class<?>, Converter<?>> DEFAULT_CONVERTERS = Maps.newHashMap();
-
-  static {
-    // 1:1 correspondence with UsesOnlyCoreTypes.CORE_TYPES.
-    DEFAULT_CONVERTERS.put(String.class, new Converters.StringConverter());
-    DEFAULT_CONVERTERS.put(int.class, new Converters.IntegerConverter());
-    DEFAULT_CONVERTERS.put(long.class, new Converters.LongConverter());
-    DEFAULT_CONVERTERS.put(double.class, new Converters.DoubleConverter());
-    DEFAULT_CONVERTERS.put(boolean.class, new Converters.BooleanConverter());
-    DEFAULT_CONVERTERS.put(TriState.class, new Converters.TriStateConverter());
-    DEFAULT_CONVERTERS.put(Duration.class, new Converters.DurationConverter());
-    DEFAULT_CONVERTERS.put(Void.class, new Converters.VoidConverter());
-  }
+  public static final ImmutableMap<Class<?>, Converter<?>> DEFAULT_CONVERTERS =
+      new ImmutableMap.Builder<Class<?>, Converter<?>>()
+          .put(String.class, new Converters.StringConverter())
+          .put(int.class, new Converters.IntegerConverter())
+          .put(long.class, new Converters.LongConverter())
+          .put(double.class, new Converters.DoubleConverter())
+          .put(boolean.class, new Converters.BooleanConverter())
+          .put(TriState.class, new Converters.TriStateConverter())
+          .put(Duration.class, new Converters.DurationConverter())
+          .put(Void.class, new Converters.VoidConverter())
+          .build();
 
   /**
    * Join a list of words as in English.  Examples:

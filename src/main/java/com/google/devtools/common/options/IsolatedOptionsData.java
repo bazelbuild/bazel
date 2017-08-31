@@ -20,15 +20,10 @@ import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -248,80 +243,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
                   + "\" in option \""
                   + optionName
                   + "\" is disallowed.");
-        }
-
-        Type fieldType = optionDefinition.getFieldSingularType();
-        // For simple, static expansions, don't accept non-Void types.
-        if (optionDefinition.getOptionExpansion().length != 0 && !optionDefinition.isVoidField()) {
-          throw new ConstructionException(
-              "Option "
-                  + optionDefinition.getOptionName()
-                  + " is an expansion flag with a static expansion, but does not have Void type.");
-        }
-
-        // Get the converter's return type to check that it matches the option type.
-        @SuppressWarnings("rawtypes")
-        Class<? extends Converter> converterClass = optionDefinition.getProvidedConverter();
-        if (converterClass == Converter.class) {
-          Converter<?> actualConverter = Converters.DEFAULT_CONVERTERS.get(fieldType);
-          if (actualConverter == null) {
-            throw new ConstructionException(
-                "Cannot find converter for field of type "
-                    + optionDefinition.getType()
-                    + " named "
-                    + optionDefinition.getField().getName()
-                    + " in class "
-                    + optionDefinition.getField().getDeclaringClass().getName());
-          }
-          converterClass = actualConverter.getClass();
-        }
-        if (Modifier.isAbstract(converterClass.getModifiers())) {
-          throw new ConstructionException(
-              "The converter type " + converterClass + " must be a concrete type");
-        }
-        Type converterResultType;
-        try {
-          Method convertMethod = converterClass.getMethod("convert", String.class);
-          converterResultType =
-              GenericTypeHelper.getActualReturnType(converterClass, convertMethod);
-        } catch (NoSuchMethodException e) {
-          throw new ConstructionException(
-              "A known converter object doesn't implement the convert method");
-        }
-
-        if (optionDefinition.allowsMultiple()) {
-          if (GenericTypeHelper.getRawType(converterResultType) == List.class) {
-            Type elementType =
-                ((ParameterizedType) converterResultType).getActualTypeArguments()[0];
-            if (!GenericTypeHelper.isAssignableFrom(fieldType, elementType)) {
-              throw new ConstructionException(
-                  "If the converter return type of a multiple occurrence option is a list, then "
-                      + "the type of list elements ("
-                      + fieldType
-                      + ") must be assignable from the converter list element type ("
-                      + elementType
-                      + ")");
-            }
-          } else {
-            if (!GenericTypeHelper.isAssignableFrom(fieldType, converterResultType)) {
-              throw new ConstructionException(
-                  "Type of list elements ("
-                      + fieldType
-                      + ") for multiple occurrence option must be assignable from the converter "
-                      + "return type ("
-                      + converterResultType
-                      + ")");
-            }
-          }
-        } else {
-          if (!GenericTypeHelper.isAssignableFrom(fieldType, converterResultType)) {
-            throw new ConstructionException(
-                "Type of field ("
-                    + fieldType
-                    + ") must be assignable from the converter return type ("
-                    + converterResultType
-                    + ")");
-          }
         }
 
         if (optionDefinition.isBooleanField()) {

@@ -21,7 +21,6 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 
 /**
  * Everything the {@link OptionsParser} needs to know about how an option is defined.
@@ -36,7 +35,9 @@ public class OptionDefinition {
   public static class NotAnOptionException extends ConstructionException {
     public NotAnOptionException(Field field) {
       super(
-          "The field " + field + " does not have the right annotation to be considered an option.");
+          "The field "
+              + field.getName()
+              + " does not have the right annotation to be considered an option.");
     }
   }
 
@@ -192,20 +193,9 @@ public class OptionDefinition {
   Type getFieldSingularType() {
     Type fieldType = getField().getGenericType();
     if (allowsMultiple()) {
-      // If the type isn't a List<T>, this is an error in the option's declaration.
-      if (!(fieldType instanceof ParameterizedType)) {
-        throw new ConstructionException(
-            String.format(
-                "Option %s allows multiple occurrences, so must be of type List<...>",
-                getField().getName()));
-      }
+      // The validity of the converter is checked at compile time. We know the type to be
+      // List<singularType>.
       ParameterizedType pfieldType = (ParameterizedType) fieldType;
-      if (pfieldType.getRawType() != List.class) {
-        throw new ConstructionException(
-            String.format(
-                "Option %s allows multiple occurrences, so must be of type List<...>",
-                getField().getName()));
-      }
       fieldType = pfieldType.getActualTypeArguments()[0];
     }
     return fieldType;
@@ -226,13 +216,6 @@ public class OptionDefinition {
       // No converter provided, use the default one.
       Type type = getFieldSingularType();
       converter = Converters.DEFAULT_CONVERTERS.get(type);
-      if (converter == null) {
-        throw new ConstructionException(
-            String.format(
-                "Option %s expects values of type %s, but no converter was found; possible fix: "
-                    + "add converter=... to its @Option annotation.",
-                getField().getName(), type));
-      }
     } else {
       try {
         // Instantiate the given Converter class.

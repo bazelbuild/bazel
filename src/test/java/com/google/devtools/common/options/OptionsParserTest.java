@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import java.io.ByteArrayInputStream;
@@ -1686,29 +1685,6 @@ public class OptionsParserTest {
         "--alpha=two,three"));
     assertThat(parser.getOptions(CommaSeparatedOptionsExample.class).alpha)
         .isEqualTo(Arrays.asList("one", "two", "three"));
-  }
-
-  public static class IllegalListTypeExample extends OptionsBase {
-    @Option(
-      name = "alpha",
-      converter = CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public List<Integer> alpha;
-  }
-
-  @Test
-  public void illegalListType() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(IllegalListTypeExample.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
   }
 
   public static class Yesterday extends OptionsBase {

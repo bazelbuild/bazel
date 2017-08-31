@@ -19,11 +19,12 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.Converters.StringConverter;
+import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.Map;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,109 +36,52 @@ public class OptionDefinitionTest {
 
   /** Dummy options class, to test various expected failures of the OptionDefinition. */
   public static class BrokenOptions extends OptionsBase {
-    @Option(
-      name = "missing_its_converter",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public Map<String, String> noConverter;
+    public String notAnOption;
 
     @Option(
-      name = "multiple_but_not_a_list",
+      name = "assignments",
+      defaultValue = "foo is not an assignment",
+      converter = AssignmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      allowMultiple = true
+      effectTags = OptionEffectTag.NO_OP
     )
-    public String multipleWithNoList;
-
-    @Option(
-      name = "multiple_with_wrong_collection",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1",
-      allowMultiple = true
-    )
-    public Set<String> multipleWithSetType;
-
-    @Option(
-      name = "invalid_default",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "not a number"
-    )
-    public int invalidDefault;
+    public Map.Entry<String, String> assignments;
   }
 
   @Test
-  public void errorForMissingOptionConverter() throws Exception {
+  public void optionConverterCannotParseDefaultValue() throws Exception {
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("noConverter"));
-    try {
-      optionDef.getConverter();
-      fail("Missing converter should have caused getConverter to fail.");
-    } catch (ConstructionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Option noConverter expects values of type java.util.Map<java.lang.String, "
-                  + "java.lang.String>, but no converter was found; possible fix: "
-                  + "add converter=... to its @Option annotation.");
-    }
-  }
-
-  @Test
-  public void errorForInvalidOptionTypeForRepeatableOptions() throws Exception {
-    OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
-            BrokenOptions.class.getField("multipleWithNoList"));
-    try {
-      optionDef.getConverter();
-      fail("Mistyped allowMultiple option did not fail getConverter().");
-    } catch (ConstructionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains
-              ("Option multipleWithNoList allows multiple occurrences, so must be of type "
-                  + "List<...>");
-    }
-  }
-
-  @Test
-  public void errorForInvalidCollectionOptionConverter() throws Exception {
-    OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
-            BrokenOptions.class.getField("multipleWithSetType"));
-    try {
-      optionDef.getConverter();
-      fail("Mistyped allowMultiple option did not fail getConverter().");
-    } catch (ConstructionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "Option multipleWithSetType allows multiple occurrences, so must be of type "
-                  + "List<...>");
-    }
-  }
-
-  @Test
-  public void errorForInvalidDefaultValue() throws Exception {
-    OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("invalidDefault"));
+        OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("assignments"));
     try {
       optionDef.getDefaultValue();
-      fail("Invalid default value parsed without failure.");
+      fail("Incorrect default should have caused getDefaultValue to fail.");
     } catch (ConstructionException e) {
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "OptionsParsingException while retrieving the default value for invalidDefault: "
-                  + "'not a number' is not an int");
+              "OptionsParsingException while retrieving the default value for assignments: "
+                  + "Variable definitions must be in the form of a 'name=value' assignment");
     }
   }
 
-  /** The rare valid options. */
+  @Test
+  public void optionDefinitionRejectsNonOptions() throws Exception {
+    try {
+      OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("notAnOption"));
+      fail("notAnOption isn't an Option, and shouldn't be accepted as one.");
+    } catch (NotAnOptionException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "The field notAnOption does not have the right annotation to be considered an "
+                  + "option.");
+    }
+  }
+
+  /**
+   * Dummy options class with valid options for testing the memoization of converters and default
+   * values.
+   */
   public static class ValidOptionUsingDefaultConverterForMocking extends OptionsBase {
     @Option(
       name = "foo",
@@ -154,7 +98,7 @@ public class OptionDefinitionTest {
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "strings"
     )
-    public int bar;
+    public String bar;
   }
 
   /**
