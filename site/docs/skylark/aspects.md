@@ -130,7 +130,7 @@ def _metal_proto_aspect_impl(target, ctx):
         outputs = outputs)
     transitive_outputs = depset(outputs)
     for dep in ctx.rule.attr.deps:
-        transitive_outputs = transitive_outputs | dep.metal_proto.transitive_outputs
+        transitive_outputs = transitive_outputs | dep[MetalProtoInfo].transitive_outputs
     return [MetalProtoInfo(direct_outputs = outputs,
                            transitive_outputs = transitive_outputs)]
 ```
