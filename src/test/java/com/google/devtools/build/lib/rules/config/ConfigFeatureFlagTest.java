@@ -19,10 +19,13 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -77,6 +80,43 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         ")");
     assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
         .isEqualTo("configured");
+  }
+
+  @Test
+  public void configFeatureFlagProvider_skylarkConstructor() throws Exception {
+    scratch.file(
+        "test/wrapper.bzl",
+        "def _flag_reading_wrapper_impl(ctx):",
+        "  pass",
+        "flag_reading_wrapper = rule(",
+        "  implementation = _flag_reading_wrapper_impl,",
+        "  attrs = {'flag': attr.label()},",
+        ")",
+        "def _flag_propagating_wrapper_impl(ctx):",
+        "  return struct(providers = [config_common.FeatureFlagInfo(value='hello')])",
+        "flag_propagating_wrapper = rule(",
+        "  implementation = _flag_propagating_wrapper_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':wrapper.bzl', 'flag_propagating_wrapper')",
+        "flag_propagating_wrapper(",
+        "    name = 'propagator',",
+        ")",
+        "config_setting(name = 'hello_setting',",
+        "    flag_values = {':propagator': 'hello'})",
+        "genrule(",
+        "    name = 'gen',",
+        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = select({",
+        "       ':hello_setting': 'hello',",
+        "       '//conditions:default': 'error'",
+        "    }))");
+
+    ConfiguredAttributeMapper attributeMapper = ConfiguredAttributeMapper.of(
+        (RuleConfiguredTarget) getConfiguredTarget("//test:gen"));
+    assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
 
   @Test
