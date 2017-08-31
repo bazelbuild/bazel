@@ -69,17 +69,18 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   @Override
   public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
+      TreeNodeRepositoryVisitor repositoryVisitor, Path execRoot, TreeNode root, Action action, Command command)
           throws IOException, InterruptedException {
-    repository.computeMerkleDigests(root);
+    repositoryVisitor.computeMerkleDigests(root);
     uploadBlob(action.toByteArray());
+    TreeNodeRepository repository = repositoryVisitor.getRepository();
     uploadBlob(command.toByteArray());
     for (Directory directory : repository.treeToDirectories(root)) {
       uploadBlob(directory.toByteArray());
     }
     // TODO(ulfjack): Only upload files that aren't in the CAS yet?
     for (TreeNode leaf : repository.leaves(root)) {
-      uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
+      uploadFileContents(leaf.getActionInput(), execRoot, repositoryVisitor.getInputFileCache());
     }
   }
 

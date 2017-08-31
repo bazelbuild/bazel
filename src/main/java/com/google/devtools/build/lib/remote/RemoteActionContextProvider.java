@@ -45,6 +45,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final RemoteRetrier retrier;
   private final DigestUtil digestUtil;
   private final Path logDir;
+  private final TreeNodeRepository repository;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
 
   RemoteActionContextProvider(
@@ -53,13 +54,15 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       @Nullable GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
-      Path logDir) {
+      Path logDir,
+      TreeNodeRepository repository) {
     this.env = env;
     this.executor = executor;
     this.cache = cache;
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+    this.repository = repository;
   }
 
   @Override
@@ -79,7 +82,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               buildRequestId,
               commandId,
               env.getReporter(),
-              digestUtil);
+              digestUtil,
+              repository);
       return ImmutableList.of(spawnCache);
     } else {
       RemoteSpawnRunner spawnRunner =
@@ -96,7 +100,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               executor,
               retrier,
               digestUtil,
-              logDir);
+              logDir,
+              repository);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }

@@ -94,7 +94,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * documented that it cannot be used for remote execution.
    */
   public abstract void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
+      TreeNodeRepositoryVisitor repositoryVisitor, Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException;
 
   /**

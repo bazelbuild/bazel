@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -91,6 +92,7 @@ public class RemoteSpawnCacheTest {
   private FileSystem fs;
   private DigestUtil digestUtil;
   private Path execRoot;
+  private TreeNodeRepository repository;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   @Mock private AbstractRemoteActionCache remoteCache;
@@ -161,6 +163,7 @@ public class RemoteSpawnCacheTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     digestUtil = new DigestUtil(DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
+    repository = new TreeNodeRepository();
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
@@ -190,7 +193,8 @@ public class RemoteSpawnCacheTest {
             "build-req-id",
             "command-id",
             reporter,
-            digestUtil);
+            digestUtil,
+            repository);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
@@ -229,7 +233,7 @@ public class RemoteSpawnCacheTest {
     verify(remoteCache).download(actionResult, execRoot, outErr);
     verify(remoteCache, never())
         .ensureInputsPresent(
-            any(TreeNodeRepository.class),
+            any(TreeNodeRepositoryVisitor.class),
             any(Path.class),
             any(TreeNode.class),
             any(Action.class),

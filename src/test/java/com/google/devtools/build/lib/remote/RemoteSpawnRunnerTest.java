@@ -105,6 +105,7 @@ public class RemoteSpawnRunnerTest {
 
   private Path execRoot;
   private Path logDir;
+  private TreeNodeRepository repository;
   private DigestUtil digestUtil;
   private FakeActionInputFileCache fakeFileCache;
   private FileOutErr outErr;
@@ -136,6 +137,7 @@ public class RemoteSpawnRunnerTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     logDir = fs.getPath("/server-logs");
+    repository = new TreeNodeRepository();
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
 
@@ -179,7 +181,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
@@ -241,7 +244,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
@@ -297,7 +301,8 @@ public class RemoteSpawnRunnerTest {
                 null,
                 retrier,
                 digestUtil,
-                logDir));
+                logDir,
+                repository));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -358,7 +363,8 @@ public class RemoteSpawnRunnerTest {
                 null,
                 retrier,
                 digestUtil,
-                logDir));
+                logDir,
+                repository));
 
     try {
       runner.exec(spawn, policy);
@@ -394,7 +400,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -454,7 +461,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -495,7 +503,8 @@ public class RemoteSpawnRunnerTest {
             null,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -533,7 +542,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -570,7 +580,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
@@ -612,7 +623,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
@@ -657,7 +669,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(31).build();
@@ -697,7 +710,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(0).build();
@@ -739,7 +753,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
@@ -782,7 +797,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -831,7 +847,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -878,7 +895,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -920,7 +938,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -958,7 +977,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
 
@@ -993,7 +1013,8 @@ public class RemoteSpawnRunnerTest {
             executor,
             retrier,
             digestUtil,
-            logDir);
+            logDir,
+            repository);
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()

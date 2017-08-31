@@ -220,10 +220,6 @@ public final class TreeNodeRepository {
 
   // Keep only one canonical instance of every TreeNode in the repository.
   private final Interner<TreeNode> interner = BlazeInterners.newWeakInterner();
-  // Merkle hashes are computed and cached by the repository, therefore execRoot must
-  // be part of the state.
-  private final Path execRoot;
-  private final MetadataProvider inputFileCache;
   private final Map<ByteString, ActionInput> reverseInputMap = new ConcurrentHashMap<>();
   // For directories that are themselves artifacts, map of the ActionInput to the Merkle hash
   private final Map<ActionInput, Digest> inputDirectoryDigestCache = new HashMap<>();
@@ -232,17 +228,6 @@ public final class TreeNodeRepository {
   private final Map<TreeNode, Directory> directoryCache = new HashMap<>();
   private final Map<VirtualActionInput, Digest> virtualInputDigestCache = new HashMap<>();
   private final Map<Digest, VirtualActionInput> digestVirtualInputCache = new HashMap<>();
-  private final DigestUtil digestUtil;
-
-  public TreeNodeRepository(Path execRoot, MetadataProvider inputFileCache, DigestUtil digestUtil) {
-    this.execRoot = execRoot;
-    this.inputFileCache = inputFileCache;
-    this.digestUtil = digestUtil;
-  }
-
-  public MetadataProvider getInputFileCache() {
-    return inputFileCache;
-  }
 
   public Iterable<TreeNode> children(TreeNode node) {
     return Iterables.transform(node.getChildEntries(), TreeNode.ChildEntry::getChild);
@@ -272,7 +257,7 @@ public final class TreeNodeRepository {
    * of input files. TODO(olaola): switch to creating and maintaining the TreeNodeRepository based
    * on the build graph structure.
    */
-  public TreeNode buildFromActionInputs(SortedMap<PathFragment, ActionInput> sortedMap)
+  public TreeNode buildFromActionInputs(SortedMap<PathFragment, ActionInput> sortedMap, Path execRoot, MetadataProvider inputFileCache)
       throws IOException {
     ImmutableList.Builder<ImmutableList<String>> segments = ImmutableList.builder();
     for (PathFragment path : sortedMap.keySet()) {
@@ -282,7 +267,7 @@ public final class TreeNodeRepository {
     for (Map.Entry<PathFragment, ActionInput> e : sortedMap.entrySet()) {
       inputs.add(e.getValue());
     }
-    return buildParentNode(inputs, segments.build(), 0, inputs.size(), 0);
+    return buildParentNode(inputs, segments.build(), 0, inputs.size(), 0, execRoot, inputFileCache);
   }
 
   // Expand the descendant of an artifact (input) directory
@@ -312,7 +297,9 @@ public final class TreeNodeRepository {
       ImmutableList<ImmutableList<String>> segments,
       int inputsStart,
       int inputsEnd,
-      int segmentIndex)
+      int segmentIndex,
+      Path execRoot,
+      MetadataProvider inputFileCache)
       throws IOException {
     if (segments.isEmpty()) {
       // We sometimes have actions with no inputs (e.g., echo "xyz" > $@), so we need to handle that
@@ -327,7 +314,7 @@ public final class TreeNodeRepository {
       ActionInput input = inputs.get(inputsStart);
       try {
         if (!(input instanceof VirtualActionInput)
-            && getInputMetadata(input).getType().isDirectory()) {
+            && getInputMetadata(input, inputFileCache).getType().isDirectory()) {
           Path leafPath = execRoot.getRelative(input.getExecPathString());
           return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
         }
@@ -345,7 +332,7 @@ public final class TreeNodeRepository {
         entries.add(
             new TreeNode.ChildEntry(
                 segment,
-                buildParentNode(inputs, segments, inputsStart, inputIndex + 1, segmentIndex + 1)));
+                buildParentNode(inputs, segments, inputsStart, inputIndex + 1, segmentIndex + 1, execRoot, inputFileCache)));
         if (inputIndex + 1 < inputsEnd) {
           inputsStart = inputIndex + 1;
           segment = segments.get(inputsStart).get(segmentIndex);
@@ -356,7 +343,7 @@ public final class TreeNodeRepository {
     return interner.intern(new TreeNode(entries, null));
   }
 
-  private synchronized Directory getOrComputeDirectory(TreeNode node) throws IOException {
+  private synchronized Directory getOrComputeDirectory(TreeNode node, DigestUtil digestUtil, MetadataProvider inputFileCache) throws IOException {
     // Assumes all child digests have already been computed!
     Preconditions.checkArgument(!node.isLeaf());
     Directory directory = directoryCache.get(node);
@@ -397,7 +384,7 @@ public final class TreeNodeRepository {
 
   // Recursively traverses the tree, expanding and computing Merkle digests for nodes for which
   // they have not yet been computed and cached.
-  public void computeMerkleDigests(TreeNode root) throws IOException {
+  public void computeMerkleDigests(TreeNode root, DigestUtil digestUtil, MetadataProvider inputFileCache) throws IOException {
     synchronized (this) {
       if (directoryCache.get(root) != null) {
         // Strong assumption: the cache is valid, i.e. parent present implies children present.
@@ -406,9 +393,9 @@ public final class TreeNodeRepository {
     }
     if (!root.isLeaf()) {
       for (TreeNode child : children(root)) {
-        computeMerkleDigests(child);
+        computeMerkleDigests(child, digestUtil, inputFileCache);
       }
-      getOrComputeDirectory(root);
+      getOrComputeDirectory(root, digestUtil, inputFileCache);
     }
   }
 
@@ -416,9 +403,9 @@ public final class TreeNodeRepository {
    * Should only be used after computeMerkleDigests has been called on one of the node ancestors.
    * Returns the precomputed digest.
    */
-  public Digest getMerkleDigest(TreeNode node) throws IOException {
+  public synchronized Digest getMerkleDigest(TreeNode node, MetadataProvider inputFileCache) throws IOException {
     return node.isLeaf()
-        ? actionInputToDigest(node.getActionInput())
+        ? actionInputToDigest(node.getActionInput(), inputFileCache)
         : treeNodeDigestCache.get(node);
   }
 
@@ -426,22 +413,22 @@ public final class TreeNodeRepository {
    * Returns the precomputed digests for both data and metadata. Should only be used after
    * computeMerkleDigests has been called on one of the node ancestors.
    */
-  public ImmutableCollection<Digest> getAllDigests(TreeNode root) throws IOException {
+  public ImmutableCollection<Digest> getAllDigests(TreeNode root, MetadataProvider inputFileCache) throws IOException {
     ImmutableSet.Builder<Digest> digests = ImmutableSet.builder();
     for (TreeNode node : descendants(root)) {
       digests.add(
           node.isLeaf()
-              ? actionInputToDigest(node.getActionInput())
-              : Preconditions.checkNotNull(treeNodeDigestCache.get(node)));
+              ? actionInputToDigest(node.getActionInput(), inputFileCache)
+              : Preconditions.checkNotNull(getMerkleDigest(node, inputFileCache)));
     }
     return digests.build();
   }
 
-  private Digest actionInputToDigest(ActionInput input) throws IOException {
+  private Digest actionInputToDigest(ActionInput input, MetadataProvider inputFileCache) throws IOException {
     if (input instanceof VirtualActionInput) {
       return Preconditions.checkNotNull(virtualInputDigestCache.get(input));
     }
-    FileArtifactValue metadata = getInputMetadata(input);
+    FileArtifactValue metadata = getInputMetadata(input, inputFileCache);
     byte[] digest = metadata.getDigest();
     if (digest == null) {
       // If the artifact does not have a digest, it is because it is a directory.
@@ -474,10 +461,11 @@ public final class TreeNodeRepository {
    * Should only be used on digests created by a call to computeMerkleDigests. Looks up ActionInputs
    * or Directory messages by cached digests and adds them to the lists.
    */
-  public void getDataFromDigests(
+  public synchronized void getDataFromDigests(
       Iterable<Digest> digests,
       Map<Digest, ActionInput> actionInputs,
-      Map<Digest, Directory> nodes) {
+      Map<Digest, Directory> nodes,
+      MetadataProvider inputFileCache) {
     for (Digest digest : digests) {
       TreeNode treeNode = digestTreeNodeCache.get(digest);
       if (treeNode != null) {
@@ -494,7 +482,7 @@ public final class TreeNodeRepository {
     }
   }
 
-  private FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+  private FileArtifactValue getInputMetadata(ActionInput input, MetadataProvider inputFileCache) throws IOException {
     FileArtifactValue metadata =
         Preconditions.checkNotNull(
             inputFileCache.getMetadata(input), "Missing metadata for: %s", input);

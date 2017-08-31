@@ -97,6 +97,7 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
+  private final TreeNodeRepository repository;
 
   RemoteSpawnRunner(
       Path execRoot,
@@ -111,7 +112,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
-      Path logDir) {
+      Path logDir,
+      TreeNodeRepository repository) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -125,6 +127,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+    this.repository = repository;
   }
 
   @Override
@@ -140,12 +143,15 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
 
     context.report(ProgressStatus.EXECUTING, getName());
-    // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
-    MetadataProvider inputFileCache = context.getMetadataProvider();
-    TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
+    TreeNodeRepositoryVisitor repositoryVisitor =
+        new TreeNodeRepositoryVisitor(
+            execRoot,
+            digestUtil,
+            repository,
+            context.getMetadataProvider());
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
-    TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
-    repository.computeMerkleDigests(inputRoot);
+    TreeNode inputRoot = repositoryVisitor.buildFromActionInputs(inputMap);
+    repositoryVisitor.computeMerkleDigests(inputRoot);
     maybeWriteParamFilesLocally(spawn);
     Command command = buildCommand(
         spawn.getOutputFiles(),
@@ -155,7 +161,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     Action action =
         buildAction(
             digestUtil.compute(command),
-            repository.getMerkleDigest(inputRoot),
+            repositoryVisitor.getMerkleDigest(inputRoot),
             context.getTimeout(),
             Spawns.mayBeCached(spawn));
 
@@ -212,7 +218,7 @@ class RemoteSpawnRunner implements SpawnRunner {
         return retrier.execute(
             () -> {
               // Upload the command and all the inputs into the remote cache.
-             remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, action, command);
+              remoteCache.ensureInputsPresent(repositoryVisitor, execRoot, inputRoot, action, command);
               ExecuteResponse reply = remoteExecutor.executeRemotely(request);
               maybeDownloadServerLogs(reply, actionKey);
 

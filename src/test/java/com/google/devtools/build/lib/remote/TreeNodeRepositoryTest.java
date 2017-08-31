@@ -59,13 +59,15 @@ public class TreeNodeRepositoryTest {
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
   }
 
-  private TreeNodeRepository createTestTreeNodeRepository() {
-    MetadataProvider inputFileCache =
-        new SingleBuildFileCache(execRoot.getPathString(), scratch.getFileSystem());
-    return new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
+  private TreeNodeRepositoryVisitor createTestTreeNodeRepositoryVisitor() {
+    return new TreeNodeRepositoryVisitor(
+        execRoot,
+        digestUtil,
+        new TreeNodeRepository(),
+        new SingleBuildFileCache(execRoot.getPathString(), scratch.getFileSystem()));
   }
 
-  private TreeNode buildFromActionInputs(TreeNodeRepository repo, ActionInput... inputs)
+  private TreeNode buildFromActionInputs(TreeNodeRepositoryVisitor repo, ActionInput... inputs)
       throws IOException {
     TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
     for (ActionInput input : inputs) {
@@ -81,7 +83,7 @@ public class TreeNodeRepositoryTest {
     Artifact fooH = new Artifact(scratch.file("/exec/root/a/foo.h"), rootDir);
     Artifact bar = new Artifact(scratch.file("/exec/root/b/bar.txt"), rootDir);
     Artifact baz = new Artifact(scratch.file("/exec/root/c/baz.txt"), rootDir);
-    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNodeRepositoryVisitor repo = createTestTreeNodeRepositoryVisitor();
     TreeNode root1 = buildFromActionInputs(repo, fooCc, fooH, bar);
     TreeNode root2 = buildFromActionInputs(repo, fooCc, fooH, baz);
     // Reusing same node for the "a" subtree.
@@ -94,7 +96,7 @@ public class TreeNodeRepositoryTest {
   public void testMerkleDigests() throws Exception {
     Artifact foo = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar", "11"), rootDir);
-    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNodeRepositoryVisitor repo = createTestTreeNodeRepositoryVisitor();
     TreeNode root = buildFromActionInputs(repo, foo, bar);
     TreeNode aNode = root.getChildEntries().get(0).getChild();
     TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
@@ -128,7 +130,7 @@ public class TreeNodeRepositoryTest {
     Artifact foo1 = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
     Artifact foo2 = new Artifact(scratch.file("/exec/root/b/foo", "1"), rootDir);
     Artifact foo3 = new Artifact(scratch.file("/exec/root/c/foo", "1"), rootDir);
-    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNodeRepositoryVisitor repo = createTestTreeNodeRepositoryVisitor();
     TreeNode root = buildFromActionInputs(repo, foo1, foo2, foo3);
     repo.computeMerkleDigests(root);
     // Reusing same node for the "foo" subtree: only need the root, root child, and foo contents:
@@ -138,7 +140,7 @@ public class TreeNodeRepositoryTest {
   @Test
   public void testEmptyTree() throws Exception {
     SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
-    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNodeRepositoryVisitor repo = createTestTreeNodeRepositoryVisitor();
     TreeNode root = repo.buildFromActionInputs(inputs);
     repo.computeMerkleDigests(root);
 
@@ -154,7 +156,7 @@ public class TreeNodeRepositoryTest {
     ActionInput fooCc = ActionInputHelper.fromPath("/exec/root/a/foo/foo.cc");
 
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar.txt"), rootDir);
-    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNodeRepositoryVisitor repo = createTestTreeNodeRepositoryVisitor();
 
     Artifact aClient = new Artifact(scratch.dir("/exec/root/a-client"), rootDir);
     scratch.file("/exec/root/a-client/baz.txt", "3");

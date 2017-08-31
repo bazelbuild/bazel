@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -60,6 +61,7 @@ final class RemoteSpawnCache implements SpawnCache {
   private final AbstractRemoteActionCache remoteCache;
   private final String buildRequestId;
   private final String commandId;
+  private final TreeNodeRepository repository;
 
   @Nullable private final Reporter cmdlineReporter;
 
@@ -74,7 +76,8 @@ final class RemoteSpawnCache implements SpawnCache {
       String buildRequestId,
       String commandId,
       @Nullable Reporter cmdlineReporter,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      TreeNodeRepository repository) {
     this.execRoot = execRoot;
     this.options = options;
     this.remoteCache = remoteCache;
@@ -82,6 +85,7 @@ final class RemoteSpawnCache implements SpawnCache {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.digestUtil = digestUtil;
+    this.repository = repository;
   }
 
   @Override
@@ -93,12 +97,15 @@ final class RemoteSpawnCache implements SpawnCache {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
     }
 
-    // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
-    TreeNodeRepository repository =
-        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
+    TreeNodeRepositoryVisitor repositoryVisitor =
+        new TreeNodeRepositoryVisitor(
+            execRoot,
+            digestUtil,
+            repository,
+            context.getMetadataProvider());
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
-    TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
-    repository.computeMerkleDigests(inputRoot);
+    TreeNode inputRoot = repositoryVisitor.buildFromActionInputs(inputMap);
+    repositoryVisitor.computeMerkleDigests(inputRoot);
     Command command =
         RemoteSpawnRunner.buildCommand(
             spawn.getOutputFiles(),
@@ -108,7 +115,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Action action =
         RemoteSpawnRunner.buildAction(
             digestUtil.compute(command),
-            repository.getMerkleDigest(inputRoot),
+            repositoryVisitor.getMerkleDigest(inputRoot),
             context.getTimeout(),
             Spawns.mayBeCached(spawn));
     // Look up action cache, and reuse the action output if it is found.

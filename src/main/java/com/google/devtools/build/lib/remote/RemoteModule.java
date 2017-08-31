@@ -244,8 +244,11 @@ public final class RemoteModule extends BlazeModule {
       } else {
         executor = null;
       }
+
+      // is there a better place for this storage?
+      TreeNodeRepository repository = new TreeNodeRepository();
       actionContextProvider =
-          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir);
+          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir, repository);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment()

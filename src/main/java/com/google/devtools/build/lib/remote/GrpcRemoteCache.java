@@ -40,6 +40,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -142,16 +143,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
    */
   @Override
   public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
+      TreeNodeRepositoryVisitor repositoryVisitor,
+      Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException {
-    repository.computeMerkleDigests(root);
+    repositoryVisitor.computeMerkleDigests(root);
     Digest actionDigest = digestUtil.compute(action);
     Digest commandDigest = digestUtil.compute(command);
     // TODO(olaola): avoid querying all the digests, only ask for novel subtrees.
     ImmutableSet<Digest> missingDigests =
         getMissingDigests(
             Iterables.concat(
-                repository.getAllDigests(root), ImmutableList.of(actionDigest, commandDigest)));
+                repositoryVisitor.getAllDigests(root), ImmutableList.of(actionDigest, commandDigest)));
 
     List<Chunker> toUpload = new ArrayList<>();
     // Only upload data that was missing from the cache.
@@ -160,7 +162,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     HashSet<Digest> missingTreeDigests = new HashSet<>(missingDigests);
     missingTreeDigests.remove(commandDigest);
     missingTreeDigests.remove(actionDigest);
-    repository.getDataFromDigests(missingTreeDigests, missingActionInputs, missingTreeNodes);
+    repositoryVisitor.getDataFromDigests(missingTreeDigests, missingActionInputs, missingTreeNodes);
 
     if (missingDigests.contains(actionDigest)) {
       toUpload.add(

@@ -124,6 +124,7 @@ public class GrpcRemoteExecutionClientTest {
   private FileSystem fs;
   private Path execRoot;
   private Path logDir;
+  private TreeNodeRepository repository;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   private Digest inputDigest;
@@ -211,6 +212,7 @@ public class GrpcRemoteExecutionClientTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     logDir = fs.getPath("/server-logs");
+    repository = new TreeNodeRepository();
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
@@ -282,7 +284,8 @@ public class GrpcRemoteExecutionClientTest {
             executor,
             retrier,
             DIGEST_UTIL,
-            logDir);
+            logDir,
+            repository);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
     command =
         Command.newBuilder()

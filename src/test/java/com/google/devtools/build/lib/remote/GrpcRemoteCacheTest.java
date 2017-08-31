@@ -244,13 +244,16 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testVirtualActionInputSupport() throws Exception {
     GrpcRemoteCache client = newClient();
-    TreeNodeRepository treeNodeRepository =
-        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL);
+    TreeNodeRepositoryVisitor repositoryVisitor = new TreeNodeRepositoryVisitor(
+        execRoot,
+        DIGEST_UTIL,
+        new TreeNodeRepository(),
+        fakeFileCache);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput = new StringVirtualActionInput("hello", execPath);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
     TreeNode root =
-        treeNodeRepository.buildFromActionInputs(
+        repositoryVisitor.buildFromActionInputs(
             ImmutableSortedMap.of(execPath, virtualActionInput));
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
@@ -298,7 +301,7 @@ public class GrpcRemoteCacheTest {
 
     // Upload all missing inputs (that is, the virtual action input from above)
     client.ensureInputsPresent(
-        treeNodeRepository,
+        repositoryVisitor,
         execRoot,
         root,
         Action.getDefaultInstance(),

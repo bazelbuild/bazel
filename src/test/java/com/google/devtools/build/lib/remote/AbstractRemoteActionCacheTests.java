@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -219,8 +220,11 @@ public class AbstractRemoteActionCacheTests {
 
     @Override
     public void ensureInputsPresent(
-        TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-        throws IOException, InterruptedException {
+        TreeNodeRepositoryVisitor repositoryVisitor,
+        Path execRoot,
+        TreeNode root,
+        Action action,
+        Command command) throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
