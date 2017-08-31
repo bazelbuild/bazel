@@ -75,18 +75,3 @@ cc_toolchain(
     strip_files = ":empty",
     supports_param_files = 1,
 )
-
-toolchain_type(name = "toolchain_type")
-
-# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
-# are used in c++ by default.
-# TODO(b/64754003): Remove once platforms are used in c++ by default.
-toolchain(
-    name = "dummy_cc_toolchain",
-    toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_type",
-)
-
-load(":dummy_toolchain.bzl", "dummy_toolchain")
-
-dummy_toolchain(name = "dummy_cc_toolchain_impl")

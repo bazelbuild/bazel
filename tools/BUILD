@@ -51,7 +51,7 @@ filegroup(
         "//tools/jdk:package-srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
-        "//tools/platforms:srcs",
+        "//tools/platforms:package-srcs",
         "//tools/objc:srcs",
         "//tools/python:srcs",
         "//tools/test:srcs",

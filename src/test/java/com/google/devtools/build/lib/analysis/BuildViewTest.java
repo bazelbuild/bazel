@@ -1238,8 +1238,8 @@ public class BuildViewTest extends BuildViewTestBase {
     useConfiguration("--experimental_dynamic_configs=on");
     AnalysisResult res = update("//foo:x");
     ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
-    assertThat(topLevelTarget.getConfiguration().getAllFragments().keySet())
-        .containsExactly(ruleClassProvider.getUniversalFragment(), PlatformConfiguration.class);
+    assertThat(topLevelTarget.getConfiguration().getAllFragments().keySet()).containsExactly(
+        ruleClassProvider.getUniversalFragment());
   }
 
   @Test
