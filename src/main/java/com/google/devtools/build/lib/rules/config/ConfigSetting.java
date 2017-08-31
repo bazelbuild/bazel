@@ -87,16 +87,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 BuildType.LABEL_KEYED_STRING_DICT);
 
-    if (!userDefinedFlagSettings.isEmpty() && !ConfigFeatureFlag.isAvailable(ruleContext)) {
-      ruleContext.attributeError(
-          ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-          String.format(
-              "the %s attribute is not available in package '%s'",
-              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-              ruleContext.getLabel().getPackageIdentifier()));
-      throw new RuleErrorException();
-    }
-
     List<? extends TransitiveInfoCollection> flagValues =
         ruleContext.getPrerequisites(
             ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
