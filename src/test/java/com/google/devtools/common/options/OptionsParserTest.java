@@ -193,14 +193,6 @@ public class OptionsParserTest {
       defaultValue = "super secret"
     )
     public String privateString;
-
-    @Option(
-      name = "public string",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "not a secret"
-    )
-    public String publicString;
   }
 
   public static class StringConverter implements Converter<String> {
@@ -628,15 +620,6 @@ public class OptionsParserTest {
       assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --nointernal_boolean");
       assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
     }
-  }
-
-  @Test
-  public void parsingSucceedsWithSpacesInFlagName() throws OptionsParsingException {
-    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
-    List<String> spacedOpts = asList("--public string=value with spaces");
-    parser.parse(spacedOpts);
-    assertThat(parser.getOptions(ExampleInternalOptions.class).publicString)
-        .isEqualTo("value with spaces");
   }
 
   @Test

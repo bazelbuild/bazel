@@ -28,6 +28,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -391,6 +392,43 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  /** These categories used to indicate whether a flag was documented, but no longer. */
+  private static final ImmutableList<String> DEPRECATED_CATEGORIES =
+      ImmutableList.of("undocumented", "hidden", "internal");
+
+  private void checkOldCategoriesAreNotUsed(VariableElement optionField)
+      throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    if (DEPRECATED_CATEGORIES.contains(annotation.category())) {
+      throw new OptionProcessorException(
+          optionField,
+          "Documentation level is no longer read from the option category. Category \""
+              + annotation.category()
+              + "\" is disallowed, see OptionMetadataTags for the relevant tags.");
+    }
+  }
+
+  private void checkOptionName(VariableElement optionField) throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    String optionName = annotation.name();
+    if (optionName.isEmpty()) {
+      throw new OptionProcessorException(optionField, "Option must have an actual name.");
+    }
+
+    // Specifically for non-internal options, which are flags intended to be used on the command
+    // line, check that there are no weird characters or whitespace.
+    if (!ImmutableList.copyOf(annotation.metadataTags()).contains(OptionMetadataTag.INTERNAL)) {
+      if (!Pattern.matches("([\\w:-])*", optionName)) {
+        // Ideally, this would be just \w, but - and : are needed for legacy options. We can lie in
+        // the error though, no harm in encouraging good behavior.
+        throw new OptionProcessorException(
+            optionField,
+            "Options that are used on the command line as flags must have names made from word "
+                + "characters only.");
+      }
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -401,6 +439,8 @@ public final class OptionProcessor extends AbstractProcessor {
 
         checkModifiers(optionField);
         checkInOptionBase(optionField);
+        checkOptionName(optionField);
+        checkOldCategoriesAreNotUsed(optionField);
         checkConverter(optionField);
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);

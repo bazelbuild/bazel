@@ -102,10 +102,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    */
   private final ImmutableMap<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes;
 
-  /** These categories used to indicate OptionUsageRestrictions, but no longer. */
-  private static final ImmutableList<String> DEPRECATED_CATEGORIES = ImmutableList.of(
-      "undocumented", "hidden", "internal");
-
   private IsolatedOptionsData(
       Map<Class<? extends OptionsBase>, Constructor<?>> optionsClasses,
       Map<String, OptionDefinition> nameToField,
@@ -208,11 +204,12 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
     Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypesBuilder = new HashMap<>();
 
-    // Read all Option annotations:
+    // Combine the option definitions for these options classes, and check that they do not
+    // conflict. The options are individually checked for correctness at compile time in the
+    // OptionProcessor.
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
       try {
-        Constructor<? extends OptionsBase> constructor =
-            parsedOptionsClass.getConstructor();
+        Constructor<? extends OptionsBase> constructor = parsedOptionsClass.getConstructor();
         constructorBuilder.put(parsedOptionsClass, constructor);
       } catch (NoSuchMethodException e) {
         throw new IllegalArgumentException(parsedOptionsClass
@@ -223,26 +220,11 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
         String optionName = optionDefinition.getOptionName();
-
-        // Check that the option makes sense on its own, as defined.
-        if (optionName == null) {
-          throw new ConstructionException("Option cannot have a null name");
-        }
-
-        if (DEPRECATED_CATEGORIES.contains(optionDefinition.getOptionCategory())) {
-          throw new ConstructionException(
-              "Documentation level is no longer read from the option category. Category \""
-                  + optionDefinition.getOptionCategory()
-                  + "\" in option \""
-                  + optionName
-                  + "\" is disallowed.");
-        }
+        checkForCollisions(nameToFieldBuilder, optionName, "option");
 
         if (optionDefinition.isBooleanField()) {
           checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, optionName);
         }
-
-        checkForCollisions(nameToFieldBuilder, optionName, "option");
         checkForBooleanAliasCollisions(booleanAliasMap, optionName, "option");
         nameToFieldBuilder.put(optionName, optionDefinition);
 
