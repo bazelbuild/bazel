@@ -123,8 +123,8 @@ public final class RunfilesSupport {
       runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
       runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
     } else {
-      runfilesInputManifest = artifactsMiddleman;
-      runfilesManifest = artifactsMiddleman;
+      runfilesInputManifest = runfilesManifest =
+          createManifestMiddleman(ruleContext, runfiles, artifactsMiddleman);
     }
     runfilesMiddleman = createRunfilesMiddleman(ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
@@ -321,6 +321,25 @@ public final class RunfilesSupport {
                 config.getLocalShellEnvironment(),
                 config.runfilesEnabled()));
     return outputManifest;
+  }
+
+  /**
+   * Creates a middleman artifact which substitutes for the input and
+   * output manifests when manifest files are disabled.
+   */
+  private Artifact createManifestMiddleman(ActionConstructionContext context, Runfiles runfiles,
+      Artifact artifactsMiddleman) {
+    // Deps which are otherwise omitted when we don't build the manifest.
+    // These may include "pruning manifests" which are needed at execution time.
+    Collection<Artifact> manifestDeps = SourceManifestAction.getDependencies(runfiles);
+    if (manifestDeps.isEmpty()) {
+      // Can't create a runfiles middleman from zero artifacts.
+      return artifactsMiddleman;
+    }
+    return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
+        context.getActionOwner(), owningExecutable, SourceManifestAction.getDependencies(runfiles),
+        context.getConfiguration().getMiddlemanDirectory(context.getRule().getRepository()),
+        "runfiles_manifest");
   }
 
   /**

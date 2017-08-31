@@ -143,7 +143,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * depend on them. The only necessary dependencies are pruning manifests, which must be read
    * to properly prune the tree.
    */
-  private static Collection<Artifact> getDependencies(Runfiles runfiles) {
+  public static Collection<Artifact> getDependencies(Runfiles runfiles) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests()) {
       builder.add(manifest.getManifestFile());
