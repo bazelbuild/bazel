@@ -447,11 +447,12 @@ public class LexerTest {
 
   @Test
   public void testTokenPositions() throws Exception {
-    assertThat(positions(tokens("foo(bar, {1: 'quux'})"))).isEqualTo(
-    //   foo   (     bar   ,     {      1       :
-        "[0,3) [3,4) [4,7) [7,8) [9,10) [10,11) [11,12)"
-    //      'quux'  }       )       NEWLINE EOF
-        + " [13,19) [19,20) [20,21) [20,21) [21,21)");
+    assertThat(positions(tokens("foo(bar, {1: 'quux'}, \"\"\"b\"\"\", r\"\")")))
+        .isEqualTo(
+            // foo (     bar   ,     {      1       :
+            "[0,3) [3,4) [4,7) [7,8) [9,10) [10,11) [11,12)"
+                //  'quux'  }       ,       """b""" ,       r""     )       NEWLINE EOF
+                + " [13,19) [19,20) [20,21) [22,29) [29,30) [31,34) [34,35) [34,35) [35,35)");
   }
 
   @Test

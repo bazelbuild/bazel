@@ -313,9 +313,8 @@ public final class Lexer {
    * @return the string-literal token.
    */
   private Token escapedStringLiteral(char quot, boolean isRaw) {
+    int literalStartPos = isRaw ? pos - 2 : pos - 1;
     boolean inTriplequote = skipTripleQuote(quot);
-
-    int oldPos = pos - 1;
     // more expensive second choice that expands escaped into a buffer
     StringBuilder literal = new StringBuilder();
     while (pos < buffer.length) {
@@ -327,14 +326,14 @@ public final class Lexer {
             literal.append(c);
             break;
           } else {
-            error("unterminated string literal at eol", oldPos, pos);
+            error("unterminated string literal at eol", literalStartPos, pos);
             newline();
-            return new Token(TokenKind.STRING, oldPos, pos, literal.toString());
+            return new Token(TokenKind.STRING, literalStartPos, pos, literal.toString());
           }
         case '\\':
           if (pos == buffer.length) {
-            error("unterminated string literal at eof", oldPos, pos);
-            return new Token(TokenKind.STRING, oldPos, pos, literal.toString());
+            error("unterminated string literal at eof", literalStartPos, pos);
+            return new Token(TokenKind.STRING, literalStartPos, pos, literal.toString());
           }
           if (isRaw) {
             // Insert \ and the following character.
@@ -383,32 +382,46 @@ public final class Lexer {
             case '"':
               literal.append('"');
               break;
-            case '0': case '1': case '2': case '3':
-            case '4': case '5': case '6': case '7': { // octal escape
-              int octal = c - '0';
-              if (pos < buffer.length) {
-                c = buffer[pos];
-                if (c >= '0' && c <= '7') {
-                  pos++;
-                  octal = (octal << 3) | (c - '0');
-                  if (pos < buffer.length) {
-                    c = buffer[pos];
-                    if (c >= '0' && c <= '7') {
-                      pos++;
-                      octal = (octal << 3) | (c - '0');
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+              { // octal escape
+                int octal = c - '0';
+                if (pos < buffer.length) {
+                  c = buffer[pos];
+                  if (c >= '0' && c <= '7') {
+                    pos++;
+                    octal = (octal << 3) | (c - '0');
+                    if (pos < buffer.length) {
+                      c = buffer[pos];
+                      if (c >= '0' && c <= '7') {
+                        pos++;
+                        octal = (octal << 3) | (c - '0');
+                      }
                     }
                   }
                 }
+                if (octal > 0xff) {
+                  error("octal escape sequence out of range (maximum is \\377)");
+                }
+                literal.append((char) (octal & 0xff));
+                break;
               }
-              if (octal > 0xff) {
-                error("octal escape sequence out of range (maximum is \\377)");
-              }
-              literal.append((char) (octal & 0xff));
-              break;
-            }
-            case 'a': case 'b': case 'f': case 'N': case 'u': case 'U': case 'v': case 'x':
+            case 'a':
+            case 'b':
+            case 'f':
+            case 'N':
+            case 'u':
+            case 'U':
+            case 'v':
+            case 'x':
               // exists in Python but not implemented in Blaze => error
-              error("escape sequence not implemented: \\" + c, oldPos, pos);
+              error("escape sequence not implemented: \\" + c, literalStartPos, pos);
               break;
             default:
               // unknown char escape => "\literal"
@@ -419,13 +432,12 @@ public final class Lexer {
           break;
         case '\'':
         case '"':
-          if (c != quot
-              || (inTriplequote && !skipTripleQuote(quot))) {
+          if (c != quot || (inTriplequote && !skipTripleQuote(quot))) {
             // Non-matching quote, treat it like a regular char.
             literal.append(c);
           } else {
             // Matching close-delimiter, all done.
-            return new Token(TokenKind.STRING, oldPos, pos, literal.toString());
+            return new Token(TokenKind.STRING, literalStartPos, pos, literal.toString());
           }
           break;
         default:
@@ -433,8 +445,8 @@ public final class Lexer {
           break;
       }
     }
-    error("unterminated string literal at eof", oldPos, pos);
-    return new Token(TokenKind.STRING, oldPos, pos, literal.toString());
+    error("unterminated string literal at eof", literalStartPos, pos);
+    return new Token(TokenKind.STRING, literalStartPos, pos, literal.toString());
   }
 
   /**
@@ -449,7 +461,8 @@ public final class Lexer {
    * @return the string-literal token.
    */
   private Token stringLiteral(char quot, boolean isRaw) {
-    int oldPos = pos - 1;
+    int literalStartPos = isRaw ? pos - 2 : pos - 1;
+    int contentStartPos = pos;
 
     // Don't even attempt to parse triple-quotes here.
     if (skipTripleQuote(quot)) {
@@ -462,9 +475,10 @@ public final class Lexer {
       char c = buffer[pos++];
       switch (c) {
         case '\n':
-          error("unterminated string literal at eol", oldPos, pos);
-          Token t = new Token(TokenKind.STRING, oldPos, pos,
-                              bufferSlice(oldPos + 1, pos - 1));
+          error("unterminated string literal at eol", literalStartPos, pos);
+          Token t =
+              new Token(
+                  TokenKind.STRING, literalStartPos, pos, bufferSlice(contentStartPos, pos - 1));
           newline();
           return t;
         case '\\':
@@ -472,7 +486,7 @@ public final class Lexer {
             if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
               // There was a CRLF after the newline. No shortcut possible, since it needs to be
               // transformed into a single LF.
-              pos = oldPos + 1;
+              pos = contentStartPos;
               return escapedStringLiteral(quot, true);
             } else {
               pos++;
@@ -480,13 +494,14 @@ public final class Lexer {
             }
           }
           // oops, hit an escape, need to start over & build a new string buffer
-          pos = oldPos + 1;
+          pos = contentStartPos;
           return escapedStringLiteral(quot, false);
         case '\'':
         case '"':
           if (c == quot) {
             // close-quote, all done.
-            return new Token(TokenKind.STRING, oldPos, pos, bufferSlice(oldPos + 1, pos - 1));
+            return new Token(
+                TokenKind.STRING, literalStartPos, pos, bufferSlice(contentStartPos, pos - 1));
           }
           break;
         default: // fall out
@@ -499,9 +514,8 @@ public final class Lexer {
       pos = buffer.length;
     }
 
-    error("unterminated string literal at eof", oldPos, pos);
-    return new Token(TokenKind.STRING, oldPos, pos,
-                     bufferSlice(oldPos + 1, pos));
+    error("unterminated string literal at eof", literalStartPos, pos);
+    return new Token(TokenKind.STRING, literalStartPos, pos, bufferSlice(contentStartPos, pos));
   }
 
   private static final Map<String, TokenKind> keywordMap = new HashMap<>();
