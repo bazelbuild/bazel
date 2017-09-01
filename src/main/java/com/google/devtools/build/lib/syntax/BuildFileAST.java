@@ -181,7 +181,7 @@ public class BuildFileAST extends ASTNode {
    * Executes this build file in a given Environment.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Statement#exec(Environment)}. This exception is caught here and reported
+   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported
    * through reporter and execution continues on the next statement. In effect, there is a
    * "try/except" block around every top level statement. Such exceptions are not ignored, though:
    * they are visible via the return value. Rules declared in a package containing any error
@@ -207,7 +207,7 @@ public class BuildFileAST extends ASTNode {
    * Executes tol-level statement of this build file in a given Environment.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Statement#exec(Environment)}. This exception is caught here and reported
+   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported
    * through reporter. In effect, there is a
    * "try/except" block around every top level statement. Such exceptions are not ignored, though:
    * they are visible via the return value. Rules declared in a package containing any error
@@ -223,7 +223,7 @@ public class BuildFileAST extends ASTNode {
   public boolean execTopLevelStatement(Statement stmt, Environment env,
       EventHandler eventHandler) throws InterruptedException {
     try {
-      stmt.exec(env);
+      new Eval(env).exec(stmt);
       return true;
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been
@@ -378,11 +378,12 @@ public class BuildFileAST extends ASTNode {
    */
   @Nullable public Object eval(Environment env) throws EvalException, InterruptedException {
     Object last = null;
+    Eval evaluator = new Eval(env);
     for (Statement statement : statements) {
       if (statement instanceof ExpressionStatement) {
         last = ((ExpressionStatement) statement).getExpression().eval(env);
       } else {
-        statement.exec(env);
+        evaluator.exec(statement);
         last = null;
       }
     }

@@ -75,6 +75,7 @@ public class UserDefinedFunction extends BaseFunction {
         env.update(name, arguments[i++]);
       }
 
+      Eval eval = new Eval(env);
       try {
         for (Statement stmt : statements) {
           if (stmt instanceof ReturnStatement) {
@@ -86,7 +87,7 @@ public class UserDefinedFunction extends BaseFunction {
             }
             return returnExpr.eval(env);
           } else {
-            stmt.exec(env);
+            eval.exec(stmt);
           }
         }
       } catch (ReturnStatement.ReturnException e) {

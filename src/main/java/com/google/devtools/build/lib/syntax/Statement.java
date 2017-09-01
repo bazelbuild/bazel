@@ -37,35 +37,6 @@ public abstract class Statement extends ASTNode {
   }
 
   /**
-   * Executes the statement in the specified build environment, which may be modified.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
-   * @throws InterruptedException may be thrown in a sub class.
-   */
-  @Deprecated // use Eval class instead
-  final void exec(Environment env) throws EvalException, InterruptedException {
-    try {
-      doExec(env);
-    } catch (EvalException ex) {
-      throw maybeTransformException(ex);
-    }
-  }
-
-  /**
-   * Executes the statement.
-   *
-   * <p>This method is only invoked by the super class {@link Statement} when calling {@link
-   * #exec(Environment)}.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
-   * @throws InterruptedException may be thrown in a sub class.
-   */
-  @Deprecated
-  final void doExec(Environment env) throws EvalException, InterruptedException {
-    new Eval(env).exec(this);
-  }
-
-  /**
    * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
    * can be used in a switch/case.
    */
