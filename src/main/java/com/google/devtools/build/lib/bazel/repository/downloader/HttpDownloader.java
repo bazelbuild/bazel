@@ -184,7 +184,6 @@ public class HttpDownloader {
       }
     }
 
-    // TODO: Consider using Dagger2 to automate this.
     Clock clock = new JavaClock();
     Sleeper sleeper = new JavaSleeper();
     Locale locale = Locale.getDefault();
