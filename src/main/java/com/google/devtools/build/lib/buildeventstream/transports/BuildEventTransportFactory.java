@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.File;
 import java.io.IOException;
 
 /** Factory used to create a Set of BuildEventTransports from BuildEventStreamOptions. */
@@ -101,7 +102,7 @@ public enum BuildEventTransportFactory {
   private static class NullPathConverter implements PathConverter {
     @Override
     public String apply(Path path) {
-      return "file://" + path;
+      return new File(path.getPathString()).toURI().toString();
     }
   }
 }
