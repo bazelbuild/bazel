@@ -447,12 +447,11 @@ public class AndroidCommon {
       } else {
         Artifact outputDepsProto =
             javacHelper.createOutputDepsProtoArtifact(resourceClassJar, javaArtifactsBuilder);
-        javacHelper.createCompileActionWithInstrumentation(
+        javacHelper.createCompileAction(
             resourceClassJar,
             null /* manifestProtoOutput */,
             null /* genSourceJar */,
-            outputDepsProto,
-            javaArtifactsBuilder);
+            outputDepsProto);
       }
     } else {
       // Otherwise, it should have been the AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR.
@@ -697,8 +696,7 @@ public class AndroidCommon {
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
-        outputDepsProto, javaArtifactsBuilder);
+    helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, outputDepsProto);
 
     if (isBinary) {
       generatedExtensionRegistryProvider =
@@ -879,6 +877,10 @@ public class AndroidCommon {
     return javaCommon.getJavacOpts();
   }
 
+  public Artifact getClassJar() {
+    return classJar;
+  }
+
   public Artifact getGenClassJar() {
     return genClassJar;
   }
@@ -902,10 +904,6 @@ public class AndroidCommon {
    */
   public NestedSet<Artifact> getJarsProducedForRuntime() {
     return jarsProducedForRuntime;
-  }
-
-  public Artifact getInstrumentedJar() {
-    return javaCommon.getJavaCompilationArtifacts().getInstrumentedJar();
   }
 
   public NestedSet<Artifact> getTransitiveNeverLinkLibraries() {
