@@ -201,20 +201,14 @@ public class Parser {
    *
    * @param input the input to parse
    * @param eventHandler a reporter for parsing errors
-   * @param dialect may restrict the parser to Build-language features
    * @see BuildFileAST#parseBuildString
    * @see BuildFileAST#parseSkylarkString
    */
-  public static ParseResult parseFile(
-      ParserInputSource input, EventHandler eventHandler, Dialect dialect) {
+  public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
     List<Statement> statements = parser.parseFileInput();
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
-    // TODO(laurentlb): Remove dialect argument.
-    if (dialect == Dialect.BUILD) {
-      errors |= !ValidationEnvironment.checkBuildSyntax(statements, eventHandler);
-    }
     return new ParseResult(
         statements, parser.comments, locationFromStatements(lexer, statements), errors);
   }

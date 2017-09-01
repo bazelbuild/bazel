@@ -26,7 +26,7 @@ public class ControlFlowCheckerTest {
   private static List<Issue> findIssues(String... lines) {
     String content = String.join("\n", lines);
     BuildFileAST ast =
-        BuildFileAST.parseSkylarkString(
+        BuildFileAST.parseString(
             event -> {
               throw new IllegalArgumentException(event.getMessage());
             },

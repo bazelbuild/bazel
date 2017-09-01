@@ -48,7 +48,7 @@ public class ParserTest extends EvaluationTestCase {
 
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
-    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
+    BuildFileAST ast = BuildFileAST.parseString(getEventHandler(), input);
     ast = ast.validate(env, getEventHandler());
     return ast.getStatements();
   }
