@@ -53,6 +53,42 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+java_import(
+    name = "singlejar_deploy",
+    jars = select({
+        "//src:windows": ["@bazel_tools//tools/jdk:singlejar"],
+        "//src:windows_msvc": ["@bazel_tools//tools/jdk:singlejar"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+java_binary(
+    name = "singlejar_javabin",
+    main_class = "com.google.devtools.build.singlejar.SingleJar",
+    runtime_deps = select({
+        "//src:windows": [":singlejar_deploy"],
+        "//src:windows_msvc": [":singlejar_deploy"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+gen_java_lang_extras_jar_cmd = """
+    for jar in $(locations @local_jdk//:bootclasspath); do
+      if [[ "$${jar}" == *"/rt.jar" ]]; then
+        $(location %s) \
+            --exclude_build_data \
+            --dont_change_compression \
+            --sources $${jar} \
+            --include_prefixes "java/lang/invoke/" \
+            --include_prefixes "java/lang/annotation/" \
+            --output $@
+        break
+      fi
+    done
+    """
+
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
 genrule(
@@ -60,24 +96,17 @@ genrule(
     srcs = [
         "@local_jdk//:bootclasspath"
     ],
-    tools = [
-        "@bazel_tools//tools/jdk:singlejar",
-    ],
+    tools = select({
+        "//src:windows": [":singlejar_javabin"],
+        "//src:windows_msvc": [":singlejar_javabin"],
+        "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
+    }),
     outs = ["java_lang_extras.jar"],
-    cmd = """
-          for jar in $(locations @local_jdk//:bootclasspath); do
-            if [[ "$${jar}" == *"/rt.jar" ]]; then
-              $(location @bazel_tools//tools/jdk:singlejar) \
-                  --exclude_build_data \
-                  --dont_change_compression \
-                  --sources $${jar} \
-                  --include_prefixes "java/lang/invoke/" \
-                  --include_prefixes "java/lang/annotation/" \
-                  --output $@
-              break
-            fi
-          done
-          """,
+    cmd = select({
+        "//src:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//src:windows_msvc": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
+    }),
     visibility = ["//visibility:private"],
 )
 
