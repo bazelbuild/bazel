@@ -23,6 +23,9 @@ import java.lang.annotation.Target;
  *
  * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
  * access these fields directly, but instead go through that class.
+ *
+ * <p>A number of checks are run on an Option's fields' values at compile time. See
+ * {@link com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -85,9 +88,6 @@ public @interface Option {
    *
    * <p>For undocumented flags that aren't listed anywhere, set this to
    * OptionDocumentationCategory.UNDOCUMENTED.
-   *
-   * <p>For hidden or internal options, please set this as UNDOCUMENTED and set the specific reason
-   * for this state in the metadataTags() field.
    */
   OptionDocumentationCategory documentationCategory();
 
@@ -107,6 +107,8 @@ public @interface Option {
    *
    * <p>If one or more of the OptionMetadataTag values apply, please include, but otherwise, this
    * list can be left blank.
+   *
+   * <p>Hidden or internal options must be UNDOCUMENTED (set in {@link #documentationCategory()}).
    */
   OptionMetadataTag[] metadataTags() default {};
 

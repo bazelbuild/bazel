@@ -56,9 +56,19 @@ import javax.tools.Diagnostic;
 /**
  * Annotation processor for {@link Option}.
  *
- * <p>The {@link OptionsParser} only accepts publicly declared options in {@link
- * OptionsBase}-inheriting classes, and there is no support for {@link Option} annotated fields
- * declared elsewhere or privately. Prevent such uses from compiling.
+ * <p>Checks the following invariants about {@link Option}-annotated fields ("options"):
+ * <ul>
+ * <li>The {@link OptionsParser} only accepts options in {@link OptionsBase}-inheriting classes
+ * <li>All options must be declared publicly and be neither static nor final.
+ * <li>All options that must be used on the command line must have sensible names without
+ *       whitespace or other confusing characters, such as equal signs.
+ * <li>The type of the option must match the converter that will convert the unparsed string value
+ *       into the option type. For options that do not specify a converter, check that there is a
+ *       valid match in the {@link Converters#DEFAULT_CONVERTERS} list.
+ * <li>Options must list valid combinations of tags and documentation categories.
+ * </ul>
+ *
+ * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.common.options.Option"})
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
