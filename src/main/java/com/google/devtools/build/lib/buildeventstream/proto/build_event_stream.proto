@@ -432,7 +432,7 @@ enum TestStatus {
   INCOMPLETE = 5;
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
-  BLAZE_HALTED_BEFORE_TESTING = 8;
+  TOOL_HALTED_BEFORE_TESTING = 8;
 };
 
 // Payload on events reporting about individual test action.
