@@ -23,7 +23,8 @@
                 "//site:jekyll-tree",
                 "//src/tools/benchmark/webapp:site"
             ]
-        }
+        },
+        "opts": ["-c opt"]
     },
     { "node": "ubuntu_16.04-x86_64", "variation": "" },
     {
@@ -40,7 +41,8 @@
                 "{} +"
             ],
             "archive": {"bazel-bin/src/bazel": "bazel"}
-        }
+        },
+        "opts": ["-c opt"]
     },
     {
         "variation": "",
@@ -56,7 +58,8 @@
                 "{} +"
             ],
             "archive": {"bazel-bin/src/bazel": "bazel"}
-        }
+        },
+        "opts": ["-c opt"]
     },
     {
         "variation": "",
@@ -72,7 +75,10 @@
             ],
             // TODO(dmarting): Do we still needs that? this could be done as an external repo
             // instead.
-            "opts": ["--define IPHONE_SDK=1"]
+            "opts": [
+                "--define IPHONE_SDK=1",
+                "-c opt"
+            ]
         }
     },
     // TODO(dmarting): windows build zip with "zip -j", add it to //packages
@@ -90,6 +96,7 @@
                 "//scripts/packages"
             ],
             "opts": [
+                "-c opt",
                 "--copt=-w",
                 "--host_copt=-w"
             ]
