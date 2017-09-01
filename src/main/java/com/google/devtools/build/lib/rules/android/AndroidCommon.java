@@ -220,6 +220,7 @@ public class AndroidCommon {
 
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
             .addInput(jarToDex)
             .addOutput(classesDex)
@@ -495,6 +496,7 @@ public class AndroidCommon {
 
       ruleContext.registerAction(
           new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
               .setExecutable(jarjar)
               .setProgressMessage("Repackaging jar")
               .setMnemonic("AndroidRepackageJar")

@@ -391,6 +391,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             ISO_8859_1));
     ruleContext.registerAction(
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName, Mode.HOST))
             .addInput(jar)
             .addInput(paramFile)
@@ -442,6 +443,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             ISO_8859_1));
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)

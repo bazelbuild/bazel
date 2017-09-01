@@ -523,6 +523,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Builder rexActionBuilder = new SpawnAction.Builder();
       CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
       rexActionBuilder
+          .useDefaultShellEnvironment()
           .setExecutable(ruleContext.getExecutablePrerequisite("$rex_wrapper", Mode.HOST))
           .setMnemonic("Rex")
           .setProgressMessage("Rexing dex files")
@@ -628,6 +629,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEX_MANIFEST);
     ruleContext.registerAction(
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setMnemonic("AndroidDexManifest")
             .setProgressMessage(
                 "Generating incremental installation manifest for %s", ruleContext.getLabel())
@@ -756,6 +758,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact splitMainApkResources = getDxArtifact(ruleContext, "split_main.ap_");
     ruleContext.registerAction(
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setMnemonic("AndroidStripResources")
             .setProgressMessage("Stripping resources from split main apk")
             .setExecutable(ruleContext.getExecutablePrerequisite("$strip_resources", Mode.HOST))
@@ -888,6 +891,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
             .addTool(adb)
             .executeUnconditionally()
@@ -923,6 +927,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
             // We cannot know if the user connected a new device, uninstalled the app from the
             // device
@@ -1374,6 +1379,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 .build();
         ruleContext.registerAction(
             new SpawnAction.Builder()
+                .useDefaultShellEnvironment()
                 .setMnemonic("MergeDexZips")
                 .setProgressMessage("Merging dex shards for %s", ruleContext.getLabel())
                 .setExecutable(ruleContext.getExecutablePrerequisite("$merge_dexzips", Mode.HOST))
@@ -1467,6 +1473,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Collection<String> dexopts) {
     SpawnAction.Builder dexmerger =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
             .setMnemonic("DexMerger")
             .setProgressMessage("Assembling dex files into %s", classesDex.getRootRelativePath())
@@ -1589,6 +1596,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     SpawnAction.Builder shardAction =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setMnemonic("ShardClassesToDex")
             .setProgressMessage("Sharding classes for dexing for %s", ruleContext.getLabel())
             .setExecutable(ruleContext.getExecutablePrerequisite("$shuffle_jars", Mode.HOST))
@@ -1669,7 +1677,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
     Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
-    SpawnAction.Builder builder = new SpawnAction.Builder();
+    SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
@@ -1724,6 +1732,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     SpawnAction.Builder streamlinedBuilder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .addOutput(strippedJar)
             .setExecutable(sdk.getProguard())
             .setProgressMessage("Generating streamlined input jar for main dex classes list")
@@ -1794,6 +1803,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     ruleContext.registerAction(
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(sdk.getAapt())
             .setMnemonic("AaptSplitResourceApk")
             .setProgressMessage("Generating resource apk for split %s", splitName)
