@@ -378,7 +378,14 @@ java_import(
 java_import(
     name = "instrumentation",
     jars = [
-        "instrumentation/instrumentation-api-0.3.0.jar",
+        "instrumentation/instrumentation-api-0.4.3.jar",
+    ],
+)
+
+java_import(
+    name = "opencensus-api",
+    jars = [
+        "opencensus/opencensus-api-0.5.1.jar",
     ],
 )
 
@@ -441,12 +448,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.8.Final.jar"],
+    jars = ["netty/netty-all-4.1.14.Final.jar"],
 )
 
 java_import(
     name = "netty_tcnative",
-    jars = ["netty_tcnative/netty-tcnative-boringssl-static-1.1.33.Fork26.jar"],
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.5.Final.jar"],
 )
 
 java_import(
