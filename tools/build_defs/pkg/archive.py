@@ -152,6 +152,8 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
+    if not (name == '.' or name.startswith('/') or name.startswith('./')):
+      name = './' + name
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
@@ -233,15 +235,15 @@ class TarFileWriter(object):
       # Recurse into directory
       self.add_dir(name, file_content, uid, gid, uname, gname, mtime, mode)
       return
+    if not (name == '.' or name.startswith('/') or name.startswith('./')):
+      name = './' + name
     if kind == tarfile.DIRTYPE:
       name = name.rstrip('/')
       if name in self.directories:
         return
 
     components = name.rsplit('/', 1)
-    # Skip absolute files in root, e.g. /foo splits to "" and foo,
-    # but /foo/bar splits to foo and bar
-    if len(components) > 1 and components[0]:
+    if len(components) > 1:
       d = components[0]
       self.add_file(d,
                     tarfile.DIRTYPE,
@@ -300,6 +302,9 @@ class TarFileWriter(object):
     Raises:
       TarFileWriter.Error: if an error happens when uncompressing the tar file.
     """
+    if root and root[0] not in ['/', '.']:
+      # Root prefix should start with a '/', adds it if missing
+      root = '/' + root
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
       compression = 'gz'
@@ -342,24 +347,25 @@ class TarFileWriter(object):
           tarinfo.gname = ''
 
         name = tarinfo.name
+        if not name.startswith('/') and not name.startswith('.'):
+          name = './' + name
         if root is not None:
-          if not name.startswith('/'):
-            name = os.path.join(root, name)
+          if name.startswith('.'):
+            name = '.' + root + name.lstrip('.')
             # Add root dir with same permissions if missing. Note that
             # add_file deduplicates directories and is safe to call here.
-            self.add_file(
-                root,
-                tarfile.DIRTYPE,
-                uid=tarinfo.uid,
-                gid=tarinfo.gid,
-                uname=tarinfo.uname,
-                gname=tarinfo.gname,
-                mtime=tarinfo.mtime,
-                mode=0o755)
+            self.add_file('.' + root,
+                          tarfile.DIRTYPE,
+                          uid=tarinfo.uid,
+                          gid=tarinfo.gid,
+                          uname=tarinfo.uname,
+                          gname=tarinfo.gname,
+                          mtime=tarinfo.mtime,
+                          mode=0o755)
           # Relocate internal hardlinks as well to avoid breaking them.
           link = tarinfo.linkname
-          if not name.startswith('/') and tarinfo.type == tarfile.LNKTYPE:
-            tarinfo.linkname = os.path.join(root, link)
+          if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
+            tarinfo.linkname = '.' + root + link.lstrip('.')
         tarinfo.name = name
 
         if tarinfo.isfile():
