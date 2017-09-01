@@ -31,11 +31,12 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -636,13 +637,12 @@ public class GrpcRemoteExecutionClientTest {
     try {
       client.exec(simpleSpawn, simplePolicy);
       fail("Expected an exception");
-    } catch (EnvironmentalExecException expected) {
-      assertThat(expected).hasMessageThat().contains("The remote executor/cache is unavailable");
+    } catch (SpawnExecException expected) {
+      assertThat(expected.getSpawnResult().status())
+          .isEqualTo(SpawnResult.Status.CONNECTION_FAILED);
       // Ensure we also got back the stack trace.
       assertThat(expected).hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
-      Throwable t = expected.getCause();
-      assertThat(t).isInstanceOf(RetryException.class);
     }
   }
 
@@ -660,14 +660,11 @@ public class GrpcRemoteExecutionClientTest {
     try {
       client.exec(simpleSpawn, simplePolicy);
       fail("Expected an exception");
-    } catch (EnvironmentalExecException expected) {
-      assertThat(expected).hasMessageThat().contains("Error in remote cache/executor");
+    } catch (ExecException expected) {
       assertThat(expected).hasMessageThat().contains("whoa"); // Error details.
       // Ensure we also got back the stack trace.
       assertThat(expected).hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
-      Throwable t = expected.getCause();
-      assertThat(t).isInstanceOf(RetryException.class);
     }
   }
 
@@ -719,14 +716,13 @@ public class GrpcRemoteExecutionClientTest {
     try {
       client.exec(simpleSpawn, simplePolicy);
       fail("Expected an exception");
-    } catch (EnvironmentalExecException expected) {
-      assertThat(expected).hasMessageThat().contains("Failed to download from remote cache");
+    } catch (SpawnExecException expected) {
+      assertThat(expected.getSpawnResult().status())
+          .isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+      assertThat(expected).hasMessageThat().contains(stdOutDigest.getHash());
       // Ensure we also got back the stack trace.
       assertThat(expected).hasMessageThat()
           .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
-      Throwable t = expected.getCause();
-      assertThat(t).isInstanceOf(CacheNotFoundException.class);
-      assertThat(((CacheNotFoundException) t).getMissingDigest()).isEqualTo(stdOutDigest);
     }
   }
 
@@ -800,11 +796,9 @@ public class GrpcRemoteExecutionClientTest {
     try {
       client.exec(simpleSpawn, simplePolicy);
       fail("Expected an exception");
-    } catch (EnvironmentalExecException expected) {
-      assertThat(expected).hasMessageThat().contains("Failed to download from remote cache");
-      Throwable t = expected.getCause();
-      assertThat(t).isInstanceOf(CacheNotFoundException.class);
-      assertThat(((CacheNotFoundException) t).getMissingDigest()).isEqualTo(stdOutDigest);
+    } catch (ExecException expected) {
+      assertThat(expected).hasMessageThat().contains("Missing digest");
+      assertThat(expected).hasMessageThat().contains("476d9ec701e2de6a6c37ab5211117a7cb8333a27");
     }
   }
 }

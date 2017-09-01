@@ -380,6 +380,25 @@ EOF
   expect_log "TIMEOUT"
 }
 
+function test_exitcode() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"hello world\" > \"$@\"",
+)
+EOF
+
+  (set +e
+    bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+      --genrule_strategy=remote \
+      --remote_executor=bazel-test-does-not-exist \
+      //a:foo >& $TEST_log
+    [ $? -eq 34 ]) || fail "Test failed due to wrong exit code"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

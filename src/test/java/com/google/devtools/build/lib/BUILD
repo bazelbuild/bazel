@@ -1082,6 +1082,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:preconditions",

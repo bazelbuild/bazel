@@ -94,6 +94,12 @@ public interface SpawnResult {
     REMOTE_EXECUTOR_OVERLOADED,
 
     /**
+     * The result of the remotely executed Spawn could not be retrieved due to errors in the remote
+     * caching layer.
+     */
+    REMOTE_CACHE_FAILED,
+
+    /**
      * The remote execution system did not allow the request due to missing authorization or
      * authentication.
      */

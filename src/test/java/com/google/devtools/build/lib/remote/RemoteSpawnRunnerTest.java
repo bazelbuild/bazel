@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -202,14 +204,7 @@ public class RemoteSpawnRunnerTest {
         spy(new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
             cache, null));
 
-    Spawn spawn = new SimpleSpawn(
-        new FakeOwner("foo", "bar"),
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.<ActionInput>of(),
-        ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     SpawnResult res = Mockito.mock(SpawnResult.class);
@@ -235,14 +230,7 @@ public class RemoteSpawnRunnerTest {
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
 
-    Spawn spawn = new SimpleSpawn(
-        new FakeOwner("foo", "bar"),
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.<ActionInput>of(),
-        ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     RemoteSpawnRunner runner =
@@ -273,15 +261,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(execRoot, options, localRunner, false, reporter, cache, null);
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class)))
@@ -318,15 +298,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
             cache, null);
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -364,15 +336,7 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
     doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
 
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
@@ -398,15 +362,7 @@ public class RemoteSpawnRunnerTest {
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new TimeoutException());
 
-    Spawn spawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
-            ResourceSet.ZERO);
+    Spawn spawn = newSimpleSpawn();
 
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
@@ -415,6 +371,70 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+  }
+
+  @Test
+  public void testExitCode_executorfailure() throws Exception {
+    // If we get a failure due to the remote cache not working, the exit code should be
+    // ExitCode.REMOTE_ERROR.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
+            cache, executor);
+
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    try {
+      runner.exec(spawn, policy);
+      fail("Exception expected");
+    } catch (SpawnExecException e) {
+      assertThat(e.getSpawnResult().exitCode())
+          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    }
+  }
+
+  @Test
+  public void testExitCode_executionfailure() throws Exception {
+    // If we get a failure due to the remote executor not working, the exit code should be
+    // ExitCode.REMOTE_ERROR.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
+            cache, executor);
+
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    try {
+      runner.exec(spawn, policy);
+      fail("Exception expected");
+    } catch (SpawnExecException e) {
+      assertThat(e.getSpawnResult().exitCode())
+          .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    }
+  }
+
+  private static Spawn newSimpleSpawn() {
+    return new SimpleSpawn(
+        new FakeOwner("foo", "bar"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ ImmutableList.of(),
+            /*outputs=*/ ImmutableList.<ActionInput>of(),
+        ResourceSet.ZERO);
   }
 
   // TODO(buchgr): Extract a common class to be used for testing.
