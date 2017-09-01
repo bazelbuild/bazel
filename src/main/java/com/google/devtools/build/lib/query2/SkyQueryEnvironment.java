@@ -1247,6 +1247,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         this, expression, context, callback, packageSemaphore);
   }
 
+  @Override
+  public QueryTaskFuture<Void> getRdepsUnboundedInUniverseParallel(
+      QueryExpression expression,
+      VariableContext<Target> context,
+      List<Argument> args,
+      Callback<Target> callback) {
+    return RdepsFunction.evalWithBoundedDepth(this, context, expression, args, callback);
+  }
+
   @ThreadSafe
   @Override
   public QueryTaskFuture<Void> getAllRdeps(
