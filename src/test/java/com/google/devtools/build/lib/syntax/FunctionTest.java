@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import java.util.List;
@@ -221,25 +220,6 @@ public class FunctionTest extends EvaluationTestCase {
         "d = func()",
         "a = d[1]\n");
     assertThat(lookup("a")).isEqualTo(2);
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testFunctionListArgumentsAreImmutable() throws Exception {
-    eval("l = [1]",
-        "def func(l):",
-        "  l += [2]",
-        "func(l)");
-    assertThat((Iterable<Object>) lookup("l")).containsExactly(1);
-  }
-
-  @Test
-  public void testFunctionDictArgumentsAreImmutable() throws Exception {
-    eval("d = {'a' : 1}",
-        "def func(d):",
-        "  d += {'a' : 2}",
-        "func(d)");
-    assertThat(lookup("d")).isEqualTo(ImmutableMap.of("a", 1));
   }
 
   @Test
