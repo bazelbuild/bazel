@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
@@ -235,37 +238,59 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
-    // First startup_options
-    Iterable<BlazeModule> blazeModules = runtime.getBlazeModules();
-    ConfiguredRuleClassProvider ruleClassProvider = runtime.getRuleClassProvider();
     Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commandsByName.keySet()) + "\"");
 
     outErr.printOutLn("BAZEL_INFO_KEYS=\"");
     for (String name : InfoCommand.getHardwiredInfoItemNames(runtime.getProductName())) {
-        outErr.printOutLn(name);
+      outErr.printOutLn(name);
     }
     outErr.printOutLn("\"");
 
-    outErr.printOutLn("BAZEL_STARTUP_OPTIONS=\"");
+    Consumer<OptionsParser> startupOptionVisitor =
+        parser -> {
+          outErr.printOutLn("BAZEL_STARTUP_OPTIONS=\"");
+          outErr.printOut(parser.getOptionsCompletion());
+          outErr.printOutLn("\"");
+        };
+    CommandOptionVisitor commandOptionVisitor =
+        (commandName, commandAnnotation, parser) -> {
+          String varName = CaseFormat.LOWER_HYPHEN.to(CaseFormat.UPPER_UNDERSCORE, commandName);
+          if (!Strings.isNullOrEmpty(commandAnnotation.completion())) {
+            outErr.printOutLn(
+                "BAZEL_COMMAND_"
+                    + varName
+                    + "_ARGUMENT=\""
+                    + commandAnnotation.completion()
+                    + "\"");
+          }
+          outErr.printOutLn("BAZEL_COMMAND_" + varName + "_FLAGS=\"");
+          outErr.printOut(parser.getOptionsCompletion());
+          outErr.printOutLn("\"");
+        };
+
+    visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
+  }
+
+  private void visitAllOptions(
+      BlazeRuntime runtime,
+      Consumer<OptionsParser> startupOptionVisitor,
+      CommandOptionVisitor commandOptionVisitor) {
+    // First startup_options
+    Iterable<BlazeModule> blazeModules = runtime.getBlazeModules();
+    ConfiguredRuleClassProvider ruleClassProvider = runtime.getRuleClassProvider();
+    Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
+
     Iterable<Class<? extends OptionsBase>> options =
         BlazeCommandUtils.getStartupOptions(blazeModules);
-    outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
-    outErr.printOutLn("\"");
+    startupOptionVisitor.accept(OptionsParser.newOptionsParser(options));
 
     for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
       BlazeCommand command = e.getValue();
-      String varName = e.getKey().toUpperCase(Locale.US).replace('-', '_');
       Command annotation = command.getClass().getAnnotation(Command.class);
-      if (!annotation.completion().isEmpty()) {
-        outErr.printOutLn("BAZEL_COMMAND_" + varName + "_ARGUMENT=\""
-            + annotation.completion() + "\"");
-      }
       options = BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider);
-      outErr.printOutLn("BAZEL_COMMAND_" + varName + "_FLAGS=\"");
-      outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
-      outErr.printOutLn("\"");
+      commandOptionVisitor.visit(e.getKey(), annotation, OptionsParser.newOptionsParser(options));
     }
   }
 
@@ -419,5 +444,22 @@ public final class HelpCommand implements BlazeCommand {
     private static String capitalize(String s) {
       return s.substring(0, 1).toUpperCase(Locale.US) + s.substring(1);
     }
+  }
+
+  /** A visitor for Blaze commands and their respective command line options. */
+  @FunctionalInterface
+  interface CommandOptionVisitor {
+
+    /**
+     * Visits a Blaze command by providing access to its name, its meta-data and its command line
+     * options (via an {@link OptionsParser} instance).
+     *
+     * @param commandName name of the command, e.g. "help".
+     * @param commandAnnotation {@link Command} that contains addition information about the
+     *     command.
+     * @param parser an {@link OptionsParser} instance that provides access to all options supported
+     *     by the command.
+     */
+    void visit(String commandName, Command commandAnnotation, OptionsParser parser);
   }
 }
