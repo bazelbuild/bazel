@@ -18,14 +18,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -33,7 +31,6 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -55,6 +52,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidBinaryType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
@@ -62,7 +60,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
@@ -216,9 +213,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // can go away: recompile from android_resources, and recompile from android_binary attributes.
     ApplicationManifest applicationManifest;
     ResourceApk resourceApk;
-    ResourceApk incrementalResourceApk;
     ResourceApk instantRunResourceApk;
-    ResourceApk splitResourceApk;
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       // Retrieve and compile the resources defined on the android_binary rule.
       LocalResourceContainer.validateRuleContext(ruleContext);
@@ -257,19 +252,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               featureAfterArtifact);
       ruleContext.assertNoErrors();
 
-      incrementalResourceApk =
-          applicationManifest
-              .addMobileInstallStubApplication(ruleContext)
-              .packIncrementalBinaryWithDataAndResources(
-                  ruleContext,
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
-                  resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
-      ruleContext.assertNoErrors();
-
       instantRunResourceApk =
           applicationManifest
               .addInstantRunStubApplication(ruleContext)
@@ -280,18 +262,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"));
-      ruleContext.assertNoErrors();
-
-      splitResourceApk =
-          applicationManifest
-              .createSplitManifest(ruleContext, "android_resources", false)
-              .packIncrementalBinaryWithDataAndResources(
-                  ruleContext,
-                  getDxArtifact(ruleContext, "android_resources.ap_"),
-                  resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
       ruleContext.assertNoErrors();
 
     } else {
@@ -327,18 +297,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.assertNoErrors();
       }
 
-      incrementalResourceApk = applicationManifest
-          .addMobileInstallStubApplication(ruleContext)
-          .packWithResources(
-              ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
-              ruleContext,
-              resourceDeps,
-              false, /* createSource */
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
-              null /* mainDexProguardConfig */);
-      ruleContext.assertNoErrors();
-
       instantRunResourceApk = applicationManifest
           .addInstantRunStubApplication(ruleContext)
           .packWithResources(
@@ -348,16 +306,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               false, /* createSource */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"),
               null /* mainDexProguardConfig */);
-      ruleContext.assertNoErrors();
-
-      splitResourceApk = applicationManifest
-          .createSplitManifest(ruleContext, "android_resources", false)
-          .packWithResources(getDxArtifact(ruleContext, "android_resources.ap_"),
-            ruleContext,
-            resourceDeps,
-            false, /* createSource */
-            ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
-            null /* mainDexProguardConfig */);
       ruleContext.assertNoErrors();
     }
 
@@ -406,6 +354,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact proguardDictionary = ruleContext.getPrerequisiteArtifact(
         "proguard_apply_dictionary", Mode.TARGET);
 
+    MobileInstallResourceApks mobileInstallResourceApks =
+        AndroidBinaryMobileInstall.createMobileInstallResourceApks(
+            ruleContext,
+            applicationManifest,
+            resourceDeps);
+
     return createAndroidBinary(
         ruleContext,
         filesBuilder,
@@ -419,9 +373,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         nativeLibs,
         applicationManifest,
         resourceApk,
-        incrementalResourceApk,
+        mobileInstallResourceApks,
         instantRunResourceApk,
-        splitResourceApk,
         shrinkResources,
         resourceClasses,
         ImmutableList.<Artifact>of(),
@@ -444,9 +397,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NativeLibs nativeLibs,
       ApplicationManifest applicationManifest,
       ResourceApk resourceApk,
-      ResourceApk incrementalResourceApk,
+      MobileInstallResourceApks mobileInstallResourceApks,
       ResourceApk instantRunResourceApk,
-      ResourceApk splitResourceApk,
       boolean shrinkResources,
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
@@ -612,198 +564,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build(),
         dataDeps);
 
-    RuleConfiguredTargetBuilder builder =
-        new RuleConfiguredTargetBuilder(ruleContext);
-
-    Artifact incrementalApk =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_INCREMENTAL_APK);
-
-    Artifact fullDeployMarker =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.FULL_DEPLOY_MARKER);
-    Artifact incrementalDeployMarker =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.INCREMENTAL_DEPLOY_MARKER);
-    Artifact splitDeployMarker =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.SPLIT_DEPLOY_MARKER);
-
-    Artifact incrementalDexManifest =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEX_MANIFEST);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setMnemonic("AndroidDexManifest")
-            .setProgressMessage(
-                "Generating incremental installation manifest for %s", ruleContext.getLabel())
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest", Mode.HOST))
-            .addOutput(incrementalDexManifest)
-            .addInputs(dexingOutput.shardDexZips)
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .setCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath(incrementalDexManifest)
-                    .addExecPaths(dexingOutput.shardDexZips)
-                    .build())
-            .build(ruleContext));
-
-    Artifact stubData = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA);
-    Artifact stubDex = getStubDex(ruleContext, javaSemantics, false);
-    ruleContext.assertNoErrors();
-
-    ApkActionsBuilder incrementalActionsBuilder =
-        ApkActionsBuilder.create("incremental apk")
-            .setClassesDex(stubDex)
-            .addInputZip(incrementalResourceApk.getArtifact())
-            .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-            .addInputZips(nativeLibsZips)
-            .setJavaResourceFile(stubData)
-            .setSignedApk(incrementalApk)
-            .setSigningKey(signingKey);
-
-    if (!ruleContext.getFragment(AndroidConfiguration.class).useIncrementalNativeLibs()) {
-      incrementalActionsBuilder.setNativeLibs(nativeLibs);
-    }
-
-    incrementalActionsBuilder.registerActions(ruleContext);
-
-    Artifact argsArtifact =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.MOBILE_INSTALL_ARGS);
-    ruleContext.registerAction(
-        new WriteAdbArgsAction(ruleContext.getActionOwner(), argsArtifact));
-
-    createInstallAction(ruleContext, false, fullDeployMarker, argsArtifact,
-        incrementalDexManifest, incrementalResourceApk.getArtifact(), incrementalApk, nativeLibs,
-        stubData);
-
-    createInstallAction(ruleContext, true, incrementalDeployMarker,
-        argsArtifact,
-        incrementalDexManifest,
-        incrementalResourceApk.getArtifact(),
-        incrementalApk,
-        nativeLibs,
-        stubData);
-
-    Artifact incrementalDeployInfo = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.DEPLOY_INFO_INCREMENTAL);
-
-    AndroidDeployInfoAction.createDeployInfoAction(ruleContext,
-        incrementalDeployInfo,
-        resourceApk.getManifest(),
-        additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
-
-    NestedSet<Artifact> fullInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
-        .add(fullDeployMarker)
-        .add(incrementalDeployInfo)
-        .build();
-
-    NestedSet<Artifact> incrementalInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
-        .add(incrementalDeployMarker)
-        .add(incrementalDeployInfo)
-        .build();
-
-    NestedSetBuilder<Artifact> splitApkSetBuilder = NestedSetBuilder.compileOrder();
-
-    // Put the Android resource APK first so that this split gets installed first.
-    //
-    // This avoids some logcat spam during installation, because otherwise the Android package
-    // manager would complain about references to missing resources in the manifest during the
-    // installation of each split (said references would eventually get installed, but it cannot
-    // know that in advance)
-    Artifact resourceSplitApk = getDxArtifact(ruleContext, "android_resources.apk");
-    ApkActionsBuilder.create("split Android resource apk")
-        .addInputZip(splitResourceApk.getArtifact())
-        .setSignedApk(resourceSplitApk)
-        .setSigningKey(signingKey)
-        .registerActions(ruleContext);
-    splitApkSetBuilder.add(resourceSplitApk);
-
-    for (int i = 0; i < dexingOutput.shardDexZips.size(); i++) {
-      String splitName = "dex" + (i + 1);
-      Artifact splitApkResources = createSplitApkResources(
-          ruleContext, applicationManifest, splitName, true);
-      Artifact splitApk = getDxArtifact(ruleContext, splitName + ".apk");
-      ApkActionsBuilder.create("split dex apk " + (i + 1))
-          .setClassesDex(dexingOutput.shardDexZips.get(i))
-          .addInputZip(splitApkResources)
-          .setSignedApk(splitApk)
-          .setSigningKey(signingKey)
-          .registerActions(ruleContext);
-      splitApkSetBuilder.add(splitApk);
-    }
-
-    Artifact nativeSplitApkResources = createSplitApkResources(
-        ruleContext, applicationManifest, "native", false);
-    Artifact nativeSplitApk = getDxArtifact(ruleContext, "native.apk");
-    ApkActionsBuilder.create("split native apk")
-        .addInputZip(nativeSplitApkResources)
-        .setNativeLibs(nativeLibs)
-        .setSignedApk(nativeSplitApk)
-        .setSigningKey(signingKey)
-        .registerActions(ruleContext);
-    splitApkSetBuilder.add(nativeSplitApk);
-
-    Artifact javaSplitApkResources = createSplitApkResources(
-        ruleContext, applicationManifest, "java_resources", false);
-    Artifact javaSplitApk = getDxArtifact(ruleContext, "java_resources.apk");
-    ApkActionsBuilder.create("split Java resource apk")
-        .addInputZip(javaSplitApkResources)
-        .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-        .setSignedApk(javaSplitApk)
-        .setSigningKey(signingKey)
-        .registerActions(ruleContext);
-    splitApkSetBuilder.add(javaSplitApk);
-
-    Artifact splitMainApkResources = getDxArtifact(ruleContext, "split_main.ap_");
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setMnemonic("AndroidStripResources")
-            .setProgressMessage("Stripping resources from split main apk")
-            .setExecutable(ruleContext.getExecutablePrerequisite("$strip_resources", Mode.HOST))
-            .addInput(resourceApk.getArtifact())
-            .addOutput(splitMainApkResources)
-            .setCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath("--input_resource_apk", resourceApk.getArtifact())
-                    .addExecPath("--output_resource_apk", splitMainApkResources)
-                    .build())
-            .build(ruleContext));
-
-    NestedSet<Artifact> splitApks = splitApkSetBuilder.build();
-    Artifact splitMainApk = getDxArtifact(ruleContext, "split_main.apk");
-    Artifact splitStubDex = getStubDex(ruleContext, javaSemantics, true);
-    ruleContext.assertNoErrors();
-    ApkActionsBuilder.create("split main apk")
-        .setClassesDex(splitStubDex)
-        .addInputZip(splitMainApkResources)
-        .addInputZips(nativeLibsZips)
-        .setSignedApk(splitMainApk)
-        .setSigningKey(signingKey)
-        .registerActions(ruleContext);
-    splitApkSetBuilder.add(splitMainApk);
-    NestedSet<Artifact> allSplitApks = splitApkSetBuilder.build();
-
-    createSplitInstallAction(ruleContext, splitDeployMarker, argsArtifact, splitMainApk,
-        splitApks, stubData);
-
-    Artifact splitDeployInfo = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.DEPLOY_INFO_SPLIT);
-    AndroidDeployInfoAction.createDeployInfoAction(
-        ruleContext,
-        splitDeployInfo,
-        resourceApk.getManifest(),
-        additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
-
-    NestedSet<Artifact> splitInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(allSplitApks)
-        .add(splitDeployMarker)
-        .add(splitDeployInfo)
-        .build();
-
     Artifact debugKeystore = androidSemantics.getApkDebugSigningKey(ruleContext);
     Artifact apkManifest =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST);
@@ -829,6 +589,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         nativeLibs,
         debugKeystore);
 
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext);
+
     androidCommon.addTransitiveInfoProviders(
         builder,
         androidSemantics,
@@ -848,6 +611,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (oneVersionEnforcementArtifact != null) {
       builder.addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, oneVersionEnforcementArtifact);
     }
+
+    AndroidBinaryMobileInstall.addMobileInstall(
+        ruleContext,
+        builder,
+        dexingOutput,
+        javaSemantics,
+        nativeLibs,
+        resourceApk,
+        mobileInstallResourceApks,
+        resourceExtractor,
+        nativeLibsZips,
+        signingKey,
+        dataDeps,
+        additionalMergedManifests,
+        applicationManifest);
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -875,152 +653,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             AndroidFeatureFlagSetProvider.class,
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        .addOutputGroup("mobile_install_full" + INTERNAL_SUFFIX, fullInstallOutputGroup)
-        .addOutputGroup(
-            "mobile_install_incremental" + INTERNAL_SUFFIX, incrementalInstallOutputGroup)
-        .addOutputGroup("mobile_install_split" + INTERNAL_SUFFIX, splitInstallOutputGroup)
         .addOutputGroup("apk_manifest", apkManifest)
         .addOutputGroup("apk_manifest_text", apkManifestText)
-        .addOutputGroup("android_deploy_info", deployInfo)
-        .addOutputGroup("android_incremental_deploy_info", incrementalDeployInfo);
-  }
-
-  private static void createSplitInstallAction(RuleContext ruleContext,
-      Artifact marker, Artifact argsArtifact, Artifact splitMainApk, NestedSet<Artifact> splitApks,
-      Artifact stubDataFile) {
-    FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
-            .addTool(adb)
-            .executeUnconditionally()
-            .setMnemonic("AndroidInstall")
-            .setProgressMessage("Installing %s using split apks", ruleContext.getLabel())
-            .setExecutionInfo(ImmutableMap.of("local", ""))
-            .addTool(adb)
-            .addOutput(marker)
-            .addInput(stubDataFile)
-            .addInput(argsArtifact)
-            .addInput(splitMainApk);
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addExecPath("--output_marker", marker)
-            .addExecPath("--stub_datafile", stubDataFile)
-            .addExecPath("--adb", adb.getExecutable())
-            .addExecPath("--flagfile", argsArtifact)
-            .addExecPath("--split_main_apk", splitMainApk);
-
-    for (Artifact splitApk : splitApks) {
-      builder.addInput(splitApk);
-      commandLine.addExecPath("--split_apk", splitApk);
-    }
-
-    builder.setCommandLine(commandLine.build());
-    ruleContext.registerAction(builder.build(ruleContext));
-  }
-
-  private static void createInstallAction(RuleContext ruleContext,
-      boolean incremental, Artifact marker, Artifact argsArtifact,
-      Artifact dexmanifest, Artifact resourceApk, Artifact apk, NativeLibs nativeLibs,
-      Artifact stubDataFile) {
-    FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
-            // We cannot know if the user connected a new device, uninstalled the app from the
-            // device
-            // or did anything strange to it, so we always run this action.
-            .executeUnconditionally()
-            .setMnemonic("AndroidInstall")
-            .setProgressMessage(
-                "Installing %s%s", ruleContext.getLabel(), (incremental ? " incrementally" : ""))
-            .setExecutionInfo(ImmutableMap.of("local", ""))
-            .addTool(adb)
-            .addOutput(marker)
-            .addInput(dexmanifest)
-            .addInput(resourceApk)
-            .addInput(stubDataFile)
-            .addInput(argsArtifact);
-
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addExecPath("--output_marker", marker)
-            .addExecPath("--dexmanifest", dexmanifest)
-            .addExecPath("--resource_apk", resourceApk)
-            .addExecPath("--stub_datafile", stubDataFile)
-            .addExecPath("--adb", adb.getExecutable())
-            .addExecPath("--flagfile", argsArtifact);
-
-    if (!incremental) {
-      builder.addInput(apk);
-      commandLine.addExecPath("--apk", apk);
-    }
-
-    if (ruleContext.getFragment(AndroidConfiguration.class).useIncrementalNativeLibs()) {
-      for (Map.Entry<String, NestedSet<Artifact>> arch : nativeLibs.getMap().entrySet()) {
-        for (Artifact lib : arch.getValue()) {
-          builder.addInput(lib);
-          commandLine.add("--native_lib").addFormatted("%s:%s", arch.getKey(), lib);
-        }
-      }
-    }
-
-    builder.setCommandLine(commandLine.build());
-    ruleContext.registerAction(builder.build(ruleContext));
-  }
-
-  private static Artifact getStubDex(
-      RuleContext ruleContext, JavaSemantics javaSemantics, boolean split)
-      throws InterruptedException {
-    String attribute =
-        split ? "$incremental_split_stub_application" : "$incremental_stub_application";
-
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, Mode.TARGET);
-    if (dep == null) {
-      ruleContext.attributeError(attribute, "Stub application cannot be found");
-      return null;
-    }
-
-    JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
-    if (provider == null) {
-      ruleContext.attributeError(attribute, "'" + dep.getLabel() + "' should be a Java target");
-      return null;
-    }
-
-    JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(javaSemantics)
-        .addRuntimeClassPathEntries(provider.getJavaCompilationArgs().getRuntimeJars())
-        .build();
-
-    Function<Artifact, Artifact> desugaredJars = Functions.identity();
-    if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8()) {
-      desugaredJars =
-          collectDesugaredJarsFromAttributes(ruleContext, ImmutableList.of(attribute))
-              .build()
-              .collapseToFunction();
-    }
-    Artifact stubDeployJar = getDxArtifact(ruleContext,
-        split ? "split_stub_deploy.jar" : "stub_deploy.jar");
-    new DeployArchiveBuilder(javaSemantics, ruleContext)
-        .setOutputJar(stubDeployJar)
-        .setAttributes(attributes)
-        .setDerivedJarFunction(desugaredJars)
-        .build();
-
-    Artifact stubDex =
-        getDxArtifact(
-            ruleContext,
-            split ? "split_stub_application/classes.dex" : "stub_application/classes.dex");
-    AndroidCommon.createDexAction(
-        ruleContext,
-        stubDeployJar,
-        stubDex,
-        ImmutableList.<String>of(),
-        false,
-        null);
-
-    return stubDex;
+        .addOutputGroup("android_deploy_info", deployInfo);
   }
 
   private static void createApkManifestAction(
@@ -1245,10 +880,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   @Immutable
-  private static final class DexingOutput {
+  static final class DexingOutput {
     private final Artifact classesDexZip;
-    private final Artifact javaResourceJar;
-    private final ImmutableList<Artifact> shardDexZips;
+    final Artifact javaResourceJar;
+    final ImmutableList<Artifact> shardDexZips;
 
     private DexingOutput(
         Artifact classesDexZip, Artifact javaResourceJar, Iterable<Artifact> shardDexZips) {
@@ -1528,7 +1163,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return result.build().collapseToFunction();
   }
 
-  private static AndroidRuntimeJarProvider.Builder collectDesugaredJarsFromAttributes(
+  static AndroidRuntimeJarProvider.Builder collectDesugaredJarsFromAttributes(
       RuleContext ruleContext, ImmutableList<String> attributes) {
     AndroidRuntimeJarProvider.Builder result = new AndroidRuntimeJarProvider.Builder();
     for (String attr : attributes) {
@@ -1793,33 +1428,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .build())
             .build(ruleContext));
     return mainDexList;
-  }
-
-  private static Artifact createSplitApkResources(RuleContext ruleContext,
-      ApplicationManifest mainManifest, String splitName, boolean hasCode) {
-    Artifact splitManifest = mainManifest.createSplitManifest(ruleContext, splitName, hasCode)
-        .getManifest();
-    Artifact splitResources = getDxArtifact(ruleContext, "split_" + splitName + ".ap_");
-    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(sdk.getAapt())
-            .setMnemonic("AaptSplitResourceApk")
-            .setProgressMessage("Generating resource apk for split %s", splitName)
-            .addOutput(splitResources)
-            .addInput(splitManifest)
-            .addInput(sdk.getAndroidJar())
-            .setCommandLine(
-                CustomCommandLine.builder()
-                    .add("package")
-                    .addExecPath("-F", splitResources)
-                    .addExecPath("-M", splitManifest)
-                    .addExecPath("-I", sdk.getAndroidJar())
-                    .build())
-            .build(ruleContext));
-
-    return splitResources;
   }
 
   private static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
