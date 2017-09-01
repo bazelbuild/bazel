@@ -426,6 +426,8 @@ function test_aspect_artifacts() {
   expect_log 'name.*aspect-out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
+  count=`grep '^configured' "${TEST_log}" | wc -l`
+  [ "${count}" -eq 2 ] || fail "Expected 2 configured events, found $count."
 }
 
 function test_failing_aspect() {

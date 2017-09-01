@@ -86,6 +86,10 @@ message BuildEventId {
   // identifying for which configurations it should be build.
   message TargetConfiguredId {
     string label = 1;
+
+    // If not empty, the id refers to the expansion of the target for a given
+    // aspect.
+    string aspect = 2;
   }
 
   // Identifier of an event introducing a named set of files (usually artifacts)
