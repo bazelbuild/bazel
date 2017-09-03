@@ -415,11 +415,6 @@ java_import(
 )
 
 java_import(
-    name = "joda_time",
-    jars = ["joda_time/joda-time-2.3.jar"],
-)
-
-java_import(
     name = "jsch",
     jars = ["jsch/jsch-0.1.51.jar"],
 )
