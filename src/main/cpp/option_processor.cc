@@ -471,7 +471,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
 std::vector<std::string> OptionProcessor::GetCommandArguments() const {
   assert(cmd_line_ != nullptr);
   // When the user didn't specify a command, the server expects the command
-  // arguments to be empty in order to display the help message.
+  // arguments to be empty in order to display the help or version message.
   if (cmd_line_->command.empty()) {
     return {};
   }

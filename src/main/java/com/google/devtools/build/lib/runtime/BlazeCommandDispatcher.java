@@ -77,6 +77,9 @@ public class BlazeCommandDispatcher {
   private static final ImmutableSet<String> ALL_HELP_OPTIONS =
       ImmutableSet.of("--help", "-help", "-h");
 
+  private static final ImmutableSet<String> ALL_VERSION_OPTIONS =
+      ImmutableSet.of("--version", "-v");
+
   private final BlazeRuntime runtime;
   private final Object commandLock;
   private String currentClientDescription = null;
@@ -140,6 +143,11 @@ public class BlazeCommandDispatcher {
     // Be gentle to users who want to find out about Blaze invocation.
     if (ALL_HELP_OPTIONS.contains(commandName)) {
       commandName = "help";
+    }
+
+    // Be gentle to users who want to find out Blaze version information.
+    if (ALL_VERSION_OPTIONS.contains(commandName)) {
+      commandName = "version";
     }
 
     BlazeCommand command = runtime.getCommandMap().get(commandName);

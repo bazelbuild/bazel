@@ -125,7 +125,8 @@ bool SearchNullaryOption(const vector<string>& args,
 
 bool IsArg(const string& arg) {
   return blaze_util::starts_with(arg, "-") && (arg != "--help")
-      && (arg != "-help") && (arg != "-h");
+      && (arg != "-help") && (arg != "-h") && (arg != "--version")
+      && (arg != "-v");
 }
 
 void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
