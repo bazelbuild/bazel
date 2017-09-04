@@ -6,24 +6,16 @@ filegroup(
 )
 
 java_library(
-    name = "client",
+    name = "authandtls",
     srcs = glob(["*.java"]),
-    runtime_deps = [
-        # This is required for client TLS.
-        "//third_party:netty_tcnative",
-    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:auth",
-        "//third_party:gson",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
     ],
 )

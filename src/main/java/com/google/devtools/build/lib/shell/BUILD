@@ -1,5 +1,8 @@
-package(
-    default_visibility = ["//src:__subpackages__"],
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
 )
 
 # Library for dealing with executable commands, including their arguments and runtime environment
@@ -22,9 +25,4 @@ bootstrap_java_library(
     name = "shell-skylark",
     srcs = glob(["*.java"]),
     jars = ["//third_party:bootstrap_guava_and_error_prone-jars"],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

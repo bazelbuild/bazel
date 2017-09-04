@@ -11,7 +11,6 @@ java_library(
     resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote_worker:__subpackages__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -25,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
