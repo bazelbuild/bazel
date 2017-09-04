@@ -334,7 +334,8 @@ public final class DependencyModule {
         }
 
         return String.format(
-            "%s** Please add the following dependencies:%s\n  %s to %s\n\n",
+            "%1$** Please add the following dependencies:%2$\n  %3$ to %4$\n" +
+            "%1$** You can use the following buildozer command:%2$\nbuildozer 'add deps %3$' %4$\n\n",
             useColor ? "\033[35m\033[1m" : "",
             useColor ? "\033[0m" : "",
             missingTargetsStr.toString(),
