@@ -102,9 +102,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testDefinesAndMakeVariables() throws Exception {
     ConfiguredTarget l = scratchConfiguredTarget("a", "l",
-        "cc_library(name='l', srcs=['l.cc'], defines=['V=$(TEST_VARIABLE)'], toolchains=[':v'])",
-        "make_variable_tester(name='v')");
-    assertThat(l.getProvider(CppCompilationContext.class).getDefines()).contains("V=FOOBAR");
+        "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
+        "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
+    assertThat(l.getProvider(CppCompilationContext.class).getDefines()).contains("V=BAR");
   }
 
   @Test

@@ -54,7 +54,7 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
       ImmutableMap<String, String> ruleMakeVariables,
       Package pkg,
       BuildConfiguration configuration) {
-    this(ruleMakeVariables, pkg, configuration, ImmutableList.<MakeVariableSupplier>of());
+    this(ruleMakeVariables, pkg, configuration, ImmutableList.of());
   }
 
   public ConfigurationMakeVariableContext(

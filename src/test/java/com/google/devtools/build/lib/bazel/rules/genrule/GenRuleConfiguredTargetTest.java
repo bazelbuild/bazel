@@ -104,11 +104,21 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testToolchainMakeVariableExpansion() throws Exception {
     scratch.file("a/BUILD",
-        "genrule(name='gr', srcs=[], outs=['out'], cmd='$(TEST_VARIABLE)', toolchains=[':v'])",
-        "make_variable_tester(name='v')");
+        "genrule(name='gr', srcs=[], outs=['out'], cmd='$(FOO)', toolchains=[':v'])",
+        "make_variable_tester(name='v', variables={'FOO': 'FOOBAR'})");
 
     String cmd = getCommand("//a:gr");
     assertThat(cmd).endsWith("FOOBAR");
+  }
+
+  @Test
+  public void testToolchainOverridesConfiguration() throws Exception {
+    scratch.file("a/BUILD",
+        "genrule(name='gr', srcs=[], outs=['out'], cmd='JAVABASE=$(JAVABASE)', toolchains=[':v'])",
+        "make_variable_tester(name='v', variables={'JAVABASE': 'REPLACED'})");
+
+    String cmd = getCommand("//a:gr");
+    assertThat(cmd).endsWith("JAVABASE=REPLACED");
   }
 
   @Test

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
-import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -273,19 +273,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     return ruleContext.expandMakeVariables(
         "cmd",
         command,
-        createCommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
-  }
-
-  /**
-   * Creates a new {@link CommandResolverContext} instance to use in {@link #resolveCommand}.
-   */
-  protected CommandResolverContext createCommandResolverContext(RuleContext ruleContext,
-      NestedSet<Artifact> resolvedSrcs, NestedSet<Artifact> filesToBuild) {
-    return new CommandResolverContext(
-        ruleContext,
-        resolvedSrcs,
-        filesToBuild,
-        ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+        new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
   }
 
   /**
@@ -297,37 +285,58 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
+    private final Iterable<MakeVariableInfo> toolchains;
 
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
-        NestedSet<Artifact> filesToBuild,
-        Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+        NestedSet<Artifact> filesToBuild) {
       super(
-          ruleContext,
+          ruleContext.getMakeVariables(ImmutableList.of(":cc_toolchain")),
           ruleContext.getRule().getPackage(),
           ruleContext.getConfiguration(),
-          makeVariableSuppliers);
+          ImmutableList.of(new CcFlagsSupplier(ruleContext)));
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
+      this.toolchains = ruleContext.getPrerequisites(
+          "toolchains", Mode.TARGET, MakeVariableInfo.PROVIDER);
     }
 
     public RuleContext getRuleContext() {
       return ruleContext;
     }
 
+    private String resolveVariableFromToolchains(String variableName) {
+      for (MakeVariableInfo info : toolchains) {
+        String result = info.getMakeVariables().get(variableName);
+        if (result != null) {
+          return result;
+        }
+      }
+
+      return null;
+    }
+
     @Override
     public String lookupMakeVariable(String variableName) throws ExpansionException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs);
-      } else if (variableName.equals("<")) {
+      }
+
+      if (variableName.equals("<")) {
         return expandSingletonArtifact(resolvedSrcs, "$<", "input file");
-      } else if (variableName.equals("OUTS")) {
+      }
+
+      if (variableName.equals("OUTS")) {
         return Artifact.joinExecPaths(" ", filesToBuild);
-      } else if (variableName.equals("@")) {
+      }
+
+      if (variableName.equals("@")) {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
-      } else if (variableName.equals("@D")) {
+      }
+
+      if (variableName.equals("@D")) {
         // The output directory. If there is only one filename in outs,
         // this expands to the directory containing that file. If there are
         // multiple filenames, this variable instead expands to the
@@ -354,7 +363,14 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
               ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
           return dir.getRelative(relPath).getPathString();
         }
-      } else if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
+      }
+
+      String valueFromToolchains = resolveVariableFromToolchains(variableName);
+      if (valueFromToolchains != null) {
+        return valueFromToolchains;
+      }
+
+      if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
         List<String> attributes = new ArrayList<>();
         attributes.addAll(ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES);
         attributes.add(":host_jdk");
@@ -363,9 +379,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
                 ruleContext.getTarget().getPackage(),
                 ruleContext.getHostConfiguration())
             .lookupMakeVariable(variableName);
-      } else {
-        return super.lookupMakeVariable(variableName);
       }
+
+      return super.lookupMakeVariable(variableName);
     }
 
     /**
