@@ -58,6 +58,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private final SkylarkSemanticsOptions semantics;
   private Block block;
+  private int loopCount;
 
   /** Create a ValidationEnvironment for a given global Environment. */
   ValidationEnvironment(Environment env) {
@@ -106,7 +107,24 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   public void visit(ReturnStatement node) {
     if (isTopLevel()) {
       throw new ValidationException(
-          node.getLocation(), "Return statements must be inside a function");
+          node.getLocation(), "return statements must be inside a function");
+    }
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(ForStatement node) {
+    loopCount++;
+    super.visit(node);
+    Preconditions.checkState(loopCount > 0);
+    loopCount--;
+  }
+
+  @Override
+  public void visit(FlowStatement node) {
+    if (loopCount <= 0) {
+      throw new ValidationException(
+          node.getLocation(), node.getKind().getName() + " statement must be inside a for loop");
     }
     super.visit(node);
   }

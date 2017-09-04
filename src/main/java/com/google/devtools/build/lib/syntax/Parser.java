@@ -70,17 +70,6 @@ public class Parser {
     }
   }
 
-  /** Used to select whether the parser rejects features that are prohibited for BUILD files. */
-  // TODO(brandjon): Instead of using an enum to control what features are allowed, factor these
-  // restrictions into a separate visitor that can be outside the core Skylark parser. This will
-  // reduce parser complexity and help keep Bazel-specific knowledge out of the interpreter.
-  public enum Dialect {
-    /** Used for BUILD files. */
-    BUILD,
-    /** Used for .bzl and other Skylark files. This allows all language features. */
-    SKYLARK,
-  }
-
   /** Used to select what constructs are allowed based on whether we're at the top level. */
   public enum ParsingLevel {
     TOP_LEVEL,
@@ -121,7 +110,6 @@ public class Parser {
 
   private Token token; // current lookahead token
   private Token pushedToken = null; // used to implement LL(2)
-  private int loopCount; // break/continue keywords can be used only inside a loop
 
   private static final boolean DEBUGGING = false;
 
@@ -150,7 +138,6 @@ public class Parser {
           .put(TokenKind.STAR, Operator.MULT)
           .build();
 
-  // TODO(bazel-team): add support for |=
   private static final Map<TokenKind, Operator> augmentedAssignmentMethods =
       new ImmutableMap.Builder<TokenKind, Operator>()
           .put(TokenKind.PLUS_EQUALS, Operator.PLUS)
@@ -237,6 +224,7 @@ public class Parser {
    *
    * @throws IllegalArgumentException if the number of parsed statements was not exactly one
    */
+  @VisibleForTesting
   public static Statement parseStatement(
       ParserInputSource input, EventHandler eventHandler, ParsingLevel parsingLevel) {
     List<Statement> stmts = parseStatements(input, eventHandler, parsingLevel);
@@ -244,6 +232,7 @@ public class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
+  @VisibleForTesting
   public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
@@ -408,14 +397,9 @@ public class Parser {
     return setLocation(new Identifier("$error$"), start, end);
   }
 
-  // Convenience wrapper around ASTNode.setLocation that returns the node.
-  private <NODE extends ASTNode> NODE setLocation(NODE node, Location location) {
-    return ASTNode.setLocation(location, node);
-  }
-
-  // Another convenience wrapper method around ASTNode.setLocation
+  // Convenience wrapper method around ASTNode.setLocation
   private <NODE extends ASTNode> NODE setLocation(NODE node, int startOffset, int endOffset) {
-    return setLocation(node, lexer.createLocation(startOffset, endOffset));
+    return ASTNode.setLocation(lexer.createLocation(startOffset, endOffset), node);
   }
 
   // Convenience method that uses end offset from the last node.
@@ -427,10 +411,8 @@ public class Parser {
 
   // arg ::= IDENTIFIER '=' nontupleexpr
   //       | expr
-  //       | *args       (only in Skylark mode)
-  //       | **kwargs    (only in Skylark mode)
-  // To keep BUILD files declarative and easy to process, *args and **kwargs
-  // arguments are allowed only in Skylark mode.
+  //       | *args
+  //       | **kwargs
   private Argument.Passed parseFuncallArgument() {
     final int start = token.left;
     // parse **expr
@@ -789,7 +771,7 @@ public class Parser {
   // list_maker ::= '[' ']'
   //               |'[' expr ']'
   //               |'[' expr expr_list ']'
-  //               |'[' expr ('FOR' loop_variables 'IN' expr)+ ']'
+  //               |'[' expr comprehension_suffix ']'
   private Expression parseListMaker() {
     int start = token.left;
     expect(TokenKind.LBRACKET);
@@ -848,7 +830,7 @@ public class Parser {
 
   // dict_expression ::= '{' '}'
   //                    |'{' dict_entry_list '}'
-  //                    |'{' dict_entry 'FOR' loop_variables 'IN' expr '}'
+  //                    |'{' dict_entry comprehension_suffix '}'
   private Expression parseDictExpression() {
     int start = token.left;
     expect(TokenKind.LBRACE);
@@ -1156,21 +1138,12 @@ public class Parser {
 
   //     small_stmt ::= assign_stmt
   //                  | expr
-  //                  | RETURN expr
+  //                  | return_stmt
   //                  | flow_stmt
   //     assign_stmt ::= expr ('=' | augassign) expr
-  //     augassign ::= ('+=' | '-=' | '*=' | '/=' | '%=')
+  //     augassign ::= ('+=' | '-=' | '*=' | '/=' | '%=' | '//=' )
   // Note that these are in Python, but not implemented here (at least for now):
-  // '&=' | '|=' | '^=' |'<<=' | '>>=' | '**=' | '//='
-  // Semantic difference from Python:
-  // In Skylark, x += y is simple syntactic sugar for x = x + y.
-  // In Python, x += y is more or less equivalent to x = x + y, but if a method is defined
-  // on x.__iadd__(y), then it takes precedence, and in the case of lists it side-effects
-  // the original list (it doesn't do that on tuples); if no such method is defined it falls back
-  // to the x.__add__(y) method that backs x + y. In Skylark, we don't support this side-effect.
-  // Note also that there is a special casing to translate 'ident[key] = value'
-  // to 'ident = ident + {key: value}'. This is needed to support the pure version of Python-like
-  // dictionary assignment syntax.
+  // '&=' | '|=' | '^=' |'<<=' | '>>=' | '**='
   private Statement parseSmallStatement() {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
@@ -1236,17 +1209,12 @@ public class Parser {
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    enterLoop();
-    try {
-      List<Statement> block = parseSuite();
-      Statement stmt = new ForStatement(new LValue(loopVar), collection, block);
-      list.add(setLocation(stmt, start, token.right));
-    } finally {
-      exitLoop();
-    }
+    List<Statement> block = parseSuite();
+    Statement stmt = new ForStatement(new LValue(loopVar), collection, block);
+    list.add(setLocation(stmt, start, token.right));
   }
 
-  // def foo(bar1, bar2):
+  // def_stmt ::= DEF IDENTIFIER '(' arguments ')' ':' suite
   private void parseFunctionDefStatement(List<Statement> list) {
     int start = token.left;
     expect(TokenKind.DEF);
@@ -1340,7 +1308,9 @@ public class Parser {
   }
 
   // stmt ::= simple_stmt
-  //        | compound_stmt
+  //        | def_stmt
+  //        | for_stmt
+  //        | if_stmt
   private void parseStatement(List<Statement> list, ParsingLevel parsingLevel) {
     if (token.kind == TokenKind.DEF) {
       if (parsingLevel == ParsingLevel.LOCAL_LEVEL) {
@@ -1362,16 +1332,11 @@ public class Parser {
     }
   }
 
-  // flow_stmt ::= break_stmt | continue_stmt
+  // flow_stmt ::= BREAK | CONTINUE
   private FlowStatement parseFlowStatement(TokenKind kind) {
     int start = token.left;
     int end = token.right;
     expect(kind);
-    if (loopCount == 0) {
-      reportError(
-          lexer.createLocation(start, end),
-          kind.getPrettyName() + " statement must be inside a for loop");
-    }
     FlowStatement.Kind flowKind =
         kind == TokenKind.BREAK ? FlowStatement.Kind.BREAK : FlowStatement.Kind.CONTINUE;
     return setLocation(new FlowStatement(flowKind), start, end);
@@ -1394,14 +1359,5 @@ public class Parser {
   // create a comment node
   private void makeComment(Token token) {
     comments.add(setLocation(new Comment((String) token.value), token.left, token.right));
-  }
-
-  private void enterLoop() {
-    loopCount++;
-  }
-
-  private void exitLoop() {
-    Preconditions.checkState(loopCount > 0);
-    loopCount--;
   }
 }

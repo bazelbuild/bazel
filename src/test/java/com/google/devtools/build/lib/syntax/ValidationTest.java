@@ -45,7 +45,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testReturnOutsideFunction() throws Exception {
-    checkError("Return statements must be inside a function", "return 2\n");
+    checkError("return statements must be inside a function", "return 2\n");
   }
 
   @Test

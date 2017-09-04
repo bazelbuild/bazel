@@ -162,18 +162,6 @@ public class EvaluationTestCase {
     return Parser.parseStatement(makeParserInputSource(input), getEventHandler(), parsingLevel);
   }
 
-  /** Parses a top-level statement, possibly followed by newlines. */
-  protected Statement parseTopLevelStatement(String... input) {
-    return Parser.parseStatement(
-        makeParserInputSource(input), getEventHandler(), Parser.ParsingLevel.TOP_LEVEL);
-  }
-
-  /** Parses a local statement, possibly followed by newlines. */
-  protected Statement parseLocalLevelStatement(String... input) {
-    return Parser.parseStatement(
-        makeParserInputSource(input), getEventHandler(), Parser.ParsingLevel.LOCAL_LEVEL);
-  }
-
   /** Parses an expression, possibly followed by newlines. */
   protected Expression parseExpression(String... input) {
     return Parser.parseExpression(makeParserInputSource(input), getEventHandler());
