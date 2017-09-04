@@ -9,6 +9,7 @@ java_library(
     name = "javac_turbine",
     srcs = ["JavacTurbine.java"],
     deps = [
+        ":javac_transitive",
         ":javac_turbine_compile_request",
         ":javac_turbine_compile_result",
         ":javac_turbine_compiler",
@@ -28,6 +29,7 @@ java_library(
     name = "javac_turbine_compile_request",
     srcs = ["JavacTurbineCompileRequest.java"],
     deps = [
+        ":javac_transitive",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -49,6 +51,7 @@ java_library(
     name = "javac_turbine_compiler",
     srcs = ["JavacTurbineCompiler.java"],
     deps = [
+        ":javac_transitive",
         ":javac_turbine_compile_request",
         ":javac_turbine_compile_result",
         ":javac_turbine_java_compiler",
@@ -64,10 +67,23 @@ java_library(
     name = "javac_turbine_java_compiler",
     srcs = ["JavacTurbineJavaCompiler.java"],
     deps = [
+        ":javac_transitive",
         ":javac_turbine_compile_request",
         ":tree_pruner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:jsr305",
+        "//third_party/java/jdk/langtools:javac",
+    ],
+)
+
+java_library(
+    name = "javac_transitive",
+    srcs = ["JavacTransitive.java"],
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:turbine",
         "//third_party/java/jdk/langtools:javac",
     ],
 )

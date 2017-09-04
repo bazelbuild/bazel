@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import javax.annotation.Generated;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 /**
@@ -77,7 +76,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   private static Properties targetMap;
 
-  private JavaFileManager fileManager;
 
   private PrintWriter errWriter;
 
@@ -103,7 +101,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void init(Context context, Log log, JavaCompiler compiler) {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
-    fileManager = context.get(JavaFileManager.class);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(
             dependencyModule.getUsedClasspath(),
@@ -113,7 +110,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     if (checkingTreeScanner == null) {
       Set<String> platformJars = dependencyModule.getPlatformJars();
       checkingTreeScanner =
-          new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars, fileManager);
+          new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
     initTargetMap();
@@ -202,9 +199,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** All error reporting is done through javac's log, */
     private final Log log;
 
-    /** The compilation's file manager. */
-    private final JavaFileManager fileManager;
-
     /** The strict_java_deps mode */
     private final StrictJavaDeps strictJavaDepsMode;
 
@@ -229,15 +223,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         DependencyModule dependencyModule,
         Log log,
         Set<JarOwner> missingTargets,
-        Set<String> platformJars,
-        JavaFileManager fileManager) {
+        Set<String> platformJars) {
       this.indirectJarsToTargets = dependencyModule.getIndirectMapping();
       this.strictJavaDepsMode = dependencyModule.getStrictJavaDeps();
       this.log = log;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
       this.platformJars = platformJars;
-      this.fileManager = fileManager;
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -251,7 +243,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
 
       Symbol.TypeSymbol sym = node.type.tsym;
-      String jarName = getJarName(fileManager, sym.enclClass(), platformJars);
+      String jarName = getJarName(sym.enclClass(), platformJars);
 
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
@@ -418,8 +410,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    *
    * @param platformJars jars on javac's bootclasspath
    */
-  static String getJarName(
-      JavaFileManager fileManager, ClassSymbol classSymbol, Set<String> platformJars) {
+  public static String getJarName(ClassSymbol classSymbol, Set<String> platformJars) {
     if (classSymbol == null) {
       return null;
     }

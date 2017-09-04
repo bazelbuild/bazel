@@ -27,6 +27,7 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
+import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.options.TurbineOptions;
 import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
@@ -171,7 +172,10 @@ public class JavacTurbine implements AutoCloseable {
 
     if (sources.isEmpty()) {
       // accept compilations with an empty source list for compatibility with JavaBuilder
-      emitClassJar(Paths.get(turbineOptions.outputFile()), ImmutableMap.of());
+      emitClassJar(
+          Paths.get(turbineOptions.outputFile()),
+          /* files= */ ImmutableMap.of(),
+          /* transitive= */ ImmutableMap.of());
       dependencyModule.emitDependencyInformation(
           /*classpath=*/ ImmutableList.of(), /*successful=*/ true);
       return Result.OK_WITH_REDUCED_CLASSPATH;
@@ -186,6 +190,9 @@ public class JavacTurbine implements AutoCloseable {
         dependencyModule.computeStrictClasspath(turbineOptions.classPath());
 
     requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
+
+    JavacTransitive transitive = new JavacTransitive(turbineOptions.bootClassPath());
+    requestBuilder.setTransitivePlugin(transitive);
 
     if (turbineOptions.shouldReduceClassPath()) {
       // compile with reduced classpath
@@ -211,7 +218,10 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     if (result.ok()) {
-      emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files());
+      emitClassJar(
+          Paths.get(turbineOptions.outputFile()),
+          compileResult.files(),
+          transitive.collectTransitiveDependencies());
       dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
     } else {
       out.print(compileResult.output());
@@ -260,11 +270,17 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   /** Write the class output from a successful compilation to the output jar. */
-  private static void emitClassJar(Path outputJar, ImmutableMap<String, byte[]> files)
+  private static void emitClassJar(
+      Path outputJar, Map<String, byte[]> files, Map<String, byte[]> transitive)
       throws IOException {
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
+      for (Map.Entry<String, byte[]> entry : transitive.entrySet()) {
+        String name = entry.getKey();
+        byte[] bytes = entry.getValue();
+        ZipUtil.storeEntry(ClassPathBinder.TRANSITIVE_PREFIX + name + ".class", bytes, zipOut);
+      }
       for (Map.Entry<String, byte[]> entry : files.entrySet()) {
         String name = entry.getKey();
         byte[] bytes = entry.getValue();
