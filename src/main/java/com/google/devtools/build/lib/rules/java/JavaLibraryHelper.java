@@ -188,7 +188,11 @@ public final class JavaLibraryHelper {
             jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
-        output, null /* manifestProtoOutput */, null /* gensrcOutputJar */, outputDepsProto);
+        output,
+        null /* manifestProtoOutput */,
+        null /* gensrcOutputJar */,
+        outputDepsProto,
+        null /* outputMetadata */);
     helper.createCompileTimeJarAction(output, artifactsBuilder);
     artifactsBuilder.addRuntimeJar(output);
 
@@ -240,6 +244,7 @@ public final class JavaLibraryHelper {
             .build();
     attributes.addCompileTimeClassPathEntries(args.getCompileTimeJars());
     attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
+    attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
   }
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromDeps() {

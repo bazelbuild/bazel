@@ -297,6 +297,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "              srcs = ['input1.proto', 'input2.proto'])");
     JavaCompilationArgs compilationArgs =
         getProvider(JavaCompilationArgsProvider.class, rule).getJavaCompilationArgs();
+    assertThat(compilationArgs.getInstrumentationMetadata()).isEmpty();
 
     JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class, rule);
     assertThat(sourceJarsProvider).isNotNull();

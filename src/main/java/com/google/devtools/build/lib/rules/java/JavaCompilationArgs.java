@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.FileType;
+import java.util.Collection;
 
 /** A container of Java compilation artifacts. */
 @AutoValue
@@ -41,11 +42,14 @@ public abstract class JavaCompilationArgs {
   public static final JavaCompilationArgs EMPTY_ARGS =
       JavaCompilationArgs.create(
           NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER),
+          NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER));
 
   private static JavaCompilationArgs create(
-      NestedSet<Artifact> runtimeJars, NestedSet<Artifact> compileTimeJars) {
-    return new AutoValue_JavaCompilationArgs(runtimeJars, compileTimeJars);
+      NestedSet<Artifact> runtimeJars,
+      NestedSet<Artifact> compileTimeJars,
+      NestedSet<Artifact> instrumentationMetadata) {
+    return new AutoValue_JavaCompilationArgs(runtimeJars, compileTimeJars, instrumentationMetadata);
   }
 
   /** Returns transitive runtime jars. */
@@ -53,6 +57,9 @@ public abstract class JavaCompilationArgs {
 
   /** Returns transitive compile-time jars. */
   public abstract NestedSet<Artifact> getCompileTimeJars();
+
+  /** Returns transitive instrumentation metadata jars. */
+  public abstract NestedSet<Artifact> getInstrumentationMetadata();
 
   /**
    * Returns a new builder instance.
@@ -68,6 +75,8 @@ public abstract class JavaCompilationArgs {
     private final NestedSetBuilder<Artifact> runtimeJarsBuilder =
         NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeJarsBuilder =
+        NestedSetBuilder.naiveLinkOrder();
+    private final NestedSetBuilder<Artifact> instrumentationMetadataBuilder =
         NestedSetBuilder.naiveLinkOrder();
 
     /**
@@ -86,6 +95,7 @@ public abstract class JavaCompilationArgs {
         addRuntimeJars(other.getRuntimeJars());
       }
       addCompileTimeJars(other.getCompileTimeJars());
+      addInstrumentationMetadata(other.getInstrumentationMetadata());
       return this;
     }
 
@@ -124,6 +134,16 @@ public abstract class JavaCompilationArgs {
 
     public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> compileTimeJars) {
       this.compileTimeJarsBuilder.addTransitive(compileTimeJars);
+      return this;
+    }
+
+    public Builder addInstrumentationMetadata(Artifact instrumentationMetadata) {
+      this.instrumentationMetadataBuilder.add(instrumentationMetadata);
+      return this;
+    }
+
+    public Builder addInstrumentationMetadata(Collection<Artifact> instrumentationMetadata) {
+      this.instrumentationMetadataBuilder.addAll(instrumentationMetadata);
       return this;
     }
 
@@ -219,6 +239,8 @@ public abstract class JavaCompilationArgs {
       if (!ClasspathType.COMPILE_ONLY.equals(type)) {
         runtimeJarsBuilder.addTransitive(args.getRuntimeJars());
       }
+      instrumentationMetadataBuilder.addTransitive(
+          args.getInstrumentationMetadata());
       return this;
     }
 
@@ -226,7 +248,10 @@ public abstract class JavaCompilationArgs {
      * Builds a {@link JavaCompilationArgs} object.
      */
     public JavaCompilationArgs build() {
-      return JavaCompilationArgs.create(runtimeJarsBuilder.build(), compileTimeJarsBuilder.build());
+      return JavaCompilationArgs.create(
+          runtimeJarsBuilder.build(),
+          compileTimeJarsBuilder.build(),
+          instrumentationMetadataBuilder.build());
     }
   }
 
@@ -246,4 +271,3 @@ public abstract class JavaCompilationArgs {
 
   JavaCompilationArgs() {}
 }
-
