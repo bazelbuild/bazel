@@ -163,6 +163,7 @@ py_binary(
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
         "//third_party/ijar:embedded_tools",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         "//third_party/java/jacoco:srcs",
         "//third_party/zlib:embedded_tools",
     ] + select({
@@ -198,11 +199,6 @@ py_binary(
         ],
         "//conditions:default": [
             "//src/tools/singlejar:singlejar",
-        ],
-    }) + select({
-        "//tools/jdk:jdk7": [],
-        "//conditions:default": [
-            "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         ],
     }) + (select({
         ":darwin": [
