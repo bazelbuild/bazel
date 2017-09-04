@@ -154,6 +154,62 @@ public class ControlFlowCheckerTest {
   }
 
   @Test
+  public void testUnreachableAfterIf() throws Exception {
+    String messages =
+        findIssues(
+                "def some_function(x):",
+                "  if x:",
+                "    return",
+                "  else:",
+                "    fail('fail')",
+                "  print('This line is unreachable')")
+            .toString();
+    Truth.assertThat(messages).contains(":6:3: unreachable statement");
+  }
+
+  @Test
+  public void testNoUnreachableDuplicates() throws Exception {
+    List<Issue> messages =
+        findIssues(
+            "def some_function():",
+            "  return",
+            "  print('unreachable1')",
+            "  print('unreachable2')");
+    Truth.assertThat(messages).hasSize(1);
+  }
+
+  @Test
+  public void testUnreachableAfterBreakContinue() throws Exception {
+    String messages =
+        findIssues(
+                "def some_function(x):",
+                "  for y in x:",
+                "    if y:",
+                "      break",
+                "    else:",
+                "      continue",
+                "    print('unreachable')")
+            .toString();
+    Truth.assertThat(messages).contains(":7:5: unreachable statement");
+  }
+
+  @Test
+  public void testReachableStatements() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "def some_function(x):",
+                "  if x:",
+                "    return",
+                "  for y in []:",
+                "    if y:",
+                "      continue",
+                "    else:",
+                "      fail('fail')",
+                "  return"))
+        .isEmpty();
+  }
+
+  @Test
   public void testIfBeforeReturn() throws Exception {
     Truth.assertThat(
             findIssues(
@@ -211,19 +267,20 @@ public class ControlFlowCheckerTest {
                 "  else:",
                 "    return y"))
         .isEmpty();
-    Truth.assertThat(
-            findIssues(
-                "def f(x,y):",
-                "  if x:",
-                "    return x",
-                "  else:",
-                "    return x",
-                "  # from now on everything's unreachable",
-                "  print('bar')",
-                "  if y:",
-                "    return x",
-                "  # no else branch but doesn't matter since it's unreachable"))
-        .isEmpty();
+    List<Issue> issues =
+        findIssues(
+            "def f(x,y):",
+            "  if x:",
+            "    return x",
+            "  else:",
+            "    return x",
+            "  # from now on everything's unreachable",
+            "  print('bar')",
+            "  if y:",
+            "    return x",
+            "  # no else branch but doesn't matter since it's unreachable");
+    Truth.assertThat(issues).hasSize(1);
+    Truth.assertThat(issues.toString()).contains(":7:3: unreachable statement");
   }
 
   @Test

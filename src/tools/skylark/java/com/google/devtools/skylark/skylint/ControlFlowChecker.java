@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
+import com.google.devtools.build.lib.syntax.FlowStatement;
 import com.google.devtools.build.lib.syntax.ForStatement;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
@@ -64,6 +65,22 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
   }
 
   @Override
+  public void visitBlock(List<Statement> statements) {
+    if (cfi == null) {
+      super.visitBlock(statements);
+      return;
+    }
+    boolean alreadyReported = false;
+    for (Statement stmt : statements) {
+      if (!cfi.reachable && !alreadyReported) {
+        issues.add(new Issue("unreachable statement", stmt.getLocation()));
+        alreadyReported = true;
+      }
+      visit(stmt);
+    }
+  }
+
+  @Override
   public void visit(IfStatement node) {
     if (cfi == null) {
       return;
@@ -92,9 +109,16 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
   }
 
   @Override
+  public void visit(FlowStatement node) {
+    Preconditions.checkNotNull(cfi);
+    cfi.reachable = false;
+  }
+
+  @Override
   public void visit(ReturnStatement node) {
     // Should be rejected by parser, but we may have been fed a bad AST.
     Preconditions.checkState(cfi != null, "AST has illegal top-level return statement");
+    cfi.reachable = false;
     cfi.returnsAlwaysExplicitly = true;
     if (node.getReturnExpression() != null) {
       cfi.hasReturnWithValue = true;
@@ -110,6 +134,7 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
       return;
     }
     if (isFail(node.getExpression())) {
+      cfi.reachable = false;
       cfi.returnsAlwaysExplicitly = true;
     }
   }
@@ -169,16 +194,19 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
   }
 
   private static class ControlFlowInfo {
+    private boolean reachable;
     private boolean hasReturnWithValue;
     private boolean hasReturnWithoutValue;
     private boolean returnsAlwaysExplicitly;
     private final LinkedHashSet<Return> returnStatementsWithoutValue;
 
     private ControlFlowInfo(
+        boolean reachable,
         boolean hasReturnWithValue,
         boolean hasReturnWithoutValue,
         boolean returnsAlwaysExplicitly,
         LinkedHashSet<Return> returnStatementsWithoutValue) {
+      this.reachable = reachable;
       this.hasReturnWithValue = hasReturnWithValue;
       this.hasReturnWithoutValue = hasReturnWithoutValue;
       this.returnsAlwaysExplicitly = returnsAlwaysExplicitly;
@@ -187,12 +215,13 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
 
     /** Create a CFI corresponding to an entry point in the control-flow graph. */
     static ControlFlowInfo entry() {
-      return new ControlFlowInfo(false, false, false, new LinkedHashSet<>());
+      return new ControlFlowInfo(true, false, false, false, new LinkedHashSet<>());
     }
 
     /** Creates a copy of a CFI, including the {@code returnStatementsWithoutValue} collection. */
     static ControlFlowInfo copy(ControlFlowInfo existing) {
       return new ControlFlowInfo(
+          existing.reachable,
           existing.hasReturnWithValue,
           existing.hasReturnWithoutValue,
           existing.returnsAlwaysExplicitly,
@@ -201,9 +230,10 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
 
     /** Joins the CFIs for several alternative paths together. */
     static ControlFlowInfo join(List<ControlFlowInfo> infos) {
-      ControlFlowInfo result = new ControlFlowInfo(
-          false, false, true, new LinkedHashSet<>());
+      ControlFlowInfo result =
+          new ControlFlowInfo(false, false, false, true, new LinkedHashSet<>());
       for (ControlFlowInfo info : infos) {
+        result.reachable |= info.reachable;
         result.hasReturnWithValue |= info.hasReturnWithValue;
         result.hasReturnWithoutValue |= info.hasReturnWithoutValue;
         result.returnsAlwaysExplicitly &= info.returnsAlwaysExplicitly;
