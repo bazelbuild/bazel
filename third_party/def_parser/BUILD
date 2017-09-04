@@ -15,6 +15,9 @@ cc_binary(
   deps = [
     ":def_parser_lib",
   ],
+  visibility = [
+    "//src:__pkg__",
+  ],
 )
 
 py_test(
@@ -27,5 +30,8 @@ py_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
+    visibility = [
+      "//src:__pkg__",
+      "//third_party:__pkg__",
+    ],
 )
