@@ -97,7 +97,7 @@ public class BuildEventStreamer implements EventHandler {
   // Will be set to true if the build was invoked through "bazel test".
   private boolean isTestCommand;
 
-  private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildEventStreamer.class.getName());
 
   /**
    * Provider for stdout and stderr output.
@@ -326,7 +326,7 @@ public class BuildEventStreamer implements EventHandler {
         Futures.allAsList(closeFutures).get();
         f.cancel(true);
       } catch (Exception e) {
-        log.severe("Failed to close a build event transport: " + e);
+        logger.severe("Failed to close a build event transport: " + e);
       }
     } finally {
       if (executor != null) {

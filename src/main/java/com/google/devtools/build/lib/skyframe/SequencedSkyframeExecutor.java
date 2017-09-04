@@ -90,7 +90,7 @@ import java.util.logging.Logger;
  */
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
-  private static final Logger LOG = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
+  private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
 
   private boolean lastAnalysisDiscarded = false;
 
@@ -411,8 +411,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     EnumSet<FileType> fileTypesToCheck = checkOutputFiles
         ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
         : EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO);
-    LOG.info("About to scan skyframe graph checking for filesystem nodes of types "
-        + Iterables.toString(fileTypesToCheck));
+    logger.info(
+        "About to scan skyframe graph checking for filesystem nodes of types "
+            + Iterables.toString(fileTypesToCheck));
     Differencer.Diff diff =
         fsvc.getDirtyKeys(
             memoizingEvaluator.getValues(),
@@ -478,7 +479,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    LOG.info(result.toString());
+    logger.info(result.toString());
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -502,7 +503,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           incrementalState);
       incrementalState = IncrementalState.CLEAR_EDGES_AND_ACTIONS;
       // Graph will be recreated on next sync.
-      LOG.info("Set incremental state to " + incrementalState);
+      logger.info("Set incremental state to " + incrementalState);
     }
     removeActionsAfterEvaluation.set(incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
   }
@@ -575,7 +576,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
     topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
     topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
-    try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", LOG)) {
+    try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
           memoizingEvaluator.getGraphMap().entrySet().iterator();

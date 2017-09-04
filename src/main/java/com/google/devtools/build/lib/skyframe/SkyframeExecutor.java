@@ -292,7 +292,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private PerBuildSyscallCache perBuildSyscallCache;
   private int lastConcurrencyLevel = -1;
 
-  private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
+  private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
@@ -837,7 +837,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // modified files for targets in current request. Skyframe may check for modification all files
   // from previous requests.
   protected void informAboutNumberOfModifiedFiles() {
-    LOG.info(String.format("Found %d modified files from last build", modifiedFiles));
+    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
   }
 
   public EventBus getEventBus() {
@@ -884,8 +884,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // information here, so we compute it ourselves.
     // TODO(bazel-team): Fancy filesystems could provide it with a hypothetically modified
     // DiffAwareness interface.
-    LOG.info("About to recompute filesystem nodes corresponding to files that are known to have "
-        + "changed");
+    logger.info(
+        "About to recompute filesystem nodes corresponding to files that are known to have "
+            + "changed");
     FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
     Differencer.DiffWithDelta diff =
@@ -1145,7 +1146,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
       // some way -- either we analyzed a new target or we invalidated an old one.
-      try (AutoProfiler p = AutoProfiler.logged("discovering artifact conflicts", LOG)) {
+      try (AutoProfiler p = AutoProfiler.logged("discovering artifact conflicts", logger)) {
         skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupValues());
         skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
         // The invalidated configured targets flag will be reset later in the evaluate() call.

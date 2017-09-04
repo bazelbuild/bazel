@@ -113,8 +113,8 @@ import javax.annotation.Nullable;
  */
 public final class Command {
 
-  private static final Logger log =
-    Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final Logger logger =
+      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
 
   /** Pass this value to {@link #execute} to indicate that no input should be written to stdin. */
   public static final InputStream NO_INPUT = new NullInputStream();
@@ -408,8 +408,8 @@ public final class Command {
   }
 
   private static void processInput(InputStream stdinInput, Subprocess process) {
-    if (log.isLoggable(Level.FINER)) {
-      log.finer(stdinInput.toString());
+    if (logger.isLoggable(Level.FINER)) {
+      logger.finer(stdinInput.toString());
     }
     try (OutputStream out = process.getOutputStream()) {
       ByteStreams.copy(stdinInput, out);
@@ -428,11 +428,11 @@ public final class Command {
   private CommandResult waitForProcessToComplete(
       Subprocess process, Consumers.OutErrConsumers outErr, boolean killSubprocessOnInterrupt)
           throws AbnormalTerminationException {
-    log.finer("Waiting for process...");
+    logger.finer("Waiting for process...");
 
     TerminationStatus status = waitForProcess(process, killSubprocessOnInterrupt);
 
-    log.finer(status.toString());
+    logger.finer(status.toString());
 
     try {
       if (Thread.currentThread().isInterrupted()) {
@@ -498,9 +498,9 @@ public final class Command {
   }
 
   private void logCommand() {
-    if (!log.isLoggable(Level.FINE)) {
+    if (!logger.isLoggable(Level.FINE)) {
       return;
     }
-    log.fine(toDebugString());
+    logger.fine(toDebugString());
   }
 }

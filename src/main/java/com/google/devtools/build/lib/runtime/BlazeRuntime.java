@@ -120,7 +120,7 @@ public final class BlazeRuntime {
   private static final Pattern suppressFromLog =
       Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
-  private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final Iterable<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
@@ -522,7 +522,7 @@ public final class BlazeRuntime {
   public static final class RemoteExceptionHandler implements SubscriberExceptionHandler {
     @Override
     public void handleException(Throwable exception, SubscriberExceptionContext context) {
-      LOG.log(Level.SEVERE, "Failure in EventBus subscriber", exception);
+      logger.log(Level.SEVERE, "Failure in EventBus subscriber", exception);
       LoggingUtil.logToRemote(Level.SEVERE, "Failure in EventBus subscriber.", exception);
     }
   }
@@ -550,7 +550,7 @@ public final class BlazeRuntime {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
     }
-    LOG.info(
+    logger.info(
         "Starting Blaze server with pid "
             + maybeGetPidString()
             + " and args "
@@ -689,7 +689,7 @@ public final class BlazeRuntime {
           while (true) {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-            LOG.warning("Slow interrupt number " + count + " in batch mode");
+            logger.warning("Slow interrupt number " + count + " in batch mode");
             ThreadUtils.warnAboutSlowInterrupt();
           }
         };
@@ -697,7 +697,7 @@ public final class BlazeRuntime {
     new InterruptSignalHandler() {
       @Override
       public void run() {
-        LOG.info("User interrupt");
+        logger.info("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
         mainThread.interrupt();
 
@@ -707,7 +707,7 @@ public final class BlazeRuntime {
           interruptWatcherThread.setDaemon(true);
           interruptWatcherThread.start();
         } else if (curNumInterrupts == 2) {
-          LOG.warning("Second --batch interrupt: Reverting to JVM SIGINT handler");
+          logger.warning("Second --batch interrupt: Reverting to JVM SIGINT handler");
           uninstall();
         }
       }
@@ -721,7 +721,7 @@ public final class BlazeRuntime {
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
     captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
-    LOG.info(
+    logger.info(
         "Running Blaze in batch mode with "
             + maybeGetPidString()
             + "startup args "
@@ -751,7 +751,7 @@ public final class BlazeRuntime {
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
 
     try {
-      LOG.info(getRequestLogString(commandLineOptions.getOtherArgs()));
+      logger.info(getRequestLogString(commandLineOptions.getOtherArgs()));
       return dispatcher.exec(
           policy,
           commandLineOptions.getOtherArgs(),
@@ -785,7 +785,7 @@ public final class BlazeRuntime {
           new InterruptSignalHandler() {
             @Override
             public void run() {
-              LOG.severe("User interrupt");
+              logger.severe("User interrupt");
               blazeServer.interrupt();
             }
           };

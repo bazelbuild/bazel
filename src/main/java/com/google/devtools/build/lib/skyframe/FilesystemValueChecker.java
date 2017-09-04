@@ -70,7 +70,7 @@ import javax.annotation.Nullable;
 public class FilesystemValueChecker {
 
   private static final int DIRTINESS_CHECK_THREADS = 200;
-  private static final Logger LOG = Logger.getLogger(FilesystemValueChecker.class.getName());
+  private static final Logger logger = Logger.getLogger(FilesystemValueChecker.class.getName());
 
   private static final Predicate<SkyKey> ACTION_FILTER =
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
@@ -162,10 +162,10 @@ public class FilesystemValueChecker {
       @Nullable final BatchStat batchStatter, ModifiedFileSet modifiedOutputFiles)
           throws InterruptedException {
     if (modifiedOutputFiles == ModifiedFileSet.NOTHING_MODIFIED) {
-      LOG.info("Not checking for dirty actions since nothing was modified");
+      logger.info("Not checking for dirty actions since nothing was modified");
       return ImmutableList.of();
     }
-    LOG.info("Accumulating dirty actions");
+    logger.info("Accumulating dirty actions");
     final int numOutputJobs = Runtime.getRuntime().availableProcessors() * 4;
     final Set<SkyKey> actionSkyKeys = new HashSet<>();
     for (SkyKey key : valuesMap.keySet()) {
@@ -179,7 +179,7 @@ public class FilesystemValueChecker {
     for (SkyKey key : actionSkyKeys) {
       outputShards.add(Pair.of(key, (ActionExecutionValue) valuesMap.get(key)));
     }
-    LOG.info("Sharded action values for batching");
+    logger.info("Sharded action values for batching");
 
     ExecutorService executor = Executors.newFixedThreadPool(
         numOutputJobs,
@@ -221,7 +221,7 @@ public class FilesystemValueChecker {
 
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
-    LOG.info("Completed output file stat checks");
+    logger.info("Completed output file stat checks");
     if (interrupted) {
       throw new InterruptedException();
     }
@@ -260,12 +260,15 @@ public class FilesystemValueChecker {
         List<Artifact> artifacts = ImmutableList.copyOf(fileToKeyAndValue.keySet());
         List<FileStatusWithDigest> stats;
         try {
-          stats = batchStatter.batchStat(/*includeDigest=*/true, /*includeLinks=*/true,
-              Artifact.asPathFragments(artifacts));
+          stats =
+              batchStatter.batchStat(
+                  /*includeDigest=*/ true,
+                  /*includeLinks=*/ true,
+                  Artifact.asPathFragments(artifacts));
         } catch (IOException e) {
           // Batch stat did not work. Log an exception and fall back on system calls.
           LoggingUtil.logToRemote(Level.WARNING, "Unable to process batch stat", e);
-          LOG.log(Level.WARNING, "Unable to process batch stat", e);
+          logger.log(Level.WARNING, "Unable to process batch stat", e);
           outputStatJob(dirtyKeys, shard, knownModifiedOutputFiles, sortedKnownModifiedOutputFiles)
               .run();
           return;
@@ -274,8 +277,11 @@ public class FilesystemValueChecker {
           return;
         }
 
-        Preconditions.checkState(artifacts.size() == stats.size(),
-            "artifacts.size() == %s stats.size() == %s", artifacts.size(), stats.size());
+        Preconditions.checkState(
+            artifacts.size() == stats.size(),
+            "artifacts.size() == %s stats.size() == %s",
+            artifacts.size(),
+            stats.size());
         for (int i = 0; i < artifacts.size(); i++) {
           Artifact artifact = artifacts.get(i);
           FileStatusWithDigest stat = stats.get(i);
@@ -284,11 +290,12 @@ public class FilesystemValueChecker {
           SkyKey key = keyAndValue.getFirst();
           FileValue lastKnownData = actionValue.getAllFileValues().get(artifact);
           try {
-            FileValue newData = ActionMetadataHandler.fileValueFromArtifact(artifact, stat,
-                tsgm);
+            FileValue newData = ActionMetadataHandler.fileValueFromArtifact(artifact, stat, tsgm);
             if (!newData.equals(lastKnownData)) {
-              updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1,
-                  lastKnownData.isSymlink(), newData.isSymlink());
+              updateIntraBuildModifiedCounter(
+                  stat != null ? stat.getLastChangeTime() : -1,
+                  lastKnownData.isSymlink(),
+                  newData.isSymlink());
               modifiedOutputFilesCounter.getAndIncrement();
               dirtyKeys.add(key);
             }
@@ -310,9 +317,8 @@ public class FilesystemValueChecker {
             // Count the changed directory as one "file".
             // TODO(bazel-team): There are no tests for this codepath.
             try {
-              updateIntraBuildModifiedCounter(path.exists()
-                  ? path.getLastModifiedTime()
-                  : -1, false, path.isSymbolicLink());
+              updateIntraBuildModifiedCounter(
+                  path.exists() ? path.getLastModifiedTime() : -1, false, path.isSymbolicLink());
             } catch (IOException e) {
               // Do nothing here.
             }
@@ -470,17 +476,20 @@ public class FilesystemValueChecker {
         new ThrowableRecordingRunnableWrapper("FilesystemValueChecker#getDirtyValues");
     final AtomicInteger numKeysScanned = new AtomicInteger(0);
     final AtomicInteger numKeysChecked = new AtomicInteger(0);
-    ElapsedTimeReceiver elapsedTimeReceiver = new ElapsedTimeReceiver() {
-        @Override
-        public void accept(long elapsedTimeNanos) {
-          if (elapsedTimeNanos > 0) {
-            LOG.info(String.format("Spent %d ms checking %d filesystem nodes (%d scanned)",
-                TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
-                numKeysChecked.get(),
-                numKeysScanned.get()));
+    ElapsedTimeReceiver elapsedTimeReceiver =
+        new ElapsedTimeReceiver() {
+          @Override
+          public void accept(long elapsedTimeNanos) {
+            if (elapsedTimeNanos > 0) {
+              logger.info(
+                  String.format(
+                      "Spent %d ms checking %d filesystem nodes (%d scanned)",
+                      TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
+                      numKeysChecked.get(),
+                      numKeysScanned.get()));
+            }
           }
-        }
-    };
+        };
     try (AutoProfiler prof = AutoProfiler.create(elapsedTimeReceiver)) {
       for (final SkyKey key : keys) {
         numKeysScanned.incrementAndGet();

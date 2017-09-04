@@ -35,7 +35,7 @@ import java.util.logging.Logger;
  */
 public class BuildSummaryStatsModule extends BlazeModule {
 
-  private static final Logger LOG = Logger.getLogger(BuildSummaryStatsModule.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
 
   private SimpleCriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
@@ -83,9 +83,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
         AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
             criticalPathComputer.aggregate();
         items.add(criticalPath.toStringSummary());
-        LOG.info(criticalPath.toString());
-        LOG.info("Slowest actions:\n  " + Joiner.on("\n  ")
-            .join(criticalPathComputer.getSlowestComponents()));
+        logger.info(criticalPath.toString());
+        logger.info(
+            "Slowest actions:\n  "
+                + Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
         // We reverse the critical path because the profiler expect events ordered by the time
         // when the actions were executed while critical path computation is stored in the reverse
         // way.

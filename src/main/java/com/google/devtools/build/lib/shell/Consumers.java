@@ -37,8 +37,8 @@ import java.util.logging.Logger;
  */
 final class Consumers {
 
-  private static final Logger log =
-    Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final Logger logger =
+      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
 
   private Consumers() {}
 
@@ -137,7 +137,7 @@ final class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be sent to streams provided by client");
+      logger.finer("Output will be sent to streams provided by client");
     }
 
     @Override protected Runnable createConsumingAndClosingSink(InputStream in,
@@ -161,7 +161,7 @@ final class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be accumulated (promptly read off) and returned");
+      logger.finer("Output will be accumulated (promptly read off) and returned");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -183,7 +183,7 @@ final class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be ignored");
+      logger.finer("Output will be ignored");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -325,7 +325,7 @@ final class Consumers {
       closeable.close();
     } catch (IOException ioe) {
       String message = "Unexpected exception while closing input stream";
-      log.log(Level.WARNING, message, ioe);
+      logger.log(Level.WARNING, message, ioe);
     }
   }
 

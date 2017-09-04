@@ -72,8 +72,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
-  private static final Logger LOG =
-    Logger.getLogger(ParallelBuilderTest.class.getName());
+  private static final Logger logger = Logger.getLogger(ParallelBuilderTest.class.getName());
 
   protected ActionCache cache;
 
@@ -307,7 +306,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   @Test
   public void testNullBuild() throws Exception {
     // BuildTool.setupLogging(Level.FINEST);
-    LOG.fine("Testing null build...");
+    logger.fine("Testing null build...");
     buildArtifacts();
   }
 
@@ -347,7 +346,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         List<Counter> counters = buildRandomActionGraph(trial);
 
         // do a clean build
-        LOG.fine("Testing clean build... (trial " + trial + ")");
+        logger.fine("Testing clean build... (trial " + trial + ")");
         Artifact[] buildTargets = chooseRandomBuild();
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Clean);
@@ -358,14 +357,14 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         // BuildTool creates new instances of the Builder for each build request. It may rely on
         // that fact (that its state will be discarded after each build request) - thus
         // test should use same approach and ensure that a new instance is used each time.
-        LOG.fine("Testing incremental build...");
+        logger.fine("Testing incremental build...");
         buildTargets = chooseRandomBuild();
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Incremental);
         resetCounters(counters);
 
         // do a do-nothing build
-        LOG.fine("Testing do-nothing rebuild...");
+        logger.fine("Testing do-nothing rebuild...");
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Nop);
         //resetCounters(counters);
@@ -432,42 +431,42 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       switch (random.nextInt(4)) {
         case 0:
           // build the final output target
-          LOG.fine("Building final output target.");
-          buildTargets = new Artifact[] { artifacts[numArtifacts - 1] };
+          logger.fine("Building final output target.");
+          buildTargets = new Artifact[] {artifacts[numArtifacts - 1]};
           break;
 
-        case 1: {
-          // build all the targets (in random order);
-          LOG.fine("Building all the targets.");
-          List<Artifact> targets = Lists.newArrayList(artifacts);
-          Collections.shuffle(targets, random);
-          buildTargets = targets.toArray(new Artifact[numArtifacts]);
-          break;
-        }
+        case 1:
+          {
+            // build all the targets (in random order);
+            logger.fine("Building all the targets.");
+            List<Artifact> targets = Lists.newArrayList(artifacts);
+            Collections.shuffle(targets, random);
+            buildTargets = targets.toArray(new Artifact[numArtifacts]);
+            break;
+          }
 
         case 2:
           // build a random target
-          LOG.fine("Building a random target.");
-          buildTargets = new Artifact[] {
-                artifacts[random.nextInt(numArtifacts)]
-              };
+          logger.fine("Building a random target.");
+          buildTargets = new Artifact[] {artifacts[random.nextInt(numArtifacts)]};
           break;
 
-        case 3: {
-          // build a random subset of targets
-          LOG.fine("Building a random subset of targets.");
-          List<Artifact> targets = Lists.newArrayList(artifacts);
-          Collections.shuffle(targets, random);
-          List<Artifact> targetSubset = new ArrayList<>();
-          int numTargetsToTest = random.nextInt(numArtifacts);
-          LOG.fine("numTargetsToTest = " + numTargetsToTest);
-          Iterator<Artifact> iterator = targets.iterator();
-          for (int i = 0; i < numTargetsToTest; i++) {
-            targetSubset.add(iterator.next());
+        case 3:
+          {
+            // build a random subset of targets
+            logger.fine("Building a random subset of targets.");
+            List<Artifact> targets = Lists.newArrayList(artifacts);
+            Collections.shuffle(targets, random);
+            List<Artifact> targetSubset = new ArrayList<>();
+            int numTargetsToTest = random.nextInt(numArtifacts);
+            logger.fine("numTargetsToTest = " + numTargetsToTest);
+            Iterator<Artifact> iterator = targets.iterator();
+            for (int i = 0; i < numTargetsToTest; i++) {
+              targetSubset.add(iterator.next());
+            }
+            buildTargets = targetSubset.toArray(new Artifact[numTargetsToTest]);
+            break;
           }
-          buildTargets = targetSubset.toArray(new Artifact[numTargetsToTest]);
-          break;
-        }
 
         default:
           throw new IllegalStateException();

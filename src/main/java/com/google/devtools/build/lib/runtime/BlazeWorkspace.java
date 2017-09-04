@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 public final class BlazeWorkspace {
   public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
-  private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeRuntime runtime;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
@@ -224,11 +224,11 @@ public final class BlazeWorkspace {
    */
   public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, LOG)) {
+      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, logger)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         } catch (IOException e) {
-          LOG.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
+          logger.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           LoggingUtil.logToRemote(
               Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           reporter.handle(
@@ -273,7 +273,7 @@ public final class BlazeWorkspace {
           "only Blaze will modify this directory and the files in it,",
           "so if you change anything here you may mess up Blaze's cache.");
     } catch (IOException e) {
-      LOG.warning("Couldn't write to '" + outputBaseReadmeFile + "': " + e.getMessage());
+      logger.warning("Couldn't write to '" + outputBaseReadmeFile + "': " + e.getMessage());
     }
   }
 
@@ -282,7 +282,7 @@ public final class BlazeWorkspace {
       FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
     } catch (IOException e) {
-      LOG.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
+      logger.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
     }
   }
 
@@ -302,7 +302,7 @@ public final class BlazeWorkspace {
     try {
       FileSystemUtils.createDirectoryAndParents(directories.getExecRoot());
     } catch (IOException e) {
-      LOG.warning(
+      logger.warning(
           "failed to create execution root '" + directories.getExecRoot() + "': " + e.getMessage());
     }
   }

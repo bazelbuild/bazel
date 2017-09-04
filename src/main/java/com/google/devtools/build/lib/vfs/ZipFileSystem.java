@@ -37,7 +37,7 @@ import java.util.zip.ZipFile;
  */
 @ThreadCompatible  // Can only be accessed from one thread at a time (including its Path objects)
 public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
-  private static final Logger log = Logger.getLogger(ZipFileSystem.class.getName());
+  private static final Logger logger = Logger.getLogger(ZipFileSystem.class.getName());
 
   private final File tempFile;  // In case this needs to be written to the file system
   private final ZipFile zipFile;
@@ -312,8 +312,9 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
         zipFile.close();
       } catch (IOException e) {
         // Not a lot can be done about this. Log an error and move on.
-        log.warning(String.format(
-            "Error while closing zip file '%s': %s", zipFile.getName(), e.getMessage()));
+        logger.warning(
+            String.format(
+                "Error while closing zip file '%s': %s", zipFile.getName(), e.getMessage()));
       }
       if (tempFile != null) {
         tempFile.delete();

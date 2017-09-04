@@ -30,7 +30,7 @@ import java.util.logging.Logger;
  * <p>This is the common execution path between the gRPC server and the legacy AF_UNIX server.
  */
 public class CommandExecutor implements ServerCommand {
-  private static final Logger LOG = Logger.getLogger(CommandExecutor.class.getName());
+  private static final Logger logger = Logger.getLogger(CommandExecutor.class.getName());
 
   private boolean shutdown;
   private final BlazeRuntime runtime;
@@ -52,7 +52,7 @@ public class CommandExecutor implements ServerCommand {
       long firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
       throws InterruptedException {
-    LOG.info(BlazeRuntime.getRequestLogString(args));
+    logger.info(BlazeRuntime.getRequestLogString(args));
 
     try {
       return dispatcher.exec(
@@ -70,7 +70,7 @@ public class CommandExecutor implements ServerCommand {
         PrintWriter writer = new PrintWriter(message, true);
         e.printStackTrace(writer);
         writer.flush();
-        LOG.severe(message.toString());
+        logger.severe(message.toString());
       }
       shutdown = true;
       runtime.shutdown();

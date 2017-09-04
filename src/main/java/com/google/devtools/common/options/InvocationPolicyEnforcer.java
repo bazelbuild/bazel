@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
  */
 public final class InvocationPolicyEnforcer {
 
-  private static final Logger log = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
+  private static final Logger logger = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
 
   private static final Function<Object, String> INVOCATION_POLICY_SOURCE = o -> "Invocation policy";
 
@@ -108,7 +108,7 @@ public final class InvocationPolicyEnforcer {
         // This flag doesn't exist. We are deliberately lenient if the flag policy has a flag
         // we don't know about. This is for better future proofing so that as new flags are added,
         // new policies can use the new flags without worrying about older versions of Bazel.
-        log.info(
+        logger.info(
             String.format("Flag '%s' specified by invocation policy does not exist", flagName));
         continue;
       }
@@ -156,11 +156,10 @@ public final class InvocationPolicyEnforcer {
           throw new PolicyOperationNotSetException(flagName);
 
         default:
-          log.warning(
+          logger.warning(
               String.format(
                   "Unknown operation '%s' from invocation policy for flag '%s'",
-                  flagPolicy.getOperationCase(),
-                  flagName));
+                  flagPolicy.getOperationCase(), flagName));
           break;
       }
     }
@@ -273,7 +272,7 @@ public final class InvocationPolicyEnforcer {
       case OPERATION_NOT_SET:
         throw new PolicyOperationNotSetException(expansionPolicy.getFlagName());
       default:
-        log.warning(
+        logger.warning(
             String.format(
                 "Unknown operation '%s' from invocation policy for flag '%s'",
                 expansionPolicy.getOperationCase(), expansionFlagName));
@@ -313,7 +312,7 @@ public final class InvocationPolicyEnforcer {
             .build();
     boolean isExpansion = originalOptionDescription.isExpansion();
 
-    if (!subflags.isEmpty() && log.isLoggable(Level.FINE)) {
+    if (!subflags.isEmpty() && logger.isLoggable(Level.FINE)) {
       // Log the expansion. Since this is logged regardless of user provided command line, it is
       // only really useful for understanding the invocation policy itself. Most of the time,
       // invocation policy does not change, so this can be a log level fine.
@@ -322,15 +321,16 @@ public final class InvocationPolicyEnforcer {
         subflagNames.add("--" + subflag.getName());
       }
 
-      log.logp(Level.FINE,
+      logger.logp(
+          Level.FINE,
           "InvocationPolicyEnforcer",
           "expandPolicy",
           String.format(
-            "Expanding %s on option %s to its %s: %s.",
-            originalPolicy.getOperationCase(),
-            originalPolicy.getFlagName(),
-            isExpansion ? "expansions" : "implied flags",
-            Joiner.on("; ").join(subflagNames)));
+              "Expanding %s on option %s to its %s: %s.",
+              originalPolicy.getOperationCase(),
+              originalPolicy.getFlagName(),
+              isExpansion ? "expansions" : "implied flags",
+              Joiner.on("; ").join(subflagNames)));
     }
 
     // Repeated flags are special, and could set multiple times in an expansion, with the user
@@ -489,7 +489,7 @@ public final class InvocationPolicyEnforcer {
   private static void logInApplySetValueOperation(String formattingString, Object... objects) {
     // Finding the caller here is relatively expensive and shows up in profiling, so provide it
     // manually.
-    log.logp(
+    logger.logp(
         Level.INFO,
         "InvocationPolicyEnforcer",
         "applySetValueOperation",
@@ -573,15 +573,11 @@ public final class InvocationPolicyEnforcer {
       if (desc != null) {
         clearedFlagDefaultValue = desc.getOptionDefinition().getDefaultValue();
       }
-      log.info(
+      logger.info(
           String.format(
               "Using default value '%s' for flag '%s' as "
                   + "specified by %s invocation policy, overriding original value '%s' from '%s'",
-              clearedFlagDefaultValue,
-              clearedFlagName,
-              policyType,
-              originalValue,
-              source));
+              clearedFlagDefaultValue, clearedFlagName, policyType, originalValue, source));
     }
   }
 
@@ -713,7 +709,7 @@ public final class InvocationPolicyEnforcer {
           convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue())) {
         if (newValue != null) {
           // Use the default value from the policy.
-          log.info(
+          logger.info(
               String.format(
                   "Overriding default value '%s' for flag '%s' with value '%s' "
                       + "specified by invocation policy. %sed values are: %s",
@@ -775,15 +771,11 @@ public final class InvocationPolicyEnforcer {
 
         if (!isFlagValueAllowed(convertedPolicyValues, valueDescription.getValue())) {
           if (newValue != null) {
-            log.info(
+            logger.info(
                 String.format(
                     "Overriding disallowed value '%s' for flag '%s' with value '%s' "
                         + "specified by invocation policy. %sed values are: %s",
-                    valueDescription.getValue(),
-                    flagName,
-                    newValue,
-                    policyType,
-                    policyValues));
+                    valueDescription.getValue(), flagName, newValue, policyType, policyValues));
             parser.clearValue(flagName);
             setFlagValue(parser, flagName, newValue);
           } else if (useDefault) {

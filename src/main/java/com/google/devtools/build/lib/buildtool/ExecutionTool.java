@@ -167,7 +167,7 @@ public class ExecutionTool {
     }
   }
 
-  static final Logger log = Logger.getLogger(ExecutionTool.class.getName());
+  static final Logger logger = Logger.getLogger(ExecutionTool.class.getName());
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -723,7 +723,8 @@ public class ExecutionTool {
   private void saveActionCache(ActionCache actionCache) {
     ActionCacheStatistics.Builder builder = ActionCacheStatistics.newBuilder();
 
-    AutoProfiler p = AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, log);
+    AutoProfiler p =
+        AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, logger);
     try {
       builder.setSizeInBytes(actionCache.save());
     } catch (IOException e) {

@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsClassProvider {
-  private static final Logger log = Logger.getLogger(BuildRequest.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildRequest.class.getName());
 
   /**
    * Options interface--can be used to parse command-line arguments.
@@ -417,7 +417,7 @@ public class BuildRequest implements OptionsClassProvider {
         if (fixedAutoJobs == null) {
           jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
           if (jobs > MAX_JOBS) {
-            log.warning(
+            logger.warning(
                 "Detected "
                     + jobs
                     + " processors, which exceed the maximum allowed number of jobs of "
@@ -428,7 +428,7 @@ public class BuildRequest implements OptionsClassProvider {
         } else {
           jobs = fixedAutoJobs;
         }
-        log.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
+        logger.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
         return jobs;
       } else {
         return super.convert(input);

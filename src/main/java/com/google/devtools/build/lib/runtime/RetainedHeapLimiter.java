@@ -36,7 +36,7 @@ import javax.management.openmbean.CompositeData;
  * exit with an {@link OutOfMemoryError}.
  */
 class RetainedHeapLimiter implements NotificationListener {
-  private static final Logger LOG = Logger.getLogger(RetainedHeapLimiter.class.getName());
+  private static final Logger logger = Logger.getLogger(RetainedHeapLimiter.class.getName());
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
 
   private static int registeredOccupiedHeapPercentageThreshold = -1;
@@ -121,12 +121,12 @@ class RetainedHeapLimiter implements NotificationListener {
                     space.getMax(),
                     occupiedHeapPercentageThreshold);
             System.err.println(exitMsg);
-            LOG.info(exitMsg);
+            logger.info(exitMsg);
             // Exits the runtime.
             BugReport.handleCrash(new OutOfMemoryError(exitMsg));
           } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds
               > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
-            LOG.info(
+            logger.info(
                 "Triggering a full GC with "
                     + space.getUsed()
                     + " out of "

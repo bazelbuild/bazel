@@ -118,7 +118,7 @@ import java.util.zip.DeflaterOutputStream;
  */
 @ThreadSafe
 public final class Profiler {
-  private static final Logger LOG = Logger.getLogger(Profiler.class.getName());
+  private static final Logger logger = Logger.getLogger(Profiler.class.getName());
 
   public static final int MAGIC = 0x11223344;
 
@@ -739,7 +739,7 @@ public final class Profiler {
     if (localStack == null || localQueue == null) {
       // Variables have been nulled out by #clear in between the check the caller made and this
       // point in the code. Probably due to an asynchronous crash.
-      LOG.severe("Variables null in profiler for " + type + ", probably due to async crash");
+      logger.severe("Variables null in profiler for " + type + ", probably due to async crash");
       return;
     }
     TaskData parent = localStack.peek();

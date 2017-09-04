@@ -34,7 +34,7 @@ import java.util.logging.Logger;
  */
 public final class BinaryFormatFileTransport extends FileTransport {
 
-  private static final Logger log = Logger.getLogger(BinaryFormatFileTransport.class.getName());
+  private static final Logger logger = Logger.getLogger(BinaryFormatFileTransport.class.getName());
 
   private static final int MAX_VARINT_BYTES = 9;
   private final PathConverter pathConverter;
@@ -72,7 +72,7 @@ public final class BinaryFormatFileTransport extends FileTransport {
       protoEvent.writeDelimitedTo(out);
       writeData(out.toByteArray());
     } catch (IOException e) {
-      log.log(Level.SEVERE, e.getMessage(), e);
+      logger.log(Level.SEVERE, e.getMessage(), e);
       @SuppressWarnings({"unused", "nullness"})
       Future<?> possiblyIgnoredError = close();
     }

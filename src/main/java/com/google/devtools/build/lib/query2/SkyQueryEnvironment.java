@@ -139,7 +139,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   static final int BATCH_CALLBACK_SIZE = 10000;
   protected static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
   private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
-  private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
+  private static final Logger logger = Logger.getLogger(SkyQueryEnvironment.class.getName());
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   protected final int loadingPhaseThreads;
@@ -249,7 +249,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // assume here that this environment cannot be initialized-but-stale if the factory is up
       // to date.
       EvaluationResult<SkyValue> result;
-      try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", LOG)) {
+      try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
         result = graphFactory.prepareAndGet(roots, loadingPhaseThreads, universeEvalEventHandler);
       }
 
@@ -363,12 +363,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression = queryExpression.accept(mapper);
-    LOG.info(String.format(
-        "transformed query [%s] to [%s]",
-        Ascii.truncate(
-            queryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]"),
-        Ascii.truncate(
-            transformedQueryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]")));
+    logger.info(
+        String.format(
+            "transformed query [%s] to [%s]",
+            Ascii.truncate(
+                queryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]"),
+            Ascii.truncate(
+                transformedQueryExpression.toString(),
+                MAX_QUERY_EXPRESSION_LOG_CHARS,
+                "[truncated]")));
     return transformedQueryExpression;
   }
 
@@ -392,7 +395,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       throwableToThrow = throwable;
     } finally {
       if (throwableToThrow != null) {
-        LOG.log(
+        logger.log(
             Level.INFO,
             "About to shutdown query threadpool because of throwable",
             throwableToThrow);

@@ -31,7 +31,7 @@ import java.util.logging.Logger;
  */
 @ExecutionStrategy(contextType = SymlinkTreeActionContext.class)
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
-  private static final Logger LOG = Logger.getLogger(SymlinkTreeStrategy.class.getName());
+  private static final Logger logger = Logger.getLogger(SymlinkTreeStrategy.class.getName());
 
   private final OutputService outputService;
   private final BinTools binTools;
@@ -49,8 +49,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       boolean enableRunfiles)
       throws ActionExecutionException, InterruptedException {
     try (AutoProfiler p =
-            AutoProfiler.logged(
-                "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        AutoProfiler.logged(
+            "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         SymlinkTreeHelper helper = new SymlinkTreeHelper(
             action.getInputManifest().getPath(),

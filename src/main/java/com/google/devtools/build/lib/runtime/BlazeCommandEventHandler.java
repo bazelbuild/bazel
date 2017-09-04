@@ -40,7 +40,7 @@ import org.joda.time.format.DateTimeFormatter;
  */
 public class BlazeCommandEventHandler implements EventHandler {
 
-  private static final Logger LOG = Logger.getLogger(BlazeCommandEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeCommandEventHandler.class.getName());
 
   public enum UseColor { YES, NO, AUTO }
   public enum UseCurses { YES, NO, AUTO }
@@ -351,7 +351,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       // This can happen in server mode if the blaze client has exited, or if output is redirected
       // to a file and the disk is full, etc. May be moot in the case of full disk, or useful in
       // the case of real bug in our handling of streams.
-      LOG.log(Level.WARNING, "Failed to write event", e);
+      logger.log(Level.WARNING, "Failed to write event", e);
     }
   }
 

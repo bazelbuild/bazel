@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
  * <p>The Skyframe-based re-implementation of this class is in TargetPatternPhaseFunction.
  */
 public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
-  private static final Logger LOG = Logger.getLogger(LoadingPhaseRunner.class.getName());
+  private static final Logger logger = Logger.getLogger(LoadingPhaseRunner.class.getName());
 
   private final PackageManager packageManager;
   private final TargetPatternEvaluator targetPatternEvaluator;
@@ -96,7 +96,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
       boolean determineTests,
       @Nullable LoadingCallback callback)
       throws TargetParsingException, LoadingFailedException, InterruptedException {
-    LOG.info("Starting pattern evaluation");
+    logger.info("Starting pattern evaluation");
     Stopwatch timer = Stopwatch.createStarted();
     if (options.buildTestsOnly && options.compileOneDependency) {
       throw new LoadingFailedException(
@@ -175,7 +175,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     LoadingPhaseRunner.maybeReportDeprecation(eventHandler, targets.getTargets());
     long targetPatternEvalTime = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
-    LOG.info("Starting test suite expansion");
+    logger.info("Starting test suite expansion");
     timer = Stopwatch.createStarted();
 
     ImmutableSet<Target> targetsToLoad = targets.getTargets();
@@ -219,7 +219,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             patternParsingValue.getTestSuiteTargets(),
             packageManager.getAndClearStatistics(),
             testSuiteTime));
-    LOG.info("Target pattern evaluation finished");
+    logger.info("Target pattern evaluation finished");
     return patternParsingValue.toLoadingResult();
   }
 

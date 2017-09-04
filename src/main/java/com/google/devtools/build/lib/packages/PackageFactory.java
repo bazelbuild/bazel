@@ -328,7 +328,7 @@ public final class PackageFactory {
     }
   }
 
-  private static final Logger LOG = Logger.getLogger(PackageFactory.class.getName());
+  private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
 
   private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
@@ -1345,9 +1345,9 @@ public final class PackageFactory {
       List<Statement> preludeStatements,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
-    LOG.fine("Starting to parse " + packageId);
+    logger.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
-    LOG.fine("Finished parsing of " + packageId);
+    logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
 
