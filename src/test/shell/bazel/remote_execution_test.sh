@@ -366,7 +366,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 sleep 2
 EOF
   chmod +x a/sleep.sh
