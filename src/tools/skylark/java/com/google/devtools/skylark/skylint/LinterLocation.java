@@ -15,34 +15,25 @@
 package com.google.devtools.skylark.skylint;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 
-/** An issue found by the linter. */
-public class Issue {
-  // TODO(skylark-team): Represent issues more efficiently than just by a string
-  public final String message;
-  public final LinterLocation location;
+/** Location of a linter warning. */
+public class LinterLocation {
+  public final int line;
+  public final int column;
 
-  public Issue(String message, LinterLocation location) {
-    this.message = message;
-    this.location = location;
+  public LinterLocation(int line, int column) {
+    this.line = line;
+    this.column = column;
   }
 
-  public Issue(String message, Location location) {
-    this(message, LinterLocation.from(location));
+  public static LinterLocation from(Location location) {
+    LineAndColumn lac = location.getStartLineAndColumn();
+    return new LinterLocation(lac.getLine(), lac.getColumn());
   }
 
   @Override
   public String toString() {
-    return location + ": " + message;
-  }
-
-  public static int compare(Issue i1, Issue i2) {
-    LinterLocation l1 = i1.location;
-    LinterLocation l2 = i2.location;
-    int lineComparison = l1.line - l2.line;
-    if (lineComparison != 0) {
-      return lineComparison;
-    }
-    return l1.column - l2.column;
+    return ":" + line + ":" + column;
   }
 }
