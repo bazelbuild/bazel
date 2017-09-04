@@ -129,7 +129,7 @@ dependency.
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
-[`bazel fetch`](http://docs.bazel.build/bazel-user-manual.html#fetch).
+[`bazel fetch`](http://docs.bazel.build/user-manual.html#fetch).
 
 ## Using Proxies
 

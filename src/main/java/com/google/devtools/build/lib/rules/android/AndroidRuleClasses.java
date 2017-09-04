@@ -885,7 +885,7 @@ public final class AndroidRuleClasses {
                 <code>&lt;uses-permission&gt;</code> and <code>&lt;uses-permission-sdk-23&gt;</code>
                 tags. Performs an attribute-level merge.</li>
               <li><code>manifest_merger = "auto"</code>: Merger is controlled by the
-                <a href="../blaze-user-manual.html#flag--android_manifest_merger">
+                <a href="../user-manual.html#flag--android_manifest_merger">
                 --android_manifest_merger</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

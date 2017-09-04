@@ -474,7 +474,7 @@ There are several important limitations and caveats:
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
     <code>x/y</code> or it was marked as deleted using the
-    <a href="../bazel-user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
     flag.
 
   </li>

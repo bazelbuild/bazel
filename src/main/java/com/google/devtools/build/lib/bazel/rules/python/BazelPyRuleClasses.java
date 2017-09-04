@@ -186,7 +186,7 @@ public final class BazelPyRuleClasses {
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> Blaze
+              by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> Blaze
               flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

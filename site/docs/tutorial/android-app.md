@@ -297,7 +297,7 @@ in the `master` branch of the GitHub repo.
 ## Build the app
 
 You use the
-[`bazel`](../bazel-user-manual.html) command-line tool to run builds, execute
+[`bazel`](../user-manual.html) command-line tool to run builds, execute
 unit tests and perform other operations in Bazel. This tool is located in the
 `output` subdirectory of the location where you installed Bazel. During
 [installation](../install.md), you probably added this location to your

@@ -66,7 +66,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
           <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
           <li><code>shrink_resources = 0</code>: Turns off Android resource shrinking</li>
           <li><code>shrink_resources = -1</code>: Shrinking is controlled by the
-              <a href="../blaze-user-manual.html#flag--android_resource_shrinking">
+              <a href="../user-manual.html#flag--android_resource_shrinking">
               --android_resource_shrinking</a> flag.</li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

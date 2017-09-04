@@ -118,7 +118,7 @@ labels attribute.
   Most attributes can be "configured" so their values depend on the flags passed
   at the command line. This can be used, for example, to declare
   platform-dependent <code>srcs</code> or custom compiler flags depending on the
-  <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
+  <a href="../user-manual.html#flag--compilation_mode">compilation
   mode</a>.
 </p>
 
