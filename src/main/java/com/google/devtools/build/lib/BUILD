@@ -242,7 +242,6 @@ java_library(
     srcs = ["util/SingleLineFormatter.java"],
     deps = [
         "//third_party:guava",
-        "//third_party:joda_time",
     ],
 )
 
@@ -637,7 +636,6 @@ java_library(
         "//third_party:android_common_25_0_0",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
     ],
 )
@@ -872,7 +870,6 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -957,7 +954,6 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
     ],
 )
@@ -1105,7 +1101,6 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
@@ -1295,5 +1290,4 @@ java_library(
     srcs = [
         "analysis/BuildInfo.java",
     ],
-    deps = ["//third_party:joda_time"],
 )

@@ -34,15 +34,15 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
-import org.joda.time.Duration;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
 public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   /** Max wait time for a single non-streaming RPC to finish */
-  private static final Duration RPC_TIMEOUT = Duration.standardSeconds(15);
+  private static final Duration RPC_TIMEOUT = Duration.ofSeconds(15);
 
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
@@ -69,7 +69,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   @Override
   public Status publish(PublishLifecycleEventRequest lifecycleEvent) throws Exception {
     besBlocking
-        .withDeadlineAfter(RPC_TIMEOUT.getMillis(), MILLISECONDS)
+        .withDeadlineAfter(RPC_TIMEOUT.toMillis(), MILLISECONDS)
         .publishLifecycleEvent(lifecycleEvent);
     return Status.OK;
   }

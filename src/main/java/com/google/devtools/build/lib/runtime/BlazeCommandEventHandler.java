@@ -27,12 +27,12 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * BlazeCommandEventHandler: an event handler established for the duration of a
@@ -252,7 +252,7 @@ public class BlazeCommandEventHandler implements EventHandler {
   }
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
-      DateTimeFormat.forPattern("(MM-dd HH:mm:ss.SSS) ");
+      DateTimeFormatter.ofPattern("(MM-dd HH:mm:ss.SSS) ");
 
   protected final OutErr outErr;
 
@@ -359,6 +359,6 @@ public class BlazeCommandEventHandler implements EventHandler {
    * @return a string representing the current time, eg "04-26 13:47:32.124".
    */
   protected String timestamp() {
-    return TIMESTAMP_FORMAT.print(System.currentTimeMillis());
+    return TIMESTAMP_FORMAT.format(ZonedDateTime.now());
   }
 }

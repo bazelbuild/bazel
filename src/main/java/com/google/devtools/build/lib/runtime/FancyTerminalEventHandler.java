@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.joda.time.Duration;
-import org.joda.time.Instant;
 
 /**
  * An event handler for ANSI terminals which uses control characters to
@@ -135,8 +135,9 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     if (!eventMask.contains(event.getKind())) {
       return;
     }
-    if (trySpecial && !EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT.contains(event.getKind())
-        && skipUntil.isAfterNow()) {
+    if (trySpecial
+        && !EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT.contains(event.getKind())
+        && skipUntil.isAfter(Instant.now())) {
       // Short-circuit here to avoid wiping out previous terminal contents.
       return;
     }
@@ -151,7 +152,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
         case START:
           {
             String message = event.getMessage();
-            Pair<String,String> progressPair = matchProgress(message);
+            Pair<String, String> progressPair = matchProgress(message);
             if (progressPair != null) {
               progress(progressPair.getFirst(), progressPair.getSecond());
               if (trySpecial && ThreadLocalRandom.current().nextInt(0, 20) == 0) {
@@ -161,8 +162,9 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
                   previousLineErased = maybeOverwritePreviousMessage();
                   progress(progressPair.getFirst(), message);
                   // Skip unimportant messages for a bit so that this message gets some exposure.
-                  skipUntil = Instant.now().plus(
-                      Duration.millis(ThreadLocalRandom.current().nextInt(3000, 8000)));
+                  skipUntil =
+                      Instant.now()
+                          .plus(Duration.ofMillis(ThreadLocalRandom.current().nextInt(3000, 8000)));
                 }
               }
             } else {

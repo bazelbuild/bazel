@@ -49,11 +49,12 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /** An experimental new output stream. */
 public class ExperimentalEventHandler implements EventHandler {
@@ -73,7 +74,8 @@ public class ExperimentalEventHandler implements EventHandler {
   static final long LONG_REFRESH_MILLIS = 20000L;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
-      DateTimeFormat.forPattern("(HH:mm:ss) ");
+      DateTimeFormatter.ofPattern("(HH:mm:ss) ");
+  private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("YYYY-MM-dd");
 
   private final boolean cursorControl;
   private final Clock clock;
@@ -266,7 +268,9 @@ public class ExperimentalEventHandler implements EventHandler {
         Event.info(
             null,
             "Current date is "
-                + DateTimeFormat.forPattern("YYYY-MM-dd").print(clock.currentTimeMillis())));
+                + DATE_FORMAT.format(
+                    Instant.ofEpochMilli(clock.currentTimeMillis())
+                        .atZone(ZoneId.systemDefault()))));
   }
 
   @Override
@@ -350,7 +354,10 @@ public class ExperimentalEventHandler implements EventHandler {
               crlf();
             }
             if (showTimestamp) {
-              terminal.writeString(TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
+              terminal.writeString(
+                  TIMESTAMP_FORMAT.format(
+                      Instant.ofEpochMilli(clock.currentTimeMillis())
+                          .atZone(ZoneId.systemDefault())));
             }
             setEventKindColor(event.getKind());
             terminal.writeString(event.getKind() + ": ");
@@ -807,7 +814,9 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     String timestamp = null;
     if (showTimestamp) {
-      timestamp = TIMESTAMP_FORMAT.print(clock.currentTimeMillis());
+      timestamp =
+          TIMESTAMP_FORMAT.format(
+              Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
     stateTracker.writeProgressBar(
         terminalWriter,
