@@ -129,9 +129,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       handler = handlers.get(rule.getRuleClass());
     }
     if (handler == null) {
-      throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "Could not find handler for " + rule),
-          Transience.PERSISTENT);
+      throw new IllegalStateException(
+          new EvalException(rule.getLocation(), "Could not find handler for " + rule));
     }
 
     handler.setClientEnvironment(clientEnvironment);
