@@ -38,6 +38,8 @@ package com.google.devtools.build.lib.collect;
  * numbers are considered equivalent to each other&mdash;a less discriminative
  * relation).
  */
+// TODO: Consider phasing out this interface in favour of com.google.common.base.Equivalence
+@FunctionalInterface
 public interface EquivalenceRelation<T> {
   // This should be a superinterface of Comparator.
 
@@ -68,26 +70,13 @@ public interface EquivalenceRelation<T> {
    * equivalence relation for objects, and considers two values equal iff they
    * are references to the same object instance.
    */
-  public static final EquivalenceRelation<?> IDENTITY =
-      new EquivalenceRelation<Object>() {
-        @Override
-        public int compare(Object o1, Object o2) {
-          return o1 == o2 ? 0 : -1;
-        }
-      };
+  EquivalenceRelation<?> IDENTITY = (EquivalenceRelation<Object>) (o1, o2) -> (o1 == o2) ? 0 : -1;
 
   /**
    * The default equivalence relation for type T, using T.equals().  This
    * relation considers two values equivalent if either they are both null, or
    * o1.equals(o2).
    */
-  public static final EquivalenceRelation<?> DEFAULT =
-      new EquivalenceRelation<Object>() {
-        @Override
-        public int compare(Object o1, Object o2) {
-          return (o1 == null ? o2 == null : o1.equals(o2))
-              ? 0
-              : -1;
-        }
-      };
+  EquivalenceRelation<?> DEFAULT =
+      (EquivalenceRelation<Object>) (o1, o2) -> (o1 == null ? o2 == null : o1.equals(o2)) ? 0 : -1;
 }
