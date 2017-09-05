@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("//third_party/protobuf/3.4.0:protobuf.bzl", "cc_proto_library", "py_proto_library")
+load("//third_party/protobuf/3.4.0:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 FILES = [
@@ -62,10 +62,7 @@ java_library_srcs(
 
 cc_proto_library(
     name = "worker_protocol_cc_proto",
-    srcs = ["worker_protocol.proto"],
-    include = ".",
-    default_runtime = "//third_party/protobuf:protobuf",
-    protoc = "//third_party/protobuf:protoc",
+    deps = [":worker_protocol_proto"],
 )
 
 java_grpc_library(
