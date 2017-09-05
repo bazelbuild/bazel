@@ -177,7 +177,6 @@ public class GenerateRobolectricResourceSymbolsAction {
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
-      System.out.println(options.classJarOutput);
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
