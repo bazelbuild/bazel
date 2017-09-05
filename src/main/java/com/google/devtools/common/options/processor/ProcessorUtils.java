@@ -75,9 +75,17 @@ public class ProcessorUtils {
       throws OptionProcessorException {
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
         elementUtils.getElementValuesWithDefaults(annotation).entrySet()) {
-      if (fieldName.contentEquals(entry.getKey().getSimpleName())) {
+      if (entry.getKey().getSimpleName().contentEquals(fieldName)) {
+        Object annotationField = entry.getValue().getValue();
+        if (!(annotationField instanceof DeclaredType)) {
+          throw new IllegalStateException(
+              String.format(
+                  "The fieldName provided should only apply to Class<> type annotation fields, "
+                      + "but the field's value (%s) couldn't get cast to a DeclaredType",
+                  entry));
+        }
         String qualifiedName =
-            ((TypeElement) ((DeclaredType) entry.getValue().getValue()).asElement())
+            ((TypeElement) ((DeclaredType) annotationField).asElement())
                 .getQualifiedName()
                 .toString();
         return elementUtils.getTypeElement(qualifiedName);

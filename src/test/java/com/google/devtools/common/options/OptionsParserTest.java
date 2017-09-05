@@ -966,40 +966,6 @@ public class OptionsParserTest {
     fail();
   }
 
-  /** ConflictingExpansionOptions */
-  public static class ConflictingExpansionsOptions extends OptionsBase {
-
-    /** ExpFunc */
-    public static class ExpFunc implements ExpansionFunction {
-      @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context) {
-        return ImmutableList.of("--yyy");
-      }
-    }
-
-    @Option(
-      name = "badness",
-      expansion = {"--xxx"},
-      expansionFunction = ExpFunc.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void badness;
-  }
-
-  @Test
-  public void conflictingExpansions() throws Exception {
-    try {
-      newOptionsParser(ConflictingExpansionsOptions.class);
-      fail("Should have failed due to specifying both expansion and expansionFunction");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot set both expansion and expansionFunction for " + "option --badness");
-    }
-  }
-
   /** NullExpansionOptions */
   public static class NullExpansionsOptions extends OptionsBase {
 

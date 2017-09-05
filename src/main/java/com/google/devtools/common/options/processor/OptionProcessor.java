@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -66,6 +67,8 @@ import javax.tools.Diagnostic;
  *       into the option type. For options that do not specify a converter, check that there is a
  *       valid match in the {@link Converters#DEFAULT_CONVERTERS} list.
  * <li>Options must list valid combinations of tags and documentation categories.
+ * <li>Expansion options and options with implicit requirements cannot expand in more than one way,
+ *       how multiple expansions would interact is not defined and should not be necessary.
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -439,6 +442,52 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  /**
+   * Some flags expand to other flags, either in place, or with "implicit requirements" that get
+   * added on top of the flag's value. Don't let these flags do too many crazy things, dealing with
+   * this is enough.
+   */
+  private void checkExpansionOptions(VariableElement optionField) throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    boolean isStaticExpansion = annotation.expansion().length > 0;
+    boolean hasImplicitRequirements = annotation.implicitRequirements().length > 0;
+
+    AnnotationMirror annotationMirror =
+        ProcessorUtils.getAnnotation(elementUtils, typeUtils, optionField, Option.class);
+    TypeElement expansionFunction =
+        ProcessorUtils.getClassTypeFromAnnotationField(
+            elementUtils, annotationMirror, "expansionFunction");
+    TypeElement defaultExpansionFunction =
+        elementUtils.getTypeElement(ExpansionFunction.class.getCanonicalName());
+    boolean isFunctionalExpansion =
+        !typeUtils.isSameType(expansionFunction.asType(), defaultExpansionFunction.asType());
+
+    if (isStaticExpansion && isFunctionalExpansion) {
+      throw new OptionProcessorException(
+          optionField,
+          "Options cannot expand using both a static expansion list and an expansion function.");
+    }
+    boolean isExpansion = isStaticExpansion || isFunctionalExpansion;
+
+    if (isExpansion && hasImplicitRequirements) {
+      throw new OptionProcessorException(
+          optionField,
+          "Can't set an option to be both an expansion option and have implicit requirements.");
+    }
+
+    if (isExpansion || hasImplicitRequirements) {
+      if (annotation.wrapperOption()) {
+        throw new OptionProcessorException(
+            optionField, "Wrapper options cannot have expansions or implicit requirements.");
+      }
+      if (annotation.allowMultiple()) {
+        throw new OptionProcessorException(
+            optionField,
+            "Can't set an option to accumulate multiple values and let it expand to other flags.");
+      }
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -451,6 +500,7 @@ public final class OptionProcessor extends AbstractProcessor {
         checkInOptionBase(optionField);
         checkOptionName(optionField);
         checkOldCategoriesAreNotUsed(optionField);
+        checkExpansionOptions(optionField);
         checkConverter(optionField);
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
