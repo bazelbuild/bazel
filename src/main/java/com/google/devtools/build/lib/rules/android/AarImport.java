@@ -176,6 +176,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static Action[] createSingleFileExtractorActions(RuleContext ruleContext, Artifact aar,
       String filename, Artifact outputArtifact) {
     return new SpawnAction.Builder()
+        .useDefaultShellEnvironment()
         .setExecutable(ruleContext.getExecutablePrerequisite(AarImportBaseRule.ZIPPER, Mode.HOST))
         .setMnemonic("AarFileExtractor")
         .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
@@ -193,6 +194,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static Action[] createAarResourcesExtractorActions(
       RuleContext ruleContext, Artifact aar, Artifact outputTree) {
     return new SpawnAction.Builder()
+        .useDefaultShellEnvironment()
         .setExecutable(
             ruleContext.getExecutablePrerequisite(
                 AarImportBaseRule.AAR_RESOURCES_EXTRACTOR, Mode.HOST))
@@ -210,6 +212,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static Action[] createAarEmbeddedJarsExtractorActions(RuleContext ruleContext,
       Artifact aar, Artifact jarsTreeArtifact, Artifact singleJarParamFile) {
     return new SpawnAction.Builder()
+        .useDefaultShellEnvironment()
         .setExecutable(
             ruleContext.getExecutablePrerequisite(
                 AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR, Mode.HOST))
@@ -248,6 +251,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       Artifact outputZip) {
     SpawnAction.Builder actionBuilder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(
                 ruleContext.getExecutablePrerequisite(
                     AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR, Mode.HOST))
@@ -276,7 +280,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
-    SpawnAction.Builder builder = new SpawnAction.Builder();
+    SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
     Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder

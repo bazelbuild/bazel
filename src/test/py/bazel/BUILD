@@ -20,6 +20,7 @@ py_library(
     visibility = [
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
+        "//tools/android:__pkg__",
     ],
 )
 

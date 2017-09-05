@@ -189,12 +189,21 @@ py_binary(
 py_binary(
     name = "aar_resources_extractor",
     srcs = ["aar_resources_extractor.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_binary(
     name = "resource_extractor",
     srcs = ["resource_extractor.py"],
+)
+
+py_library(
+    name = "junction_lib",
+    srcs = ["junction.py"],
+    visibility = ["//visibility:private"],
 )
 
 alias(

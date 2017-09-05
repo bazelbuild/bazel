@@ -135,7 +135,10 @@ py_test(
 py_binary(
     name = "aar_resources_extractor",
     srcs = ["aar_resources_extractor.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_test(
@@ -153,6 +156,30 @@ py_test(
     name = "resource_extractor_test",
     srcs = ["resource_extractor_test.py"],
     deps = [":resource_extractor"],
+)
+
+py_library(
+    name = "junction_lib",
+    srcs = ["junction.py"],
+    visibility = ["//visibility:private"],
+)
+
+py_test(
+    name = "junction_test",
+    srcs = select({
+        "//src:windows": ["junction_test.py"],
+        "//src:windows_msvc": ["junction_test.py"],
+        "//conditions:default": ["dummy_test.py"],
+    }),
+    main = select({
+        "//src:windows": "junction_test.py",
+        "//src:windows_msvc": "junction_test.py",
+        "//conditions:default": "dummy_test.py",
+    }),
+    deps = [
+        ":junction_lib",
+        "//src/test/py/bazel:test_base",
+    ],
 )
 
 filegroup(

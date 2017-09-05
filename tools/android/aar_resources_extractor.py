@@ -26,6 +26,7 @@ import os
 import sys
 import zipfile
 
+from tools.android import junction
 from third_party.py import gflags
 
 FLAGS = gflags.FLAGS
@@ -37,10 +38,19 @@ gflags.MarkFlagAsRequired("output_res_dir")
 
 
 def ExtractResources(aar, output_res_dir):
+  """Extract resource from an `aar` file to the `output_res_dir` directory."""
   aar_contains_no_resources = True
+  output_res_dir_abs = os.path.normpath(
+      os.path.join(os.getcwd(), output_res_dir))
   for name in aar.namelist():
     if name.startswith("res/"):
-      aar.extract(name, output_res_dir)
+      fullpath = os.path.normpath(os.path.join(output_res_dir_abs, name))
+      if os.name == "nt" and len(fullpath) >= 260:  # MAX_PATH in <windows.h>
+        with junction.TempJunction(os.path.dirname(fullpath)) as juncpath:
+          shortpath = os.path.join(juncpath, os.path.basename(fullpath))
+          aar.extract(name, shortpath)
+      else:
+        aar.extract(name, output_res_dir)
       aar_contains_no_resources = False
   if aar_contains_no_resources:
     empty_xml_filename = output_res_dir + "/res/values/empty.xml"
