@@ -24,14 +24,17 @@ public class LastBuildEvent implements BuildEvent {
     this.event = event;
   }
 
+  @Override
   public BuildEventId getEventId() {
     return event.getEventId();
   }
 
+  @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return event.getChildrenEvents();
   }
 
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return BuildEventStreamProtos.BuildEvent.newBuilder(event.asStreamProto(converters))
         .setLastMessage(true)

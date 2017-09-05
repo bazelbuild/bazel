@@ -345,7 +345,7 @@ public final class NestedSet<E> implements Iterable<E> {
           int presize = members.size();
           pos = walk(sets, members, (Object[]) child, pos + 1);
           if (presize < members.size()) {
-            memo[prepos >> 3] |= 1 << (prepos & 7);
+            memo[prepos >> 3] |= (byte) (1 << (prepos & 7));
           } else {
             // We didn't find any new nodes, so don't mark this branch as taken.
             // Rewind pos.  The rest of the array is still zeros because no one
@@ -357,7 +357,7 @@ public final class NestedSet<E> implements Iterable<E> {
         }
       } else {
         if (members.add((E) child)) {
-          memo[pos >> 3] |= 1 << (pos & 7);
+          memo[pos >> 3] |= (byte) (1 << (pos & 7));
         }
         ++pos;
       }

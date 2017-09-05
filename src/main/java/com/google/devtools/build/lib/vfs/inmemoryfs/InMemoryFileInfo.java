@@ -66,13 +66,13 @@ public class InMemoryFileInfo extends FileInfo {
       }
 
       @Override
-      public void write(int dataByte) {
+      public synchronized void write(int dataByte) {
         Preconditions.checkState(!closed);
         super.write(dataByte);
       }
 
       @Override
-      public void write(byte[] data, int offset, int length) {
+      public synchronized void write(byte[] data, int offset, int length) {
         Preconditions.checkState(!closed);
         super.write(data, offset, length);
       }

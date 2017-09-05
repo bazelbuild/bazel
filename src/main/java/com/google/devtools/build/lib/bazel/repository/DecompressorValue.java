@@ -41,8 +41,8 @@ public class DecompressorValue implements SkyValue {
 
   @Override
   public boolean equals(Object other) {
-    return this == other || other instanceof DecompressorValue
-        && directory.equals(((DecompressorValue) other).directory);
+    return this == other || (other instanceof DecompressorValue
+        && directory.equals(((DecompressorValue) other).directory));
   }
 
   @Override

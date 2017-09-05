@@ -56,7 +56,7 @@ public final class CollectionUtils {
    * @return a collection of sets of elements that are equivalent under the
    *   specified relation.
    */
-  public static <T> Collection<Set<T>> partition(Collection<T> elements,
+  public static <T> Collection<Set<T>> partitionWithComparator(Collection<T> elements,
       Comparator<T> equivalenceRelation) {
     //  TODO(bazel-team): (2009) O(n*m) where n=|elements| and m=|eqClasses|; i.e.,
     //  quadratic.  Use Tarjan's algorithm instead.
@@ -85,7 +85,7 @@ public final class CollectionUtils {
    */
   public static <T> Collection<Set<T>> partition(Collection<T> elements,
       final EquivalenceRelation<T> equivalenceRelation) {
-    return partition(elements, (Comparator<T>) equivalenceRelation::compare);
+    return partitionWithComparator(elements, (Comparator<T>) equivalenceRelation::compare);
   }
 
   /**

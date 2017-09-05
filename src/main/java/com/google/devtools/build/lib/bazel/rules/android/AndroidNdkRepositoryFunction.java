@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -365,7 +366,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       env.getValueOrThrow(releaseFileKey, IOException.class, FileSymlinkException.class,
           InconsistentFilesystemException.class);
 
-      releaseFileContent = new String(FileSystemUtils.readContent(releaseFilePath));
+      releaseFileContent = new String(FileSystemUtils.readContent(releaseFilePath),
+          StandardCharsets.UTF_8);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not read " + releaseFilePath.getBaseName() + " in Android NDK: "

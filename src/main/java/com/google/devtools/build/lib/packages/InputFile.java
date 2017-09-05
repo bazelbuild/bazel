@@ -77,7 +77,7 @@ public final class InputFile extends FileTarget {
   }
 
   public boolean isLicenseSpecified() {
-    return license != null && license != License.NO_LICENSE;
+    return license != null && license.isSpecified();
   }
 
   @Override

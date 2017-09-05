@@ -49,22 +49,75 @@ final class OutOfScopeDirectoryStatus extends InMemoryDirectoryInfo {
     return new UnsupportedOperationException();
   }
 
-  @Override public boolean isDirectory() { throw failure(); }
-  @Override public boolean isSymbolicLink() { throw failure(); }
-  @Override public boolean isFile() { throw failure(); }
-  @Override public long getSize() { throw failure(); }
-  @Override protected void markModificationTime() { throw failure(); }
-  @Override public synchronized long getLastModifiedTime() { throw failure(); }
-  @Override void setLastModifiedTime(long newTime) { throw failure(); }
-  @Override public synchronized long getLastChangeTime() { throw failure(); }
-  @Override boolean isReadable() { throw failure(); }
-  @Override void setReadable(boolean readable) { throw failure(); }
-  @Override void setWritable(boolean writable) { throw failure(); }
-  @Override void setExecutable(boolean executable) { throw failure(); }
-  @Override boolean isWritable() { throw failure(); }
-  @Override boolean isExecutable() { throw failure(); }
-  @Override void addChild(String name, InMemoryContentInfo inode) { throw failure(); }
-  @Override InMemoryContentInfo getChild(String name) { throw failure(); }
-  @Override void removeChild(String name) { throw failure(); }
-  @Override Set<String> getAllChildren() { throw failure(); }
+  @Override public boolean isDirectory() {
+    throw failure();
+  }
+
+  @Override public boolean isSymbolicLink() {
+    throw failure();
+  }
+
+  @Override public boolean isFile() {
+    throw failure();
+  }
+
+  @Override public long getSize() {
+    throw failure();
+  }
+
+  @Override protected synchronized void markModificationTime() {
+    throw failure();
+  }
+
+  @Override public synchronized long getLastModifiedTime() {
+    throw failure();
+  }
+
+  @Override synchronized void setLastModifiedTime(long newTime) {
+    throw failure();
+  }
+
+  @Override public synchronized long getLastChangeTime() {
+    throw failure();
+  }
+
+  @Override boolean isReadable() {
+    throw failure();
+  }
+
+  @Override void setReadable(boolean readable) {
+    throw failure();
+  }
+
+  @Override void setWritable(boolean writable) {
+    throw failure();
+  }
+
+  @Override void setExecutable(boolean executable) {
+    throw failure();
+  }
+
+  @Override boolean isWritable() {
+    throw failure();
+  }
+
+  @Override boolean isExecutable() {
+    throw failure();
+  }
+
+  @Override synchronized void addChild(String name, InMemoryContentInfo inode) {
+    throw failure();
+  }
+
+  @Override synchronized InMemoryContentInfo getChild(String name) {
+    throw failure();
+  }
+
+  @Override synchronized void removeChild(String name) {
+    throw failure();
+  }
+
+  @Override Set<String> getAllChildren() {
+    throw failure();
+  }
 }

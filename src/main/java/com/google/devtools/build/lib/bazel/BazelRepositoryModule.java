@@ -78,6 +78,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -170,8 +171,10 @@ public class BazelRepositoryModule extends BlazeModule {
       // TODO(bazel-team): Migrate away from Class<?>
       RuleDefinition ruleDefinition;
       try {
-        ruleDefinition = handler.getValue().getRuleDefinition().newInstance();
-      } catch (IllegalAccessException | InstantiationException e) {
+        ruleDefinition = handler.getValue().getRuleDefinition().getDeclaredConstructor()
+            .newInstance();
+      } catch (IllegalAccessException | InstantiationException | NoSuchMethodException
+          | InvocationTargetException e) {
         throw new IllegalStateException(e);
       }
       builder.addRuleDefinition(ruleDefinition);

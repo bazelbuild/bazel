@@ -309,7 +309,7 @@ public class BlazeCommandDispatcher {
       while (currentClientDescription != null) {
         switch (lockingMode) {
           case WAIT:
-            if (otherClientDescription != currentClientDescription) {
+            if (!otherClientDescription.equals(currentClientDescription)) {
               if (attempts > 0) {
                 outErr.printErrLn(" lock taken by another command");
               }

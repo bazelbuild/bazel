@@ -71,7 +71,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
 
     Artifact mainExecutable =
         (OS.getCurrent() == OS.WINDOWS) ? launcherForWindows(ruleContext, symlink, src) : symlink;
-    if (symlink != mainExecutable) {
+    if (!symlink.equals(mainExecutable)) {
       filesToBuildBuilder.add(mainExecutable);
       runfilesBuilder.addArtifact(symlink);
     }

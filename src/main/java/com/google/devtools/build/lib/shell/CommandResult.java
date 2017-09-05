@@ -35,7 +35,7 @@ public final class CommandResult {
     new ByteArrayOutputStream() {
 
       @Override
-      public byte[] toByteArray() {
+      public synchronized byte[] toByteArray() {
         return NO_BYTES;
       }
   };
@@ -44,7 +44,7 @@ public final class CommandResult {
     new ByteArrayOutputStream(){
 
       @Override
-      public byte[] toByteArray() {
+      public synchronized byte[] toByteArray() {
         throw new IllegalStateException("Output was not collected");
       }
   };

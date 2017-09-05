@@ -96,7 +96,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -606,7 +608,7 @@ public class ExecutionTool {
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {
-      this.log = new PrintWriter(log);
+      this.log = new PrintWriter(new OutputStreamWriter(log, StandardCharsets.UTF_8));
       this.log.println("Build options: " + optionsDescription);
     }
 

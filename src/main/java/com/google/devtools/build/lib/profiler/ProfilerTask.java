@@ -104,7 +104,7 @@ public enum ProfilerTask {
   /** How many of the slowest instances to keep. If 0, no slowest instance calculation is done. */
   public final int slowestInstancesCount;
   /** True if the metric records VFS operations */
-  private boolean vfs;
+  private final boolean vfs;
 
   ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount) {
     this(description, minDuration, color, slowestInstanceCount, /*vfs=*/ false);

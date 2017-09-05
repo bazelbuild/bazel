@@ -248,6 +248,7 @@ public final class Actions {
     }
 
     @Nullable
+    @Override
     public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
       return generatingActions.get(artifact);
     }

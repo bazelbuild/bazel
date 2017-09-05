@@ -111,6 +111,7 @@ public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
         if (a == b) {
@@ -349,6 +350,7 @@ public class Artifact
     structField = true,
     doc = "Returns true if this is a source file, i.e. it is not generated."
   )
+  @SuppressWarnings("ReferenceEquality")  // == is an optimization
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }
