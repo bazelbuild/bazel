@@ -535,7 +535,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private PathFragment executable;
     // executableArgs does not include the executable itself.
     private List<String> executableArgs;
-    private CustomCommandLine.Builder commandLineBuilder = CustomCommandLine.builder();
     @Nullable private CommandLine commandLine;
 
     private CharSequence progressMessage;
@@ -567,7 +566,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.executableArgs = (other.executableArgs != null)
           ? Lists.newArrayList(other.executableArgs)
           : null;
-      this.commandLineBuilder = CustomCommandLine.builder(other.commandLineBuilder);
       this.commandLine = other.commandLine;
       this.progressMessage = other.progressMessage;
       this.paramFileInfo = other.paramFileInfo;
@@ -600,8 +598,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     @VisibleForTesting @CheckReturnValue
     public Action[] build(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration) {
-      CommandLine commandLine =
-          this.commandLine != null ? this.commandLine : this.commandLineBuilder.build();
+      CommandLine commandLine = this.commandLine != null ? this.commandLine : CommandLine.EMPTY;
       // Check to see if we need to use param file.
       Artifact paramsFile = ParamFileHelper.getParamsFileMaybe(
           buildExecutableArgs(configuration.getShellExecutable()),
@@ -1065,83 +1062,14 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Appends the argument to the list of command-line arguments.
-     */
-    public Builder addArgument(String argument) {
-      Preconditions.checkState(commandLine == null);
-      commandLineBuilder.addDynamicString(argument);
-      return this;
-    }
-
-    /**
-     * Appends the arguments to the list of command-line arguments.
-     */
-    public Builder addArguments(String... arguments) {
-      Preconditions.checkState(commandLine == null);
-      commandLineBuilder.addAll(ImmutableList.copyOf(arguments));
-      return this;
-    }
-
-    /**
-     * Add multiple arguments in the order they are returned by the collection.
-     */
-    public Builder addArguments(Iterable<String> arguments) {
-      Preconditions.checkState(commandLine == null);
-      if (arguments instanceof NestedSet) {
-        commandLineBuilder.addExecPaths((NestedSet) arguments);
-      } else {
-        commandLineBuilder.addAll(ImmutableList.copyOf(arguments));
-      }
-      return this;
-    }
-
-    /**
-     * Appends the argument both to the inputs and to the list of command-line
-     * arguments.
-     */
-    public Builder addInputArgument(Artifact argument) {
-      Preconditions.checkState(commandLine == null);
-      addInput(argument);
-      commandLineBuilder.addExecPath(argument);
-      return this;
-    }
-
-    /**
-     * Appends the arguments both to the inputs and to the list of command-line
-     * arguments.
-     */
-    public Builder addInputArguments(Iterable<Artifact> arguments) {
-      addInputs(arguments);
-      if (arguments instanceof NestedSet) {
-        commandLineBuilder.addExecPaths((NestedSet) arguments);
-      } else {
-        commandLineBuilder.addExecPaths(ImmutableList.copyOf(arguments));
-      }
-      return this;
-    }
-
-    /**
-     * Appends the argument both to the outputs and to the list of command-line
-     * arguments.
-     */
-    public Builder addOutputArgument(Artifact argument) {
-      Preconditions.checkState(commandLine == null);
-      outputs.add(argument);
-      commandLineBuilder.addExecPath(argument);
-      return this;
-    }
-
-    /**
-     * Sets a delegate to compute the command line at a later time. This method
-     * cannot be used in conjunction with the {@link #addArgument} or {@link
-     * #addArguments} methods.
+     * Sets a delegate to compute the command line at a later time.
      *
-     * <p>The main intention of this method is to save memory by allowing
-     * client-controlled sharing between actions and configured targets.
-     * Objects passed to this method MUST be immutable.
+     * <p>The main intention of this method is to save memory by allowing client-controlled sharing
+     * between actions and configured targets. Objects passed to this method MUST be immutable.
+     *
+     * <p>See also {@link CustomCommandLine}.
      */
     public Builder setCommandLine(CommandLine commandLine) {
-      Preconditions.checkState(commandLineBuilder.isEmpty());
       this.commandLine = commandLine;
       return this;
     }
