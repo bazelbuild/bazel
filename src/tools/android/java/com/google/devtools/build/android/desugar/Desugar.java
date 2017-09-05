@@ -229,6 +229,19 @@ class Desugar {
       help = "Enables rewriting to desugar java.* classes."
     )
     public boolean coreLibrary;
+
+    /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
+    // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
+    @Option(
+      name = "legacy_jacoco_fix",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Consider setting this flag if you're using JaCoCo versions prior to 0.7.9 to work "
+          + "around issues with coverage instrumentation in default and static interface methods. "
+          + "This flag may be removed when no longer needed."
+    )
+    public boolean legacyJacocoFix;
   }
 
   private final DesugarOptions options;
@@ -511,7 +524,8 @@ class Desugar {
       if (options.desugarInterfaceMethodBodiesIfNeeded) {
         visitor =
             new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
-        visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
+        visitor =
+            new InterfaceDesugaring(visitor, bootclasspathReader, store, options.legacyJacocoFix);
       }
     }
     visitor =
@@ -561,7 +575,8 @@ class Desugar {
         if (options.desugarInterfaceMethodBodiesIfNeeded) {
           visitor =
               new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
-          visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
+          visitor =
+              new InterfaceDesugaring(visitor, bootclasspathReader, store, options.legacyJacocoFix);
         }
       }
       // LambdaDesugaring is relatively expensive, so check first whether we need it.  Additionally,
