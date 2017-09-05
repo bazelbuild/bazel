@@ -186,7 +186,7 @@ function test_android_sdk_repository_returns_null_if_env_vars_missing() {
   ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
 }
 
-if [[ ! -r "${TEST_SRCDIR}/androidsdk/tools/android" ]]; then
+if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0
 fi
