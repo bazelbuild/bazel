@@ -44,7 +44,8 @@ public class XcodeConfigRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
         The default official version of xcode to use.
         The version specified by the provided <code>xcode_version</code> target is to be used if
-        no <code>xcode_version</code> build flag is specified.
+        no <code>xcode_version</code> build flag is specified. This is required if any
+        <code>versions</code> are set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(DEFAULT_ATTR_NAME, LABEL)
             .allowedRuleClasses("xcode_version")
@@ -61,11 +62,9 @@ public class XcodeConfigRule implements RuleDefinition {
             .allowedFileTypes()
             .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
-        Whether to require the build's xcode version match one of the declared targets.
-        If true, this will raise an error if either the <code>xcode_version</code> flag value
-        or <code>default</code> attribute value do not match one of the versions declared
-        among <code>xcode_verison</code> targets.
+        Deprecated. This attribute has no effect.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        // TODO(b/64576392): Remove this attribute.
         .add(attr(REQUIRE_DEFINED_VERSIONS_ATTR_NAME, BOOLEAN)
             .value(false)
             .nonconfigurable("this rule determines configuration"))

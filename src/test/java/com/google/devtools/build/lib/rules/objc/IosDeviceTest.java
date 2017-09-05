@@ -68,7 +68,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     scratch.file("test/BUILD",
         "xcode_version(name = 'my_xcode', version = '15.2')",
         "ios_device(name = 'foo', type = 'IPHONE_6', xcode = ':my_xcode')");
-    useConfiguration("--xcode_version=2.1", "--ios_sdk_version=42.3");
+    useConfiguration("--xcode_version=7.3", "--ios_sdk_version=42.3");
 
     assertXcodeVersion("//test:foo", "15.2");
     assertIosVersion("//test:foo", XcodeVersionProperties.DEFAULT_IOS_SDK_VERSION);
@@ -79,7 +79,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     scratch.file("test/BUILD",
         "xcode_version(name = 'my_xcode', version = '15.2', default_ios_sdk_version='17.8')",
         "ios_device(name = 'foo', type = 'IPHONE_6', xcode = ':my_xcode')");
-    useConfiguration("--xcode_version=2.1", "--ios_sdk_version=42.3");
+    useConfiguration("--xcode_version=7.3", "--ios_sdk_version=42.3");
 
     assertXcodeVersion("//test:foo", "15.2");
     assertIosVersion("//test:foo", "17.8");
@@ -90,7 +90,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     scratch.file("test/BUILD",
         "xcode_version(name = 'my_xcode', version = '15.2', default_ios_sdk_version='17.8')",
         "ios_device(name = 'foo', type = 'IPHONE_6', ios_version='98.7', xcode = ':my_xcode')");
-    useConfiguration("--xcode_version=2.1", "--ios_sdk_version=42.3");
+    useConfiguration("--xcode_version=7.3", "--ios_sdk_version=42.3");
 
     assertXcodeVersion("//test:foo", "15.2");
     assertIosVersion("//test:foo", "98.7");

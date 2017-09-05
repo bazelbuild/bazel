@@ -290,7 +290,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--cpu=ios_i386", "--xcode_version=7.1");
+    useConfiguration("--cpu=ios_i386", "--xcode_version=7.3");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
 
@@ -304,7 +304,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(env).containsEntry("APPLE_SDK_PLATFORM", "iPhoneSimulator");
     assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", "8.4");
     assertThat(sdkVersion).isEqualTo("8.4");
-    assertThat(skylarkTarget.get("xcode_version")).isEqualTo("7.1");
+    assertThat(skylarkTarget.get("xcode_version")).isEqualTo("7.3");
     assertThat(skylarkTarget.get("single_arch_platform")).isEqualTo("IOS_SIMULATOR");
     assertThat(skylarkTarget.get("single_arch_cpu")).isEqualTo("i386");
     assertThat(skylarkTarget.get("platform_type")).isEqualTo("ios");

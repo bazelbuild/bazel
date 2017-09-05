@@ -600,7 +600,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithEmbeddedBitcode() throws Exception {
     useConfiguration(
-        "--xcode_version=7.1",
         "--ios_multi_cpus=arm64",
         "--apple_bitcode=embedded");
     createLibraryTargetWriter("//objc:lib")
@@ -616,7 +615,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithEmbeddedBitcodeMarkers() throws Exception {
     useConfiguration(
-        "--xcode_version=7.1",
         "--ios_multi_cpus=arm64",
         "--apple_bitcode=embedded_markers");
 
@@ -634,7 +632,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCompilationActionsWithNoBitcode() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--xcode_version=7.1",
         "--ios_multi_cpus=arm64",
         "--apple_bitcode=none");
 
@@ -656,7 +653,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCompilationActionsWithBitcode_simulator() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--xcode_version=7.1",
         "--ios_multi_cpus=x86_64",
         "--apple_bitcode=embedded");
 
