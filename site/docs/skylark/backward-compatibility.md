@@ -227,5 +227,5 @@ If you really want to override a value, use a separate statement:
 When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
 All integers are stored using signed 32 bits.
 
-*   Flag: `--incompatible_incompatible_checked_arithmetic`
-*   Default: `false`
+*   Flag: `--incompatible_checked_arithmetic`
+*   Default: `true`
