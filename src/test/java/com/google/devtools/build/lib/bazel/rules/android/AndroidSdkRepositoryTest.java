@@ -177,6 +177,22 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
             "src external/androidsdk/system-images/android-24/google_apis/x86/system.img");
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/3672.
+  @Test
+  public void testMalformedSystemImageDirectories() throws Exception {
+    scratchPlatformsDirectories(25, 26);
+    scratchBuildToolsDirectories("26.0.1");
+    scratchSystemImagesDirectories("android-25/default/armeabi-v7a", "android-O/google_apis/x86");
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        ")");
+    invalidatePackages();
+    assertThat(getConfiguredTarget("@androidsdk//:emulator_images_android_25_arm")).isNotNull();
+  }
+
   @Test
   public void testBuildToolsHighestVersionDetection() throws Exception {
     scratchPlatformsDirectories(25);
