@@ -1633,7 +1633,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("int('11', 9)", 10)
         .testStatement("int('AF', 16)", 175)
         .testStatement("int('11', 36)", 37)
-        .testStatement("int('az', 36)", 395);
+        .testStatement("int('az', 36)", 395)
+        .testStatement("int('11', 10)", 11)
+        .testStatement("int('11', 0)", 11);
   }
 
   @Test
@@ -1662,7 +1664,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testIntWithBase_NoString() throws Exception {
     new BothModesTest()
         .testIfExactError("int() can't convert non-string with explicit base", "int(True, 2)")
-        .testIfExactError("int() can't convert non-string with explicit base", "int(1, 2)");
+        .testIfExactError("int() can't convert non-string with explicit base", "int(1, 2)")
+        .testIfExactError("int() can't convert non-string with explicit base", "int(True, 10)")
+    ;
   }
 
   @Test

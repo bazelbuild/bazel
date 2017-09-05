@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** A helper class containing built in functions for the Skylark language. */
 public class MethodLibrary {
@@ -1701,9 +1702,10 @@ public class MethodLibrary {
       @Param(name = "x", type = Object.class, doc = "The string to convert."),
       @Param(
         name = "base",
-        type = Integer.class,
-        defaultValue = "10",
-        doc = "The base of the string."
+        type = Object.class,
+        defaultValue = "unbound",
+        doc = "The base to use to interpret a string value; defaults to 10. This parameter must "
+            + "not be supplied if the value is not a string."
       )
     },
     useLocation = true
@@ -1714,11 +1716,17 @@ public class MethodLibrary {
             ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
 
         @SuppressWarnings("unused")
-        public Integer invoke(Object x, Integer base, Location loc) throws EvalException {
+        public Integer invoke(Object x, Object base, Location loc) throws EvalException {
           if (x instanceof String) {
-            return fromString(x, loc, base);
+            if (base == Runtime.UNBOUND) {
+              base = 10;
+            } else if (!(base instanceof Integer)) {
+              throw new EvalException(
+                  loc, "base must be an integer (got '" + EvalUtils.getDataTypeName(base) + "')");
+            }
+            return fromString((String) x, loc, (Integer) base);
           } else {
-            if (base != 10) {
+            if (base != Runtime.UNBOUND) {
               throw new EvalException(loc, "int() can't convert non-string with explicit base");
             }
             if (x instanceof Boolean) {
@@ -1731,19 +1739,24 @@ public class MethodLibrary {
           }
         }
 
-        private int fromString(Object x, Location loc, int base) throws EvalException {
-          String value = (String) x;
-          String prefix = getIntegerPrefix(value);
-
-          if (!prefix.isEmpty()) {
-            value = value.substring(prefix.length());
+        private int fromString(String string, Location loc, int base) throws EvalException {
+          String prefix = getIntegerPrefix(string);
+          String digits;
+          if (prefix == null) {
+            // Nothing to strip. Infer base 10 if it was unknown (0).
+            digits = string;
+            if (base == 0) {
+              base = 10;
+            }
+          } else {
+            // Strip prefix. Infer base from prefix if unknown (0), or else verify its consistency.
+            digits = string.substring(prefix.length());
             int expectedBase = intPrefixes.get(prefix);
             if (base == 0) {
-              // Similar to Python, base 0 means "derive the base from the prefix".
               base = expectedBase;
             } else if (base != expectedBase) {
               throw new EvalException(
-                  loc, Printer.format("invalid literal for int() with base %d: %r", base, x));
+                  loc, Printer.format("invalid literal for int() with base %d: %r", base, string));
             }
           }
 
@@ -1751,13 +1764,14 @@ public class MethodLibrary {
             throw new EvalException(loc, "int() base must be >= 2 and <= 36");
           }
           try {
-            return Integer.parseInt(value, base);
+            return Integer.parseInt(digits, base);
           } catch (NumberFormatException e) {
             throw new EvalException(
-                loc, Printer.format("invalid literal for int() with base %d: %r", base, x));
+                loc, Printer.format("invalid literal for int() with base %d: %r", base, string));
           }
         }
 
+        @Nullable
         private String getIntegerPrefix(String value) {
           value = value.toLowerCase();
           for (String prefix : intPrefixes.keySet()) {
@@ -1765,7 +1779,7 @@ public class MethodLibrary {
               return prefix;
             }
           }
-          return "";
+          return null;
         }
       };
 
