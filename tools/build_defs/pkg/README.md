@@ -487,7 +487,7 @@ for more details on this.
         <code>File, required</code>
         <p>The RPM specification file used to generate the package.</p>
         <p>
-          See <a href="http://rpm.org/max-rpm-snapshot/s1-rpm-build-creating-spec-file.html">http://rpm.org/max-rpm-snapshot/s1-rpm-build-creating-spec-file.html</a>.
+          See <a href="http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html">http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html</a>.
         </p>
       </td>
     </tr>
