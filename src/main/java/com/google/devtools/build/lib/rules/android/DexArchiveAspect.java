@@ -450,11 +450,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .setProgressMessage(
                 "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
             .setCommandLine(
                 CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build());
+    if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
+      dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+    }
     ruleContext.registerAction(dexbuilder.build(ruleContext));
     return dexArchive;
   }

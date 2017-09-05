@@ -512,6 +512,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public List<String> dexoptsSupportedInDexMerger;
 
     @Option(
+      name = "use_workers_with_dexbuilder",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether dexbuilder supports being run in local worker mode."
+    )
+    public boolean useWorkersWithDexbuilder;
+
+    @Option(
       name = "experimental_android_rewrite_dexes_with_rex",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -729,6 +738,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+      host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.androidAaptVersion = androidAaptVersion;
       return host;
@@ -776,6 +786,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
+  private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
@@ -813,6 +824,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
+    this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
@@ -895,6 +907,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
+  }
+
+  /** Whether to assume the dexbuilder tool supports local worker mode. */
+  public boolean useWorkersWithDexbuilder() {
+    return useWorkersWithDexbuilder;
   }
 
   public boolean desugarJava8() {
