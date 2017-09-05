@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -97,13 +98,16 @@ public class ObjcCppSemantics implements CppSemantics {
   public void finalizeCompileActionBuilder(
       RuleContext ruleContext,
       CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification) {
+      FeatureSpecification featureSpecification,
+      Predicate<String> coptsFilter,
+      ImmutableSet<String> features) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
     // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
     // including header files, as opposed to just the "compile" filegroup.
     actionBuilder.addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool());
     actionBuilder.setShouldScanIncludes(false);
+    actionBuilder.setCoptsFilter(coptsFilter);
 
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE));
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));

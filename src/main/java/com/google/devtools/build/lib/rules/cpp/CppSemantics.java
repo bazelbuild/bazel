@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -40,7 +42,9 @@ public interface CppSemantics {
   void finalizeCompileActionBuilder(
       RuleContext ruleContext,
       CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification);
+      FeatureSpecification featureSpecification,
+      Predicate<String> coptsFilter,
+      ImmutableSet<String> features);
 
   /**
    * Called before {@link CppCompilationContext}s are finalized.

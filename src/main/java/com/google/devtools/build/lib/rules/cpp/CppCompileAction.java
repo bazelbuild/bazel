@@ -250,7 +250,6 @@ public class CppCompileAction extends AbstractAction
    *
    * @param owner the owner of the action, usually the configured target that emitted it
    * @param allInputs the list of all action inputs.
-   * @param features TODO(bazel-team): Add parameter description.
    * @param featureConfiguration TODO(bazel-team): Add parameter description.
    * @param variables TODO(bazel-team): Add parameter description.
    * @param sourceFile the source file that should be compiled. {@code mandatoryInputs} must contain
@@ -285,9 +284,6 @@ public class CppCompileAction extends AbstractAction
   protected CppCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
-      // TODO(bazel-team): Eventually we will remove 'features'; all functionality in 'features'
-      // will be provided by 'featureConfiguration'.
-      ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
@@ -352,7 +348,6 @@ public class CppCompileAction extends AbstractAction
                 outputFile,
                 sourceLabel,
                 coptsFilter,
-                features,
                 actionName,
                 cppConfiguration,
                 dotdFile,
@@ -802,7 +797,7 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting
   public List<String> getCompilerOptions() {
-    return compileCommandLine.getCompilerOptions(/*updatedVariables=*/ null);
+    return compileCommandLine.getCompilerOptions(/* overwrittenVariables= */ null);
   }
 
   @Override

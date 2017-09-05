@@ -84,13 +84,14 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return CcToolchainFeaturesTest.buildFeatures(
             CppActionConfigs.getCppActionConfigs(
                 CppPlatform.LINUX,
-                ImmutableSet.<String>of(),
+                ImmutableSet.of(),
                 "gcc_tool",
                 "dynamic_library_linker_tool",
                 "ar_tool",
                 "strip_tool",
-                true,
-                false))
+                /* supportsEmbeddedRuntimes= */ true,
+                /* supportsInterfaceSharedLibraries= */ false),
+            CppActionConfigs.getFeaturesToAppearLastInToolchain(ImmutableSet.of()))
         .getFeatureConfiguration(
             FeatureSpecification.create(
                 ImmutableSet.of(

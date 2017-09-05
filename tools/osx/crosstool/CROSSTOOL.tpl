@@ -184,6 +184,27 @@ toolchain {
     name: "only_doth_headers_in_module_maps"
   }
   feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
     name: "objc_actions"
     implies: "objc-compile"
     implies: "objc++-compile"
@@ -1044,7 +1065,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -1054,13 +1075,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -1107,13 +1150,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -1122,13 +1167,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -1137,13 +1184,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -1152,13 +1201,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -1167,13 +1218,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -1198,7 +1251,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -1224,7 +1279,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -1233,11 +1290,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -1246,13 +1305,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -1678,6 +1739,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -2545,7 +2627,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -2555,13 +2637,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -2608,13 +2712,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -2623,13 +2729,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -2638,13 +2746,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -2653,13 +2763,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -2668,13 +2780,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -2699,7 +2813,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -2726,7 +2842,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -2736,11 +2854,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -2749,13 +2869,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -3181,6 +3303,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -4050,7 +4193,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -4060,13 +4203,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -4113,13 +4278,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -4128,13 +4295,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -4143,13 +4312,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -4158,13 +4329,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -4173,13 +4346,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -4204,7 +4379,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4231,7 +4408,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -4241,11 +4420,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -4254,13 +4435,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -4687,6 +4870,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -5577,7 +5781,7 @@ toolchain {
     }
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -5587,13 +5791,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -5640,13 +5866,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5656,13 +5884,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5672,13 +5902,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5688,13 +5920,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5704,13 +5938,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5736,7 +5972,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5763,7 +6001,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -5773,11 +6013,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -5787,13 +6029,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6222,6 +6466,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -7089,7 +7354,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -7099,13 +7364,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -7152,13 +7439,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -7167,13 +7456,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -7182,13 +7473,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -7197,13 +7490,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -7212,13 +7507,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -7243,7 +7540,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -7270,7 +7569,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
   action_config {
@@ -7280,11 +7581,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -7293,13 +7596,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -7725,6 +8030,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -8582,7 +8908,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -8592,13 +8918,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -8645,13 +8993,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -8660,13 +9010,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -8675,13 +9027,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -8690,13 +9044,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -8705,13 +9061,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -8736,7 +9094,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -8762,7 +9122,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -8771,11 +9133,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -8784,13 +9148,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -9216,6 +9582,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -10075,7 +10462,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -10085,13 +10472,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -10138,13 +10547,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -10153,13 +10564,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -10168,13 +10581,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -10183,13 +10598,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -10198,13 +10615,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -10229,7 +10648,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -10255,7 +10676,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -10264,11 +10687,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -10277,13 +10702,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -10710,6 +11137,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -11590,7 +12038,7 @@ toolchain {
     }
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -11600,13 +12048,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -11653,13 +12123,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11669,13 +12141,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11685,13 +12159,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11701,13 +12177,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11717,13 +12195,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11749,7 +12229,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -11775,7 +12257,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -11784,11 +12268,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -11798,13 +12284,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12233,6 +12721,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -13090,7 +13599,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -13100,13 +13609,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -13153,13 +13684,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -13168,13 +13701,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -13183,13 +13718,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -13198,13 +13735,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -13213,13 +13752,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -13244,7 +13785,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -13270,7 +13813,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -13279,11 +13824,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -13292,13 +13839,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -13730,6 +14279,27 @@ toolchain {
   }
   feature {
     name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
   }
   feature {
     name: "objc_actions"
@@ -14587,7 +15157,7 @@ toolchain {
     name: "unfiltered_cxx_flags"
   }
   feature {
-    name: "copts"
+    name: "user_compile_flags"
     flag_set {
       action: "assemble"
       action: "preprocess-assemble"
@@ -14597,13 +15167,35 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "%{copts}"
-        iterate_over: "copts"
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
       }
-      expand_if_all_available: "copts"
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   action_config {
@@ -14650,13 +15242,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -14665,13 +15259,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -14680,13 +15276,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -14695,13 +15293,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -14710,13 +15310,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -14741,7 +15343,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc++-compile"
@@ -14767,7 +15371,9 @@ toolchain {
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
-    implies: "copts"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "assemble"
@@ -14776,11 +15382,13 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "include_system_dirs"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -14789,13 +15397,15 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
-    implies: "copts"
     implies: "preprocessor_defines"
     implies: "include_system_dirs"
     implies: "version_min"
     implies: "objc_arc"
     implies: "no_objc_arc"
     implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "objc-archive"

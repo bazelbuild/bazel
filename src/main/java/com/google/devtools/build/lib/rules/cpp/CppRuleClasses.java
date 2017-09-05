@@ -176,8 +176,8 @@ public class CppRuleClasses {
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
-  /** A string constant for the copts feature. */
-  public static final String COPTS = "copts";
+  /** Name of the feature that will be exempt from flag filtering when nocopts are used */
+  public static final String UNFILTERED_COMPILE_FLAGS_FEATURE_NAME = "unfiltered_compile_flags";
 
   /**
    * A string constant for the parse_headers feature.
@@ -287,6 +287,13 @@ public class CppRuleClasses {
    * default legacy feature set.
    */
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
+
+  /**
+   * A string constant for the legacy_compile_flags feature. If this feature is present in the
+   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
+   * legacy_compile_flags before other features from {@link CppActionConfigs}.
+   */
+  public static final String LEGACY_COMPILE_FLAGS = "legacy_compile_flags";
 
   /**
    * A string constant for the feature that makes us build per-object debug info files.

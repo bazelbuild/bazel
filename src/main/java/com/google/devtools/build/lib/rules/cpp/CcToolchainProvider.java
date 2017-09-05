@@ -354,8 +354,12 @@ public final class CcToolchainProvider extends ToolchainInfo {
         "Returns the default list of options which cannot be filtered by BUILD "
             + "rules. These should be appended to the command line after filtering."
   )
-  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
+  public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(Iterable<String> features) {
     return cppConfiguration.getUnfilteredCompilerOptions(features, sysroot);
+  }
+
+  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
+    return cppConfiguration.getUnfilteredCompilerOptions(features, null);
   }
 
   @SkylarkCallable(
