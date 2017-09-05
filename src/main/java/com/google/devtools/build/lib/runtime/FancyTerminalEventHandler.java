@@ -60,7 +60,7 @@ import java.util.regex.Pattern;
  * a choppy UI experience.
  */
 public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
-  private static Logger LOG = Logger.getLogger(FancyTerminalEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(FancyTerminalEventHandler.class.getName());
   private static final Pattern progressPattern = Pattern.compile(
       // Match strings that look like they start with progress info:
       //   [42%] Compiling base/base.cc
@@ -232,7 +232,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       // should also kill the blaze client. So this isn't something that should
       // occur here; it will show up in the client/server interface as a broken
       // pipe.
-      LOG.warning("Terminal was closed during build: " + e);
+      logger.warning("Terminal was closed during build: " + e);
       terminalClosed = true;
     }
   }
@@ -454,7 +454,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     try {
       terminal.resetTerminal();
     } catch (IOException e) {
-      LOG.warning("IO Error writing to user terminal: " + e);
+      logger.warning("IO Error writing to user terminal: " + e);
     }
   }
 }

@@ -58,7 +58,7 @@ import java.util.logging.Logger;
 
 /** An experimental new output stream. */
 public class ExperimentalEventHandler implements EventHandler {
-  private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(ExperimentalEventHandler.class.getName());
   /** Latest refresh of the progress bar, if contents other than time changed */
   static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
@@ -254,7 +254,7 @@ public class ExperimentalEventHandler implements EventHandler {
         didFlush = true;
       }
     } catch (IOException e) {
-      LOG.warning("IO Error writing to output stream: " + e);
+      logger.warning("IO Error writing to output stream: " + e);
     }
     return didFlush;
   }
@@ -392,7 +392,7 @@ public class ExperimentalEventHandler implements EventHandler {
         }
       }
     } catch (IOException e) {
-      LOG.warning("IO Error writing to output stream: " + e);
+      logger.warning("IO Error writing to output stream: " + e);
     }
   }
 
@@ -596,7 +596,7 @@ public class ExperimentalEventHandler implements EventHandler {
         }
         terminal.flush();
       } catch (IOException e) {
-        LOG.warning("IO Error writing to output stream: " + e);
+        logger.warning("IO Error writing to output stream: " + e);
       }
     } else {
       refresh();
@@ -673,7 +673,7 @@ public class ExperimentalEventHandler implements EventHandler {
             }
           }
         } catch (IOException e) {
-          LOG.warning("IO Error writing to output stream: " + e);
+          logger.warning("IO Error writing to output stream: " + e);
         }
       }
     } else {
@@ -783,7 +783,7 @@ public class ExperimentalEventHandler implements EventHandler {
     try {
       terminal.resetTerminal();
     } catch (IOException e) {
-      LOG.warning("IO Error writing to user terminal: " + e);
+      logger.warning("IO Error writing to user terminal: " + e);
     }
   }
 

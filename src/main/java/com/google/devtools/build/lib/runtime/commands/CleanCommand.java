@@ -130,7 +130,7 @@ public final class CleanCommand implements BlazeCommand {
     }
   }
 
-  private static Logger LOG = Logger.getLogger(CleanCommand.class.getName());
+  private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options)
@@ -216,7 +216,7 @@ public final class CleanCommand implements BlazeCommand {
             "exec >&- 2>&- <&- && (/usr/bin/setsid /bin/rm -rf %s &)&",
             ShellEscaper.escapeString(tempPath.getPathString()));
 
-    LOG.info("Executing shell commmand " + ShellEscaper.escapeString(command));
+    logger.info("Executing shell commmand " + ShellEscaper.escapeString(command));
 
     // Doesn't throw iff command exited and was successful.
     new CommandBuilder()
@@ -242,7 +242,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     env.getBlazeWorkspace().clearCaches();
     if (expunge) {
-      LOG.info("Expunging...");
+      logger.info("Expunging...");
       env.getRuntime().prepareForAbruptShutdown();
       // Close java.log.
       LogManager.getLogManager().reset();
@@ -264,18 +264,18 @@ public final class CleanCommand implements BlazeCommand {
       FileSystemUtils.deleteTreesBelow(outputBase);
       FileSystemUtils.deleteTree(outputBase);
     } else if (expungeAsync) {
-      LOG.info("Expunging asynchronously...");
+      logger.info("Expunging asynchronously...");
       env.getRuntime().prepareForAbruptShutdown();
       asyncClean(env, outputBase, "Output base");
     } else {
-      LOG.info("Output cleaning...");
+      logger.info("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       // In order to be sure that we delete everything, delete the workspace directory both for
       // --deep_execroot and for --nodeep_execroot.
       for (String directory : new String[] {workspaceDirectory, "execroot"}) {
         Path child = outputBase.getRelative(directory);
         if (child.exists()) {
-          LOG.finest("Cleaning " + child + (async ? " asynchronously..." : ""));
+          logger.finest("Cleaning " + child + (async ? " asynchronously..." : ""));
           if (async) {
             asyncClean(env, child, "Output tree");
           } else {

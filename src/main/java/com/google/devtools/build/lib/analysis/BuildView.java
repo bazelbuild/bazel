@@ -264,7 +264,7 @@ public class BuildView {
     public boolean interleaveLoadingAndAnalysis;
   }
 
-  private static Logger LOG = Logger.getLogger(BuildView.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
 
   private final BlazeDirectories directories;
 
@@ -488,7 +488,7 @@ public class BuildView {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException {
-    LOG.info("Starting analysis");
+    logger.info("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
@@ -614,7 +614,7 @@ public class BuildView {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
       eventHandler.handle(Event.info(msg));
-      LOG.info(msg);
+      logger.info(msg);
     }
 
     Set<ConfiguredTarget> targetsToSkip =
@@ -631,7 +631,7 @@ public class BuildView {
             viewOptions,
             skyframeAnalysisResult,
             targetsToSkip);
-    LOG.info("Finished analysis");
+    logger.info("Finished analysis");
     return result;
   }
 

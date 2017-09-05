@@ -86,7 +86,7 @@ import javax.annotation.Nullable;
  * <p>Covers enough functionality to work as a substitute for {@code BuildView#configureTargets}.
  */
 public final class SkyframeBuildView {
-  private static Logger LOG = Logger.getLogger(BuildView.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
 
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
@@ -155,7 +155,7 @@ public final class SkyframeBuildView {
     // prevents unbounded memory usage.
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
-      LOG.info("Discarding analysis cache: configurations have changed.");
+      logger.info("Discarding analysis cache: configurations have changed.");
       skyframeExecutor.dropConfiguredTargets();
     }
     skyframeAnalysisWasDiscarded = false;

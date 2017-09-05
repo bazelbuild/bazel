@@ -65,8 +65,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   private final PathPackageLocator pkgPath;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
-  private static final Logger LOGGER = Logger
-      .getLogger(GraphBackedRecursivePackageProvider.class.getName());
+  private static final Logger logger = Logger.getLogger(
+      GraphBackedRecursivePackageProvider.class.getName());
 
   public GraphBackedRecursivePackageProvider(WalkableGraph graph,
       ImmutableList<TargetPatternKey> universeTargetPatternKeys,
@@ -113,7 +113,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
     if (!Iterables.isEmpty(unknownKeys)) {
-      LOGGER.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys
+      logger.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys
           + ". Successfully looked up " + packages.keySet());
     }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
