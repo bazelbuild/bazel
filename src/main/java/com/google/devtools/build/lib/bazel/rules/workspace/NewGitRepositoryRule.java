@@ -57,8 +57,8 @@ public class NewGitRepositoryRule implements RuleDefinition {
         <p>Either build_file or build_file_content must be specified.</p>
 
         <p>This attribute is a label relative to the main workspace. The file does not need to be
-        named BUILD, but can be (something like BUILD.new-repo-name may work well for
-        distinguishing it from the repository's actual BUILD files.</p>
+        named BUILD, but can be. (Something like BUILD.new-repo-name may work well for
+        distinguishing it from the repository's actual BUILD files.)</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING))
         /* <!-- #BLAZE_RULE(new_git_repository).ATTRIBUTE(build_file_content) -->
@@ -73,8 +73,8 @@ public class NewGitRepositoryRule implements RuleDefinition {
          <p>Either workspace_file or workspace_file_content can be specified, but not both.</p>
 
          <p>This attribute is a label relative to the main workspace. The file does not need to be
-        named WORKSPACE, but can be (something like WORKSPACE.new-repo-name may work well for
-        distinguishing it from the repository's actual WORKSPACE files.</p>
+        named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for
+        distinguishing it from the repository's actual WORKSPACE files.)</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("workspace_file", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(workspace_file_content) -->
@@ -90,15 +90,15 @@ public class NewGitRepositoryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("init_submodules", BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(new_git_repository).ATTRIBUTE(sha256) -->
-         The expected SHA-256 hash of the file downloaded. Specifying this forces the repository to
-         be downloaded as a tarball. Currently, this is only supported for public GitHub
-         repositories.
+        The expected SHA-256 hash of the file downloaded. Specifying this forces the repository to
+        be downloaded as a tarball. Currently, this is only supported for public GitHub
+        repositories.
 
-         <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
-         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
-         your build non-hermetic. It is optional to make development easier but should be set
-         before shipping.</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
+        omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+        your build non-hermetic. It is optional to make development easier but should be set
+        before shipping.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING))
         .setWorkspaceOnly()
         .build();

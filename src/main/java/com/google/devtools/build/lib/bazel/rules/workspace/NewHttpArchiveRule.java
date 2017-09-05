@@ -48,13 +48,13 @@ public class NewHttpArchiveRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("urls", STRING_LIST))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
-         The expected SHA-256 hash of the file downloaded.
+        The expected SHA-256 hash of the file downloaded.
 
-         <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
-         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
-         your build non-hermetic. It is optional to make development easier but should be set
-         before shipping.</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
+        omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+        your build non-hermetic. It is optional to make development easier but should be set
+        before shipping.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file) -->
          The file to use as the BUILD file for this repository.
@@ -62,8 +62,8 @@ public class NewHttpArchiveRule implements RuleDefinition {
          <p>Either build_file or build_file_content must be specified.</p>
 
          <p>This attribute is a label relative to the main workspace. The file does not need to be
-        named BUILD, but can be (something like BUILD.new-repo-name may work well for
-        distinguishing it from the repository's actual BUILD files.</p>
+        named BUILD, but can be. (Something like BUILD.new-repo-name may work well for
+        distinguishing it from the repository's actual BUILD files.)</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file_content) -->
@@ -78,8 +78,8 @@ public class NewHttpArchiveRule implements RuleDefinition {
          <p>Either workspace_file or workspace_file_content can be specified, but not both.</p>
 
          <p>This attribute is a label relative to the main workspace. The file does not need to be
-        named WORKSPACE, but can be (something like WORKSPACE.new-repo-name may work well for
-        distinguishing it from the repository's actual WORKSPACE files.</p>
+        named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for
+        distinguishing it from the repository's actual WORKSPACE files.)</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("workspace_file", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(workspace_file_content) -->
@@ -89,32 +89,32 @@ public class NewHttpArchiveRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("workspace_file_content", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(type) -->
-         The archive type of the downloaded file.
+        The archive type of the downloaded file.
 
-         <p>By default, the archive type is determined from the file extension of the URL. If the
-         file has no extension, you can explicitly specify one of the following: `"zip"`, `"jar"`,
-         `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <p>By default, the archive type is determined from the file extension of the URL. If the
+        file has no extension, you can explicitly specify one of the following: `"zip"`, `"jar"`,
+        `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("type", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(strip_prefix) -->
-         A directory prefix to strip from the extracted files.
+        A directory prefix to strip from the extracted files.
 
-         <p>Many archives contain a top-level directory that contains all of the useful files in
-         archive. Instead of needing to specify this prefix over and over in the
-         <code>build_file</code>, this field can be used to strip it from all of the extracted
-         files.</p>
+        <p>Many archives contain a top-level directory that contains all of the useful files in
+        archive. Instead of needing to specify this prefix over and over in the
+        <code>build_file</code>, this field can be used to strip it from all of the extracted
+        files.</p>
 
-         <p>For example, suppose you are using foo-lib-latest.zip, which contains the directory
-         foo-lib-1.2.3/ under which there are src/, lib/, and test/ directories that contain the
-         actual code you wish to build. Specify <code>strip_prefix = "foo-lib-1.2.3"</code> and
-         your <code>build_file</code> will not have to account for this top-level directory.</p>
+        <p>For example, suppose you are using foo-lib-latest.zip, which contains the directory
+        foo-lib-1.2.3/ under which there are src/, lib/, and test/ directories that contain the
+        actual code you wish to build. Specify <code>strip_prefix = "foo-lib-1.2.3"</code> and
+        your <code>build_file</code> will not have to account for this top-level directory.</p>
 
-         <p>Note that if there are files outside of this directory, they will be discarded and
-         inaccessible (e.g., a top-level license file). This includes files/directories that
-         start with the prefix but are not in the directory (e.g., foo-lib-1.2.3.release-notes).
-         If the specified prefix does not match a directory in the archive, Bazel will return an
-         error.</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <p>Note that if there are files outside of this directory, they will be discarded and
+        inaccessible (e.g., a top-level license file). This includes files/directories that
+        start with the prefix but are not in the directory (e.g., foo-lib-1.2.3.release-notes).
+        If the specified prefix does not match a directory in the archive, Bazel will return an
+        error.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("strip_prefix", STRING))
         .setWorkspaceOnly()
         .build();
