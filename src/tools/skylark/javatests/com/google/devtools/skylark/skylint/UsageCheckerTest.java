@@ -44,6 +44,13 @@ public class UsageCheckerTest {
   }
 
   @Test
+  public void reportUnusedGlobals() throws Exception {
+    String message = findIssues("_UNUSED = len([])", "def _unused(): pass").toString();
+    Truth.assertThat(message).contains(":1:1: unused definition of '_UNUSED'");
+    Truth.assertThat(message).contains(":2:5: unused definition of '_unused'");
+  }
+
+  @Test
   public void reportUnusedLocals() throws Exception {
     String message = findIssues("def some_function(param):", "  local, local2 = 1, 3").toString();
     Truth.assertThat(message).contains(":1:19: unused definition of 'param'");
@@ -82,17 +89,9 @@ public class UsageCheckerTest {
   }
 
   @Test
-  public void reportUnusedGlobals() throws Exception {
-    String message = findIssues("_UNUSED = len([])", "def _unused(): pass").toString();
-    Truth.assertThat(message).contains(":1:1: unused definition of '_UNUSED'");
-    Truth.assertThat(message).contains(":2:5: unused definition of '_unused'");
-  }
-
-  @Test
   public void reportReassignedUnusedVariable() throws Exception {
-    Truth.assertThat(
-            findIssues("def some_function():", "  x = 1", "  print(x)", "  x += 2").toString())
-        .contains(":4:3: unused definition of 'x'");
+    Truth.assertThat(findIssues("def some_function():", "  x = 1", "  x += 2").toString())
+        .contains(":3:3: unused definition of 'x'");
   }
 
   @Test
@@ -123,6 +122,82 @@ public class UsageCheckerTest {
   }
 
   @Test
+  public void reportUninitializedAfterIfElifElse() throws Exception {
+    String message =
+        findIssues(
+                "def some_function(a, b):",
+                "  if a:",
+                "    y = 2",
+                "  elif b:",
+                "    pass",
+                "  else:",
+                "    y = 1",
+                "  y += 2",
+                "  print(y)")
+            .toString();
+    Truth.assertThat(message).contains(":8:3: identifier 'y' may not have been initialized");
+  }
+
+  @Test
+  public void reportUninitializedAfterForLoop() throws Exception {
+    String message =
+        findIssues("def some_function():", "  for _ in []:", "    y = 1", "  print(y)").toString();
+    Truth.assertThat(message).contains(":4:9: identifier 'y' may not have been initialized");
+  }
+
+  @Test
+  public void dontReportAlwaysInitializedInNestedIf() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "def some_function(a, b):",
+                "  if a:",
+                "    if b:",
+                "      x = b",
+                "    else:",
+                "      x = a",
+                "  else:",
+                "    x = not a",
+                "  return x"))
+        .isEmpty();
+  }
+
+  @Test
+  public void dontReportAlwaysInitializedBecauseUnreachable() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "def some_function(a, b):",
+                "  if a:",
+                "    y = 1",
+                "  elif b:",
+                "    return",
+                "  else:",
+                "    fail('fail')",
+                "  print(y)",
+                "  for _ in []:",
+                "    if a:",
+                "      break",
+                "    elif b:",
+                "      continue",
+                "    else:",
+                "      z = 2",
+                "    print(z)"))
+        .isEmpty();
+  }
+
+  @Test
+  public void dontReportUsedAsParameterDefault() throws Exception {
+    Truth.assertThat(
+        findIssues(
+            "_x = 1",
+            "def foo(y=_x):",
+            "  print(y)",
+            "",
+            "foo()"
+        )
+    ).isEmpty();
+  }
+
+  @Test
   public void dontReportUsedAfterIf() throws Exception {
     Truth.assertThat(
             findIssues(
@@ -142,11 +217,11 @@ public class UsageCheckerTest {
                 "  x = 0",
                 "  for _ in []:",
                 "    print(x)",
-                "    x += 1"))
-        .isEmpty();
-    Truth.assertThat(
-            findIssues(
+                "    x += 1",
+                "  return x",
+                "",
                 "def foo():",
+                "    x = \"xyz\"",
                 "    for i in range(5):",
                 "        if i % 2 == 1:",
                 "            print(x)",
@@ -175,9 +250,10 @@ public class UsageCheckerTest {
     Truth.assertThat(
             findIssues(
                 "_GLOBAL = 0",
+                "def public_function():",
+                "  _global_function(_GLOBAL)",
                 "def _global_function(param):",
-                "  print(param)",
-                "_global_function(_GLOBAL)"))
+                "  print(param)"))
         .isEmpty();
   }
 

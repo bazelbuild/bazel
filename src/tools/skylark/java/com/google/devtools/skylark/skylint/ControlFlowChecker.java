@@ -139,7 +139,7 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
     }
   }
 
-  private boolean isFail(Expression expression) {
+  public static boolean isFail(Expression expression) {
     if (expression instanceof FuncallExpression) {
       Expression function = ((FuncallExpression) expression).getFunction();
       return function instanceof Identifier && ((Identifier) function).getName().equals("fail");
