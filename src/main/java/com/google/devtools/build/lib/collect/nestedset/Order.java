@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-
 import java.util.HashMap;
 
 /**

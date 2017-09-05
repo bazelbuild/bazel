@@ -31,7 +31,6 @@ package com.google.devtools.build.lib.collect;
 
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -46,7 +45,6 @@ import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -113,7 +111,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
    * Creates an empty {@code CompactHashSet} instance.
    */
   public static <E> CompactHashSet<E> create() {
-    return new CompactHashSet<E>();
+    return new CompactHashSet<>();
   }
 
   /**
@@ -153,7 +151,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
    * @throws IllegalArgumentException if {@code expectedSize} is negative
    */
   public static <E> CompactHashSet<E> createWithExpectedSize(int expectedSize) {
-    return new CompactHashSet<E>(expectedSize);
+    return new CompactHashSet<>(expectedSize);
   }
 
   private static final int MAXIMUM_CAPACITY = 1 << 30;
