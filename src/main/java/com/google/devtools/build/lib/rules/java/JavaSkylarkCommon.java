@@ -344,11 +344,7 @@ public class JavaSkylarkCommon {
         hostJavabaseProvider == null
             ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
             : hostJavabaseProvider.getMiddlemanArtifact();
-    JavaToolchainProvider javaToolchainProvider =
-        javaToolchain.getProvider(JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      throw new EvalException(null, javaToolchain.getLabel() + " is not a java_toolchain rule.");
-    }
+    JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(javaToolchain);
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
@@ -381,6 +377,40 @@ public class JavaSkylarkCommon {
              .build();
   }
 
+  @SkylarkCallable(
+      name = "build_ijar",
+      documented = true,
+      doc = "Builds and returns the ijar file for the given jar file.",
+      mandatoryPositionals = 1,
+      parameters = {
+        @Param(
+          name = "jar",
+          positional = true,
+          named = true,
+          type = Artifact.class,
+          doc = "The input .jar file for which an ijar will be built. Mandatory."
+        ),
+        @Param(
+          name = "java_toolchain",
+          positional = true,
+          named = true,
+          type = ConfiguredTarget.class,
+          doc = "A label pointing to a java_toolchain rule to be used for this compilation. "
+            + "Mandatory."
+        ),
+      }
+  )
+  public Artifact buildIjar(
+      SkylarkRuleContext skylarkRuleContext,
+      Artifact fullJar,
+      ConfiguredTarget javaToolchain) throws EvalException {
+    return JavaCompilationHelper.createIjarAction(
+        skylarkRuleContext.getRuleContext(),
+        getJavaToolchainProvider(javaToolchain),
+        fullJar,
+        /* addPrefix = */ true);
+  }
+
   /**
    * Creates a {@link JavaSourceJarsProvider} from the given list of source jars.
    */
@@ -406,11 +436,7 @@ public class JavaSkylarkCommon {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
-    JavaToolchainProvider toolchain =
-        javaToolchainConfigTarget.getProvider(JavaToolchainProvider.class);
-    if (toolchain == null) {
-      throw new EvalException(null, javaToolchainAttr + " is not a java_toolchain rule label");
-    }
+    JavaToolchainProvider toolchain = getJavaToolchainProvider(javaToolchainConfigTarget);
     return ImmutableList.copyOf(Iterables.concat(
         toolchain.getJavacOptions(), ruleContext.getTokenizedStringListAttr("javacopts")));
   }
@@ -442,6 +468,16 @@ public class JavaSkylarkCommon {
         // Overwrites the old provider.
         .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
         .build();
+  }
+
+  private static JavaToolchainProvider getJavaToolchainProvider(ConfiguredTarget javaToolchain)
+      throws EvalException{
+    JavaToolchainProvider javaToolchainProvider =
+        javaToolchain.getProvider(JavaToolchainProvider.class);
+    if (javaToolchainProvider == null) {
+      throw new EvalException(null, javaToolchain.getLabel() + " is not a java_toolchain rule.");
+    }
+    return javaToolchainProvider;
   }
 
   /**
