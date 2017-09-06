@@ -813,6 +813,27 @@ EOF
   expect_log "//external:androidsdk"
 }
 
+function test_use_bind_as_repository() {
+  cat > WORKSPACE <<'EOF'
+local_repository(name = 'foobar', path = 'foo')
+bind(name = 'foo', actual = '@foobar//:test')
+EOF
+  mkdir foo
+  touch foo/WORKSPACE
+  touch foo/test
+  echo 'exports_files(["test"])' > foo/BUILD
+  cat > BUILD <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["@foo//:test"],
+    cmd = "echo $< | tee $@",
+    outs = ["foo.txt"],
+)
+EOF
+  bazel build :foo &> "$TEST_log" && fail "Expected failure" || true
+  expect_log "no such package '@foo//'"
+}
+
 function test_flip_flopping() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"

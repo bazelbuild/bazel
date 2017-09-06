@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -122,6 +121,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (rule == null) {
       return null;
     }
+
     RepositoryFunction handler;
     if (rule.getRuleClassObject().isSkylark()) {
       handler = skylarkHandler;
@@ -129,8 +129,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       handler = handlers.get(rule.getRuleClass());
     }
     if (handler == null) {
-      throw new IllegalStateException(
-          new EvalException(rule.getLocation(), "Could not find handler for " + rule));
+      // If we refer to a non repository rule then the repository does not exist.
+      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }
 
     handler.setClientEnvironment(clientEnvironment);
