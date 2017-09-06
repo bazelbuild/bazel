@@ -53,7 +53,7 @@ compatibility with Python 2, we are removing this feature (which we have never
 documented).
 
 *   Flag: `--incompatible_disallow_keyword_only_args`
-*   Default: `false`
+*   Default: `true`
 
 
 ## Mutating `+=`

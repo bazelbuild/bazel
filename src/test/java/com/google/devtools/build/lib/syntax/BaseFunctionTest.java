@@ -134,19 +134,22 @@ public class BaseFunctionTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testKwParam() throws Exception {
-    eval("def foo(a, b, c=3, d=4, *args, e, f, g=7, h=8, **kwargs):\n"
-        + "  return (a, b, c, d, e, f, g, h, args, kwargs)\n"
-        + "v1 = foo(1, 2, e=5, f=6)\n"
-        + "v2 = foo(1, *['x', 'y', 'z', 't'], h=9, e=5, f=6, i=0)\n"
+    eval("def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
+        + "  return (a, b, c, d, g, h, args, kwargs)\n"
+        + "v1 = foo(1, 2)\n"
+        + "v2 = foo(1, *['x', 'y', 'z', 't'], h=9, i=0)\n"
+        + "v3 = foo(1, *[2, 3, 4, 5, 6, 7, 8], i=0)\n"
         + "def bar(**kwargs):\n"
         + "  return kwargs\n"
         + "b1 = bar(name='foo', type='jpg', version=42)\n"
         + "b2 = bar()\n");
 
     assertThat(Printer.repr(lookup("v1")))
-        .isEqualTo("(1, 2, 3, 4, 5, 6, 7, 8, (), {})");
+        .isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");
     assertThat(Printer.repr(lookup("v2")))
-        .isEqualTo("(1, \"x\", \"y\", \"z\", 5, 6, 7, 9, (\"t\",), {\"i\": 0})");
+        .isEqualTo("(1, \"x\", \"y\", \"z\", \"t\", 9, (), {\"i\": 0})");
+    assertThat(Printer.repr(lookup("v3")))
+        .isEqualTo("(1, 2, 3, 4, 5, 6, (7, 8), {\"i\": 0})");
 
     // NB: the conversion to a TreeMap below ensures the keys are sorted.
     assertThat(Printer.repr(
