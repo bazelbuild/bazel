@@ -81,7 +81,6 @@
             ]
         }
     },
-    // TODO(dmarting): windows build zip with "zip -j", add it to //packages
     {
         "variation": "",
         "node": "windows-x86_64",
