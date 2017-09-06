@@ -190,7 +190,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
     name = "incompatible_dict_literal_has_no_duplicates",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},

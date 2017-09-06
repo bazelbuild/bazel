@@ -219,7 +219,7 @@ If you really want to override a value, use a separate statement:
 `mydict["a"] = 4`.
 
 *   Flag: `--incompatible_dict_literal_has_no_duplicates`
-*   Default: `false`
+*   Default: `true`
 
 
 ## Checked arithmetic
