@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -379,6 +380,52 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     @Test
     public void testInvalidPackageLabelIsError() throws Exception {
       createAndCheckInvalidPackageLabel(false);
+    }
+
+    private String getCorrectedPackage(String repository, String directory) throws Exception {
+      scratch.overwriteFile(
+          "WORKSPACE", "local_repository(name='local', path='" + repository + "')");
+      scratch.file(repository + "/WORKSPACE");
+      scratch.file(directory + "/BUILD");
+
+      PackageLookupValue packageLookupValue =
+          lookupPackage(PackageIdentifier.createInMainRepo(directory));
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue)
+          .isInstanceOf(IncorrectRepositoryReferencePackageLookupValue.class);
+
+      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
+          (IncorrectRepositoryReferencePackageLookupValue) packageLookupValue;
+      assertThat(incorrectPackageLookupValue.getInvalidPackageIdentifier())
+          .isEqualTo(PackageIdentifier.createInMainRepo(directory));
+      return incorrectPackageLookupValue.getCorrectedPackageIdentifier().toString();
+    }
+
+    @Test
+    public void testCorrectPackageDetection_simpleRepo_emptyPackage() throws Exception {
+      assertThat(getCorrectedPackage("local", "local")).isEqualTo("@local//");
+    }
+
+    @Test
+    public void testCorrectPackageDetection_simpleRepo_singlePackage() throws Exception {
+      assertThat(getCorrectedPackage("local", "local/package")).isEqualTo("@local//package");
+    }
+
+    @Test
+    public void testCorrectPackageDetection_simpleRepo_subPackage() throws Exception {
+      assertThat(getCorrectedPackage("local", "local/package/subpackage"))
+          .isEqualTo("@local//package/subpackage");
+    }
+
+    @Test
+    public void testCorrectPackageDetection_deepRepo_emptyPackage() throws Exception {
+      assertThat(getCorrectedPackage("local/repo", "local/repo")).isEqualTo("@local//");
+    }
+
+    @Test
+    public void testCorrectPackageDetection_deepRepo_subPackage() throws Exception {
+      assertThat(getCorrectedPackage("local/repo", "local/repo/package"))
+          .isEqualTo("@local//package");
     }
 
     @Test
