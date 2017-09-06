@@ -125,26 +125,25 @@ Add the following lines to your `WORKSPACE` file:
 
 ```python
 android_sdk_repository(
-    name = "androidsdk",
-    # Replace with your installed Android SDK API level
-    api_level = 25
+    name = "androidsdk"
 )
 ```
 
 This will use the Android SDK referenced by the `ANDROID_HOME` environment
-variable, and automatically detect the latest build tools version installed
-within that location.
+variable, and automatically detect the highest API level and the latest version
+of build tools installed within that location.
 
 Alternatively, you can explicitly specify the location of the Android
-SDK and build tools version to use by including the `path` and
-`build_tools_version` attributes:
+SDK, the API level, and the version of build tools to use by including the
+`path`,`api_level`, and `build_tools_version` attributes. You can specify any
+subset of these attributes:
 
 ```python
 android_sdk_repository(
     name = "androidsdk",
     path = "/path/to/Android/sdk",
     api_level = 25,
-    build_tools_version = "25.0.1"
+    build_tools_version = "26.0.1"
 )
 ```
 
@@ -156,14 +155,14 @@ file:
 
 ```python
 android_ndk_repository(
-    name = "androidndk",
-    # Replace with the Android NDK API level
-    api_level = 23
+    name = "androidndk"
 )
 ```
 
 `api_level` is the version of the Android API the SDK and the NDK target
-(for example, 23 for Android 6.0 and 25 for Android 7.1). It's not necessary to
+(for example, 23 for Android 6.0 and 25 for Android 7.1). If not explicitly
+set, `api_level` will default to the highest available API level for
+`android_sdk_repository` and `android_ndk_repository`. It's not necessary to
 set the API levels to the same value for the SDK and NDK.
 [This web page](https://developer.android.com/ndk/guides/stable_apis.html)
 contains a map from Android releases to NDK-supported API levels.
