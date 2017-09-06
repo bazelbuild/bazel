@@ -201,6 +201,14 @@ public class EvaluationTestCase {
     }
   }
 
+  public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
+    try {
+      eval(input);
+    } catch (EvalException | FailFastException e) {
+      assertThat(e).hasMessageThat().doesNotContain(msg);
+    }
+  }
+
   // Forward relevant methods to the EventCollectionApparatus
   public EvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
