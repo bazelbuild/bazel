@@ -723,6 +723,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean allowAndroidResources;
 
+    @Option(
+        name = "experimental_android_allow_resources_attr",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "For use in testing before migrating away from android_resources. If false, will"
+            + " fail when android_resources rules are encountered"
+    )
+    public boolean allowResourcesAttr;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
@@ -805,6 +815,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useParallelDex2Oat;
   private final boolean useManifestFromResourceApk;
   private final boolean allowAndroidResources;
+  private final boolean allowResourcesAttr;
 
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -844,6 +855,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.useManifestFromResourceApk = options.useManifestFromResourceApk;
     this.allowAndroidResources = options.allowAndroidResources;
+    this.allowResourcesAttr = options.allowResourcesAttr;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -984,6 +996,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean allowAndroidResources() {
     return this.allowAndroidResources;
+  }
+
+  public boolean allowResourcesAttr() {
+    return this.allowResourcesAttr;
   }
 
   @Override

@@ -56,6 +56,13 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       ruleContext.throwWithRuleError("Data binding doesn't work with the \"resources\" attribute. "
           + "Use \"resource_files\" instead.");
     }
+
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
+        && !ruleContext.getFragment(AndroidConfiguration.class).allowResourcesAttr()) {
+      ruleContext.throwWithAttributeError(
+          "resources",
+          "The resources attribute has been removed. Please use resource_files instead.");
+    }
   }
 
   /**
