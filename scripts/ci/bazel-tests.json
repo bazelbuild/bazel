@@ -3,14 +3,8 @@
 [
     {
         "configurations": [
-            {
-                "node": "linux-x86_64",
-                "variation": ""
-            },
-            {
-                "node": "ubuntu_16.04-x86_64",
-                "variation": ""
-            }
+            {"node": "linux-x86_64"},
+            {"node": "ubuntu_16.04-x86_64"}
         ],
         "parameters": {
             "configure": [
@@ -36,14 +30,8 @@
         }
     }, {
         "configurations": [
-            {
-                "node": "freebsd-11",
-                "variation": ""
-            },
-            {
-                "node": "freebsd-12",
-                "variation": ""
-            }
+            {"node": "freebsd-11"},
+            {"node": "freebsd-12"}
         ],
         "parameters": {
             // As configure step, we redo the USES=shebangfix of the devel/bazel
@@ -66,7 +54,6 @@
         }
     }, {
         "node": "darwin-x86_64",
-        "variation": "",
         "parameters": {
             "configure": [
                 "echo >>WORKSPACE",
@@ -93,10 +80,7 @@
         }
     }, {
         "toolchain": "msvc",
-        "configurations": [{
-            "node": "windows-x86_64",
-            "variation": ""
-        }],
+        "node": "windows-x86_64",
         "parameters": {
             "build_opts": [
                 "--copt=-w",
@@ -124,10 +108,7 @@
         }
     }, {
         "toolchain": "msys",
-        "configurations": [{
-            "node": "windows-x86_64",
-            "variation": ""
-        }],
+        "node": "windows-x86_64",
         "parameters": {
             "build_opts": ["--cpu=x64_windows_msys", "--host_cpu=x64_windows_msys"],
             "test_tag_filters": ["-no_windows"],
