@@ -209,7 +209,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder
-              .setProductName("bazel")
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setNativeLauncherLabel("//tools/launcher:launcher")
               .setRunfilesPrefix(Label.DEFAULT_REPOSITORY_DIRECTORY)

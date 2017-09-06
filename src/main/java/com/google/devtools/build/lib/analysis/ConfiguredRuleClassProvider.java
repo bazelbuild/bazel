@@ -195,7 +195,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static class Builder implements RuleDefinitionEnvironment {
-    private String productName;
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
@@ -227,11 +226,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
     private String nativeLauncherLabel;
-
-    public Builder setProductName(String productName) {
-      this.productName = productName;
-      return this;
-    }
 
     public Builder setNativeLauncherLabel(String label) {
       this.nativeLauncherLabel = label;
@@ -425,7 +419,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
 
       return new ConfiguredRuleClassProvider(
-          productName,
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
@@ -488,8 +481,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
     }
   });
-
-  private final String productName;
 
   /**
    * Default content that should be added at the beginning of the WORKSPACE file.
@@ -558,7 +549,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final Environment.Frame globals;
 
   private ConfiguredRuleClassProvider(
-      String productName,
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
@@ -575,7 +565,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules) {
-    this.productName = productName;
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -591,10 +580,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
-  }
-
-  public String getProductName() {
-    return productName;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {

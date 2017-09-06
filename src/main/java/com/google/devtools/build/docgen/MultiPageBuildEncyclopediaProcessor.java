@@ -24,8 +24,9 @@ import java.util.Map;
  * Assembles the multi-page version of the Build Encyclopedia with one page per rule family.
  */
 public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
-  public MultiPageBuildEncyclopediaProcessor(ConfiguredRuleClassProvider ruleClassProvider) {
-    super(ruleClassProvider);
+  public MultiPageBuildEncyclopediaProcessor(
+      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
+    super(productName, ruleClassProvider);
   }
 
   /**
@@ -39,8 +40,8 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   @Override
   public void generateDocumentation(List<String> inputDirs, String outputDir, String blackList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(ruleClassProvider.getProductName(), false);
+    BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
+    RuleLinkExpander expander = new RuleLinkExpander(productName, false);
     Map<String, RuleDocumentation> ruleDocEntries = collector.collect(
         inputDirs, blackList, expander);
     warnAboutUndocumentedRules(

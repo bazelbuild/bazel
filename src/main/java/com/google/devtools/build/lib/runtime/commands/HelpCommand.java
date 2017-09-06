@@ -200,7 +200,8 @@ public final class HelpCommand implements BlazeCommand {
       RuleClass ruleClass = provider.getRuleClassMap().get(helpSubject);
       if (ruleClass != null && ruleClass.isDocumented()) {
         // There is a rule with a corresponding name
-        outErr.printOut(BlazeRuleHelpPrinter.getRuleDoc(helpSubject, provider));
+        outErr.printOut(
+            BlazeRuleHelpPrinter.getRuleDoc(helpSubject, runtime.getProductName(), provider));
         return ExitCode.SUCCESS;
       } else {
         env.getReporter().handle(Event.error(

@@ -24,6 +24,16 @@ import java.util.List;
  */
 public class BuildEncyclopediaOptions extends OptionsBase {
   @Option(
+    name = "product_name",
+    abbrev = 'n',
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Name of the product to put in the documentation"
+  )
+  public String productName;
+
+  @Option(
     name = "input_dir",
     abbrev = 'i',
     defaultValue = "",
