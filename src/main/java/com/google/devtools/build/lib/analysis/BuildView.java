@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImports;
@@ -1225,10 +1226,11 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
-      ConfiguredTarget target, StoredEventHandler eventHandler,
+      ConfiguredTarget target,
+      StoredEventHandler eventHandler,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException, ToolchainContextException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
@@ -1243,12 +1245,20 @@ public class BuildView {
    * given configured target.
    */
   @VisibleForTesting
-  public RuleContext getRuleContextForTesting(ExtendedEventHandler eventHandler,
+  public RuleContext getRuleContextForTesting(
+      ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
-      AnalysisEnvironment env, BuildConfigurationCollection configurations)
+      AnalysisEnvironment env,
+      BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException, ToolchainContextException {
     BuildConfiguration targetConfig = target.getConfiguration();
+    List<Label> requiredToolchains =
+        target.getTarget().getAssociatedRule().getRuleClassObject().getRequiredToolchains();
+    ToolchainContext toolchainContext =
+        skyframeExecutor.getToolchainContextForTesting(
+            requiredToolchains, targetConfig, eventHandler);
+
     return new RuleContext.Builder(
             env,
             (Rule) target.getTarget(),
@@ -1263,6 +1273,7 @@ public class BuildView {
         .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+        .setToolchainContext(toolchainContext)
         .build();
   }
 

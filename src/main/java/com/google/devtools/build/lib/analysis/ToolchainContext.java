@@ -142,6 +142,7 @@ public class ToolchainContext {
         prerequisiteMap
             .keys()
             .stream()
+            .filter(attribute -> attribute != null)
             .filter(attribute -> attribute.getName().equals(PlatformSemantics.TOOLCHAINS_ATTR))
             .findFirst();
     Preconditions.checkState(

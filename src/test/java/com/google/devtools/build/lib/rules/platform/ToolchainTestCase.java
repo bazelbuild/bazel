@@ -41,7 +41,11 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         "constraint_value(name = 'linux',",
         "    constraint_setting = ':os')",
         "constraint_value(name = 'mac',",
-        "    constraint_setting = ':os')");
+        "    constraint_setting = ':os')",
+        "platform(name = 'linux_plat',",
+        "    constraint_values = [':linux'])",
+        "platform(name = 'mac_plat',",
+        "    constraint_values = [':mac'])");
 
     setting = ConstraintSettingInfo.create(makeLabel("//constraint:os"));
     linuxConstraint = ConstraintValueInfo.create(setting, makeLabel("//constraint:linux"));

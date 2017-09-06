@@ -20,17 +20,21 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MakeVariableInfo;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -72,6 +76,7 @@ public class TestRuleClassProvider {
           new ConfiguredRuleClassProvider.Builder();
       addStandardRules(builder);
       builder.addRuleDefinition(new TestingDummyRule());
+      builder.addRuleDefinition(new MockToolchainRule());
       ruleProvider = builder.build();
     }
     return ruleProvider;
@@ -138,6 +143,27 @@ public class TestRuleClassProvider {
           .ancestors(
               BaseRuleClasses.BaseRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
           .factoryClass(MakeVariableTester.class)
+          .build();
+    }
+  }
+
+  /** A mock rule that requires a toolchain. */
+  public static class MockToolchainRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return PlatformSemantics.platformAttributes(builder)
+          .requiresConfigurationFragments(PlatformConfiguration.class)
+          .addRequiredToolchains(
+              ImmutableList.of(Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("mock_toolchain_rule")
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .ancestors(BaseRuleClasses.RuleBase.class)
           .build();
     }
   }

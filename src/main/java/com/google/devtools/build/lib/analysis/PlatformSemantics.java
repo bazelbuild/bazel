@@ -40,8 +40,9 @@ public class PlatformSemantics {
         @Override
         public List<Label> resolve(
             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
-            return null;
+          // rule may be null for tests
+          if (rule == null || rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
+            return ImmutableList.of();
           }
           return configuration.getFragment(PlatformConfiguration.class).getTargetPlatforms();
         }
@@ -52,7 +53,8 @@ public class PlatformSemantics {
       new Attribute.LateBoundLabel<BuildConfiguration>(PlatformConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
+          // rule may be null for tests
+          if (rule == null || rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
             return null;
           }
           return configuration.getFragment(PlatformConfiguration.class).getExecutionPlatform();
