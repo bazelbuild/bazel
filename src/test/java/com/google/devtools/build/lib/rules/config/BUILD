@@ -1,6 +1,3 @@
-# Description:
-#   Tests for rules which enable users to define configuration
-
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -8,19 +5,23 @@ package(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
+    testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+# Description:
+#   Tests for rules which enable users to define configuration
 java_library(
     name = "ConfigRulesTests_lib",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:collect",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",

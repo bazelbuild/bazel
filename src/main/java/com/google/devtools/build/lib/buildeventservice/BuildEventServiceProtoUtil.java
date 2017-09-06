@@ -18,7 +18,7 @@ import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinish
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
 import com.google.devtools.build.v1.BuildEvent.BuildEnqueued;

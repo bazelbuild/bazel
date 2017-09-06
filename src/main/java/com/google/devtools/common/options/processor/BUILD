@@ -6,7 +6,6 @@ licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
-    testonly = 0,
     srcs = glob(
         ["**"],
     ),

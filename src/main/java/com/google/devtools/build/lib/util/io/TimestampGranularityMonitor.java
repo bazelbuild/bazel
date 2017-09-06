@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.logging.Logger;
 

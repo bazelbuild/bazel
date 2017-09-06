@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.Clock;
-
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.Clock;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

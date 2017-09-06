@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.Clock;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;

@@ -1,16 +1,13 @@
-package(default_visibility = ["//visibility:private"])
-
-package_group(
-    name = "android-tests",
-    packages = [
-        "//src/test/java/com/google/devtools/build/android/...",
-    ],
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = [":android-tests"],
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )
 
 java_test(

@@ -4,7 +4,6 @@ licenses(["notice"])
 
 filegroup(
     name = "srcs",
-    testonly = 0,
     srcs = glob(["**"]),
 )
 

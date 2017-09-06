@@ -41,7 +41,6 @@ java_library(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/common/options/testing:srcs",
         "//src/main/java/com/google/devtools/common/options/processor:srcs",

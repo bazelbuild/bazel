@@ -27,7 +27,7 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.lib.collect;
+package com.google.devtools.build.lib.collect.compacthashset;
 
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.util.Preconditions;

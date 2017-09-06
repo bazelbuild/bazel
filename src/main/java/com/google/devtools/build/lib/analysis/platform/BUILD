@@ -1,12 +1,15 @@
-# Description:
-#   Providers defined for platforms, constraints, and toolchains.
+package(default_visibility = ["//src:__subpackages__"])
 
-package(
-    default_visibility = ["//src:__subpackages__"],
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 UTIL_SRCS = ["PlatformProviderUtils.java"]
 
+# Description:
+#   Providers defined for platforms, constraints, and toolchains.
 java_library(
     name = "platform",
     srcs = glob(
@@ -33,10 +36,4 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylark-provider-collection",
         "//third_party:guava",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
 )

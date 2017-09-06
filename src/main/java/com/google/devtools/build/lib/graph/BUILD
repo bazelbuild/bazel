@@ -1,5 +1,9 @@
-package(
-    default_visibility = ["//src:__subpackages__"],
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # This package provides a general-purpose directed graph utility class with
@@ -12,9 +16,4 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

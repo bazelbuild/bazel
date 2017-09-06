@@ -1,6 +1,17 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
+)
+
 # Description:
 #   Tests for the blaze dx bridge code.
-
 java_library(
     name = "tests",
     srcs = [
@@ -43,10 +54,4 @@ java_test(
     runtime_deps = [
         ":tests",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )

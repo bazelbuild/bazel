@@ -18,7 +18,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;

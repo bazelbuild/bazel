@@ -23,7 +23,7 @@ java_test(
     srcs = glob(["LcovMerger/javatests/**/*.java"]),
     deps = [
         ":LcovMergerTestUtils",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",

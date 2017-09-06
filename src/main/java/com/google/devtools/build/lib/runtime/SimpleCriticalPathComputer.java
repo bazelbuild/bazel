@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.clock.Clock;
 
 /**
  * Computes the critical path during a build.

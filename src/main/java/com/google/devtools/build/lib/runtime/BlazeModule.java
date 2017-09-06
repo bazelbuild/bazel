@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -117,16 +117,15 @@ public abstract class BlazeModule {
 
   /**
    * Sets up the configured rule class provider, which contains the built-in rule classes, aspects,
-   * configuration fragments, and other things; called during Blaze startup (after
-   * {@link #blazeStartup}).
-   * 
+   * configuration fragments, and other things; called during Blaze startup (after {@link
+   * #blazeStartup}).
+   *
    * <p>Bazel only creates one provider per server, so it is not possible to have different contents
    * for different workspaces.
    *
    * @param builder the configured rule class provider builder
    */
-  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-  }
+  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {}
 
   /**
    * Called when Bazel initializes a new workspace; this is only called after {@link #serverInit},
@@ -272,7 +271,7 @@ public abstract class BlazeModule {
 
   /**
    * Optionally returns a factory to create coverage report actions; this is called once per build,
-   * such that it can be affected by command options. 
+   * such that it can be affected by command options.
    *
    * <p>It is an error if multiple modules return non-null values.
    *

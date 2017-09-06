@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.testutil;
 
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.clock.Clock;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
