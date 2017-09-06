@@ -20,7 +20,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import org.junit.Test;
@@ -66,49 +65,15 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPresenceOfLegacyCompileFlags() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "cxx_flag: '-foo'");
-    useConfiguration();
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+  public void testPresenceOfCoptsVariable() throws Exception {
+    scratch.file(
+        "x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo', '-bar'])");
     scratch.file("x/bin.cc");
 
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(variables, CppModel.LEGACY_COMPILE_FLAGS_VARIABLE_NAME);
-    assertThat(copts).contains("-foo");
-  }
-
-  @Test
-  public void testPresenceOfUserCompileFlags() throws Exception {
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
-    useConfiguration();
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo'])");
-    scratch.file("x/bin.cc");
-
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    ImmutableList<String> copts =
-        Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
-    assertThat(copts).contains("-foo");
-  }
-
-  @Test
-  public void testPresenceOfUnfilteredCompileFlags() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, "unfiltered_cxx_flag: '--i_ll_live_forever'");
-    useConfiguration();
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    Variables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    ImmutableList<String> unfilteredCompileFlags =
-        Variables.toStringList(variables, CppModel.UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME);
-    assertThat(unfilteredCompileFlags).contains("--i_ll_live_forever");
+        Variables.toStringList(variables, CppModel.COPTS_VARIABLE_VALUE);
+    assertThat(copts).containsExactly("-foo", "-bar").inOrder();
   }
 }

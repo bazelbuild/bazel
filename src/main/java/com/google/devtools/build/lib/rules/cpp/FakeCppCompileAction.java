@@ -56,6 +56,7 @@ public class FakeCppCompileAction extends CppCompileAction {
   FakeCppCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
+      ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
@@ -81,6 +82,7 @@ public class FakeCppCompileAction extends CppCompileAction {
     super(
         owner,
         allInputs,
+        features,
         featureConfiguration,
         variables,
         sourceFile,

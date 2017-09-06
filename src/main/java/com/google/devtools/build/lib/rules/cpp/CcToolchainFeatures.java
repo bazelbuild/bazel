@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -1413,13 +1412,6 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /** Overrides a variable to expands {@code name} to {@code value} instead. */
-      public Builder overrideStringSequenceVariable(String name, ImmutableList<String> value) {
-        Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringSequence(value));
-        return this;
-      }
-
       /**
        * Add a sequence variable that expands {@code name} to {@code values}.
        *
@@ -1516,8 +1508,10 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /** @return a new {@Variables} object. */
-      public Variables build() {
+      /**
+       * @return a new {@Variables} object.
+       */
+      Variables build() {
         return new Variables(
             ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
       }
@@ -1736,27 +1730,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       return commandLine;
-    }
-
-    /** @return the flags expanded for the given {@code action} in per-feature buckets. */
-    public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
-        String action, Variables variables) {
-      ImmutableList.Builder<Pair<String, List<String>>> perFeatureExpansions =
-          ImmutableList.builder();
-      if (actionIsConfigured(action)) {
-        List<String> commandLine = new ArrayList<>();
-        ActionConfig actionConfig = actionConfigByActionName.get(action);
-        actionConfig.expandCommandLine(variables, enabledFeatureNames, commandLine);
-        perFeatureExpansions.add(Pair.of(actionConfig.getName(), commandLine));
-      }
-
-      for (Feature feature : enabledFeatures) {
-        List<String> commandLine = new ArrayList<>();
-        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
-        perFeatureExpansions.add(Pair.of(feature.getName(), commandLine));
-      }
-
-      return perFeatureExpansions.build();
     }
 
     /** @return the environment variables (key/value pairs) for the given {@code action}. */

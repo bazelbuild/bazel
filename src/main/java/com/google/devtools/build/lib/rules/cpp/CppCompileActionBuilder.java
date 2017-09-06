@@ -38,11 +38,14 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Builder class to construct C++ compile actions.
@@ -52,6 +55,7 @@ public class CppCompileActionBuilder {
 
   private final ActionOwner owner;
   private final BuildConfiguration configuration;
+  private final List<String> features = new ArrayList<>();
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
   private CcToolchainFeatures.Variables variables = Variables.EMPTY;
   private Artifact sourceFile;
@@ -66,7 +70,7 @@ public class CppCompileActionBuilder {
   private Artifact gcnoFile;
   private CppCompilationContext context = CppCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
-  private Predicate<String> coptsFilter = Predicates.alwaysTrue();
+  private final List<Pattern> nocopts = new ArrayList<>();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private boolean allowUsingHeaderModules;
@@ -97,6 +101,7 @@ public class CppCompileActionBuilder {
         sourceLabel,
         ruleContext.getConfiguration(),
         getLipoScannableMap(ruleContext),
+        ruleContext.getFeatures(),
         ccToolchain);
   }
 
@@ -111,6 +116,7 @@ public class CppCompileActionBuilder {
         sourceLabel,
         configuration,
         getLipoScannableMap(ruleContext),
+        ruleContext.getFeatures(),
         ccToolchain);
   }
 
@@ -120,12 +126,14 @@ public class CppCompileActionBuilder {
       Label sourceLabel,
       BuildConfiguration configuration,
       Map<Artifact, IncludeScannable> lipoScannableMap,
+      Set<String> features,
       CcToolchainProvider ccToolchain) {
     this.owner = actionOwner;
     this.sourceLabel = sourceLabel;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.lipoScannableMap = ImmutableMap.copyOf(lipoScannableMap);
+    this.features.addAll(features);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.allowUsingHeaderModules = true;
     this.localShellEnvironment = configuration.getLocalShellEnvironment();
@@ -153,6 +161,7 @@ public class CppCompileActionBuilder {
    */
   public CppCompileActionBuilder(CppCompileActionBuilder other) {
     this.owner = other.owner;
+    this.features.addAll(other.features);
     this.featureConfiguration = other.featureConfiguration;
     this.sourceFile = other.sourceFile;
     this.sourceLabel = other.sourceLabel;
@@ -167,7 +176,7 @@ public class CppCompileActionBuilder {
     this.gcnoFile = other.gcnoFile;
     this.context = other.context;
     this.pluginOpts.addAll(other.pluginOpts);
-    this.coptsFilter = other.coptsFilter;
+    this.nocopts.addAll(other.nocopts);
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
     this.specialInputsHandler = other.specialInputsHandler;
     this.actionClassId = other.actionClassId;
@@ -205,6 +214,23 @@ public class CppCompileActionBuilder {
 
   public NestedSet<Artifact> getMandatoryInputs() {
     return mandatoryInputsBuilder.build();
+  }
+
+  private static Predicate<String> getNocoptPredicate(Collection<Pattern> patterns) {
+    final ImmutableList<Pattern> finalPatterns = ImmutableList.copyOf(patterns);
+    if (finalPatterns.isEmpty()) {
+      return Predicates.alwaysTrue();
+    } else {
+      return option -> {
+        for (Pattern pattern : finalPatterns) {
+          if (pattern.matcher(option).matches()) {
+            return false;
+          }
+        }
+
+        return true;
+      };
+    }
   }
 
   private Iterable<IncludeScannable> getLipoScannables(NestedSet<Artifact> realMandatoryInputs) {
@@ -359,6 +385,7 @@ public class CppCompileActionBuilder {
           new FakeCppCompileAction(
               owner,
               allInputs,
+              ImmutableList.copyOf(features),
               featureConfiguration,
               variables,
               sourceFile,
@@ -376,7 +403,7 @@ public class CppCompileActionBuilder {
               cppConfiguration,
               context,
               actionContext,
-              coptsFilter,
+              getNocoptPredicate(nocopts),
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
               ccToolchain,
@@ -386,6 +413,7 @@ public class CppCompileActionBuilder {
           new CppCompileAction(
               owner,
               allInputs,
+              ImmutableList.copyOf(features),
               featureConfiguration,
               variables,
               sourceFile,
@@ -406,7 +434,7 @@ public class CppCompileActionBuilder {
               cppConfiguration,
               context,
               actionContext,
-              coptsFilter,
+              getNocoptPredicate(nocopts),
               specialInputsHandler,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeFiles.build(),
@@ -507,8 +535,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  /** Returns the build variables to be used for the action. */
-  public CcToolchainFeatures.Variables getVariables() {
+  /**
+   * Returns the build variables to be used for the action.
+   */
+  CcToolchainFeatures.Variables getVariables() {
     return variables;
   }
 
@@ -644,6 +674,11 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  public CppCompileActionBuilder addNocopts(Pattern nocopts) {
+    this.nocopts.add(nocopts);
+    return this;
+  }
+
   public CppCompileActionBuilder setContext(CppCompilationContext context) {
     this.context = context;
     return this;
@@ -679,7 +714,4 @@ public class CppCompileActionBuilder {
     return ccToolchain;
   }
 
-  public void setCoptsFilter(Predicate<String> coptsFilter) {
-    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
-  }
 }

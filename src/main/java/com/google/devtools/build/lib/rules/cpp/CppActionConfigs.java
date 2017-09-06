@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 
 /**
  * A helper class for creating action_configs for the c++ actions.
@@ -33,7 +33,7 @@ public class CppActionConfigs {
 
   public static String getCppActionConfigs(
       CppPlatform platform,
-      ImmutableSet<String> existingFeatureNames,
+      Set<String> features,
       String gccToolPath,
       String cppLinkDynamicLibraryToolPath,
       String arToolPath,
@@ -41,8 +41,7 @@ public class CppActionConfigs {
       boolean supportsEmbeddedRuntimes,
       boolean supportsInterfaceSharedLibraries) {
     String cppDynamicLibraryLinkerTool = "";
-    if (!existingFeatureNames.contains("dynamic_library_linker_tool")
-        && supportsInterfaceSharedLibraries) {
+    if (!features.contains("dynamic_library_linker_tool") && supportsInterfaceSharedLibraries) {
       cppDynamicLibraryLinkerTool =
           ""
               + "feature {"
@@ -66,9 +65,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'preprocess-assemble'",
@@ -76,9 +73,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c-compile'",
@@ -86,9 +81,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c++-compile'",
@@ -96,9 +89,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c++-header-parsing'",
@@ -106,9 +97,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c++-header-preprocessing'",
@@ -116,9 +105,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c++-module-compile'",
@@ -126,9 +113,7 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
                 "action_config {",
                 "  config_name: 'c++-module-codegen'",
@@ -136,33 +121,8 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'legacy_compile_flags'",
-                "  implies: 'user_compile_flags'",
-                "  implies: 'unfiltered_compile_flags'",
+                "  implies: 'copts'",
                 "}",
-                ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS),
-                    "feature {",
-                    "  name: 'legacy_compile_flags'",
-                    "  enabled: true",
-                    "  flag_set {",
-                    "    expand_if_all_available: 'legacy_compile_flags'",
-                    "    action: 'assemble'",
-                    "    action: 'preprocess-assemble'",
-                    "    action: 'c-compile'",
-                    "    action: 'c++-compile'",
-                    "    action: 'c++-header-parsing'",
-                    "    action: 'c++-header-preprocessing'",
-                    "    action: 'c++-module-compile'",
-                    "    action: 'c++-module-codegen'",
-                    "    action: 'lto-backend'",
-                    "    action: 'clif-match'",
-                    "    flag_group {",
-                    "      iterate_over: 'legacy_compile_flags'",
-                    "      flag: '%{legacy_compile_flags}'",
-                    "    }",
-                    "  }",
-                    "}"),
                 // Gcc options:
                 //  -MD turns on .d file output as a side-effect (doesn't imply -E)
                 //  -MM[D] enables user includes only, not system includes
@@ -173,7 +133,7 @@ public class CppActionConfigs {
                 // This combination gets user and system includes with specified name:
                 //  -MD -MF <name>
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.DEPENDENCY_FILE),
+                    !features.contains(CppRuleClasses.DEPENDENCY_FILE),
                     "feature {",
                     "  name: 'dependency_file'",
                     "  flag_set {",
@@ -202,7 +162,7 @@ public class CppActionConfigs {
                 // any value which differs for all translation units; we use the
                 // path to the object file.
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.RANDOM_SEED),
+                    !features.contains(CppRuleClasses.RANDOM_SEED),
                     "feature {",
                     "  name: 'random_seed'",
                     "  flag_set {",
@@ -215,7 +175,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.PIC),
+                    !features.contains(CppRuleClasses.PIC),
                     "feature {",
                     "  name: 'pic'",
                     "  flag_set {",
@@ -232,7 +192,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.PER_OBJECT_DEBUG_INFO),
+                    !features.contains(CppRuleClasses.PER_OBJECT_DEBUG_INFO),
                     "feature {",
                     "  name: 'per_object_debug_info'",
                     "  flag_set {",
@@ -248,7 +208,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.PREPROCESSOR_DEFINES),
+                    !features.contains(CppRuleClasses.PREPROCESSOR_DEFINES),
                     "feature {",
                     "  name: 'preprocessor_defines'",
                     "  flag_set {",
@@ -266,7 +226,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.INCLUDE_PATHS),
+                    !features.contains(CppRuleClasses.INCLUDE_PATHS),
                     "feature {",
                     "  name: 'include_paths'",
                     "  flag_set {",
@@ -296,7 +256,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.FDO_INSTRUMENT),
+                    !features.contains(CppRuleClasses.FDO_INSTRUMENT),
                     "feature {",
                     "  name: 'fdo_instrument'",
                     "  provides: 'profile'",
@@ -313,7 +273,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.FDO_OPTIMIZE),
+                    !features.contains(CppRuleClasses.FDO_OPTIMIZE),
                     "feature {",
                     "  name: 'fdo_optimize'",
                     "  provides: 'profile'",
@@ -330,7 +290,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.AUTOFDO),
+                    !features.contains(CppRuleClasses.AUTOFDO),
                     "feature {",
                     "  name: 'autofdo'",
                     "  provides: 'profile'",
@@ -345,7 +305,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.LIPO),
+                    !features.contains(CppRuleClasses.LIPO),
                     "feature {",
                     "  name: 'lipo'",
                     "  requires { feature: 'autofdo' }",
@@ -458,7 +418,7 @@ public class CppActionConfigs {
                     // follow right after build_interface_libraries.
                     cppDynamicLibraryLinkerTool),
                 ifTrue(
-                    !existingFeatureNames.contains("symbol_counts"),
+                    !features.contains("symbol_counts"),
                     "feature {",
                     "  name: 'symbol_counts'",
                     "  flag_set {",
@@ -471,7 +431,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("shared_flag"),
+                    !features.contains("shared_flag"),
                     "feature {",
                     "  name: 'shared_flag'",
                     "  flag_set {",
@@ -482,7 +442,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("linkstamps"),
+                    !features.contains("linkstamps"),
                     "feature {",
                     "  name: 'linkstamps'",
                     "  flag_set {",
@@ -496,7 +456,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("output_execpath_flags"),
+                    !features.contains("output_execpath_flags"),
                     "feature {",
                     "  name: 'output_execpath_flags'",
                     "  flag_set {",
@@ -509,7 +469,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("output_execpath_flags_executable"),
+                    !features.contains("output_execpath_flags_executable"),
                     "feature {",
                     "  name: 'output_execpath_flags_executable'",
                     "  flag_set {",
@@ -538,7 +498,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("runtime_library_search_directories"),
+                    !features.contains("runtime_library_search_directories"),
                     "feature {",
                     "  name: 'runtime_library_search_directories',",
                     "  flag_set {",
@@ -563,7 +523,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("library_search_directories"),
+                    !features.contains("library_search_directories"),
                     "feature {",
                     "  name: 'library_search_directories'",
                     "  flag_set {",
@@ -577,7 +537,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("archiver_flags"),
+                    !features.contains("archiver_flags"),
                     "feature {",
                     "  name: 'archiver_flags'",
                     "  flag_set {",
@@ -598,7 +558,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("libraries_to_link"),
+                    !features.contains("libraries_to_link"),
                     "feature {",
                     "  name: 'libraries_to_link'",
                     "  flag_set {",
@@ -759,7 +719,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("force_pic_flags"),
+                    !features.contains("force_pic_flags"),
                     "feature {",
                     "  name: 'force_pic_flags'",
                     "  flag_set {",
@@ -771,7 +731,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("legacy_link_flags"),
+                    !features.contains("legacy_link_flags"),
                     "feature {",
                     "  name: 'legacy_link_flags'",
                     "  flag_set {",
@@ -785,7 +745,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("fission_support"),
+                    !features.contains("fission_support"),
                     "feature {",
                     "  name: 'fission_support'",
                     "  flag_set {",
@@ -799,7 +759,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("strip_debug_symbols"),
+                    !features.contains("strip_debug_symbols"),
                     "feature {",
                     "  name: 'strip_debug_symbols'",
                     "  flag_set {",
@@ -813,7 +773,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains("linker_param_file"),
+                    !features.contains("linker_param_file"),
                     "feature {",
                     "  name: 'linker_param_file'",
                     "  flag_set {",
@@ -836,7 +796,7 @@ public class CppActionConfigs {
                     "  }",
                     "}"),
                 ifTrue(
-                    !existingFeatureNames.contains(CppRuleClasses.COVERAGE),
+                    !features.contains(CppRuleClasses.COVERAGE),
                     "feature {",
                     "  name: 'coverage'",
                     "}",
@@ -899,6 +859,28 @@ public class CppActionConfigs {
                     "    feature: 'coverage'",
                     "  }",
                     "}"),
+                ifTrue(
+                    !features.contains(CppRuleClasses.COPTS),
+                    "feature {",
+                    "  name: 'copts'",
+                    "  flag_set {",
+                    "    expand_if_all_available: 'copts'",
+                    "    action: 'assemble'",
+                    "    action: 'preprocess-assemble'",
+                    "    action: 'c-compile'",
+                    "    action: 'c++-compile'",
+                    "    action: 'c++-header-parsing'",
+                    "    action: 'c++-header-preprocessing'",
+                    "    action: 'c++-module-compile'",
+                    "    action: 'c++-module-codegen'",
+                    "    action: 'lto-backend'",
+                    "    action: 'clif-match'",
+                    "    flag_group {",
+                    "      iterate_over: 'copts'",
+                    "      flag: '%{copts}'",
+                    "    }",
+                    "  }",
+                    "}"),
                 "action_config {",
                 "  config_name: 'strip'",
                 "  action_name: 'strip'",
@@ -939,63 +921,6 @@ public class CppActionConfigs {
                 "    }",
                 "  }",
                 "}"));
-  }
-
-  public static String getFeaturesToAppearLastInToolchain(
-      ImmutableSet<String> existingFeatureNames) {
-    return Joiner.on("\n")
-        .join(
-            ImmutableList.of(
-                ifTrue(
-                    !existingFeatureNames.contains("user_compile_flags"),
-                    "feature {",
-                    "  name: 'user_compile_flags'",
-                    "  enabled: true",
-                    "  flag_set {",
-                    "    expand_if_all_available: 'user_compile_flags'",
-                    "    action: 'assemble'",
-                    "    action: 'preprocess-assemble'",
-                    "    action: 'c-compile'",
-                    "    action: 'c++-compile'",
-                    "    action: 'c++-header-parsing'",
-                    "    action: 'c++-header-preprocessing'",
-                    "    action: 'c++-module-compile'",
-                    "    action: 'c++-module-codegen'",
-                    "    action: 'lto-backend'",
-                    "    action: 'clif-match'",
-                    "    flag_group {",
-                    "      iterate_over: 'user_compile_flags'",
-                    "      flag: '%{user_compile_flags}'",
-                    "    }",
-                    "  }",
-                    "}"),
-                // unfiltered_compile_flags contain system include paths. These must be added
-                // after the user provided options (present in legacy_compile_flags build
-                // variable above), otherwise users adding include paths will not pick up their own
-                // include paths first.
-                ifTrue(
-                    !existingFeatureNames.contains("unfiltered_compile_flags"),
-                    "feature {",
-                    "  name: 'unfiltered_compile_flags'",
-                    "  enabled: true",
-                    "  flag_set {",
-                    "    expand_if_all_available: 'unfiltered_compile_flags'",
-                    "    action: 'assemble'",
-                    "    action: 'preprocess-assemble'",
-                    "    action: 'c-compile'",
-                    "    action: 'c++-compile'",
-                    "    action: 'c++-header-parsing'",
-                    "    action: 'c++-header-preprocessing'",
-                    "    action: 'c++-module-compile'",
-                    "    action: 'c++-module-codegen'",
-                    "    action: 'lto-backend'",
-                    "    action: 'clif-match'",
-                    "    flag_group {",
-                    "      iterate_over: 'unfiltered_compile_flags'",
-                    "      flag: '%{unfiltered_compile_flags}'",
-                    "    }",
-                    "  }",
-                    "}")));
   }
 
   private static String ifLinux(CppPlatform platform, String... lines) {
