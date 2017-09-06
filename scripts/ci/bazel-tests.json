@@ -22,10 +22,11 @@
             ],
             "tests": [
                 "//scripts/...",
-                "filter(\"^(?!//src/test/docker).*$\", //src/test/...)",
+                "//src/test/...",
                 "//third_party/ijar/...",
                 "//tools/android/..."
             ],
+            "test_tag_filters": ["-docker"],
             "targets": []
         }
     }, {
@@ -71,11 +72,11 @@
             "build_opts": ["--define IPHONE_SDK=1"],
             "tests": [
                 "//scripts/...",
-                "filter(\"^(?!//src/test/docker).*$\", //src/test/...)",
+                "//src/test/...",
                 "//third_party/ijar/...",
-                "//tools/android/...",
-                "//src/test/shell/bazel:cpp_darwin_integration_test"
+                "//tools/android/..."
             ],
+            "test_tag_filters": ["-docker"],
             "targets": []
         }
     }, {
