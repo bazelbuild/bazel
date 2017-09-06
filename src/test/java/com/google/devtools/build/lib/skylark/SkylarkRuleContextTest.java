@@ -384,7 +384,28 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   /* The error message for this case used to be wrong. */
   @Test
-  public void testPackageBoundaryError_ExternalRepository() throws Exception {
+  public void testPackageBoundaryError_ExternalRepository_Boundary() throws Exception {
+    scratch.file("r/WORKSPACE");
+    scratch.file("r/BUILD");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='r', path='r')")
+            .build());
+    scratch.file("BUILD", "cc_library(name = 'cclib',", "  srcs = ['r/my_sub_lib.h'])");
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//:cclib");
+    assertContainsEvent(
+        "/workspace/BUILD:2:10: Label '//:r/my_sub_lib.h' crosses boundary of "
+            + "subpackage '@r//'");
+  }
+
+  /* The error message for this case used to be wrong. */
+  @Test
+  public void testPackageBoundaryError_ExternalRepository_EntirelyInside() throws Exception {
     scratch.file("/r/WORKSPACE");
     scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
