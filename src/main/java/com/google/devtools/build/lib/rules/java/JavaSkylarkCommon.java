@@ -264,9 +264,10 @@ public class JavaSkylarkCommon {
         positional = false,
         named = true,
         type = String.class,
-        doc = "A string that specifies how to handle strict deps. Possible values: 'OFF' (silently"
-          + " allowing referencing transitive dependencies) and 'ERROR' (failing to build when"
-          + " transitive dependencies are used directly). By default 'OFF'."
+        doc = "A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR',"
+          + "'WARN' and 'DEFAULT'. For more details see "
+          + "https://docs.bazel.build/versions/master/bazel-user-manual.html#flag--strict_java_deps"
+          + ". By default 'ERROR'."
       ),
       @Param(
         name = "java_toolchain",
@@ -332,7 +333,7 @@ public class JavaSkylarkCommon {
         JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
     helper.addAllDeps(depsCompilationArgsProviders);
     helper.addAllExports(exportsCompilationArgsProviders);
-    helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
+    helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
     helper.addAllPlugins(
@@ -464,7 +465,10 @@ public class JavaSkylarkCommon {
       case "OFF":
         return StrictDepsMode.OFF;
       case "ERROR":
+      case "DEFAULT":
         return StrictDepsMode.ERROR;
+      case "WARN":
+        return StrictDepsMode.WARN;
       default:
         throw new IllegalArgumentException(
             "StrictDepsMode "

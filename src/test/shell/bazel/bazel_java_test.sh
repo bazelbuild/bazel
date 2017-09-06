@@ -1068,6 +1068,27 @@ EOF
   expect_log "Message from C"
 }
 
+function test_java_sandwich_default_strict_deps() {
+  mkdir -p java/com/google/sandwich
+  touch java/com/google/sandwich/{BUILD,A.java,java_custom_library.bzl}
+  write_java_custom_rule
+
+  cat > java/com/google/sandwich/BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"]
+)
+EOF
+
+  sed -i -- 's/ERROR/DEFAULT/g' 'java/com/google/sandwich/java_custom_library.bzl'
+  bazel build java/com/google/sandwich:custom > $TEST_log || fail "Java sandwich build failed"
+
+  sed -i -- 's/DEFAULT/WARN/g' 'java/com/google/sandwich/java_custom_library.bzl'
+  bazel build java/com/google/sandwich:custom > $TEST_log || fail "Java sandwich build failed"
+}
+
 function test_basic_java_sandwich_with_transitive_deps_and_java_library_should_fail() {
   mkdir -p java/com/google/sandwich
   touch java/com/google/sandwich/{BUILD,{A,B,C,Main}.java,java_custom_library.bzl}
