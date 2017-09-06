@@ -14,6 +14,8 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.base.Equivalence;
+import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.syntax.ASTNode;
@@ -37,13 +39,13 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /** Checks that every import, private function or variable definition is used somewhere. */
 public class UsageChecker extends AstVisitorWithNameResolution {
   private final List<Issue> issues = new ArrayList<>();
   private UsageInfo ui = UsageInfo.empty();
-  private SetMultimap<Integer, Node> idToAllDefinitions = LinkedHashMultimap.create();
+  private final SetMultimap<Integer, Wrapper<ASTNode>> idToAllDefinitions =
+      LinkedHashMultimap.create();
 
   private UsageChecker(Environment env) {
     super(env);
@@ -140,9 +142,9 @@ public class UsageChecker extends AstVisitorWithNameResolution {
 
   private void defineIdentifier(NameInfo name, ASTNode node) {
     ui.idToLastDefinitions.removeAll(name.id);
-    ui.idToLastDefinitions.put(name.id, new Node(node));
+    ui.idToLastDefinitions.put(name.id, wrapNode(node));
     ui.initializedIdentifiers.add(name.id);
-    idToAllDefinitions.put(name.id, new Node(node));
+    idToAllDefinitions.put(name.id, wrapNode(node));
   }
 
   private void useIdentifier(Identifier identifier) {
@@ -175,7 +177,7 @@ public class UsageChecker extends AstVisitorWithNameResolution {
   }
 
   private void checkUsed(Integer id) {
-    Set<Node> unusedDefinitions = idToAllDefinitions.get(id);
+    Set<Wrapper<ASTNode>> unusedDefinitions = idToAllDefinitions.get(id);
     unusedDefinitions.removeAll(ui.usedDefinitions);
     NameInfo nameInfo = env.getNameInfo(id);
     String name = nameInfo.name;
@@ -198,8 +200,8 @@ public class UsageChecker extends AstVisitorWithNameResolution {
     } else if (nameInfo.kind == Kind.LOCAL) {
       message += ". If this is intentional, you can use '_' or rename it to '_" + name + "'.";
     }
-    for (Node definition : unusedDefinitions) {
-      issues.add(new Issue(message, definition.node.getLocation()));
+    for (Wrapper<ASTNode> definition : unusedDefinitions) {
+      issues.add(new Issue(message, unwrapNode(definition).getLocation()));
     }
   }
 
@@ -219,9 +221,9 @@ public class UsageChecker extends AstVisitorWithNameResolution {
      * <p>There can be more than one last definition if branches are involved, e.g. if foo: x = 1;
      * else x = 2;
      */
-    private final SetMultimap<Integer, Node> idToLastDefinitions;
+    private final SetMultimap<Integer, Wrapper<ASTNode>> idToLastDefinitions;
     /** Set of definitions that have already been used at some point. */
-    private final Set<Node> usedDefinitions;
+    private final Set<Wrapper<ASTNode>> usedDefinitions;
     /** Set of variable IDs that are initialized. */
     private final Set<Integer> initializedIdentifiers;
     /**
@@ -232,8 +234,8 @@ public class UsageChecker extends AstVisitorWithNameResolution {
     private boolean reachable;
 
     private UsageInfo(
-        SetMultimap<Integer, Node> idToLastDefinitions,
-        Set<Node> usedDefinitions,
+        SetMultimap<Integer, Wrapper<ASTNode>> idToLastDefinitions,
+        Set<Wrapper<ASTNode>> usedDefinitions,
         Set<Integer> initializedIdentifiers,
         boolean reachable) {
       this.idToLastDefinitions = idToLastDefinitions;
@@ -282,22 +284,11 @@ public class UsageChecker extends AstVisitorWithNameResolution {
     }
   }
 
-  /** Wrapper for ASTNode that can be put in a HashSet. */
-  private static class Node {
-    ASTNode node;
+  private Wrapper<ASTNode> wrapNode(ASTNode node) {
+    return Equivalence.identity().wrap(node);
+  }
 
-    public Node(ASTNode node) {
-      this.node = node;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object other) {
-      return other instanceof Node && ((Node) other).node == node;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(node);
-    }
+  private ASTNode unwrapNode(Wrapper<ASTNode> wrapper) {
+    return wrapper.get();
   }
 }
