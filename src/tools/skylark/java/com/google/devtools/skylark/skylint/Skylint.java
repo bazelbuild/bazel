@@ -14,33 +14,16 @@
 
 package com.google.devtools.skylark.skylint;
 
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 
 /** The main class for the skylint binary. */
 public class Skylint {
   public static void main(String[] args) throws IOException {
     Path path = Paths.get(args[0]).toAbsolutePath();
-    String content = new String(Files.readAllBytes(path), StandardCharsets.ISO_8859_1);
-    BuildFileAST ast =
-        BuildFileAST.parseString(
-            event -> {
-              System.err.println(event);
-            },
-            content);
-    List<Issue> issues = new ArrayList<>();
-    issues.addAll(NamingConventionsChecker.check(ast));
-    issues.addAll(ControlFlowChecker.check(ast));
-    issues.addAll(StatementWithoutEffectChecker.check(ast));
-    issues.addAll(UsageChecker.check(ast));
-    issues.addAll(DocstringChecker.check(ast));
-    issues.sort(Issue::compare);
+    List<Issue> issues = new Linter().lint(path);
     if (!issues.isEmpty()) {
       System.out.println(path);
       for (Issue issue : issues) {

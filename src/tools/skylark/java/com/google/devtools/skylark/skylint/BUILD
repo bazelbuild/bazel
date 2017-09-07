@@ -3,20 +3,21 @@
 
 java_binary(
     name = "Skylint",
-    srcs = glob(["**/*.java"]),
+    srcs = [],
     main_class = "com.google.devtools.skylark.skylint.Skylint",
-    deps = [
-        ":skylint-lib",
-        "//src/main/java/com/google/devtools/build/lib:packages",
+    runtime_deps = [
+        ":skylint_lib",
     ],
 )
 
 java_library(
-    name = "skylint-lib",
+    name = "skylint_lib",
     srcs = glob(["**/*.java"]),
     visibility = ["//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//third_party:guava",
     ],
 )
 
