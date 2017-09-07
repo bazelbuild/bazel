@@ -888,7 +888,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .setMissingFragmentPolicy(missingFragmentPolicy)
             .build(),
         supportsConstraintChecking,
-        /*requiredToolchains=*/ ImmutableList.<Label>of(),
+        /*requiredToolchains=*/ ImmutableSet.<Label>of(),
         attributes);
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -275,7 +276,7 @@ public final class AspectFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       ToolchainContext toolchainContext;
       try {
-        ImmutableList<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
+        ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
         toolchainContext =
             ToolchainUtil.createToolchainContext(
                 env,

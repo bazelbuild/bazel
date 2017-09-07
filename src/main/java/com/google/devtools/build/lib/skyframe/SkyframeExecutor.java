@@ -834,7 +834,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public ToolchainContext getToolchainContextForTesting(
-      List<Label> requiredToolchains, BuildConfiguration config, ExtendedEventHandler eventHandler)
+      Set<Label> requiredToolchains, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws ToolchainContextException, InterruptedException {
     SkyFunctionEnvironmentForTesting env =
         new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler);

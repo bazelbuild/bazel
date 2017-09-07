@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.ValueOrException4;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -53,7 +54,7 @@ public class ToolchainUtil {
   public static ToolchainContext createToolchainContext(
       Environment env,
       String targetDescription,
-      List<Label> requiredToolchains,
+      Set<Label> requiredToolchains,
       BuildConfiguration configuration)
       throws ToolchainContextException, InterruptedException {
     ImmutableBiMap<Label, Label> resolvedLabels =
@@ -131,7 +132,7 @@ public class ToolchainUtil {
 
   @Nullable
   private static ImmutableBiMap<Label, Label> resolveToolchainLabels(
-      Environment env, List<Label> requiredToolchains, BuildConfiguration configuration)
+      Environment env, Set<Label> requiredToolchains, BuildConfiguration configuration)
       throws InterruptedException, ToolchainContextException {
 
     // If there are no required toolchains, bail out early.

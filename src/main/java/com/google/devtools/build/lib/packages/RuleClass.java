@@ -59,6 +59,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -483,7 +484,7 @@ public class RuleClass {
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final List<Label> requiredToolchains = new ArrayList<>();
+    private final Set<Label> requiredToolchains = new HashSet<>();
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -1115,7 +1116,7 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
-  private final ImmutableList<Label> requiredToolchains;
+  private final ImmutableSet<Label> requiredToolchains;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1163,7 +1164,7 @@ public class RuleClass {
       String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
-      List<Label> requiredToolchains,
+      Set<Label> requiredToolchains,
       Attribute... attributes) {
     this.name = name;
     this.isSkylark = isSkylark;
@@ -1192,7 +1193,7 @@ public class RuleClass {
     this.outputsDefaultExecutable = outputsDefaultExecutable;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
-    this.requiredToolchains = ImmutableList.copyOf(requiredToolchains);
+    this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
@@ -2002,7 +2003,7 @@ public class RuleClass {
     return outputsDefaultExecutable;
   }
 
-  public ImmutableList<Label> getRequiredToolchains() {
+  public ImmutableSet<Label> getRequiredToolchains() {
     return requiredToolchains;
   }
 
