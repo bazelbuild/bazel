@@ -3046,21 +3046,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "--primaryData", "java/r/android/res::" + inputManifest.getExecPathString()));
     assertThat(args).contains("--uncompressedExtensions");
     assertThat(args.get(args.indexOf("--uncompressedExtensions") + 1)).isEqualTo(".apk,.so");
-  }
-
-  @Test
-  public void testNocompressExtensions_useNocompressExtensionsOnApk() throws Exception {
-    scratch.file(
-        "java/r/android/BUILD",
-        "android_binary(",
-        "  name = 'r',",
-        "  srcs = ['Foo.java'],",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = ['res/raw/foo.apk'],",
-        "  nocompress_extensions = ['.apk', '.so'],",
-        ")");
-    useConfiguration("--experimental_android_use_nocompress_extensions_on_apk");
-    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
     assertThat(getGeneratingSpawnActionArgs(getCompressedUnsignedApk(binary)))
         .containsAllOf("--nocompress_suffixes", ".apk", ".so")
         .inOrder();
