@@ -69,7 +69,7 @@ public class GenRuleAction extends SpawnAction {
   protected void internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
-    checkInputsForDirectories(reporter, actionExecutionContext.getMetadataHandler());
+    checkInputsForDirectories(reporter, actionExecutionContext.getActionInputFileCache());
     try {
       super.internalExecute(actionExecutionContext);
     } catch (CommandLineExpansionException e) {
