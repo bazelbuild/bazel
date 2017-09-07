@@ -29,12 +29,16 @@ import com.google.devtools.build.lib.profiler.chart.ChartRow;
 import com.google.devtools.build.lib.profiler.chart.ChartVisitor;
 import com.google.devtools.build.lib.profiler.chart.Color;
 import com.google.devtools.build.lib.profiler.chart.DetailedChartCreator;
+import com.google.devtools.build.lib.profiler.chart.HtmlChartVisitor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
+
 import java.util.List;
+import java.util.Locale;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -228,6 +232,14 @@ public class ProfilerChartTest extends FoundationTestCase {
     assertThat(visitor.barCount).isEqualTo(6);
     assertThat(visitor.columnCount).isEqualTo(0);
     assertThat(visitor.lineCount).isEqualTo(0);
+  }
+
+  @Test
+  public void testHtmlChartVisitorFormatColor() {
+    Locale.setDefault(Locale.GERMANY);
+    String black = HtmlChartVisitor.formatColor(Color.GRAY);
+    String[] grayComponents = black.split(",");
+    assertThat(grayComponents.length).isEqualTo(4);
   }
 
   private ProfileInfo createProfileInfo(Runnable runnable, int noOfRows) throws Exception {
