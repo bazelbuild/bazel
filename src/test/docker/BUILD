@@ -50,12 +50,12 @@ SHARD_NUMBER = {
         ],
         local = 1,
         main = "docker_test.py",
-        tags = ([
+        tags = [
             "docker",
             "exclusive",
             "local",
             "shard-%s" % SHARD_NUMBER[mode],
-        ] + ["manual"]) if (flavour == "debian-stretch") else [],
+        ] + (["manual"] if (flavour == "debian-stretch") else []),
         deps = ["//third_party/py/gflags"],
     ) for mode in SHARD_NUMBER]
     for flavour in FLAVOURS
