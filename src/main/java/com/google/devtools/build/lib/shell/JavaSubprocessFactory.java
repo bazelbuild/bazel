@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * A subprocess factory that uses {@link java.lang.ProcessBuilder}.
  */
-public class JavaSubprocessFactory implements Subprocess.Factory {
+public class JavaSubprocessFactory implements SubprocessFactory {
 
   /**
    * A subprocess backed by a {@link java.lang.Process}.

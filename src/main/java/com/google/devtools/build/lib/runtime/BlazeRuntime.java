@@ -54,8 +54,8 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
-import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
@@ -817,7 +817,7 @@ public final class BlazeRuntime {
     return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 
-  private static Subprocess.Factory subprocessFactoryImplementation() {
+  private static SubprocessFactory subprocessFactoryImplementation() {
     if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
       return WindowsSubprocessFactory.INSTANCE;
     } else {

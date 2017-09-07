@@ -358,7 +358,7 @@ public final class Command {
     Preconditions.checkNotNull(stdinInput, "stdinInput");
     logCommand();
 
-    final Subprocess process = startProcess();
+    Subprocess process = startProcess();
 
     outErrConsumers.logConsumptionStrategy();
     outErrConsumers.registerInputs(
@@ -369,22 +369,7 @@ public final class Command {
     // enforced.
     processInput(stdinInput, process);
 
-    return new FutureCommandResult() {
-      @Override
-      public CommandResult get() throws AbnormalTerminationException {
-        return waitForProcessToComplete(process, outErrConsumers, killSubprocessOnInterrupt);
-      }
-
-      @Override
-      public boolean isDone() {
-        return process.finished();
-      }
-
-      @Override
-      public void cancel() {
-        process.destroy();
-      }
-    };
+    return new FutureCommandResultImpl(this, process, outErrConsumers, killSubprocessOnInterrupt);
   }
 
   private Subprocess startProcess() throws ExecFailedException {
@@ -422,78 +407,6 @@ public final class Command {
       // is passed through e.g. "cat" subprocess and back into the ByteArrayOutputStream, that will
       // eventually run out of memory, causing the output stream to be closed, "cat" to terminate
       // with SIGPIPE, and processInput to receive an IOException.
-    }
-  }
-
-  private CommandResult waitForProcessToComplete(
-      Subprocess process, Consumers.OutErrConsumers outErr, boolean killSubprocessOnInterrupt)
-          throws AbnormalTerminationException {
-    logger.finer("Waiting for process...");
-
-    TerminationStatus status = waitForProcess(process, killSubprocessOnInterrupt);
-
-    logger.finer(status.toString());
-
-    try {
-      if (Thread.currentThread().isInterrupted()) {
-        outErr.cancel();
-      } else {
-        outErr.waitForCompletion();
-      }
-    } catch (IOException ioe) {
-      CommandResult noOutputResult =
-        new CommandResult(CommandResult.EMPTY_OUTPUT,
-                          CommandResult.EMPTY_OUTPUT,
-                          status);
-      if (status.success()) {
-        // If command was otherwise successful, throw an exception about this
-        throw new AbnormalTerminationException(this, noOutputResult, ioe);
-      } else {
-        // Otherwise, throw the more important exception -- command
-        // was not successful
-        String message = status
-          + "; also encountered an error while attempting to retrieve output";
-        throw status.exited()
-          ? new BadExitStatusException(this, noOutputResult, message, ioe)
-          : new AbnormalTerminationException(this,
-              noOutputResult, message, ioe);
-      }
-    } finally {
-      process.close();
-    }
-
-    CommandResult result =
-        new CommandResult(outErr.getAccumulatedOut(), outErr.getAccumulatedErr(), status);
-    result.logThis();
-    if (status.success()) {
-      return result;
-    } else if (status.exited()) {
-      throw new BadExitStatusException(this, result, status.toString());
-    } else {
-      throw new AbnormalTerminationException(this, result, status.toString());
-    }
-  }
-
-  private static TerminationStatus waitForProcess(
-      Subprocess process, boolean killSubprocessOnInterrupt) {
-    boolean wasInterrupted = false;
-    try {
-      while (true) {
-        try {
-          process.waitFor();
-          return new TerminationStatus(process.exitValue(), process.timedout());
-        } catch (InterruptedException ie) {
-          wasInterrupted = true;
-          if (killSubprocessOnInterrupt) {
-            process.destroy();
-          }
-        }
-      }
-    } finally {
-      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
-      if (wasInterrupted) {
-        Thread.currentThread().interrupt(); // preserve interrupted status
-      }
     }
   }
 

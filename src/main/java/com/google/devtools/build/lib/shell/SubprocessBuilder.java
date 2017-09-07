@@ -49,9 +49,9 @@ public class SubprocessBuilder {
   private File workingDirectory;
   private long timeoutMillis;
 
-  static Subprocess.Factory factory = JavaSubprocessFactory.INSTANCE;
+  static SubprocessFactory factory = JavaSubprocessFactory.INSTANCE;
 
-  public static void setSubprocessFactory(Subprocess.Factory factory) {
+  public static void setSubprocessFactory(SubprocessFactory factory) {
     SubprocessBuilder.factory = factory;
   }
 

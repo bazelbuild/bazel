@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -131,7 +132,7 @@ public class LocalSpawnRunnerTest {
   private static final Spawn SIMPLE_SPAWN =
       new SpawnBuilder("/bin/echo", "Hi!").withEnvironment("VARIABLE", "value").build();
 
-  private static final class SubprocessInterceptor implements Subprocess.Factory {
+  private static final class SubprocessInterceptor implements SubprocessFactory {
     @Override
     public Subprocess create(SubprocessBuilder params) throws IOException {
       throw new UnsupportedOperationException();
@@ -239,7 +240,7 @@ public class LocalSpawnRunnerTest {
       // T:\execroot\execroot\_bin\process-wrapper
       return;
     }
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
@@ -285,7 +286,7 @@ public class LocalSpawnRunnerTest {
       // T:\execroot\bin\echo
       return;
     }
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
@@ -322,7 +323,7 @@ public class LocalSpawnRunnerTest {
       // T:\execroot\execroot\_bin\process-wrapper
       return;
     }
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(3));
     SubprocessBuilder.setSubprocessFactory(factory);
@@ -358,7 +359,7 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void processStartupThrows() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenThrow(new IOException("I'm sorry, Dave"));
     SubprocessBuilder.setSubprocessFactory(factory);
@@ -406,7 +407,7 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void interruptedException() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(3) {
       private boolean destroyed;
@@ -444,7 +445,7 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void checkPrefetchCalled() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
 
@@ -461,7 +462,7 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void checkNoPrefetchCalled() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
 
@@ -481,7 +482,7 @@ public class LocalSpawnRunnerTest {
 
   @Test
   public void checkLocalEnvProviderCalled() throws Exception {
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
@@ -507,7 +508,7 @@ public class LocalSpawnRunnerTest {
       // T:\execroot\execroot\_bin\process-wrapper.exe
       return;
     }
-    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
     when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
     SubprocessBuilder.setSubprocessFactory(factory);
