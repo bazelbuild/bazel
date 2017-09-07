@@ -1384,11 +1384,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
                 + "evaluates to value of length 2",
             "[x + y for x, y, z in [(1, 2), (3, 4)]]");
 
-    // can't reuse the same local variable twice(!)
-    new SkylarkTest()
-        .testIfErrorContains(
-            "Variable x is read only", "[x + y for x, y in (1, 2)]", "[x + y for x, y in (1, 2)]");
-
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
 

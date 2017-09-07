@@ -406,12 +406,10 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListComprehensionModifiesGlobalEnv() throws Exception {
-    new SkylarkTest()
-        .update("x", 42)
-        .testIfErrorContains("Variable x is read only", "[x + 1 for x in [1,2,3]]");
-    new BuildTest().update("x", 42).setUp("y =[x + 1 for x in [1,2,3]]")
-        .testExactOrder("y", 2, 3, 4).testLookup("x", 3); // (x is global)
+  public void testListComprehensionAtTopLevel() throws Exception {
+    // It is allowed to have a loop variable with the same name as a global variable.
+    newTest().update("x", 42).setUp("y = [x + 1 for x in [1,2,3]]")
+        .testExactOrder("y", 2, 3, 4);
   }
 
   @Test

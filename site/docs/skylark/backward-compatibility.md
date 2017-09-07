@@ -149,7 +149,7 @@ In other words, please do not refer to a loop variable outside the list or dict
 comprehension.
 
 *   Flag: `--incompatible_comprehension_variables_do_not_leak`
-*   Default: `false`
+*   Default: `true`
 
 
 ## Depset is no longer iterable
