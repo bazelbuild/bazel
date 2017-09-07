@@ -505,10 +505,20 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean jplPropagateCcLinkParamsStore;
 
+  @Option(
+      name = "experimental_disable_absolute_javabase",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE}
+  )
+  public boolean disableAbsoluteJavabase;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();
 
+    host.disableAbsoluteJavabase = disableAbsoluteJavabase;
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
