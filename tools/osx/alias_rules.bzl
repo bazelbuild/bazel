@@ -17,4 +17,4 @@ def xcode_config_alias(name):
   if hasattr(native, "xcode_config_alias"):
     native.xcode_config_alias(name=name)
   else:
-    pass
+    native.filegroup(name=name)
