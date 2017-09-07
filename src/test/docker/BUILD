@@ -52,6 +52,7 @@ SHARD_NUMBER = {
         main = "docker_test.py",
         tags = [
             "docker",
+            "slow",
             "exclusive",
             "local",
             "shard-%s" % SHARD_NUMBER[mode],

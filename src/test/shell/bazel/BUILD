@@ -460,7 +460,10 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
-    tags = ["jdk8"],
+    tags = [
+        "jdk8",
+        "slow",
+    ],
 )
 
 sh_test(

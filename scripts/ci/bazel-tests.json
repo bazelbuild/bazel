@@ -26,7 +26,7 @@
                 "//third_party/ijar/...",
                 "//tools/android/..."
             ],
-            "test_tag_filters": ["-docker"],
+            "test_tag_filters": ["-slow"],
             "targets": []
         }
     }, {
@@ -51,6 +51,7 @@
                 "//src/test/shell/integration/...",
                 "let bazel=\"//src/test/shell/bazel/...\" in $bazel - filter(\"all_tests\", $bazel) - filter(\"jdk\", $bazel) - filter(\"maven\", $bazel) - filter(\"android\", $bazel) - filter(\"java\", $bazel) - filter(\"workspace\", $bazel) - filter(\"external\", $bazel) - filter(\"example\", $bazel) - filter(\"skylark_repository\", $bazel) - filter(\"repository_cache\", $bazel)"
             ],
+            "test_tag_filters": ["-slow"],
             "targets": []
         }
     }, {
@@ -76,7 +77,7 @@
                 "//third_party/ijar/...",
                 "//tools/android/..."
             ],
-            "test_tag_filters": ["-docker"],
+            "test_tag_filters": ["-slow"],
             "targets": []
         }
     }, {
@@ -94,7 +95,10 @@
                 // ASSERT_DEATH will try to write to C:/Windows, then fails.
                 "--test_env=TEMP"
             ],
-            "test_tag_filters": ["-no_windows"],
+            "test_tag_filters": [
+                "-no_windows",
+                "-slow"
+            ],
             "tests": [
                 "//src/test/py/...",
                 "//src/test/java/...",
@@ -112,7 +116,10 @@
         "node": "windows-x86_64",
         "parameters": {
             "build_opts": ["--cpu=x64_windows_msys", "--host_cpu=x64_windows_msys"],
-            "test_tag_filters": ["-no_windows"],
+            "test_tag_filters": [
+                "-no_windows",
+                "-slow"
+            ],
             "tests": [],
             "targets": ["//examples/cpp:hello-world"]
         }
