@@ -34,7 +34,6 @@ SHARD_NUMBER = {
     "dbg": 3,
 }
 
-# TODO(#2418): reactivate debian-stretch (flaky)
 [
     [py_test(
         name = "test_cc_configure-%s-%s" % (flavour, mode),
@@ -52,11 +51,11 @@ SHARD_NUMBER = {
         main = "docker_test.py",
         tags = [
             "docker",
-            "slow",
             "exclusive",
             "local",
+            "slow",
             "shard-%s" % SHARD_NUMBER[mode],
-        ] + (["manual"] if (flavour == "debian-stretch") else []),
+        ],
         deps = ["//third_party/py/gflags"],
     ) for mode in SHARD_NUMBER]
     for flavour in FLAVOURS
