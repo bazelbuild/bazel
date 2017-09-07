@@ -81,7 +81,11 @@ source scripts/bootstrap/bootstrap.sh
 new_step 'Building Bazel with Bazel'
 display "."
 log "Building output/bazel"
+# We set host and target platform directly since the defaults in @bazel_tools
+# have not yet been generated.
 bazel_build "src:bazel${EXE_EXT}" \
+  --experimental_host_platform=//tools/platforms:host_platform \
+  --experimental_platforms=//tools/platforms:target_platform \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

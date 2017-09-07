@@ -837,7 +837,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Label> requiredToolchains, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws ToolchainContextException, InterruptedException {
     SkyFunctionEnvironmentForTesting env =
-        new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler);
+        new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler, this);
     return ToolchainUtil.createToolchainContext(env, "", requiredToolchains, config);
   }
 
@@ -1534,7 +1534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Evaluates the given sky keys, blocks, and returns their evaluation results. Enables/disables
    * "keep going" on evaluation errors as specified.
    */
-  private EvaluationResult<SkyValue> evaluateSkyKeys(
+  EvaluationResult<SkyValue> evaluateSkyKeys(
       final ExtendedEventHandler eventHandler,
       final Iterable<SkyKey> skyKeys,
       final boolean keepGoing) {

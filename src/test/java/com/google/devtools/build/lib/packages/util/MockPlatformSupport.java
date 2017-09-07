@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.packages.util;
 
 import java.io.IOException;
@@ -20,9 +19,10 @@ import java.io.IOException;
 public class MockPlatformSupport {
 
   /** Adds mocks for basic host and target platform. */
-  public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
+  public static void setup(MockToolsConfig mockToolsConfig, String platformsPath)
+      throws IOException {
     mockToolsConfig.create(
-        "buildenv/platforms/BUILD",
+        platformsPath + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "platform(",
         "   name = 'target_platform',",

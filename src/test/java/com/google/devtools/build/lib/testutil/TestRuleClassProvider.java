@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -151,7 +150,7 @@ public class TestRuleClassProvider {
   public static class MockToolchainRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return PlatformSemantics.platformAttributes(builder)
+      return builder
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addRequiredToolchains(
               ImmutableList.of(Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))

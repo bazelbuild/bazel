@@ -60,7 +60,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "extra_toolchains",
     converter = LabelListConverter.class,
-    defaultValue = "",
+    defaultValue = "@bazel_tools//tools/cpp:dummy_cc_toolchain",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -98,6 +98,8 @@ public class PlatformOptions extends FragmentOptions {
   public PlatformOptions getHost(boolean fallback) {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms = ImmutableList.of(this.hostPlatform);
+    host.hostPlatform = this.hostPlatform;
+    host.extraToolchains = this.extraToolchains;
     return host;
   }
 
