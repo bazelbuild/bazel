@@ -238,9 +238,118 @@ toolchain {
     }
   }
 
+  feature {
+    name: "msvc_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      env_entry {
+        key: "PATH"
+        value: "%{msvc_env_path}"
+      }
+      env_entry {
+        key: "INCLUDE"
+        value: "%{msvc_env_include}"
+      }
+      env_entry {
+        key: "LIB"
+        value: "%{msvc_env_lib}"
+      }
+      env_entry {
+        key: "TMP"
+        value: "%{msvc_env_tmp}"
+      }
+      env_entry {
+        key: "TEMP"
+        value: "%{msvc_env_tmp}"
+      }
+    }
+  }
+
+  feature {
+    name: "use_linker"
+    env_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      env_entry {
+        key: "USE_LINKER"
+        value: "1"
+      }
+    }
+  }
+
+  feature {
+    name: 'include_paths'
+    flag_set {
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      flag_group {
+        iterate_over: 'quote_include_paths'
+        flag: '/I%{quote_include_paths}'
+      }
+      flag_group {
+        iterate_over: 'include_paths'
+        flag: '/I%{include_paths}'
+      }
+      flag_group {
+        iterate_over: 'system_include_paths'
+        flag: '/I%{system_include_paths}'
+      }
+    }
+  }
+
+  # Tell Bazel to parse the output of /showIncludes
+  feature {
+    name: 'parse_showincludes'
+    flag_set {
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-module-compile'
+      action: 'c++-header-preprocessing'
+      action: 'c++-header-parsing'
+      flag_group {
+        flag: "/showIncludes"
+      }
+    }
+  }
+
   # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
   feature {
     name: 'compile_action_flags_in_flag_set'
+  }
+
+  feature {
+    name: "preprocessor_defines"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "/D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
+      }
+    }
   }
 
   # This feature indicates strip is not supported, building stripped binary will just result a copy of orignial binary
@@ -279,12 +388,10 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
-    implies: 'legacy_compile_flags'
     implies: 'nologo'
     implies: 'msvc_env'
     implies: 'parse_showincludes'
-    implies: 'user_compile_flags'
-    implies: 'unfiltered_compile_flags'
+    implies: 'copts'
   }
 
   action_config {
@@ -318,12 +425,10 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
-    implies: 'legacy_compile_flags'
     implies: 'nologo'
     implies: 'msvc_env'
     implies: 'parse_showincludes'
-    implies: 'user_compile_flags'
-    implies: 'unfiltered_compile_flags'
+    implies: 'copts'
   }
 
   action_config {
@@ -427,137 +532,6 @@ toolchain {
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
-
-  # TODO(b/65151735): Remove legacy_compile_flags feature when legacy fields are
-  # not used in this crosstool
-  feature {
-    name: 'legacy_compile_flags'
-    flag_set {
-      expand_if_all_available: 'legacy_compile_flags'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        iterate_over: 'legacy_compile_flags'
-        flag: '%{legacy_compile_flags}'
-      }
-    }
-  }
-
-  feature {
-    name: "msvc_env"
-    env_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "c++-module-compile"
-      action: "c++-module-codegen"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
-      action: "assemble"
-      action: "preprocess-assemble"
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      env_entry {
-        key: "PATH"
-        value: "%{msvc_env_path}"
-      }
-      env_entry {
-        key: "INCLUDE"
-        value: "%{msvc_env_include}"
-      }
-      env_entry {
-        key: "LIB"
-        value: "%{msvc_env_lib}"
-      }
-      env_entry {
-        key: "TMP"
-        value: "%{msvc_env_tmp}"
-      }
-      env_entry {
-        key: "TEMP"
-        value: "%{msvc_env_tmp}"
-      }
-    }
-  }
-
-  feature {
-    name: "use_linker"
-    env_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      env_entry {
-        key: "USE_LINKER"
-        value: "1"
-      }
-    }
-  }
-
-  feature {
-    name: 'include_paths'
-    flag_set {
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
-      action: 'c++-module-compile'
-      flag_group {
-        iterate_over: 'quote_include_paths'
-        flag: '/I%{quote_include_paths}'
-      }
-      flag_group {
-        iterate_over: 'include_paths'
-        flag: '/I%{include_paths}'
-      }
-      flag_group {
-        iterate_over: 'system_include_paths'
-        flag: '/I%{system_include_paths}'
-      }
-    }
-  }
-
-  feature {
-    name: "preprocessor_defines"
-    flag_set {
-      action: "preprocess-assemble"
-      action: "c-compile"
-      action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "/D%{preprocessor_defines}"
-        iterate_over: "preprocessor_defines"
-      }
-    }
-  }
-
-  # Tell Bazel to parse the output of /showIncludes
-  feature {
-    name: 'parse_showincludes'
-    flag_set {
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-module-compile'
-      action: 'c++-header-preprocessing'
-      action: 'c++-header-parsing'
-      flag_group {
-        flag: "/showIncludes"
-      }
-    }
-  }
-
 
   feature {
     name: 'generate_pdb_file'
@@ -878,9 +852,9 @@ toolchain {
   }
 
   feature {
-    name: 'user_compile_flags'
+    name: 'copts'
     flag_set {
-      expand_if_all_available: 'user_compile_flags'
+      expand_if_all_available: 'copts'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -890,31 +864,11 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
-        iterate_over: 'user_compile_flags'
-        flag: '%{user_compile_flags}'
+        iterate_over: 'copts'
+        flag: '%{copts}'
       }
     }
   }
-
-  feature {
-    name: 'unfiltered_compile_flags'
-    flag_set {
-      expand_if_all_available: 'unfiltered_compile_flags'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        iterate_over: 'unfiltered_compile_flags'
-        flag: '%{unfiltered_compile_flags}'
-      }
-    }
-  }
-
 
 %{compilation_mode_content}
 
