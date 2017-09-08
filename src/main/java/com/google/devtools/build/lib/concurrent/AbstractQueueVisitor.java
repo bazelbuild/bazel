@@ -142,7 +142,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
                 keepAliveTime,
                 units,
                 Preconditions.checkNotNull(poolName),
-                new BlockingStack<Runnable>()));
+                new BlockingStack<>()));
   }
   /**
    * Create the {@link AbstractQueueVisitor}.

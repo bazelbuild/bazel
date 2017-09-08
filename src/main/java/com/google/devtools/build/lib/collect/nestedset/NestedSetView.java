@@ -45,9 +45,9 @@ public class NestedSetView<E> {
   }
 
   /**
-   * Return an object where the {@link equals()} method provides the correct notion of (intensional)
-   * equality of the set viewed. Consumers of this method should not assume any properties of the
-   * returned object apart from its {@link equals()} method.
+   * Return an object where the {@link Object#equals equals()} method provides the correct notion of
+   * (intensional) equality of the set viewed. Consumers of this method should not assume any
+   * properties of the returned object apart from its {@link Object#equals equals()} method.
    *
    * <p>The identifier is meant as an abstract, but memory efficient way of remembering nested sets
    * directly or indirectly seen. Storing the identifier of a nested-set view will not retain more

@@ -105,7 +105,7 @@ public abstract class MultisetSemaphore<T> {
 
   private static class UnboundedMultisetSemaphore<T> extends MultisetSemaphore<T> {
     private static final UnboundedMultisetSemaphore<Object> INSTANCE =
-        new UnboundedMultisetSemaphore<Object>();
+        new UnboundedMultisetSemaphore<>();
 
     private UnboundedMultisetSemaphore() {
     }
@@ -132,7 +132,7 @@ public abstract class MultisetSemaphore<T> {
 
     private NaiveMultisetSemaphore(int maxNumUniqueValues) {
       this.semaphore = new Semaphore(maxNumUniqueValues);
-      actualValues = HashMultiset.create();
+      this.actualValues = HashMultiset.create();
     }
 
     @Override

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collections;
@@ -46,19 +45,19 @@ public final class Sharder<T> implements Iterable<List<T>> {
    * Returns an immutable list of mutable lists.
    *
    * @param numLists the number of top-level lists.
-   * @param expectedSize the exepected size of each mutable list.
+   * @param expectedSize the expected size of each mutable list.
    * @return a list of lists.
    */
   private static <T> List<List<T>> immutableListOfLists(int numLists, int expectedSize) {
     List<List<T>> list = Lists.newArrayListWithCapacity(numLists);
     for (int i = 0; i < numLists; i++) {
-      list.add(Lists.<T>newArrayListWithExpectedSize(expectedSize));
+      list.add(Lists.newArrayListWithExpectedSize(expectedSize));
     }
     return Collections.unmodifiableList(list);
   }
 
   @Override
   public Iterator<List<T>> iterator() {
-    return Iterables.filter(shards, list -> !list.isEmpty()).iterator();
+    return shards.stream().filter(list -> !list.isEmpty()).iterator();
   }
 }

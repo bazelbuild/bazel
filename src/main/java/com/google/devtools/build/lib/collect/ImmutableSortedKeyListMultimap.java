@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.AbstractCollection;
@@ -166,14 +169,14 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
 
     @Override
     public Set<Entry<K, Collection<V>>> entrySet() {
-      ImmutableSet.Builder<Entry<K, Collection<V>>> builder = ImmutableSet.builder();
-      for (int i = 0; i < sortedKeys.length; i++) {
-        builder.add(new SimpleImmutableEntry<>(sortedKeys[i], values[i]));
-      }
-      return builder.build();
+      return Streams.zip(Arrays.stream(sortedKeys), Arrays.stream(values), this::toEntry)
+          .collect(toImmutableSet());
+    }
+
+    private Entry<K, Collection<V>> toEntry(K key, Collection<V> value) {
+      return new SimpleImmutableEntry<>(key, value);
     }
   }
-
   private class ValuesCollection extends AbstractCollection<V> {
 
     ValuesCollection() {

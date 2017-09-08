@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -108,16 +107,11 @@ public class ExecutorUtil {
     // tasks after the pool size. The CallerRunsPolicy, however, implies that
     // saturation is handled in the calling thread.
     ThreadPoolExecutor pool = new ThreadPoolExecutor(threads, threads, 3L, TimeUnit.SECONDS,
-        new SynchronousQueue<Runnable>());
+        new SynchronousQueue<>());
     // Do not consume threads when not in use.
     pool.allowCoreThreadTimeOut(true);
     pool.setThreadFactory(new ThreadFactoryBuilder().setNameFormat(name + " %d").build());
-    pool.setRejectedExecutionHandler(new RejectedExecutionHandler() {
-      @Override
-      public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-        r.run();
-      }
-    });
+    pool.setRejectedExecutionHandler((r, executor) -> r.run());
     return pool;
   }
 }
