@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -102,7 +102,7 @@ public final class Digests {
     return Digest.newBuilder().setHash(hexHash).setSizeBytes(size).build();
   }
 
-  public static Digest getDigestFromInputCache(ActionInput input, ActionInputFileCache cache)
+  public static Digest getDigestFromInputCache(ActionInput input, MetadataProvider cache)
       throws IOException {
     Metadata metadata = cache.getMetadata(input);
     return buildDigest(metadata.getDigest(), metadata.getSize());

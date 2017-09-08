@@ -21,7 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
@@ -137,12 +137,12 @@ public final class Chunker {
     }, Digests.computeDigest(file), chunkSize);
   }
 
-  public Chunker(ActionInput actionInput, ActionInputFileCache inputCache, Path execRoot) throws
+  public Chunker(ActionInput actionInput, MetadataProvider inputCache, Path execRoot) throws
       IOException{
     this(actionInput, inputCache, execRoot, getDefaultChunkSize());
   }
 
-  public Chunker(ActionInput actionInput, ActionInputFileCache inputCache, Path execRoot,
+  public Chunker(ActionInput actionInput, MetadataProvider inputCache, Path execRoot,
       int chunkSize)
       throws IOException {
     this(() -> {

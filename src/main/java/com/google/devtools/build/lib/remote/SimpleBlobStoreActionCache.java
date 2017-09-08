@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
@@ -99,7 +99,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   }
 
   private Digest uploadFileContents(
-      ActionInput input, Path execRoot, ActionInputFileCache inputCache)
+      ActionInput input, Path execRoot, MetadataProvider inputCache)
           throws IOException, InterruptedException {
     // This unconditionally reads the whole file into memory first!
     if (input instanceof VirtualActionInput) {

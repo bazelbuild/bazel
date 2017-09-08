@@ -419,13 +419,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * checking, this method must be called.
    */
   protected void checkInputsForDirectories(
-      EventHandler eventHandler, ActionInputFileCache metadataHandler) throws ExecException {
+      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
       try {
-        if (input.isSourceArtifact() && !metadataHandler.getMetadata(input).isFile()) {
+        if (input.isSourceArtifact() && !metadataProvider.getMetadata(input).isFile()) {
           eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
               + input.prettyPrint() + "' to " + getOwner().getLabel()
               + " is a directory; dependency checking of directories is unsound"));

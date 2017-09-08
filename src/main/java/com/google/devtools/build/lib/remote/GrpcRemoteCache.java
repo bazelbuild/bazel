@@ -24,9 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -156,7 +156,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
     uploadBlob(command.toByteArray());
     if (!missingActionInputs.isEmpty()) {
       List<Chunker> inputsToUpload = new ArrayList<>();
-      ActionInputFileCache inputFileCache = repository.getInputFileCache();
+      MetadataProvider inputFileCache = repository.getInputFileCache();
       for (ActionInput actionInput : missingActionInputs) {
         inputsToUpload.add(new Chunker(actionInput, inputFileCache, execRoot));
       }
@@ -374,7 +374,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
    *
    * @return The key for fetching the file contents blob from cache.
    */
-  Digest uploadFileContents(ActionInput input, Path execRoot, ActionInputFileCache inputCache)
+  Digest uploadFileContents(ActionInput input, Path execRoot, MetadataProvider inputCache)
       throws IOException, InterruptedException {
     Digest digest = Digests.getDigestFromInputCache(input, inputCache);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
