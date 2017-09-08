@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import javax.annotation.concurrent.Immutable;
@@ -46,7 +47,7 @@ public final class ResolvedTargets<T> {
   }
 
   public static <T> ResolvedTargets<T> of(T target) {
-    return new ResolvedTargets<>(ImmutableSet.<T>of(target), false);
+    return new ResolvedTargets<>(ImmutableSet.of(target), false);
   }
 
   private final boolean hasError;
@@ -87,9 +88,7 @@ public final class ResolvedTargets<T> {
    * Returns a builder using concurrent sets, as long as you don't call filter.
    */
   public static <T> ResolvedTargets.Builder<T> concurrentBuilder() {
-    return new ResolvedTargets.Builder<>(
-        Sets.<T>newConcurrentHashSet(),
-        Sets.<T>newConcurrentHashSet());
+    return new ResolvedTargets.Builder<>(Sets.newConcurrentHashSet(), Sets.newConcurrentHashSet());
   }
 
   public static <T> ResolvedTargets.Builder<T> builder() {
@@ -102,7 +101,7 @@ public final class ResolvedTargets<T> {
     private volatile boolean hasError = false;
 
     private Builder() {
-      this(Sets.<T>newLinkedHashSet(), Sets.<T>newLinkedHashSet());
+      this(new LinkedHashSet<>(), new LinkedHashSet<>());
     }
 
     private Builder(Set<T> targets, Set<T> filteredTargets) {
@@ -148,7 +147,7 @@ public final class ResolvedTargets<T> {
 
     public Builder<T> filter(Predicate<T> predicate) {
       Set<T> oldTargets = targets;
-      targets = Sets.newLinkedHashSet();
+      targets = new LinkedHashSet<>();
       for (T target : oldTargets) {
         if (predicate.apply(target)) {
           add(target);

@@ -288,7 +288,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   /**
    * A specialization of Arrays.HashCode() that does not require constructing a 2-element array.
    */
-  private static final int hashCode(Object obj1, Object obj2) {
+  private static int hashCode(Object obj1, Object obj2) {
     int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
     return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
@@ -465,7 +465,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     }
   )
   public Label getRelative(String relName) throws LabelSyntaxException {
-    if (relName.length() == 0) {
+    if (relName.isEmpty()) {
       throw new LabelSyntaxException("empty package-relative label");
     }
 
