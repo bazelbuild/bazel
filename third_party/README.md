@@ -141,7 +141,7 @@ a minimal set of extra dependencies.
 
 ## [protobuf](https://code.google.com/p/protobuf/)
 
-* Version: 3.0.0
+* Version: 3.4.0
 * License: New BSD License
 
 
