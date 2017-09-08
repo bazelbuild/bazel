@@ -31,7 +31,7 @@
         ],
         "parameters": {
             "targets": [],
-            "tests": ["//src/test/..."]
+            "tests": ["//src/test/..."],
             "parameters": {"test_tag_filters": ["-docker", "slow"]}
         }
     }
