@@ -527,7 +527,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2")
         .inOrder();
     assertThat(ccProviderA.getUnfilteredCompilerOptions(NO_FEATURES))
-        .containsExactly("--sysroot=some", "unfiltered-flag-A-1", "unfiltered-flag-A-2")
+        .containsExactly("unfiltered-flag-A-1", "unfiltered-flag-A-2")
         .inOrder();
     assertThat(toolchainA.getDynamicLinkOptions(NO_FEATURES, true))
         .containsExactly(

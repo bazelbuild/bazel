@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import java.io.IOException;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -97,6 +97,47 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         .contains("-some_foo_flag");
   }
 
+  @Test
+  public void testUnfilteredFlagsAreNotFiltered() throws Exception {
+    List<String> actualCommandLine =
+        getCompileCommandLineWithCoptsFilter(CppRuleClasses.UNFILTERED_COMPILE_FLAGS_FEATURE_NAME);
+    assertThat(actualCommandLine).contains("-i_am_a_flag");
+  }
+
+  @Test
+  public void testNonUnfilteredFlagsAreFiltered() throws Exception {
+    List<String> actualCommandLine = getCompileCommandLineWithCoptsFilter("filtered_flags");
+    assertThat(actualCommandLine).doesNotContain("-i_am_a_flag");
+  }
+
+  private List<String> getCompileCommandLineWithCoptsFilter(String featureName) throws Exception {
+    CompileCommandLine compileCommandLine =
+        makeCompileCommandLineBuilder()
+            .setFeatureConfiguration(
+                getMockFeatureConfiguration(
+                    "",
+                    "action_config {",
+                    "  config_name: 'c++-compile'",
+                    "  action_name: 'c++-compile'",
+                    "  implies: '" + featureName + "'",
+                    "  tool {",
+                    "    tool_path: 'foo/bar/DUMMY_COMPILER'",
+                    "  }",
+                    "}",
+                    "feature {",
+                    "  name: '" + featureName + "'",
+                    "  flag_set {",
+                    "     action: 'c++-compile'",
+                    "     flag_group {",
+                    "       flag: '-i_am_a_flag'",
+                    "    }",
+                    "  }",
+                    "}"))
+            .setCoptsFilter(flag -> !flag.contains("i_am_a_flag"))
+            .build();
+    return compileCommandLine.getArgv(scratchArtifact("a/FakeOutput").getExecPath(), null);
+  }
+
   private Builder makeCompileCommandLineBuilder() throws Exception {
     ConfiguredTarget dummyTarget =
         scratchConfiguredTarget("a", "a", "cc_binary(name='a', srcs=['a.cc'])");
@@ -110,7 +151,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
             return true;
           }
         },
-        ImmutableList.<String>of(),
         "c++-compile",
         getTargetConfiguration().getFragment(CppConfiguration.class),
         new DotdFile(scratchArtifact("a/dotD")),

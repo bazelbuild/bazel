@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.io.Serializable;
@@ -631,12 +632,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
-    ImmutableSet.Builder<String> featuresBuilder = ImmutableSet.builder();
-    for (CToolchain.Feature feature : toolchain.getFeatureList()) {
-      featuresBuilder.add(feature.getName());
-    }
-    Set<String> features = featuresBuilder.build();
-    if (!features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+    ImmutableSet<String> featureNames =
+        toolchain
+            .getFeatureList()
+            .stream()
+            .map(feature -> feature.getName())
+            .collect(ImmutableSet.toImmutableSet());
+    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       try {
         String gccToolPath = "DUMMY_GCC_TOOL";
         String linkerToolPath = "DUMMY_LINKER_TOOL";
@@ -657,10 +659,28 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             stripToolPath = tool.getPath();
           }
         }
+
+        // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
+        // crosstools.
+        // Existing projects depend on flags from legacy toolchain fields appearing first on the
+        // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
+        // needs to appear before other features from {@link CppActionConfigs}.
+        CToolchain.Feature legacyCompileFlagsFeature =
+            toolchain
+                .getFeatureList()
+                .stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+                .findFirst()
+                .orElse(null);
+        if (legacyCompileFlagsFeature != null) {
+          toolchainBuilder.addFeature(legacyCompileFlagsFeature);
+          toolchain = removeLegacyCompileFlagsFeatureFromToolchain(toolchain);
+        }
+
         TextFormat.merge(
             CppActionConfigs.getCppActionConfigs(
                 getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
-                features,
+                featureNames,
                 gccToolPath,
                 linkerToolPath,
                 arToolPath,
@@ -676,7 +696,32 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     toolchainBuilder.mergeFrom(toolchain);
+
+    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+      try {
+        TextFormat.merge(
+            CppActionConfigs.getFeaturesToAppearLastInToolchain(featureNames), toolchainBuilder);
+      } catch (ParseException e) {
+        // Can only happen if we change the proto definition without changing our
+        // configuration above.
+        throw new RuntimeException(e);
+      }
+    }
     return toolchainBuilder.build();
+  }
+
+  private CToolchain removeLegacyCompileFlagsFeatureFromToolchain(CToolchain toolchain) {
+    FieldDescriptor featuresFieldDescriptor = CToolchain.getDescriptor().findFieldByName("feature");
+    return toolchain
+        .toBuilder()
+        .setField(
+            featuresFieldDescriptor,
+            toolchain
+                .getFeatureList()
+                .stream()
+                .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+                .collect(ImmutableList.toImmutableList()))
+        .build();
   }
 
   @VisibleForTesting
@@ -1961,6 +2006,22 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       requestedFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
     return requestedFeatures.build();
+  }
+
+  public ImmutableList<String> collectLegacyCompileFlags(
+      String sourceFilename, ImmutableSet<String> features) {
+    ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
+    legacyCompileFlags.addAll(getCompilerOptions(features));
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      legacyCompileFlags.addAll(getCOptions());
+    }
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
+      legacyCompileFlags.addAll(getCxxOptions(features));
+    }
+    return legacyCompileFlags.build();
   }
 
   public static PathFragment computeDefaultSysroot(CToolchain toolchain) {

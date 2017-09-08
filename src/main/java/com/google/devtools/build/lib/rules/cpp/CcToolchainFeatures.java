@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -31,10 +32,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -1001,6 +1004,52 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
+     * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
+     * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
+     * RuleContext}).
+     */
+    private static final class LazyStringSequence implements VariableValue {
+
+      private final Supplier<ImmutableList<String>> supplier;
+
+      private LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
+        this.supplier = Preconditions.checkNotNull(supplier);
+      }
+
+      @Override
+      public VariableValue getFieldValue(String variableName, String field) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
+                    + "sequence, expected structure",
+                variableName, field, variableName));
+      }
+
+      @Override
+      public String getStringValue(String variableName) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
+                    + "found sequence",
+                variableName));
+      }
+
+      @Override
+      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+        return supplier
+            .get()
+            .stream()
+            .map(flag -> new StringValue(flag))
+            .collect(ImmutableList.toImmutableList());
+      }
+
+      @Override
+      public boolean isTruthy() {
+        return !supplier.get().isEmpty();
+      }
+    }
+
+    /**
      * A sequence of structure values. Exists as a memory optimization - a typical build can contain
      * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
      * significantly reduces memory overhead.
@@ -1375,6 +1424,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Builder for {@code Variables}.
      */
+    // TODO(b/65472725): Forbid sequences with empty string in them.
     public static class Builder {
       private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
       private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
@@ -1394,10 +1444,7 @@ public class CcToolchainFeatures implements Serializable {
 
       /** Add a string variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        Preconditions.checkArgument(
-            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
         Preconditions.checkNotNull(
             value, "Cannot set null as a value for variable '%s'", name);
         stringVariablesMap.put(name, value);
@@ -1412,6 +1459,14 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
+      /** Overrides a variable to expands {@code name} to {@code value} instead. */
+      public Builder overrideLazyStringSequenceVariable(
+          String name, Supplier<ImmutableList<String>> supplier) {
+        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+        variablesMap.put(name, new LazyStringSequence(supplier));
+        return this;
+      }
+
       /**
        * Add a sequence variable that expands {@code name} to {@code values}.
        *
@@ -1419,8 +1474,8 @@ public class CcToolchainFeatures implements Serializable {
        * the values into a new list.
        */
       public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(values);
         variablesMap.put(name, new StringSequence(builder.build()));
@@ -1433,8 +1488,8 @@ public class CcToolchainFeatures implements Serializable {
        * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
        */
       public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         variablesMap.put(name, new StringSequence(values));
         return this;
       }
@@ -1448,9 +1503,17 @@ public class CcToolchainFeatures implements Serializable {
        * side effects.
        */
       public Builder addStringSequenceVariable(String name, Iterable<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         variablesMap.put(name, new StringSequence(values));
+        return this;
+      }
+
+      public Builder addLazyStringSequenceVariable(
+          String name, Supplier<ImmutableList<String>> supplier) {
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+        variablesMap.put(name, new LazyStringSequence(supplier));
         return this;
       }
 
@@ -1459,8 +1522,7 @@ public class CcToolchainFeatures implements Serializable {
        * the value returned by the {@code builder}.
        */
       public Builder addCustomBuiltVariable(String name, Variables.VariableValueBuilder builder) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
         Preconditions.checkNotNull(
             builder,
             "Cannot use null builder to get variable value for variable '%s'",
@@ -1472,13 +1534,17 @@ public class CcToolchainFeatures implements Serializable {
       /** Add all string variables in a map. */
       public Builder addAllStringVariables(Map<String, String> variables) {
         for (String name : variables.keySet()) {
-          Preconditions.checkArgument(
-              !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-          Preconditions.checkArgument(
-              !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+          checkVariableNotPresentAlready(name);
         }
         stringVariablesMap.putAll(variables);
         return this;
+      }
+
+      private void checkVariableNotPresentAlready(String name) {
+        Preconditions.checkArgument(
+            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkArgument(
+            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
       }
 
       /** Adds all variables to this builder. Note: cannot override already added variables. */
@@ -1508,10 +1574,8 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /**
-       * @return a new {@Variables} object.
-       */
-      Variables build() {
+      /** @return a new {@Variables} object. */
+      public Variables build() {
         return new Variables(
             ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
       }
@@ -1730,6 +1794,27 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       return commandLine;
+    }
+
+    /** @return the flags expanded for the given {@code action} in per-feature buckets. */
+    public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
+        String action, Variables variables) {
+      ImmutableList.Builder<Pair<String, List<String>>> perFeatureExpansions =
+          ImmutableList.builder();
+      if (actionIsConfigured(action)) {
+        List<String> commandLine = new ArrayList<>();
+        ActionConfig actionConfig = actionConfigByActionName.get(action);
+        actionConfig.expandCommandLine(variables, enabledFeatureNames, commandLine);
+        perFeatureExpansions.add(Pair.of(actionConfig.getName(), commandLine));
+      }
+
+      for (Feature feature : enabledFeatures) {
+        List<String> commandLine = new ArrayList<>();
+        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
+        perFeatureExpansions.add(Pair.of(feature.getName(), commandLine));
+      }
+
+      return perFeatureExpansions.build();
     }
 
     /** @return the environment variables (key/value pairs) for the given {@code action}. */

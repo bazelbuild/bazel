@@ -282,6 +282,18 @@ public class CcToolchainFeaturesTest {
         .contains("Invalid toolchain configuration: Cannot find variable named 'v'");
   }
 
+  @Test
+  public void testLazySequenceExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'lazy' flag: '-lazy-%{lazy}' }",
+                new Variables.Builder()
+                    .addLazyStringSequenceVariable("lazy", () -> ImmutableList.of("a", "b", "c"))
+                    .build()))
+        .containsExactly("-lazy-a", "-lazy-b", "-lazy-c")
+        .inOrder();
+  }
+
   private Variables createStructureSequenceVariables(String name, StructureBuilder... values) {
     SequenceBuilder builder = new SequenceBuilder();
     for (StructureBuilder value : values) {

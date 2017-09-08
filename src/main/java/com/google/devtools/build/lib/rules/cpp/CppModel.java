@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,8 +53,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Representation of a C/C++ compilation. Its purpose is to share the code that creates compilation
@@ -121,6 +122,9 @@ public final class CppModel {
    */
   public static final String SYSTEM_INCLUDE_PATHS_VARIABLE_NAME = "system_include_paths";
 
+  /** Name of the build variable for the dependency file path */
+  public static final String DEPENDENCY_FILE_VARIABLE_NAME = "dependency_file";
+
   /** Name of the build variable for the collection of macros defined for preprocessor. */
   public static final String PREPROCESSOR_DEFINES_VARIABLE_NAME = "preprocessor_defines";
 
@@ -137,11 +141,23 @@ public final class CppModel {
   /** Name of the build variable for the LTO indexing bitcode file. */
   public static final String LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME = "lto_indexing_bitcode_file";
 
-  /** Build variable for all user provided copt flags. */
-  public static final String COPTS_VARIABLE_VALUE = "copts";
-
   /** Name of the build variable for stripopts for the strip action. */
   public static final String STRIPOPTS_VARIABLE_NAME = "stripopts";
+
+  /**
+   * Build variable for all flags coming from legacy crosstool fields, such as compiler_flag,
+   * optional_compiler_flag, cxx_flag, optional_cxx_flag.
+   */
+  public static final String LEGACY_COMPILE_FLAGS_VARIABLE_NAME = "legacy_compile_flags";
+
+  /**
+   * Build variable for all flags coming from copt rule attribute, and from --copt, --cxxopt, or
+   * --conlyopt options.
+   */
+  public static final String USER_COMPILE_FLAGS_VARIABLE_NAME = "user_compile_flags";
+
+  /** Build variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
+  public static final String UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME = "unfiltered_compile_flags";
 
   private final CppSemantics semantics;
   private final RuleContext ruleContext;
@@ -153,7 +169,7 @@ public final class CppModel {
   private final Set<CppSource> sourceFiles = new LinkedHashSet<>();
   private final List<Artifact> mandatoryInputs = new ArrayList<>();
   private final ImmutableList<String> copts;
-  @Nullable private Pattern nocopts;
+  private final Predicate<String> coptsFilter;
   private boolean fake;
   private boolean maySaveTemps;
   private boolean onlySingleOutput;
@@ -172,6 +188,7 @@ public final class CppModel {
   private final CcToolchainProvider ccToolchain;
   private final FdoSupportProvider fdoSupport;
   private String linkedArtifactNameSuffix = "";
+  private final ImmutableSet<String> features;
 
   public CppModel(
       RuleContext ruleContext,
@@ -179,7 +196,31 @@ public final class CppModel {
       CcToolchainProvider ccToolchain,
       FdoSupportProvider fdoSupport,
       ImmutableList<String> copts) {
-    this(ruleContext, semantics, ccToolchain, fdoSupport, ruleContext.getConfiguration(), copts);
+    this(
+        ruleContext,
+        semantics,
+        ccToolchain,
+        fdoSupport,
+        ruleContext.getConfiguration(),
+        copts,
+        Predicates.alwaysTrue());
+  }
+
+  public CppModel(
+      RuleContext ruleContext,
+      CppSemantics semantics,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      ImmutableList<String> copts,
+      Predicate<String> coptsFilter) {
+    this(
+        ruleContext,
+        semantics,
+        ccToolchain,
+        fdoSupport,
+        ruleContext.getConfiguration(),
+        copts,
+        coptsFilter);
  }
 
   public CppModel(
@@ -188,14 +229,17 @@ public final class CppModel {
       CcToolchainProvider ccToolchain,
       FdoSupportProvider fdoSupport,
       BuildConfiguration configuration,
-      ImmutableList<String> copts) {
+      ImmutableList<String> copts,
+      Predicate<String> coptsFilter) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
     this.configuration = configuration;
     this.copts = copts;
+    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
     cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    features = ruleContext.getFeatures();
   }
 
   private Artifact getDwoFile(Artifact outputFile) {
@@ -269,15 +313,6 @@ public final class CppModel {
   /** Adds mandatory inputs. */
   public CppModel addMandatoryInputs(Collection<Artifact> artifacts) {
     this.mandatoryInputs.addAll(artifacts);
-    return this;
-  }
-
-  /**
-   * Sets the nocopts pattern. This is used to filter out flags from the system defined set of
-   * flags. By default no filter is applied.
-   */
-  public CppModel setNoCopts(@Nullable Pattern nocopts) {
-    this.nocopts = nocopts;
     return this;
   }
 
@@ -432,10 +467,6 @@ public final class CppModel {
   private CppCompileActionBuilder initializeCompileAction(
       Artifact sourceArtifact, Label sourceLabel) {
     CppCompileActionBuilder builder = createCompileActionBuilder(sourceArtifact, sourceLabel);
-    if (nocopts != null) {
-      builder.addNocopts(nocopts);
-    }
-
     builder.setFeatureConfiguration(featureConfiguration);
 
     return builder;
@@ -448,6 +479,30 @@ public final class CppModel {
       result.add(path.getSafePathString());
     }
     return result.build();
+  }
+
+  /**
+   * Supplier that computes unfiltered_compile_flags lazily at the execution phase.
+   *
+   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables
+   * only to arguments (to prevent accidental capture of enclosing instance which could regress
+   * memory).
+   */
+  public static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
+      CcToolchainProvider ccToolchain, ImmutableSet<String> features) {
+    return () -> ccToolchain.getUnfilteredCompilerOptionsWithSysroot(features);
+  }
+
+  /**
+   * Supplier that computes legacy_compile_flags lazily at the execution phase.
+   *
+   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables
+   * only to arguments (to prevent accidental capture of enclosing instance which could regress
+   * memory).
+   */
+  public static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
+      CppConfiguration cppConfiguration, String sourceFilename, ImmutableSet<String> features) {
+    return () -> cppConfiguration.collectLegacyCompileFlags(sourceFilename, features);
   }
 
   private void setupCompileBuildVariables(
@@ -463,8 +518,6 @@ public final class CppModel {
     CcToolchainFeatures.Variables.Builder buildVariables =
         new CcToolchainFeatures.Variables.Builder();
 
-    // TODO(bazel-team): Pull out string constants for all build variables.
-
     CppCompilationContext builderContext = builder.getContext();
     Artifact sourceFile = builder.getSourceFile();
     Artifact outputFile = builder.getOutputFile();
@@ -472,7 +525,19 @@ public final class CppModel {
 
     buildVariables.addStringVariable(SOURCE_FILE_VARIABLE_NAME, sourceFile.getExecPathString());
     buildVariables.addStringVariable(OUTPUT_FILE_VARIABLE_NAME, outputFile.getExecPathString());
-    buildVariables.addStringSequenceVariable(COPTS_VARIABLE_VALUE, copts);
+    buildVariables.addStringSequenceVariable(USER_COMPILE_FLAGS_VARIABLE_NAME, copts);
+
+    String sourceFilename = sourceFile.getExecPathString();
+    buildVariables.addLazyStringSequenceVariable(
+        LEGACY_COMPILE_FLAGS_VARIABLE_NAME,
+        getLegacyCompileFlagsSupplier(cppConfiguration, sourceFilename, features));
+
+    if (!CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
+        && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
+      buildVariables.addLazyStringSequenceVariable(
+          UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME,
+          getUnfilteredCompileFlagsSupplier(ccToolchain, features));
+    }
 
     if (builder.getTempOutputFile() != null) {
       realOutputFilePath = builder.getTempOutputFile().getPathString();
@@ -495,7 +560,7 @@ public final class CppModel {
     // Set dependency_file to enable <object>.d file generation.
     if (dotdFile != null) {
       buildVariables.addStringVariable(
-          "dependency_file", dotdFile.getSafeExecPath().getPathString());
+          DEPENDENCY_FILE_VARIABLE_NAME, dotdFile.getSafeExecPath().getPathString());
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
@@ -706,7 +771,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, builder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        builder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -768,7 +837,11 @@ public final class CppModel {
     builder.setDwoFile(dwoFile);
 
     semantics.finalizeCompileActionBuilder(
-        ruleContext, builder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        builder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     env.registerAction(compileAction);
@@ -830,7 +903,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, builder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        builder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -916,7 +993,11 @@ public final class CppModel {
         picBuilder.setLtoIndexingFile(ltoIndexingFile);
 
         semantics.finalizeCompileActionBuilder(
-            ruleContext, picBuilder, featureConfiguration.getFeatureSpecification());
+            ruleContext,
+            picBuilder,
+            featureConfiguration.getFeatureSpecification(),
+            coptsFilter,
+            features);
         CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleContext);
         env.registerAction(picAction);
         directOutputs.add(picAction.getOutputFile());
@@ -983,7 +1064,11 @@ public final class CppModel {
         builder.setLtoIndexingFile(ltoIndexingFile);
 
         semantics.finalizeCompileActionBuilder(
-            ruleContext, builder, featureConfiguration.getFeatureSpecification());
+            ruleContext,
+            builder,
+            featureConfiguration.getFeatureSpecification(),
+            coptsFilter,
+            features);
         CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
         env.registerAction(compileAction);
         Artifact objectFile = compileAction.getOutputFile();
@@ -1024,7 +1109,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         source.getBuildVariables());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, builder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        builder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     CppCompileActionTemplate actionTemplate = new CppCompileActionTemplate(
         sourceArtifact,
@@ -1080,7 +1169,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, builder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        builder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction action = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(action);
     if (addObject) {
@@ -1421,7 +1514,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, dBuilder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        dBuilder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction dAction = dBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(dAction);
 
@@ -1439,7 +1536,11 @@ public final class CppModel {
         builder.getContext().getCppModuleMap(),
         ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(
-        ruleContext, sdBuilder, featureConfiguration.getFeatureSpecification());
+        ruleContext,
+        sdBuilder,
+        featureConfiguration.getFeatureSpecification(),
+        coptsFilter,
+        features);
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(sdAction);
 

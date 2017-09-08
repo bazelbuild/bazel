@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,7 +68,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -266,7 +266,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
-  @Nullable private Pattern nocopts;
+  private Predicate<String> coptsFilter = Predicates.alwaysTrue();
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CppCompilationContext> depContexts = new ArrayList<>();
@@ -378,7 +378,7 @@ public final class CcLibraryHelper {
     addLooseIncludeDirs(common.getLooseIncludeDirs());
     addNonCodeLinkerInputs(common.getLinkerScripts());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
-    setNoCopts(common.getNoCopts());
+    setCoptsFilter(common.getCoptsFilter());
     setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
     return this;
   }
@@ -640,11 +640,9 @@ public final class CcLibraryHelper {
     return this;
   }
 
-  /**
-   * Sets a pattern that is used to filter copts; set to {@code null} for no filtering.
-   */
-  public CcLibraryHelper setNoCopts(@Nullable Pattern nocopts) {
-    this.nocopts = nocopts;
+  /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
+  public CcLibraryHelper setCoptsFilter(Predicate<String> coptsFilter) {
+    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
     return this;
   }
 
@@ -1150,12 +1148,7 @@ public final class CcLibraryHelper {
    */
   private CppModel initializeCppModel() {
     return new CppModel(
-            ruleContext,
-            semantics,
-            ccToolchain,
-            fdoSupport,
-            configuration,
-            copts)
+            ruleContext, semantics, ccToolchain, fdoSupport, configuration, copts, coptsFilter)
         .addCompilationUnitSources(compilationUnitSources)
         .setLinkTargetType(linkType)
         .setNeverLink(neverlink)
@@ -1166,7 +1159,6 @@ public final class CcLibraryHelper {
         // Note: this doesn't actually save the temps, it just makes the CppModel use the
         // configurations --save_temps setting to decide whether to actually save the temps.
         .setSaveTemps(true)
-        .setNoCopts(nocopts)
         .setDynamicLibrary(dynamicLibrary)
         .addLinkopts(linkopts)
         .setFeatureConfiguration(featureConfiguration)
