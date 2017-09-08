@@ -157,7 +157,8 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     // Grab all registered options that are identified as incompatible changes by either name or
     // by category. Ensure they satisfy our requirements.
     ArrayList<String> incompatibleChanges = new ArrayList<>();
-    for (Map.Entry<String, OptionDefinition> entry : context.getOptionsData().getAllNamedFields()) {
+    for (Map.Entry<String, OptionDefinition> entry :
+        context.getOptionsData().getAllOptionDefinitions()) {
       OptionDefinition optionDefinition = entry.getValue();
       if (optionDefinition.getOptionName().startsWith(INCOMPATIBLE_NAME_PREFIX)
           || optionDefinition.getOptionCategory().equals(INCOMPATIBLE_CATEGORY)) {

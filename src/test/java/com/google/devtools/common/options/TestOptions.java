@@ -298,7 +298,7 @@ public class TestOptions extends OptionsBase {
     @Override
     public ImmutableList<String> getExpansion(ExpansionContext context) {
       TreeSet<String> flags = new TreeSet<>();
-      for (Map.Entry<String, ?> entry : context.getOptionsData().getAllNamedFields()) {
+      for (Map.Entry<String, ?> entry : context.getOptionsData().getAllOptionDefinitions()) {
         if (entry.getKey().startsWith("specialexp_")) {
           flags.add("--" + entry.getKey());
         }

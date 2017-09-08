@@ -168,7 +168,7 @@ class OptionsParserImpl {
    */
   List<OptionValueDescription> asListOfEffectiveOptions() {
     List<OptionValueDescription> result = new ArrayList<>();
-    for (Map.Entry<String, OptionDefinition> mapEntry : optionsData.getAllNamedFields()) {
+    for (Map.Entry<String, OptionDefinition> mapEntry : optionsData.getAllOptionDefinitions()) {
       String fieldName = mapEntry.getKey();
       OptionDefinition optionDefinition = mapEntry.getValue();
       OptionValueDescription entry = parsedValues.get(optionDefinition);
@@ -302,7 +302,7 @@ class OptionsParserImpl {
 
   OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
-    OptionDefinition optionDefinition = optionsData.getFieldFromName(optionName);
+    OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(optionName);
     if (optionDefinition == null) {
       throw new IllegalArgumentException("No such option '" + optionName + "'");
     }
@@ -313,7 +313,7 @@ class OptionsParserImpl {
   }
 
   OptionValueDescription getOptionValueDescription(String name) {
-    OptionDefinition optionDefinition = optionsData.getFieldFromName(name);
+    OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {
       throw new IllegalArgumentException("No such option '" + name + "'");
     }
@@ -321,7 +321,7 @@ class OptionsParserImpl {
   }
 
   OptionDescription getOptionDescription(String name) throws OptionsParsingException {
-    OptionDefinition optionDefinition = optionsData.getFieldFromName(name);
+    OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {
       return null;
     }
@@ -370,7 +370,7 @@ class OptionsParserImpl {
   ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
       String flagName, @Nullable String flagValue) throws OptionsParsingException {
     ImmutableList.Builder<OptionValueDescription> builder = ImmutableList.builder();
-    OptionDefinition optionDefinition = optionsData.getFieldFromName(flagName);
+    OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(flagName);
 
     ImmutableList<String> options = optionsData.getEvaluatedExpansion(optionDefinition, flagValue);
     Iterator<String> optionsIterator = options.iterator();
@@ -393,7 +393,7 @@ class OptionsParserImpl {
   }
 
   boolean containsExplicitOption(String name) {
-    OptionDefinition optionDefinition = optionsData.getFieldFromName(name);
+    OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {
       throw new IllegalArgumentException("No such option '" + name + "'");
     }
@@ -633,12 +633,12 @@ class OptionsParserImpl {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
       value = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
-      optionDefinition = optionsData.getFieldFromName(name);
+      optionDefinition = optionsData.getOptionDefinitionFromName(name);
 
       // Look for a "no"-prefixed option name: "no<optionName>".
       if (optionDefinition == null && name.startsWith("no")) {
         name = name.substring(2);
-        optionDefinition = optionsData.getFieldFromName(name);
+        optionDefinition = optionsData.getOptionDefinitionFromName(name);
         booleanValue = false;
         if (optionDefinition != null) {
           // TODO(bazel-team): Add tests for these cases.

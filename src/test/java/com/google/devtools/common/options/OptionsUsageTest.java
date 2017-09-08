@@ -37,13 +37,14 @@ public final class OptionsUsageTest {
 
   private String getHtmlUsage(String fieldName) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsageHtml(data.getFieldFromName(fieldName), builder, HTML_ESCAPER, data);
+    OptionsUsage.getUsageHtml(
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data);
     return builder.toString();
   }
 
   private String getTerminalUsage(String fieldName, HelpVerbosity verbosity) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsage(data.getFieldFromName(fieldName), builder, verbosity, data);
+    OptionsUsage.getUsage(data.getOptionDefinitionFromName(fieldName), builder, verbosity, data);
     return builder.toString();
   }
 

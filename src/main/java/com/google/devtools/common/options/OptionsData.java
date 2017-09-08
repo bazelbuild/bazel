@@ -128,7 +128,7 @@ final class OptionsData extends IsolatedOptionsData {
     // All that's left is to compute expansions.
     ImmutableMap.Builder<OptionDefinition, ExpansionData> expansionDataBuilder =
         ImmutableMap.<OptionDefinition, ExpansionData>builder();
-    for (Map.Entry<String, OptionDefinition> entry : isolatedData.getAllNamedFields()) {
+    for (Map.Entry<String, OptionDefinition> entry : isolatedData.getAllOptionDefinitions()) {
       OptionDefinition optionDefinition = entry.getValue();
       // Determine either the hard-coded expansion, or the ExpansionFunction class. The
       // OptionProcessor checks at compile time that these aren't used together.

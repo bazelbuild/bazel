@@ -43,7 +43,7 @@ public class OptionsMapConversionTest {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     Map<Field, Object> result = new LinkedHashMap<>();
     for (Map.Entry<String, Object> entry : map.entrySet()) {
-      OptionDefinition optionDefinition = data.getFieldFromName(entry.getKey());
+      OptionDefinition optionDefinition = data.getOptionDefinitionFromName(entry.getKey());
       result.put(optionDefinition.getField(), entry.getValue());
     }
     return result;

@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
@@ -126,6 +127,7 @@ public class OptionsParser implements OptionsProvider {
       try {
         result = OptionsData.from(immutableOptionsClasses);
       } catch (Exception e) {
+        Throwables.throwIfInstanceOf(e, ConstructionException.class);
         throw new ConstructionException(e.getMessage(), e);
       }
       optionsData.put(immutableOptionsClasses, result);
@@ -425,7 +427,6 @@ public class OptionsParser implements OptionsProvider {
     public String getName() {
       return name;
     }
-
     OptionDefinition getOptionDefinition() {
       return optionDefinition;
     }
