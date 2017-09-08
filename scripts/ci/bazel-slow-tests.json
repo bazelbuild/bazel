@@ -4,15 +4,15 @@
         "configurations": [
             {
                 "shard": 1,
-                "parameters": {"test_tag_filters": ["docker", "shard-1"]}
+                "parameters": {"test_tag_filters": ["shard-1"]}
             },
             {
                 "shard": 2,
-                "parameters": {"test_tag_filters": ["docker", "shard-2"]}
+                "parameters": {"test_tag_filters": ["shard-2"]}
             },
             {
                 "shard": 3,
-                "parameters": {"test_tag_filters": ["docker", "shard-3"]}
+                "parameters": {"test_tag_filters": ["shard-3"]}
             }
         ],
         "parameters": {
@@ -32,7 +32,7 @@
         "parameters": {
             "targets": [],
             "tests": ["//src/test/..."],
-            "parameters": {"test_tag_filters": ["-docker", "slow"]}
+            "parameters": {"test_tag_filters": ["-docker", "+slow"]}
         }
     }
 ]
