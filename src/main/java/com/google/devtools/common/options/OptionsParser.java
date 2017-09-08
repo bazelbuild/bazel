@@ -272,36 +272,64 @@ public class OptionsParser implements OptionsProvider {
    * by which other option.
    */
   public static class OptionValueDescription {
-    private final String name;
+    private final OptionDefinition optionDefinition;
+    private final boolean isDefaultValue;
     @Nullable private final String originalValueString;
     @Nullable private final Object value;
     @Nullable private final OptionPriority priority;
     @Nullable private final String source;
     @Nullable private final String implicitDependant;
     @Nullable private final String expandedFrom;
-    private final boolean allowMultiple;
 
-    public OptionValueDescription(
-        String name,
+    private OptionValueDescription(
+        OptionDefinition optionDefinition,
+        boolean isDefaultValue,
         @Nullable String originalValueString,
         @Nullable Object value,
         @Nullable OptionPriority priority,
         @Nullable String source,
         @Nullable String implicitDependant,
-        @Nullable String expandedFrom,
-        boolean allowMultiple) {
-      this.name = name;
+        @Nullable String expandedFrom) {
+      this.optionDefinition = optionDefinition;
+      this.isDefaultValue = isDefaultValue;
       this.originalValueString = originalValueString;
       this.value = value;
       this.priority = priority;
       this.source = source;
       this.implicitDependant = implicitDependant;
       this.expandedFrom = expandedFrom;
-      this.allowMultiple = allowMultiple;
+    }
+
+    public static OptionValueDescription newOptionValue(
+        OptionDefinition optionDefinition,
+        @Nullable String originalValueString,
+        @Nullable Object value,
+        @Nullable OptionPriority priority,
+        @Nullable String source,
+        @Nullable String implicitDependant,
+        @Nullable String expandedFrom) {
+      return new OptionValueDescription(
+          optionDefinition,
+          false,
+          originalValueString,
+          value,
+          priority,
+          source,
+          implicitDependant,
+          expandedFrom);
+    }
+
+    public static OptionValueDescription newDefaultValue(OptionDefinition optionDefinition) {
+      return new OptionValueDescription(
+          optionDefinition, true, null, null, OptionPriority.DEFAULT, null, null, null);
+    }
+
+    public OptionDefinition getOptionDefinition() {
+      return optionDefinition;
     }
 
     public String getName() {
-      return name;
+      return optionDefinition.getOptionName();
     }
 
     public String getOriginalValueString() {
@@ -312,7 +340,11 @@ public class OptionsParser implements OptionsProvider {
     // options use unchecked ListMultimaps due to limitations of Java generics.
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Object getValue() {
-      if (allowMultiple) {
+      if (isDefaultValue) {
+        // If no value was present, we want the default value for this option.
+        return optionDefinition.getDefaultValue();
+      }
+      if (getAllowMultiple() && value != null) {
         // Sort the results by option priority and return them in a new list.
         // The generic type of the list is not known at runtime, so we can't
         // use it here. It was already checked in the constructor, so this is
@@ -362,29 +394,38 @@ public class OptionsParser implements OptionsProvider {
     }
 
     public boolean getAllowMultiple() {
-      return allowMultiple;
+      return optionDefinition.allowsMultiple();
     }
 
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
-      result.append("option '").append(name).append("' ");
-      result.append("set to '").append(value).append("' ");
-      result.append("with priority ").append(priority);
-      if (source != null) {
-        result.append(" and source '").append(source).append("'");
+      result.append("option '").append(optionDefinition.getOptionName()).append("' ");
+      if (isDefaultValue) {
+        result
+            .append("set to its default value: '")
+            .append(optionDefinition.getUnparsedDefaultValue())
+            .append("'");
+        return result.toString();
+      } else {
+        result.append("set to '").append(value).append("' ");
+        result.append("with priority ").append(priority);
+        if (source != null) {
+          result.append(" and source '").append(source).append("'");
+        }
+        if (implicitDependant != null) {
+          result.append(" implicitly by ");
+        }
+        return result.toString();
       }
-      if (implicitDependant != null) {
-        result.append(" implicitly by ");
-      }
-      return result.toString();
     }
 
     // Need to suppress unchecked warnings, because the "multiple occurrence"
     // options use unchecked ListMultimaps due to limitations of Java generics.
     @SuppressWarnings({"unchecked", "rawtypes"})
     void addValue(OptionPriority addedPriority, Object addedValue) {
-      Preconditions.checkState(allowMultiple);
+      Preconditions.checkState(optionDefinition.allowsMultiple());
+      Preconditions.checkState(!isDefaultValue);
       ListMultimap optionValueList = (ListMultimap) value;
       if (addedValue instanceof List<?>) {
         optionValueList.putAll(addedPriority, (List<?>) addedValue);
@@ -402,21 +443,18 @@ public class OptionsParser implements OptionsProvider {
    * <p>Note that the unparsed value and the source parameters can both be null.
    */
   public static class UnparsedOptionValueDescription {
-    private final String name;
     private final OptionDefinition optionDefinition;
-    private final String unparsedValue;
+    @Nullable private final String unparsedValue;
     private final OptionPriority priority;
-    private final String source;
+    @Nullable private final String source;
     private final boolean explicit;
 
     public UnparsedOptionValueDescription(
-        String name,
         OptionDefinition optionDefinition,
-        String unparsedValue,
+        @Nullable String unparsedValue,
         OptionPriority priority,
-        String source,
+        @Nullable String source,
         boolean explicit) {
-      this.name = name;
       this.optionDefinition = optionDefinition;
       this.unparsedValue = unparsedValue;
       this.priority = priority;
@@ -425,7 +463,7 @@ public class OptionsParser implements OptionsProvider {
     }
 
     public String getName() {
-      return name;
+      return optionDefinition.getOptionName();
     }
     OptionDefinition getOptionDefinition() {
       return optionDefinition;
@@ -460,10 +498,6 @@ public class OptionsParser implements OptionsProvider {
       return optionDefinition.getImplicitRequirements().length > 0;
     }
 
-    boolean allowMultiple() {
-      return optionDefinition.allowsMultiple();
-    }
-
     public String getUnparsedValue() {
       return unparsedValue;
     }
@@ -483,7 +517,7 @@ public class OptionsParser implements OptionsProvider {
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
-      result.append("option '").append(name).append("' ");
+      result.append("option '").append(optionDefinition.getOptionName()).append("' ");
       result.append("set to '").append(unparsedValue).append("' ");
       result.append("with priority ").append(priority);
       if (source != null) {
