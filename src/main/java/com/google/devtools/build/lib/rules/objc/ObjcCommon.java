@@ -66,19 +66,36 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
+
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.HeaderMapAction;
+import com.google.devtools.build.lib.rules.cpp.HeaderMapInfo;
+import com.google.devtools.build.lib.rules.cpp.HeaderMapInfoProvider;
+import com.google.devtools.build.lib.syntax.Type;
+
+
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+/**
+import com.google.devtools.build.lib.actions.Root;
+*/
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -153,6 +170,7 @@ public final class ObjcCommon {
     private Iterable<Artifact> dynamicFrameworkImports = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
+    private Iterable<HeaderMapInfoProvider> headerMapInfoProviders = ImmutableList.of();
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
@@ -346,6 +364,30 @@ public final class ObjcCommon {
       return this;
     }
 
+    public HeaderMapInfoProvider getHeaderMapInfoProvider(RuleContext ruleContext, ImmutableList<Artifact>hdrs){
+      HeaderMapInfo.Builder headerMapInfo = new HeaderMapInfo.Builder();
+      String namespace;
+      if (ruleContext.attributes().has("header_namespace")) {
+         namespace = ruleContext.attributes().get("header_namespace", Type.STRING);
+      } else {
+         namespace = ruleContext.getRule().getName();
+      }
+
+      headerMapInfo.setNamespace(namespace);
+      headerMapInfo.addHeaders(hdrs);
+      headerMapInfo.addNamespacedHeaders(hdrs);
+
+      if (ruleContext.attributes().has("deps")){
+        // Propagate all of the dep sources
+        for (HeaderMapInfoProvider hmapProvider : ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
+          headerMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
+        }
+      }
+      return new HeaderMapInfoProvider.Builder()
+        .setHeaderMapInfo(headerMapInfo.build()).build();
+    }
+
+
     /**
      * Specifies that this target has a clang module map. This should be called if this target
      * compiles sources or exposes headers for other targets to use. Note that this does not add
@@ -392,6 +434,7 @@ public final class ObjcCommon {
     ObjcCommon build() {
 
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
+      ImmutableList.Builder<Artifact> headerMapHeaders = ImmutableList.<Artifact>builder();
 
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder()
@@ -420,6 +463,8 @@ public final class ObjcCommon {
 
       for (CcCompilationInfo headerProvider : depCcHeaderProviders) {
         objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
+        headerMapHeaders.addAll(filterFileset(headerProvider.getDeclaredIncludeSrcs()));
+
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via
         // CppHelper.mergeToolchainDependentCcCompilationInfo but
@@ -457,6 +502,9 @@ public final class ObjcCommon {
                     AppleToolchain.sdkDir() + "/usr/include/",
                     Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
                 PathFragment::create);
+
+        headerMapHeaders.addAll(filterFileset(attributes.hdrs()));
+        headerMapHeaders.addAll(filterFileset(attributes.textualHdrs()));
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
@@ -499,6 +547,7 @@ public final class ObjcCommon {
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
         // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
         // them.
+        headerMapHeaders.addAll(artifacts.getPrivateHdrs());
         objcProvider
             .addAll(HEADER, filterFileset(artifacts.getAdditionalHdrs()))
             .addAll(LIBRARY, artifacts.getArchive().asSet())
@@ -564,7 +613,14 @@ public final class ObjcCommon {
             .add(DEBUG_SYMBOLS_PLIST, intermediateArtifacts.dsymPlist(dsymOutputType));
       }
 
-      return new ObjcCommon(objcProvider.build(), compilationArtifacts);
+      HeaderMapInfoProvider headerMapProvider;
+      if (context.isLegalFragment(CppConfiguration.class) && context.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
+        headerMapProvider = getHeaderMapInfoProvider(context, headerMapHeaders.build());
+      } else {
+        headerMapProvider = HeaderMapInfoProvider.EMPTY;
+      }
+
+      return new ObjcCommon(objcProvider.build(), headerMapProvider, compilationArtifacts);
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {
@@ -601,17 +657,23 @@ public final class ObjcCommon {
 
   public static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final ObjcProvider objcProvider;
+  private final HeaderMapInfoProvider headerMapInfoProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(
-      ObjcProvider objcProvider, Optional<CompilationArtifacts> compilationArtifacts) {
+    ObjcProvider objcProvider, HeaderMapInfoProvider headerMapInfoProvider, Optional<CompilationArtifacts> compilationArtifacts) {
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
+    this.headerMapInfoProvider = headerMapInfoProvider;
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
 
   public ObjcProvider getObjcProvider() {
     return objcProvider;
+  }
+
+  public HeaderMapInfoProvider getHeaderMapInfoProvider() {
+    return headerMapInfoProvider;
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {

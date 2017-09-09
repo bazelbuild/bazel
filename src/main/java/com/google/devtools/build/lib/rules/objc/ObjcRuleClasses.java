@@ -703,6 +703,14 @@ public class ObjcRuleClasses {
           provided module map to the compiler.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_map", LABEL).allowedFileTypes(FileType.of(".modulemap")))
+
+          /* <!--
+           * #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(header_namespace) -->
+          The namespace that headers in this rule may be imported as.
+          If not set, it defaults to the name of the target.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("header_namespace", Type.STRING))
+
           /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
           sources and provide a list of required headers via a .header_list file.
 

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -84,6 +86,7 @@ public final class CcCompilationInfo extends NativeInfo {
 
   private final CppModuleMap cppModuleMap;
   private final CppModuleMap verificationModuleMap;
+  private final ImmutableList<Artifact> headerMaps;
 
   private final boolean propagateModuleMapAsActionInput;
 
@@ -105,7 +108,8 @@ public final class CcCompilationInfo extends NativeInfo {
       NestedSet<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
-      boolean propagateModuleMapAsActionInput) {
+      boolean propagateModuleMapAsActionInput,
+      ImmutableList<Artifact> headerMaps) {
     super(PROVIDER);
     Preconditions.checkNotNull(commandLineCcCompilationInfo);
     this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
@@ -117,6 +121,7 @@ public final class CcCompilationInfo extends NativeInfo {
     this.moduleInfo = moduleInfo;
     this.picModuleInfo = picModuleInfo;
     this.cppModuleMap = cppModuleMap;
+    this.headerMaps = headerMaps;
     this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
@@ -233,6 +238,9 @@ public final class CcCompilationInfo extends NativeInfo {
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
+    if (headerMaps != null) {
+      builder.addAll(headerMaps);
+    }
     return builder.build();
   }
 
@@ -282,7 +290,8 @@ public final class CcCompilationInfo extends NativeInfo {
         ccCompilationInfo.directModuleMaps,
         ccCompilationInfo.cppModuleMap,
         ccCompilationInfo.verificationModuleMap,
-        ccCompilationInfo.propagateModuleMapAsActionInput);
+        ccCompilationInfo.propagateModuleMapAsActionInput,
+        ccCompilationInfo.headerMaps);
   }
 
   /**
@@ -335,7 +344,8 @@ public final class CcCompilationInfo extends NativeInfo {
         mergeSets(ownerCcCompilationInfo.directModuleMaps, libCcCompilationInfo.directModuleMaps),
         libCcCompilationInfo.cppModuleMap,
         libCcCompilationInfo.verificationModuleMap,
-        libCcCompilationInfo.propagateModuleMapAsActionInput);
+        libCcCompilationInfo.propagateModuleMapAsActionInput,
+        libCcCompilationInfo.headerMaps);
   }
 
   /**
@@ -405,6 +415,8 @@ public final class CcCompilationInfo extends NativeInfo {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
+    private ImmutableList<Artifact> headerMaps;
+
     private boolean propagateModuleMapAsActionInput = true;
 
     /** The rule that owns the context */
@@ -637,6 +649,11 @@ public final class CcCompilationInfo extends NativeInfo {
       return this;
     }
 
+    public Builder setHeaderMaps(ImmutableList<Artifact> headerMaps) {
+      this.headerMaps = headerMaps;
+      return this;
+    }
+
     /** Sets the C++ module map used to verify that headers are modules compatible. */
     public Builder setVerificationModuleMap(CppModuleMap verificationModuleMap) {
       this.verificationModuleMap = verificationModuleMap;
@@ -705,7 +722,8 @@ public final class CcCompilationInfo extends NativeInfo {
           directModuleMaps.build(),
           cppModuleMap,
           verificationModuleMap,
-          propagateModuleMapAsActionInput);
+          propagateModuleMapAsActionInput,
+          headerMaps);
     }
 
     /**
