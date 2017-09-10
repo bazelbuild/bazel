@@ -239,12 +239,11 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
     throw new SpawnExecException(
         Throwables.getStackTraceAsString(cause),
-        new SpawnResult
-            .Builder()
+        new SpawnResult.Builder()
             .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
             .setStatus(status)
             .build(),
-        /*catastrophic=*/true);
+        /* catastrophe= */ true);
   }
 
   static Action buildAction(
