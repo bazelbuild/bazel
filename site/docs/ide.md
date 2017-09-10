@@ -59,7 +59,7 @@ See [`language-bazel` package](https://atom.io/packages/language-bazel)
 
 *Status*: Beta, not officially supported by the Bazel team.
 
-https://github.com/bazelbuild/vim-bazel
+See [`bazelbuild/vim-bazel`on GitHub](https://github.com/bazelbuild/vim-bazel)
 
 ## Automatically run build and test on file change
 
@@ -67,4 +67,4 @@ https://github.com/bazelbuild/vim-bazel
 
 ## Building your own IDE plugin
 
-Read the [*IDE support* blog post](https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about the Bazel APIs to used when building an IDE plugin.
+Read the [*IDE support* blog post](https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about the Bazel APIs to use when building an IDE plugin.
