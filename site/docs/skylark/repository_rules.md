@@ -110,4 +110,3 @@ environment and the flags the C++ compiler supports.
   [maven_jar](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/maven_rules.bzl#L281)
   is a reimplementation of the native `maven_jar` rule using the
   `maven` tool.
-

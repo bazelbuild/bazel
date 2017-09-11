@@ -2,6 +2,7 @@
 layout: documentation
 title: Extensions - Backward compatibility
 ---
+
 # Backward compatibility
 
 Bazel is still in Beta and we are going to do breaking changes. As we make
