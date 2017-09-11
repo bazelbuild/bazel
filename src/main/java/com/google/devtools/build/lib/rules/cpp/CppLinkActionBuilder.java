@@ -498,6 +498,22 @@ public class CppLinkActionBuilder {
     return uniqueLibrariesBuilder.build();
   }
 
+  /**
+   * Returns true if there are any LTO bitcode inputs to this link, either directly transitively via
+   * library inputs.
+   */
+  boolean hasLtoBitcodeInputs() {
+    if (!ltoBitcodeFiles.isEmpty()) {
+      return true;
+    }
+    for (LibraryToLink lib : libraries.build()) {
+      if (!lib.getLtoBitcodeFiles().isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private Iterable<LtoBackendArtifacts> createLtoArtifacts(
       PathFragment ltoOutputRootPrefix, NestedSet<LibraryToLink> uniqueLibraries) {
     Set<Artifact> compiled = new LinkedHashSet<>();
