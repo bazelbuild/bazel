@@ -144,7 +144,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     return CompileCommandLine.builder(
         scratchArtifact("a/FakeInput"),
         scratchArtifact("a/FakeOutput"),
-        makeLabel("//a:FakeInput"),
         new Predicate<String>() {
           @Override
           public boolean apply(String s) {

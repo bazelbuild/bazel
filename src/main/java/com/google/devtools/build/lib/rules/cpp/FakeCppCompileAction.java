@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -63,7 +62,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
-      Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
@@ -88,7 +86,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         shouldPruneModules,
         usePic,
         useHeaderModules,
-        sourceLabel,
         mandatoryInputs,
         prunableInputs,
         outputFile,

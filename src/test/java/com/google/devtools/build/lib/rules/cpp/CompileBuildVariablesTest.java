@@ -111,4 +111,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         Variables.toStringList(variables, CppModel.UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(unfilteredCompileFlags).contains("--i_ll_live_forever");
   }
+
+  @Test
+  public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    useConfiguration("--per_file_copt=//x:bin@-foo", "--per_file_copt=//x:bar\\.cc@-bar");
+
+    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
+    assertThat(copts).containsExactly("-foo").inOrder();
+  }
 }

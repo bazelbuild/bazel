@@ -55,7 +55,6 @@ public class CppCompileActionBuilder {
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
   private CcToolchainFeatures.Variables variables = Variables.EMPTY;
   private Artifact sourceFile;
-  private final Label sourceLabel;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact optionalSourceFile;
   private Artifact outputFile;
@@ -90,11 +89,9 @@ public class CppCompileActionBuilder {
    * Creates a builder from a rule. This also uses the configuration and artifact factory from the
    * rule.
    */
-  public CppCompileActionBuilder(
-      RuleContext ruleContext, Label sourceLabel, CcToolchainProvider ccToolchain) {
+  public CppCompileActionBuilder(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
     this(
         ruleContext.getActionOwner(),
-        sourceLabel,
         ruleContext.getConfiguration(),
         getLipoScannableMap(ruleContext),
         ccToolchain);
@@ -103,12 +100,10 @@ public class CppCompileActionBuilder {
   /** Creates a builder from a rule and configuration. */
   public CppCompileActionBuilder(
       RuleContext ruleContext,
-      Label sourceLabel,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration) {
     this(
         ruleContext.getActionOwner(),
-        sourceLabel,
         configuration,
         getLipoScannableMap(ruleContext),
         ccToolchain);
@@ -117,12 +112,10 @@ public class CppCompileActionBuilder {
   /** Creates a builder from a rule and configuration. */
   private CppCompileActionBuilder(
       ActionOwner actionOwner,
-      Label sourceLabel,
       BuildConfiguration configuration,
       Map<Artifact, IncludeScannable> lipoScannableMap,
       CcToolchainProvider ccToolchain) {
     this.owner = actionOwner;
-    this.sourceLabel = sourceLabel;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.lipoScannableMap = ImmutableMap.copyOf(lipoScannableMap);
@@ -155,7 +148,6 @@ public class CppCompileActionBuilder {
     this.owner = other.owner;
     this.featureConfiguration = other.featureConfiguration;
     this.sourceFile = other.sourceFile;
-    this.sourceLabel = other.sourceLabel;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.mandatoryInputsBuilder.build());
     this.optionalSourceFile = other.optionalSourceFile;
@@ -366,7 +358,6 @@ public class CppCompileActionBuilder {
               shouldPruneModules(),
               usePic,
               useHeaderModules,
-              sourceLabel,
               realMandatoryInputs,
               prunableInputs,
               outputFile,
@@ -393,7 +384,6 @@ public class CppCompileActionBuilder {
               shouldPruneModules(),
               usePic,
               useHeaderModules,
-              sourceLabel,
               realMandatoryInputs,
               prunableInputs,
               outputFile,

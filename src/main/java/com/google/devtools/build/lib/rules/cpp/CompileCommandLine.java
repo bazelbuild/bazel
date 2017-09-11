@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
@@ -36,7 +34,6 @@ public final class CompileCommandLine {
 
   private final Artifact sourceFile;
   private final Artifact outputFile;
-  private final Label sourceLabel;
   private final Predicate<String> coptsFilter;
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainFeatures.Variables variables;
@@ -48,7 +45,6 @@ public final class CompileCommandLine {
   private CompileCommandLine(
       Artifact sourceFile,
       Artifact outputFile,
-      Label sourceLabel,
       Predicate<String> coptsFilter,
       FeatureConfiguration featureConfiguration,
       CppConfiguration cppConfiguration,
@@ -58,7 +54,6 @@ public final class CompileCommandLine {
       CcToolchainProvider cppProvider) {
     this.sourceFile = Preconditions.checkNotNull(sourceFile);
     this.outputFile = Preconditions.checkNotNull(outputFile);
-    this.sourceLabel = Preconditions.checkNotNull(sourceLabel);
     this.coptsFilter = coptsFilter;
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.cppConfiguration = Preconditions.checkNotNull(cppConfiguration);
@@ -131,15 +126,6 @@ public final class CompileCommandLine {
       }
     }
 
-    // Add the options of --per_file_copt, if the label or the base name of the source file
-    // matches the specified regular expression filter.
-    for (PerLabelOptions perLabelOptions : cppConfiguration.getPerFileCopts()) {
-      if ((sourceLabel != null && perLabelOptions.isIncluded(sourceLabel))
-          || perLabelOptions.isIncluded(sourceFile)) {
-        options.addAll(perLabelOptions.getOptions());
-      }
-    }
-
     if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
       if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
         options.add("-S");
@@ -204,7 +190,6 @@ public final class CompileCommandLine {
   public static Builder builder(
       Artifact sourceFile,
       Artifact outputFile,
-      Label sourceLabel,
       Predicate<String> coptsFilter,
       String actionName,
       CppConfiguration cppConfiguration,
@@ -213,7 +198,6 @@ public final class CompileCommandLine {
     return new Builder(
         sourceFile,
         outputFile,
-        sourceLabel,
         coptsFilter,
         actionName,
         cppConfiguration,
@@ -225,7 +209,6 @@ public final class CompileCommandLine {
   public static final class Builder {
     private final Artifact sourceFile;
     private final Artifact outputFile;
-    private final Label sourceLabel;
     private Predicate<String> coptsFilter;
     private FeatureConfiguration featureConfiguration;
     private CcToolchainFeatures.Variables variables = Variables.EMPTY;
@@ -238,7 +221,6 @@ public final class CompileCommandLine {
       return new CompileCommandLine(
           Preconditions.checkNotNull(sourceFile),
           Preconditions.checkNotNull(outputFile),
-          Preconditions.checkNotNull(sourceLabel),
           Preconditions.checkNotNull(coptsFilter),
           Preconditions.checkNotNull(featureConfiguration),
           Preconditions.checkNotNull(cppConfiguration),
@@ -251,7 +233,6 @@ public final class CompileCommandLine {
     private Builder(
         Artifact sourceFile,
         Artifact outputFile,
-        Label sourceLabel,
         Predicate<String> coptsFilter,
         String actionName,
         CppConfiguration cppConfiguration,
@@ -259,7 +240,6 @@ public final class CompileCommandLine {
         CcToolchainProvider ccToolchainProvider) {
       this.sourceFile = sourceFile;
       this.outputFile = outputFile;
-      this.sourceLabel = sourceLabel;
       this.coptsFilter = coptsFilter;
       this.actionName = actionName;
       this.cppConfiguration = cppConfiguration;
