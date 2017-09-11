@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -32,6 +33,7 @@ import java.util.List;
  * Builder for creating resource shrinker actions.
  */
 public class ResourceShrinkerActionBuilder {
+  private AndroidAaptVersion targetAaptVersion;
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
@@ -49,10 +51,8 @@ public class ResourceShrinkerActionBuilder {
   private List<String> assetsToIgnore = Collections.emptyList();
   private ResourceFilter resourceFilter;
 
-  /**
-   * @param ruleContext The RuleContext of the owning rule.
-   */
-  public ResourceShrinkerActionBuilder(RuleContext ruleContext) {
+  /** @param ruleContext The RuleContext of the owning rule. */
+  public ResourceShrinkerActionBuilder(RuleContext ruleContext) throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -143,26 +143,33 @@ public class ResourceShrinkerActionBuilder {
     this.logOut = logOut;
     return this;
   }
+  
+  /**
+   * @param androidAaptVersion The aapt version to target with this action.
+   */
+  public ResourceShrinkerActionBuilder setTargetAaptVersion(AndroidAaptVersion androidAaptVersion) {
+    this.targetAaptVersion = androidAaptVersion;
+    return this;
+  }
 
   public Artifact build() throws RuleErrorException {
-    if (AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2) {
-      ruleContext.throwWithRuleError("aapt2 enabled builds do not yet support resource shrinking.");
-    }
     ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
 
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
 
     // Set the busybox tool.
-    commandLine.add("--tool").add("SHRINK").add("--");
+    FilesToRunProvider aapt;
 
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
-
-    commandLine.addExecPath("--aapt", sdk.getAapt().getExecutable());
+    if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
+      aapt = sdk.getAapt2();
+      commandLine.add("--tool").add("SHRINK_AAPT2").add("--");
+      commandLine.addExecPath("--aapt2", aapt.getExecutable());
+    } else {
+      aapt = sdk.getAapt();
+      commandLine.add("--tool").add("SHRINK").add("--");
+      commandLine.addExecPath("--aapt", aapt.getExecutable());
+    }
 
     commandLine.addExecPath("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
@@ -229,7 +236,7 @@ public class ResourceShrinkerActionBuilder {
     ruleContext.registerAction(
         spawnActionBuilder
             .useDefaultShellEnvironment()
-            .addTool(sdk.getAapt())
+            .addTool(aapt)
             .addInputs(inputs.build())
             .addOutputs(outputs.build())
             .setCommandLine(commandLine.build())

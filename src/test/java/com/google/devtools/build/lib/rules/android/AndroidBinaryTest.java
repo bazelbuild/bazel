@@ -3190,4 +3190,76 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .containsAllOf(
             rTxt, getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT));
   }
+
+  @Test
+  public void testAapt2ResourceShrinkingAction() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    annotations_jar = 'annotations_jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign')");
+
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               inline_constants = 0,",
+        "               aapt_version='aapt2',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    useConfiguration("--android_sdk=//sdk:sdk");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    assertThat(artifacts)
+        .containsAllOf(
+            getFirstArtifactEndingWith(artifacts, "resource_files.zip"),
+            getFirstArtifactEndingWith(artifacts, "proguard.jar"),
+            getFirstArtifactEndingWith(artifacts, "shrunk.ap_"));
+
+    List<String> processingArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "resource_files.zip"));
+
+    assertThat(flagValue("--resourcesOutput", processingArgs))
+        .endsWith("hello_files/resource_files.zip");
+
+    List<String> proguardArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "proguard.jar"));
+
+    assertThat(flagValue("-outjars", proguardArgs)).endsWith("hello_proguard.jar");
+
+    List<String> shrinkingArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "shrunk.ap_"));
+
+    assertThat(flagValue("--tool", shrinkingArgs)).isEqualTo("SHRINK_AAPT2");
+
+    assertThat(flagValue("--aapt2", shrinkingArgs)).isEqualTo(flagValue("--aapt2", processingArgs));
+    assertThat(flagValue("--resources", shrinkingArgs))
+        .isEqualTo(flagValue("--resourcesOutput", processingArgs));
+    assertThat(flagValue("--shrunkJar", shrinkingArgs))
+        .isEqualTo(flagValue("-outjars", proguardArgs));
+    assertThat(flagValue("--proguardMapping", shrinkingArgs))
+        .isEqualTo(flagValue("-printmapping", proguardArgs));
+    assertThat(flagValue("--rTxt", shrinkingArgs))
+        .isEqualTo(flagValue("--rOutput", processingArgs));
+    assertThat(flagValue("--primaryManifest", shrinkingArgs))
+        .isEqualTo(flagValue("--manifestOutput", processingArgs));
+  }
 }

@@ -827,13 +827,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /** Returns {@code true} if resource shrinking should be performed. */
   private static boolean shouldShrinkResources(RuleContext ruleContext) throws RuleErrorException {
-
-    if (AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2) {
-      ruleContext.attributeWarning(
-          "shrink_resources", "aapt2 enabled builds do not yet support resource shrinking.");
-      return false;
-    }
-
     TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
     if (state == TriState.AUTO) {
       boolean globalShrinkResources =
@@ -854,24 +847,28 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
         && !proguardSpecs.isEmpty()) {
 
-      Artifact apk = new ResourceShrinkerActionBuilder(ruleContext)
-          .setResourceApkOut(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
-          .setShrunkResourcesOut(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
-          .setLogOut(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
-          .withResourceFiles(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
-          .withShrunkJar(proguardOutput.getOutputJar())
-          .withProguardMapping(proguardOutput.getMapping())
-          .withPrimary(resourceApk.getPrimaryResource())
-          .withDependencies(resourceApk.getResourceDependencies())
-          .setResourceFilter(ResourceFilter.fromRuleContext(ruleContext))
-
-          .setUncompressedExtensions(
-              ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
-          .build();
+      Artifact apk =
+          new ResourceShrinkerActionBuilder(ruleContext)
+              .setResourceApkOut(
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
+              .setShrunkResourcesOut(
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
+              .setLogOut(
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
+              .withResourceFiles(
+                  ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+              .withShrunkJar(proguardOutput.getOutputJar())
+              .withProguardMapping(proguardOutput.getMapping())
+              .withPrimary(resourceApk.getPrimaryResource())
+              .withDependencies(resourceApk.getResourceDependencies())
+              .setTargetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+              .setResourceFilter(ResourceFilter.fromRuleContext(ruleContext))
+              .setUncompressedExtensions(
+                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
+              .build();
       filesBuilder.add(ruleContext.getImplicitOutputArtifact(
           AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG));
       return new ResourceApk(apk,
