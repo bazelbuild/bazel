@@ -162,7 +162,7 @@ public class ToolchainContext {
   }
 
   /** Tracks the mapping from toolchain type label to {@link ToolchainInfo} provider. */
-  private class ResolvedToolchainProviders implements SkylarkValue, SkylarkIndexable {
+  public class ResolvedToolchainProviders implements SkylarkValue, SkylarkIndexable {
 
     private final ImmutableMap<Label, ToolchainInfo> toolchains;
 
@@ -223,6 +223,11 @@ public class ToolchainContext {
                     .map(toolchain -> toolchain.toString())
                     .collect(joining())));
       }
+      return toolchains.get(toolchainType);
+    }
+
+    /** Returns the toolchain for the given type */
+    public ToolchainInfo getForToolchainType(Label toolchainType) {
       return toolchains.get(toolchainType);
     }
 

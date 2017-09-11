@@ -109,7 +109,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
         aspect != null ? Aspect.forNative(aspect) : null,
-        ImmutableMap.<Label, ConfigMatchingProvider>of());
+        ImmutableMap.<Label, ConfigMatchingProvider>of(),
+        /*toolchainContext=*/ null);
   }
 
   @SafeVarargs
