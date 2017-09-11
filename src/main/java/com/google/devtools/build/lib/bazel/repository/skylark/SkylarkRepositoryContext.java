@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -407,7 +406,7 @@ public class SkylarkRepositoryContext {
         .setDirectory(outputDirectory.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(timeout.longValue() * 1000)
-        .setOutErr(quiet ? null : Reporter.outErrForReporter(env.getListener()))
+        .setQuiet(quiet)
         .execute();
   }
 
