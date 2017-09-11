@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.vfs.Path;
  */
 public interface PathConverter {
   /**
-   * Returns a URI according to RFC2396 corresponding to the given path, if the path can be
-   * converted to a URI by this path converter; return {@code null} otherwise.
+   * Return the URI corresponding to the given path, if the path can be converted to a URI by this
+   * path converter; return {@link null} otherwise.
    */
   String apply(Path path);
 }
