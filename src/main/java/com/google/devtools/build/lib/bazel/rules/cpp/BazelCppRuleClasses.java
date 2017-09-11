@@ -343,7 +343,7 @@ public class BazelCppRuleClasses {
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
-          (not including values explicitly specified in the rule's <a
+          (including values explicitly specified in the rule's <a
           href="#cc_binary.copts">copts</a> attribute) will be removed from
           <code>COPTS</code> for purposes of compiling this rule.
           This attribute should rarely be needed.
