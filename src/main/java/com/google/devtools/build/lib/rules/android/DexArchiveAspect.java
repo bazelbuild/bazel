@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -374,8 +375,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new Builder()
             .addExecPath("--input", jar)
             .addExecPath("--output", result)
-            .addBeforeEachExecPath("--classpath_entry", classpath)
-            .addBeforeEachExecPath("--bootclasspath_entry", bootclasspath)
+            .addExecPaths(VectorArg.addBefore("--classpath_entry").each(classpath))
+            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
             .build();
 
     // Just use params file, since classpaths can get long

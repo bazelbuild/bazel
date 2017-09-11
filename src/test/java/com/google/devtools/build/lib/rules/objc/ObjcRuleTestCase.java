@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -2217,7 +2218,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
                 .add("--minimum-deployment-target", minimumOsVersion.toString())
                 .add("--module")
                 .add("x")
-                .addBeforeEach("--target-device", targetDevices)
+                .addAll(VectorArg.addBefore("--target-device").each(targetDevices))
                 .add("x/1.storyboard")
                 .build()
                 .arguments())
@@ -2238,7 +2239,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
                 .add("--minimum-deployment-target", minimumOsVersion.toString())
                 .add("--module")
                 .add("x")
-                .addBeforeEach("--target-device", targetDevices)
+                .addAll(VectorArg.addBefore("--target-device").each(targetDevices))
                 .add("x/ja.lproj/loc.storyboard")
                 .build()
                 .arguments())

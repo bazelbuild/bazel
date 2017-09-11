@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import java.util.ArrayList;
 import java.util.List;
@@ -164,8 +165,9 @@ public class AndroidResourceValidatorActionBuilder {
 
     builder
         .add("--libraries")
-        .addJoinedExecPaths(
-            context.getConfiguration().getHostPathSeparator(), ImmutableList.copyOf(libraries));
+        .addExecPaths(
+            VectorArg.join(context.getConfiguration().getHostPathSeparator())
+                .each(libraries.toList()));
     inputs.addAll(libraries);
 
     builder.addExecPath("--compiled", compiledSymbols);

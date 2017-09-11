@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.MakeVariableExpander;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -560,14 +561,15 @@ public class ProtoCompileActionBuilder {
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<Artifact> transitiveImports) {
-    commandLine.addAll(transitiveImports, ProtoCompileActionBuilder::transitiveImportArg);
+    commandLine.addAll(
+        VectorArg.of(transitiveImports).mapped(ProtoCompileActionBuilder::transitiveImportArg));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
-        commandLine.addJoined(
+        commandLine.addAll(
             "--direct_dependencies",
-            ":",
-            protosInDirectDependencies,
-            ProtoCompileActionBuilder::getPathIgnoringRepository);
+            VectorArg.join(":")
+                .each(protosInDirectDependencies)
+                .mapped(ProtoCompileActionBuilder::getPathIgnoringRepository));
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
         commandLine.add("--direct_dependencies=");

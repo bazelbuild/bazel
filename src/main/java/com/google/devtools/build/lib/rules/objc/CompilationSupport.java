@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1105,12 +1106,16 @@ public abstract class CompilationSupport {
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
               .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
-              .addJoinedExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
-              .addJoinedExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
-              .addJoinedExecPaths(
-                  "--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
+              .addExecPaths(
+                  "--dependency_mapping_files",
+                  VectorArg.join(",").each(j2ObjcDependencyMappingFiles))
+              .addExecPaths(
+                  "--header_mapping_files", VectorArg.join(",").each(j2ObjcHeaderMappingFiles))
+              .addExecPaths(
+                  "--archive_source_mapping_files",
+                  VectorArg.join(",").each(j2ObjcArchiveSourceMappingFiles))
               .add("--entry_classes")
-              .addJoined(",", entryClasses)
+              .addAll(VectorArg.join(",").each(entryClasses))
               .build();
 
       ruleContext.registerAction(

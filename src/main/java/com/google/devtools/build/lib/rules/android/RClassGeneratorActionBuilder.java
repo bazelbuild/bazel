@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -102,9 +103,11 @@ public class RClassGeneratorActionBuilder {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
       Iterable<ResourceContainer> depResources = dependencies.getResources();
       if (!Iterables.isEmpty(depResources)) {
-        builder.addBeforeEach(
-            "--library",
-            ImmutableList.copyOf(Iterables.transform(depResources, chooseDepsToArg(version))));
+        builder.addAll(
+            VectorArg.addBefore("--library")
+                .each(
+                    ImmutableList.copyOf(
+                        Iterables.transform(depResources, chooseDepsToArg(version)))));
         inputs.addTransitive(
             NestedSetBuilder.wrap(
                 Order.NAIVE_LINK_ORDER,

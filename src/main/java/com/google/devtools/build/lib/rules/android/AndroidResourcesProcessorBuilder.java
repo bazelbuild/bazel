@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -464,16 +465,16 @@ public class AndroidResourcesProcessorBuilder {
     }
     ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
-      builder.addJoined("--prefilteredResources", ",", filteredResources);
+      builder.addAll("--prefilteredResources", VectorArg.join(",").each(filteredResources));
     }
     if (!uncompressedExtensions.isEmpty()) {
-      builder.addJoined("--uncompressedExtensions", ",", uncompressedExtensions);
+      builder.addAll("--uncompressedExtensions", VectorArg.join(",").each(uncompressedExtensions));
     }
     if (!crunchPng) {
       builder.add("--useAaptCruncher=no");
     }
     if (!assetsToIgnore.isEmpty()) {
-      builder.addJoined("--assetsToIgnore", ",", assetsToIgnore);
+      builder.addAll("--assetsToIgnore", VectorArg.join(",").each(assetsToIgnore));
     }
     if (debug) {
       builder.add("--debug");

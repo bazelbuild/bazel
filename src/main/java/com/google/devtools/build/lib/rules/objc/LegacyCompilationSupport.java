@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -305,14 +306,15 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .addAll(
             commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .addAll(objcConfiguration.getCoptsForCompilationMode())
-        .addBeforeEachPath(
-            "-iquote", ObjcCommon.userHeaderSearchPaths(objcProvider, buildConfiguration))
-        .addBeforeEachExecPath("-include", pchFile.asSet())
-        .addBeforeEachPath("-I", ImmutableList.copyOf(priorityHeaders))
-        .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
-        .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
+        .addPaths(
+            VectorArg.addBefore("-iquote")
+                .each(ObjcCommon.userHeaderSearchPaths(objcProvider, buildConfiguration)))
+        .addExecPaths(VectorArg.addBefore("-include").each(pchFile.asSet()))
+        .addPaths(VectorArg.addBefore("-I").each(ImmutableList.copyOf(priorityHeaders)))
+        .addPaths(VectorArg.addBefore("-I").each(objcProvider.get(INCLUDE)))
+        .addPaths(VectorArg.addBefore("-isystem").each(objcProvider.get(INCLUDE_SYSTEM)))
         .addAll(ImmutableList.copyOf(otherFlags))
-        .addFormatEach("-D%s", objcProvider.get(DEFINE))
+        .addAll(VectorArg.format("-D%s").each(objcProvider.get(DEFINE)))
         .addAll(coverageFlags)
         .addAll(ImmutableList.copyOf(getCompileRuleCopts()));
 
@@ -737,11 +739,13 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add("@executable_path/Frameworks")
         .add("-fobjc-link-runtime")
         .addAll(DEFAULT_LINKER_FLAGS)
-        .addBeforeEach("-framework", frameworkNames(objcProvider))
-        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
-        .addFormatEach("-l%s", libraryNames)
+        .addAll(VectorArg.addBefore("-framework").each(frameworkNames(objcProvider)))
+        .addAll(
+            VectorArg.addBefore("-weak_framework")
+                .each(SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK))))
+        .addAll(VectorArg.format("-l%s").each(libraryNames))
         .addExecPath("-o", linkedBinary)
-        .addBeforeEachExecPath("-force_load", forceLinkArtifacts)
+        .addExecPaths(VectorArg.addBefore("-force_load").each(forceLinkArtifacts))
         .addAll(ImmutableList.copyOf(extraLinkArgs))
         .addAll(objcProvider.get(ObjcProvider.LINKOPT));
 

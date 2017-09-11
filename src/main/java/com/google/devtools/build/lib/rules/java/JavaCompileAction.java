@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -441,13 +442,14 @@ public final class JavaCompileAction extends SpawnAction {
             CustomCommandLine.builder().addPath(javaExecutable).addAll(javaBuilderJvmFlags);
         if (!instrumentationJars.isEmpty()) {
           builder
-              .addJoinedExecPaths(
+              .addExecPaths(
                   "-cp",
-                  pathDelimiter,
-                  ImmutableList.<Artifact>builder()
-                      .addAll(instrumentationJars)
-                      .add(javaBuilderJar)
-                      .build())
+                  VectorArg.join(pathDelimiter)
+                      .each(
+                          ImmutableList.<Artifact>builder()
+                              .addAll(instrumentationJars)
+                              .add(javaBuilderJar)
+                              .build()))
               .addDynamicString(javaBuilderMainClass);
         } else {
           // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
