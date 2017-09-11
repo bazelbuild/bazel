@@ -149,6 +149,7 @@ public class ValidateAndLinkResourcesAction {
 
     Options options = optionsParser.getOptions(Options.class);
     final Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
+    final Profiler profiler = LoggingProfiler.createAndStart("manifest");
 
     try (ScopedTemporaryDirectory scopedTmp =
         new ScopedTemporaryDirectory("android_resources_tmp")) {
@@ -167,14 +168,16 @@ public class ValidateAndLinkResourcesAction {
                       AndroidManifestProcessor.writeDummyManifestForAapt(
                           scopedTmp.getPath().resolve("manifest-aapt-dummy/AndroidManifest.xml"),
                           options.packageForR));
-
+      profiler.recordEndOf("manifest").startTask("link");
       ResourceLinker.create(aapt2Options.aapt2, scopedTmp.getPath())
+          .profileUsing(profiler)
           .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
           .buildVersion(aapt2Options.buildToolsVersion)
           .linkStatically(resources)
           .copyLibraryTo(options.staticLibraryOut)
           .copySourceJarTo(options.sourceJarOut)
           .copyRTxtTo(options.rTxtOut);
+      profiler.recordEndOf("link");
     }
   }
 }

@@ -17,9 +17,7 @@ import static com.google.common.collect.Streams.concat;
 import static java.util.stream.Collectors.toList;
 
 import com.android.utils.StdLogger;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
@@ -36,7 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -70,7 +67,7 @@ public class Aapt2ResourcePackagingAction {
   private static Options options;
 
   public static void main(String[] args) throws Exception {
-    final Stopwatch timer = Stopwatch.createStarted();
+    Profiler profiler = LoggingProfiler.createAndStart("setup");
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
     optionsParser.enableParamsFileSupport(FileSystems.getDefault());
@@ -96,19 +93,7 @@ public class Aapt2ResourcePackagingAction {
       final Path staticLinkedOut = Files.createDirectories(tmp.resolve("static-linked"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
-      Path generatedSources = null;
-      if (options.srcJarOutput != null || options.rOutput != null || options.symbolsOut != null) {
-        generatedSources = tmp.resolve("generated_resources");
-      }
-
-      logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-
-      List<DependencyAndroidData> data =
-          ImmutableSet.<DependencyAndroidData>builder()
-              .addAll(options.directData)
-              .addAll(options.transitiveData)
-              .build()
-              .asList();
+      profiler.recordEndOf("setup").startTask("merging");
 
       // Checks for merge conflicts.
       MergedAndroidData mergedAndroidData =
@@ -124,7 +109,7 @@ public class Aapt2ResourcePackagingAction {
               options.prefilteredResources,
               false /* throwOnResourceConflict */);
 
-      logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      profiler.recordEndOf("merging");
 
       final List<String> densitiesToFilter =
           options.prefilteredResources.isEmpty()
@@ -132,6 +117,7 @@ public class Aapt2ResourcePackagingAction {
               : Collections.<String>emptyList();
       final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
       try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+        profiler.startTask("compile");
         final ResourceCompiler compiler =
             ResourceCompiler.create(
                 executorService,
@@ -158,7 +144,7 @@ public class Aapt2ResourcePackagingAction {
                     manifest ->
                         new DensitySpecificManifestProcessor(options.densities, densityManifest)
                             .process(manifest));
-
+        profiler.recordEndOf("compile").startTask("link");
         // Write manifestOutput now before the dummy manifest is created.
         if (options.manifestOutput != null) {
           AndroidResourceOutputs.copyManifestToOutput(compiled, options.manifestOutput);
@@ -172,6 +158,7 @@ public class Aapt2ResourcePackagingAction {
                 .collect(toList());
 
         ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
+            .profileUsing(profiler)
             .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
             .include(dependencies)
             .buildVersion(aaptConfigOptions.buildToolsVersion)
@@ -182,9 +169,10 @@ public class Aapt2ResourcePackagingAction {
             .copyMainDexProguardTo(options.mainDexProguardOutput)
             .createSourceJar(options.srcJarOutput)
             .copyRTxtTo(options.rOutput);
-        logger.fine(String.format("aapt2 finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        profiler.recordEndOf("link");
       }
       if (options.resourcesOutput != null) {
+        profiler.startTask("package");
         // The compiled resources and the merged resources should be the same.
         // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
         AndroidResourceOutputs.createResourcesZip(
@@ -192,19 +180,18 @@ public class Aapt2ResourcePackagingAction {
             mergedAndroidData.getAssetDir(),
             options.resourcesOutput,
             false /* compress */);
+        profiler.recordEndOf("package");
       }
-      logger.fine(
-          String.format("Packaging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } catch (MergingException e) {
-      logger.log(java.util.logging.Level.SEVERE, "Error during merging resources", e);
-      throw e;
+      logger.severe("Merging exception: " + e.getMessage());
+      // throw an error, as system.exit will fail tests.
+      throw new RuntimeException();
     } catch (IOException e) {
-      logger.log(java.util.logging.Level.SEVERE, "Error during processing resources", e);
-      throw e;
+      logger.severe("File error: " + e.getMessage());
+      // throw an error, as system.exit will fail tests.
+      throw new RuntimeException();
     } catch (Exception e) {
-      logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);
       throw e;
     }
-    logger.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }
 }

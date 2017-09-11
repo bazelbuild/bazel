@@ -18,10 +18,10 @@ import com.android.repository.Revision;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs;
+import com.google.devtools.build.android.Profiler;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +36,7 @@ public class ResourceLinker {
 
   /** Represents errors thrown during linking. */
   public static class LinkError extends RuntimeException {
+
     public LinkError(Throwable e) {
       super(e);
     }
@@ -44,11 +45,14 @@ public class ResourceLinker {
   private static Logger logger = Logger.getLogger(ResourceLinker.class.getName());
 
   private final Path aapt2;
+
   private final Path workingDirectory;
+
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
   private Revision buildToolsVersion;
-  private String density;
+  private List<String> densities;
   private Path androidJar;
+  private Profiler profiler = Profiler.empty();
   private List<String> uncompressedExtensions = ImmutableList.of();
   private List<String> resourceConfigs = ImmutableList.of();
   private Path baseApk;
@@ -61,6 +65,11 @@ public class ResourceLinker {
 
   public static ResourceLinker create(Path aapt2, Path workingDirectory) {
     return new ResourceLinker(aapt2, workingDirectory);
+  }
+
+  public ResourceLinker profileUsing(Profiler profiler) {
+    this.profiler = profiler;
+    return this;
   }
 
   /** Dependent static libraries to be linked to. */
@@ -85,12 +94,8 @@ public class ResourceLinker {
     return this;
   }
 
-  public ResourceLinker filterToDensity(List<String> densitiesToFilter) {
-    if (densitiesToFilter.size() > 1) {
-      logger.warning("Multiple densities not yet supported with aapt2");
-    } else if (densitiesToFilter.size() > 0) {
-      density = Iterables.getOnlyElement(densitiesToFilter);
-    }
+  public ResourceLinker filterToDensity(List<String> densities) {
+    this.densities = densities;
     return this;
   }
 
@@ -107,6 +112,7 @@ public class ResourceLinker {
     Path javaSourceDirectory = workingDirectory.resolve("java");
 
     try {
+      profiler.startTask("linkstatic");
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
@@ -125,9 +131,9 @@ public class ResourceLinker {
               .add("--java", javaSourceDirectory)
               .add("--output-text-symbols", rTxt)
               .execute(String.format("Statically linking %s", resources)));
-
+      profiler.recordEndOf("linkstatic").startTask("sourcejar");
       AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJar, true /* staticIds */);
-
+      profiler.recordEndOf("sourcejar");
       return StaticLibrary.from(outPath, rTxt, ImmutableList.of(), sourceJar);
     } catch (IOException e) {
       throw new LinkError(e);
@@ -135,14 +141,15 @@ public class ResourceLinker {
   }
 
   public PackagedResources link(CompiledResources compiled) {
-    final Path outPath = workingDirectory.resolve("bin.ap_");
+    final Path outPath = workingDirectory.resolve("bin.apk");
     Path rTxt = workingDirectory.resolve("R.txt");
     Path proguardConfig = workingDirectory.resolve("proguard.cfg");
     Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
     Path javaSourceDirectory = workingDirectory.resolve("java");
 
     try {
-      logger.fine(
+      profiler.startTask("fulllink");
+      logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.DEFAULT)
@@ -154,6 +161,8 @@ public class ResourceLinker {
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
               .add("--auto-add-overlay")
+              .when(densities.size() == 1)
+              .thenAddRepeated("--preferred-density", densities)
               .addRepeated("-A", compiled.getAssetsStrings())
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
               .addRepeated("-R", StaticLibrary.toPathStrings(include))
@@ -164,8 +173,6 @@ public class ResourceLinker {
               // Add custom no-compress extensions.
               .addRepeated("-0", uncompressedExtensions)
               .addRepeated("-A", StaticLibrary.toAssetPaths(include))
-              .when(density != null)
-              .thenAdd("--preferred-density", density)
               // Filter by resource configuration type.
               .when(!resourceConfigs.isEmpty())
               .thenAdd("-c", Joiner.on(',').join(resourceConfigs))
@@ -175,6 +182,7 @@ public class ResourceLinker {
               .add("--proguard-main-dex", mainDexProguard)
               .add("-o", outPath)
               .execute(String.format("Linking %s", compiled.getManifest())));
+      profiler.recordEndOf("fulllink");
       return PackagedResources.of(
           outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
     } catch (IOException e) {
@@ -222,7 +230,7 @@ public class ResourceLinker {
         .add("linkAgainst", linkAgainst)
         .add("buildToolsVersion", buildToolsVersion)
         .add("workingDirectory", workingDirectory)
-        .add("density", density)
+        .add("densities", densities)
         .add("androidJar", androidJar)
         .add("uncompressedExtensions", uncompressedExtensions)
         .add("resourceConfigs", resourceConfigs)
