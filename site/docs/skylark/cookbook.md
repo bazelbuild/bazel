@@ -346,7 +346,6 @@ file(
 )
 ```
 
-
 ## <a name="execute-bin"></a>Execute a binary
 
 This rule executes an existing binary. In this particular example, the
@@ -956,4 +955,3 @@ debug(
   name = "printing_rule"
 )
 ```
-
