@@ -156,10 +156,6 @@ public final class CcCommon {
       tokens.clear();
       try {
         ShellUtils.tokenize(tokens, str);
-        if (tokens.size() > 1) {
-          ruleContext.attributeWarning("copts",
-              "each item in the list should contain only one option");
-        }
       } catch (ShellUtils.TokenizationException e) {
         // ignore, the error is reported in the getAttributeCopts call
       }

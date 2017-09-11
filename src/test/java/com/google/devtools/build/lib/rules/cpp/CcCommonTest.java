@@ -160,7 +160,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
     assertThat(copts).containsAllOf("-Wmy-warning", "-frun-faster");
-    assertContainsEvent("each item in the list should contain only one option");
   }
 
   @Test
