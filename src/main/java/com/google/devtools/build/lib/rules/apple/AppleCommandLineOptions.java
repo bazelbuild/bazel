@@ -483,8 +483,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getHost(boolean fallback) {
-    AppleCommandLineOptions host = (AppleCommandLineOptions) super.getHost(fallback);
+  public FragmentOptions getHost() {
+    AppleCommandLineOptions host = (AppleCommandLineOptions) super.getHost();
 
     // Set options needed in the host configuration.
     host.xcodeVersionConfig = xcodeVersionConfig;

@@ -1032,7 +1032,7 @@ public final class BuildConfiguration implements BuildEvent {
     public boolean windowsExeLauncher;
 
     @Override
-    public FragmentOptions getHost(boolean fallback) {
+    public FragmentOptions getHost() {
       Options host = (Options) getDefault();
 
       host.outputDirectoryName = "host";
@@ -1045,15 +1045,7 @@ public final class BuildConfiguration implements BuildEvent {
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
-
-      if (fallback) {
-        // In the fallback case, we have already tried the target options and they didn't work, so
-        // now we try the default options; the hostCpu field has the default value, because we use
-        // getDefault() above.
-        host.cpu = host.hostCpu;
-      } else {
-        host.cpu = hostCpu;
-      }
+      host.cpu = hostCpu;
 
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;

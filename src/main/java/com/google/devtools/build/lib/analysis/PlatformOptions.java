@@ -95,7 +95,7 @@ public class PlatformOptions extends FragmentOptions {
   public boolean toolchainResolutionDebug;
 
   @Override
-  public PlatformOptions getHost(boolean fallback) {
+  public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms = ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;

@@ -63,7 +63,7 @@ public class PythonOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getHost(boolean fallback) {
+  public FragmentOptions getHost() {
     PythonOptions hostPythonOpts = (PythonOptions) getDefault();
     if (hostForcePython != null) {
       hostPythonOpts.forcePython = hostForcePython;

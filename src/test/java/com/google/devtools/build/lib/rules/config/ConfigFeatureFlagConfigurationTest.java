@@ -79,12 +79,12 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void options_getHost_isEmpty() throws Exception {
     assertThat(
             ((ConfigFeatureFlagConfiguration.Options)
-                    new ConfigFeatureFlagConfiguration.Options().getHost(false))
+                    new ConfigFeatureFlagConfiguration.Options().getHost())
                 .getFlagValues())
         .isEmpty();
     assertThat(
             ((ConfigFeatureFlagConfiguration.Options)
-                    new ConfigFeatureFlagConfiguration.Options().getHost(true))
+                    new ConfigFeatureFlagConfiguration.Options().getHost())
                 .getFlagValues())
         .isEmpty();
   }
@@ -96,8 +96,8 @@ public final class ConfigFeatureFlagConfigurationTest {
             getOptionsWith(ImmutableMap.<Label, String>of()),
             new ConfigFeatureFlagConfiguration.Options(),
             new ConfigFeatureFlagConfiguration.Options().getDefault(),
-            new ConfigFeatureFlagConfiguration.Options().getHost(false),
-            new ConfigFeatureFlagConfiguration.Options().getHost(true))
+            new ConfigFeatureFlagConfiguration.Options().getHost(),
+            new ConfigFeatureFlagConfiguration.Options().getHost())
         .addEqualityGroup(
             getOptionsWith(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "a")),
             getOptionsWith(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "a")))

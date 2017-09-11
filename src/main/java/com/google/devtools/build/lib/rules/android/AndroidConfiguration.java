@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -732,8 +731,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean allowResourcesAttr;
 
     @Override
-    public FragmentOptions getHost(boolean fallback) {
-      Options host = (Options) super.getHost(fallback);
+    public FragmentOptions getHost() {
+      Options host = (Options) super.getHost();
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
@@ -755,11 +754,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Override
     public ImmutableList<String> getDefaultsRules() {
       return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
-    }
-
-    @Override
-    public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-      return ImmutableList.of(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION);
     }
   }
 

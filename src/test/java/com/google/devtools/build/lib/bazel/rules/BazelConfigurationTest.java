@@ -84,7 +84,7 @@ public class BazelConfigurationTest {
     BazelConfiguration.Options o = Options.getDefaults(BazelConfiguration.Options.class);
     o.shellExecutable = PathFragment.create("/my/shell/binary");
     o.useStrictActionEnv = true;
-    BazelConfiguration.Options h = o.getHost(false);
+    BazelConfiguration.Options h = o.getHost();
     assertThat(h.shellExecutable).isEqualTo(PathFragment.create("/my/shell/binary"));
     assertThat(h.useStrictActionEnv).isTrue();
   }

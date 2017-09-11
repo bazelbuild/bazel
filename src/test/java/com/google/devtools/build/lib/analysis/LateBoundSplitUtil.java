@@ -52,11 +52,6 @@ public class LateBoundSplitUtil {
       defaultValue = ""
     )
     public String fooFlag;
-
-    @Override
-    public List<Attribute.SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-      return ImmutableList.<Attribute.SplitTransition<BuildOptions>>of(SIMPLE_SPLIT);
-    }
   }
 
   /**

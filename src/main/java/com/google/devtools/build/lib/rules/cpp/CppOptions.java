@@ -829,18 +829,16 @@ public class CppOptions extends FragmentOptions {
   public boolean strictSystemIncludes;
 
   @Override
-  public FragmentOptions getHost(boolean fallback) {
+  public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
 
     // The crosstool options are partially copied from the target configuration.
-    if (!fallback) {
-      if (hostCrosstoolTop == null) {
-        host.cppCompiler = cppCompiler;
-        host.crosstoolTop = crosstoolTop;
-        host.glibc = glibc;
-      } else {
-        host.crosstoolTop = hostCrosstoolTop;
-      }
+    if (hostCrosstoolTop == null) {
+      host.cppCompiler = cppCompiler;
+      host.crosstoolTop = crosstoolTop;
+      host.glibc = glibc;
+    } else {
+      host.crosstoolTop = hostCrosstoolTop;
     }
 
     // the name of the output directory for the host configuration is forced to be "host" in

@@ -122,7 +122,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
      * Make Python configuration options available for host configurations as well
      */
     @Override
-    public FragmentOptions getHost(boolean fallback) {
+    public FragmentOptions getHost() {
       return clone(); // host options are the same as target options
     }
   }
