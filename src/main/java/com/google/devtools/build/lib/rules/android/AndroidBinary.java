@@ -418,6 +418,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
         ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
 
+    boolean assumeMinSdkVersion =
+        ruleContext.getFragment(AndroidConfiguration.class).assumeMinSdkVersion();
+    if (!proguardSpecs.isEmpty() && assumeMinSdkVersion) {
+      // NB: Order here is important. We're including generated Proguard specs before the user's
+      // specs so that they can override values.
+      proguardSpecs =
+          ImmutableList.<Artifact>builder()
+              .addAll(
+                  androidSemantics.getProguardSpecsForManifest(
+                      ruleContext, applicationManifest.getManifest()))
+              .addAll(proguardSpecs)
+              .build();
+    }
+
     boolean rexEnabled =
         ruleContext.getFragment(AndroidConfiguration.class).useRexToCompressDexFiles()
         || (ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN));

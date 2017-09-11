@@ -454,6 +454,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexingErrorOnMissedJars;
 
+    // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
+    @Option(
+      name = "experimental_android_assume_minsdkversion",
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When enabled, the minSdkVersion is parsed from the merged AndroidManifest and used to "
+              + "instruct Proguard on valid Android build versions."
+    )
+    public boolean assumeMinSdkVersion;
+
     @Option(
       name = "experimental_android_use_parallel_dex2oat",
       category = "experimental",
@@ -742,6 +755,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
+      host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
@@ -785,6 +799,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
   private final boolean incrementalDexingForLiteProtos;
   private final boolean incrementalDexingErrorOnMissedJars;
+  private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
@@ -821,6 +836,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
     this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
     this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
+    this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -887,6 +903,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean incrementalDexingErrorOnMissedJars() {
     return incrementalDexingErrorOnMissedJars;
+  }
+
+  /**
+   * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion
+   * of the merged AndroidManifest.
+   */
+  public boolean assumeMinSdkVersion() {
+    return assumeMinSdkVersion;
   }
 
   /**
