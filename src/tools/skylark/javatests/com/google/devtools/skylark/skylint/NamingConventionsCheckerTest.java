@@ -36,18 +36,47 @@ public class NamingConventionsCheckerTest {
   }
 
   @Test
-  public void testMessages() throws Exception {
+  public void testBadLetterCase() throws Exception {
     String errorMessage =
         findIssues(
                 "badGlobalVariableName = 0",
-                "def badFunctionName(BadParameterName):",
-                "  BAD_LOCAL_VARIABLE_NAME = 1")
+                "def BAD_FUNCTION_NAME(BadParameterName):",
+                "  badLocalVariableName = 1")
             .toString();
     Truth.assertThat(errorMessage)
-        .contains("'badGlobalVariableName' should be lower_snake_case or UPPER_SNAKE_CASE");
-    Truth.assertThat(errorMessage).contains("'badFunctionName' should be lower_snake_case");
+        .contains(
+            "'badGlobalVariableName' should be lower_snake_case (for variables)"
+                + " or UPPER_SNAKE_CASE (for constants)");
+    Truth.assertThat(errorMessage).contains("'BAD_FUNCTION_NAME' should be lower_snake_case");
     Truth.assertThat(errorMessage).contains("'BadParameterName' should be lower_snake_case");
-    Truth.assertThat(errorMessage).contains("'BAD_LOCAL_VARIABLE_NAME' should be lower_snake_case");
+    Truth.assertThat(errorMessage)
+        .contains(
+            "'badLocalVariableName' should be lower_snake_case (for variables)"
+                + " or UPPER_SNAKE_CASE (for constants)");
+  }
+
+  @Test
+  public void testConfusingNames() throws Exception {
+    String errorMessage = findIssues("O = 0", "def fail():", "  True = False").toString();
+    Truth.assertThat(errorMessage)
+        .contains(
+            "never use 'l', 'I', or 'O' as names"
+                + " (they're too easily confused with 'I', 'l', or '0')");
+    Truth.assertThat(errorMessage)
+        .contains("identifier 'fail' shadows a builtin; please pick a different name");
+    Truth.assertThat(errorMessage)
+        .contains("identifier 'True' shadows a builtin; please pick a different name");
+  }
+
+  @Test
+  public void testUnderscoreNames() throws Exception {
+    Truth.assertThat(findIssues("a, _ = (1, 2) # underscore to ignore assignment")).isEmpty();
+    Truth.assertThat(findIssues("_ = 1", "print(_)").toString())
+        .contains(
+            ":2:7: don't use '_' as an identifier, only to ignore the result in an assignment");
+    Truth.assertThat(findIssues("__ = 1").toString())
+        .contains(
+            ":1:1: identifier '__' consists only of underscores; please pick a different name");
   }
 
   @Test
@@ -56,12 +85,20 @@ public class NamingConventionsCheckerTest {
             findIssues(
                 "GOOD_GLOBAL_VARIABLE_NAME = 0",
                 "def good_function_name(good_parameter_name):",
-                "  good_local_variable_name = 1"))
+                "  GOOD_LOCAL_CONSTANT_NAME = 1"))
         .isEmpty();
   }
 
   @Test
+  public void testProviderNameMustBeCamelCase() throws Exception {
+    Truth.assertThat(findIssues("FooBar = provider()")).isEmpty();
+    Truth.assertThat(findIssues("foo_bar = provider()").toString())
+        .contains("provider name 'foo_bar' should be UpperCamelCase");
+  }
+
+  @Test
   public void testNoDuplicates() throws Exception {
-    Truth.assertThat(findIssues("def foo():", "  BAD = 1", "  BAD += 1")).hasSize(1);
+    Truth.assertThat(findIssues("def foo():", "  badName = 1", "  badName += 1")).hasSize(1);
+    Truth.assertThat(findIssues("def foo():", "  Bad = 1", "  [[] for Bad in []]")).hasSize(2);
   }
 }

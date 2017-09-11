@@ -16,6 +16,7 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.AbstractComprehension;
+import com.google.devtools.build.lib.syntax.AugmentedAssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LValue;
 import com.google.devtools.build.lib.syntax.ListComprehension;
+import com.google.devtools.build.lib.syntax.ListLiteral;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Parameter;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -41,6 +43,10 @@ import java.util.Map.Entry;
 public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
   protected Environment env;
 
+  public AstVisitorWithNameResolution() {
+    this(Environment.defaultBazel());
+  }
+
   public AstVisitorWithNameResolution(Environment env) {
     this.env = env;
   }
@@ -52,7 +58,7 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
     for (Statement stmt : node.getStatements()) {
       if (stmt instanceof FunctionDefStatement) {
         Identifier fun = ((FunctionDefStatement) stmt).getIdentifier();
-        env.addIdentifier(fun.getName(), fun);
+        env.addFunction(fun.getName(), fun);
         declare(fun.getName(), fun);
       } else {
         visit(stmt);
@@ -70,12 +76,6 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(Identifier node) {
-    // TODO(skylark-team): Check for unresolved identifiers once the complete list of builtins can
-    // be obtained more easily
-  }
-
-  @Override
   public void visit(LoadStatement node) {
     Map<Identifier, String> symbolMap = node.getSymbolMap();
     for (Entry<Identifier, String> entry : symbolMap.entrySet()) {
@@ -86,21 +86,34 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
   }
 
   @Override
+  public void visit(Identifier identifier) {
+    use(identifier);
+  }
+
+  @Override
   public void visit(LValue node) {
     initializeOrReassignLValue(node);
     visitLvalue(node.getExpression());
   }
 
-  /**
-   * Visits an lvalue.
-   *
-   * <p>This method is meant to be overridden. For example, identifiers in lvalues are usually
-   * supposed to be handled differently.
-   *
-   * @param expr the lvalue expression
-   */
   protected void visitLvalue(Expression expr) {
-    visit(expr);
+    if (expr instanceof Identifier) {
+      super.visit((Identifier) expr); // don't call this.visit because it doesn't count as usage
+    } else if (expr instanceof ListLiteral) {
+      for (Expression e : ((ListLiteral) expr).getElements()) {
+        visitLvalue(e);
+      }
+    } else {
+      visit(expr);
+    }
+  }
+
+  @Override
+  public void visit(AugmentedAssignmentStatement node) {
+    for (Identifier ident : node.getLValue().boundIdentifiers()) {
+      use(ident);
+    }
+    super.visit(node);
   }
 
   @Override
@@ -156,8 +169,8 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
   private void initializeOrReassignLValue(LValue lvalue) {
     Iterable<Identifier> identifiers = lvalue.boundIdentifiers();
     for (Identifier identifier : identifiers) {
-      if (env.isDefined(identifier.getName())) {
-        reassign(identifier.getName(), identifier);
+      if (env.isDefinedInCurrentScope(identifier.getName())) {
+        reassign(identifier);
       } else {
         env.addIdentifier(identifier.getName(), identifier);
         declare(identifier.getName(), identifier);
@@ -180,10 +193,18 @@ public class AstVisitorWithNameResolution extends SyntaxTreeVisitor {
    *
    * <p>This method is there to be overridden in subclasses, it doesn't do anything by itself.
    *
-   * @param name name of the variable declared
    * @param ident {@code Identifier} that was reassigned
    */
-  void reassign(String name, Identifier ident) {}
+  void reassign(Identifier ident) {}
+
+  /**
+   * Invoked when a variable is used during AST traversal.
+   *
+   * <p>This method is there to be overridden in subclasses, it doesn't do anything by itself.
+   *
+   * @param ident {@code Identifier} that was reassigned
+   */
+  void use(Identifier ident) {}
 
   /**
    * Invoked when a lexical block is entered during AST traversal.

@@ -14,36 +14,50 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.ASTNode;
+import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FunctionDefStatement;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.LValue;
-import com.google.devtools.build.lib.syntax.Parameter;
-import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
+import com.google.devtools.skylark.skylint.Environment.NameInfo;
+import com.google.devtools.skylark.skylint.Environment.NameInfo.Kind;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Checks the adherence to Skylark naming conventions.
  *
- * <p>The convention is that functions, parameters and local variables should be lower_snake_case.
+ * <ul>
+ *   <li>Functions and parameters should be lower_snake_case and all other identifiers should be
+ *       lower_snake_case (for variables) or UPPER_SNAKE_CASE (for constants).
+ *   <li>Providers are required to be UpperCamelCase. A variable FooBar is considered a provider if
+ *       it appears in an assignment of the form "FooBar = provider(...)".
+ *   <li>Shadowing of builtins (e.g. "True = False", "def fail()") is not allowed.
+ *   <li>The single-letter variable names 'O', 'l', 'I' are disallowed since they're easy to
+ *       confuse.
+ *   <li>Multi-underscore names ('__', '___', etc.) are disallowed.
+ *   <li>Single-underscore names may only be written to, as in "a, _ = tuple". They may not be read,
+ *       as in "f(_)".
+ * </ul>
  */
-// TODO(skylark-team): Also check for single-letter variable names that are easy to confuse (I, l,
-// O)
-// TODO(skylark-team): Allow CamelCase for providers, e.g. FooBar = provider(...)
-// TODO(skylark-team): Local variables shouldn't start with an underscore, except '_' itself
 // TODO(skylark-team): Check that UPPERCASE_VARIABLES are never mutated
-public class NamingConventionsChecker extends SyntaxTreeVisitor {
-
+public class NamingConventionsChecker extends AstVisitorWithNameResolution {
+  private static final ImmutableList<String> CONFUSING_NAMES = ImmutableList.of("O", "I", "l");
+  private static final ImmutableSet<String> BUILTIN_NAMES;
   private final List<Issue> issues = new ArrayList<>();
-  private boolean insideFunction = false;
-  private boolean insideLvalue = false;
-  // TODO(skylark-team): Store more symbol information than just the name (e.g. global/local)
-  private final Set<String> alreadyReportedIdentifiers = new HashSet<>();
+
+  static {
+    Environment env = Environment.defaultBazel();
+    BUILTIN_NAMES =
+        env.getNameIdsInCurrentBlock()
+            .stream()
+            .map(id -> env.getNameInfo(id).name)
+            .collect(ImmutableSet.toImmutableSet());
+  }
 
   public static List<Issue> check(BuildFileAST ast) {
     NamingConventionsChecker checker = new NamingConventionsChecker();
@@ -51,61 +65,93 @@ public class NamingConventionsChecker extends SyntaxTreeVisitor {
     return checker.issues;
   }
 
-  private void addAlreadyReportedIdentifier(String name) {
-    alreadyReportedIdentifiers.add(name);
+  @Override
+  public void visit(AssignmentStatement node) {
+    // Check for the pattern "FooBar = provider(...)" because CamelCase for provider names is OK
+    Expression lvalue = node.getLValue().getExpression();
+    Expression rhs = node.getExpression();
+    if (lvalue instanceof Identifier && rhs instanceof FuncallExpression) {
+      Expression function = ((FuncallExpression) rhs).getFunction();
+      if (function instanceof Identifier && ((Identifier) function).getName().equals("provider")) {
+        checkProviderName(((Identifier) lvalue).getName(), lvalue.getLocation());
+        visit(rhs);
+        return;
+      }
+    }
+    super.visit(node);
   }
 
   private void checkSnakeCase(String name, Location location) {
-    if (!isSnakeCase(name) && !alreadyReportedIdentifiers.contains(name)) {
+    if (!isSnakeCase(name)) {
       issues.add(
           new Issue(
-              "identifier '" + name + "' should be lower_snake_case or UPPER_SNAKE_CASE",
+              "identifier '"
+                  + name
+                  + "' should be lower_snake_case (for variables)"
+                  + " or UPPER_SNAKE_CASE (for constants)",
               location));
-      addAlreadyReportedIdentifier(name);
     }
   }
 
   private void checkLowerSnakeCase(String name, Location location) {
-    if (!isLowerSnakeCase(name) && !alreadyReportedIdentifiers.contains(name)) {
+    if (!isLowerSnakeCase(name)) {
       issues.add(new Issue("identifier '" + name + "' should be lower_snake_case", location));
-      addAlreadyReportedIdentifier(name);
+    }
+  }
+
+  private void checkProviderName(String name, Location location) {
+    if (!isUpperCamelCase(name)) {
+      issues.add(new Issue("provider name '" + name + "' should be UpperCamelCase", location));
+    }
+  }
+
+  private void checkNameNotConfusing(String name, Location location) {
+    if (CONFUSING_NAMES.contains(name)) {
+      issues.add(
+          new Issue(
+              "never use 'l', 'I', or 'O' as names "
+                  + "(they're too easily confused with 'I', 'l', or '0')",
+              location));
+    }
+    if (BUILTIN_NAMES.contains(name)) {
+      issues.add(
+          new Issue(
+              "identifier '" + name + "' shadows a builtin; please pick a different name",
+              location));
+    }
+    if (name.chars().allMatch(c -> c == '_') && name.length() >= 2) {
+      issues.add(
+          new Issue(
+              "identifier '"
+                  + name
+                  + "' consists only of underscores; please pick a different name",
+              location));
     }
   }
 
   @Override
-  public void visit(Identifier node) {
-    // TODO(skylark-team): Maybe the lvalue contains a global variable?
-    if (insideLvalue && insideFunction) {
-      checkLowerSnakeCase(node.getName(), node.getLocation());
-    } else if (insideLvalue) {
-      checkSnakeCase(node.getName(), node.getLocation());
+  void use(Identifier identifier) {
+    if (identifier.getName().equals("_")) {
+      issues.add(
+          new Issue(
+              "don't use '_' as an identifier, only to ignore the result in an assignment",
+              identifier.getLocation()));
     }
   }
 
   @Override
-  public void visit(Parameter<Expression, Expression> node) {
-    String name = node.getName();
-    if (name != null) {
-      checkLowerSnakeCase(name, node.getLocation());
+  void declare(String name, ASTNode node) {
+    NameInfo nameInfo = env.resolveExistingName(name);
+    checkNameNotConfusing(name, node.getLocation());
+    if (nameInfo.kind == Kind.PARAMETER || nameInfo.kind == Kind.FUNCTION) {
+      checkLowerSnakeCase(nameInfo.name, node.getLocation());
+    } else {
+      checkSnakeCase(nameInfo.name, node.getLocation());
     }
   }
 
-  @Override
-  public void visit(FunctionDefStatement node) {
-    insideFunction = true;
-    Identifier funcIdent = node.getIdentifier();
-    checkLowerSnakeCase(funcIdent.getName(), funcIdent.getLocation());
-    super.visit(node);
-    insideFunction = false;
-    // TODO(skylark-team): Don't delete global variables
-    alreadyReportedIdentifiers.clear();
-  }
-
-  @Override
-  public void visit(LValue node) {
-    insideLvalue = true;
-    super.visit(node);
-    insideLvalue = false;
+  private static boolean isUpperCamelCase(String name) {
+    return !name.contains("_") && Character.isUpperCase(name.charAt(0));
   }
 
   private static boolean isSnakeCase(String name) {
