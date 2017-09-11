@@ -57,11 +57,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
       toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
       return toOptions;
     }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return false;
-    }
   };
 
   /**

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState;
-
 import java.util.Objects;
 
 /**
@@ -52,11 +51,6 @@ public class EnableLipoTransition implements PatchTransition {
     lipoEnabledOptions.get(CppOptions.class).lipoConfigurationState =
         LipoConfigurationState.APPLY_LIPO;
     return lipoEnabledOptions;
-  }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
   }
 
   @Override

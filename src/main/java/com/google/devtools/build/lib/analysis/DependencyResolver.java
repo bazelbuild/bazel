@@ -785,11 +785,6 @@ public abstract class DependencyResolver {
     public BuildOptions apply(BuildOptions options) {
       return toOptions;
     }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return false;
-    }
   }
 
   private void visitTargetVisibility(

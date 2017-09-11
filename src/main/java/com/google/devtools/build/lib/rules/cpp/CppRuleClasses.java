@@ -85,11 +85,6 @@ public class CppRuleClasses {
      * Transition used for switching back to the LIPO-optimized configuration.
      */
     TARGET_CONFIG_FOR_LIPO;
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
   }
 
   /**

@@ -1352,11 +1352,6 @@ public final class ReleaseBundlingSupport {
      }
     }
 
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-
     /** Returns the configuration distinguisher for this transition instance. */
     protected ConfigurationDistinguisher getConfigurationDistinguisher() {
       return ConfigurationDistinguisher.IOS_APPLICATION;

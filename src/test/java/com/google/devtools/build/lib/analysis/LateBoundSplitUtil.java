@@ -67,11 +67,6 @@ public class LateBoundSplitUtil {
       split2.get(TestOptions.class).fooFlag = "two";
       return ImmutableList.<BuildOptions>of(split1, split2);
     }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return false;
-    }
   };
 
   /**

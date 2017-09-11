@@ -50,9 +50,4 @@ public class ContextCollectorOwnerTransition implements PatchTransition {
     ownerOptions.get(CppOptions.class).lipoConfigurationState = LipoConfigurationState.APPLY_LIPO;
     return ownerOptions;
   }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
-  }
 }

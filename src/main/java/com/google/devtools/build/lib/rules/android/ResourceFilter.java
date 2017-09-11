@@ -868,11 +868,6 @@ public class ResourceFilter {
   private abstract static class BaseDynamicallyConfiguredResourceFilteringTransition
       implements PatchTransition {
     @Override
-    public boolean defaultsToSelf() {
-      return false;
-    }
-
-    @Override
     public BuildOptions apply(BuildOptions options) {
       BuildOptions newOptions = options.clone();
 

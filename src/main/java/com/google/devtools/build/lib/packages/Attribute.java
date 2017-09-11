@@ -151,14 +151,6 @@ public final class Attribute implements Comparable<Attribute> {
    * A configuration transition.
    */
   public interface Transition {
-    /**
-     * Usually, a non-existent entry in the configuration transition table indicates an error.
-     * Unfortunately, that means that we need to always build the full table. This method allows a
-     * transition to indicate that a non-existent entry indicates a self transition, i.e., that the
-     * resulting configuration is the same as the current configuration. This can simplify the code
-     * needed to set up the transition table.
-     */
-    boolean defaultsToSelf();
   }
 
   /**
@@ -199,22 +191,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Transition to one or more configurations. To obtain the actual child configurations,
      * invoke {@link Attribute#getSplitTransition(Rule)}. See {@link SplitTransition}.
      **/
-    SPLIT(true);
-
-    private final boolean defaultsToSelf;
-
-    ConfigurationTransition() {
-      this(false);
-    }
-
-    ConfigurationTransition(boolean defaultsToSelf) {
-      this.defaultsToSelf = defaultsToSelf;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return defaultsToSelf;
-    }
+    SPLIT
   }
 
   private enum PropertyFlag {

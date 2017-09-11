@@ -35,11 +35,6 @@ public class AppleCrosstoolTransition implements PatchTransition {
    * A singleton instance of AppleCrosstoolTransition.
    */
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
-  
-  @Override
-  public boolean defaultsToSelf() {
-    return true;
-  }
 
   @Override
   public BuildOptions apply(BuildOptions buildOptions) {

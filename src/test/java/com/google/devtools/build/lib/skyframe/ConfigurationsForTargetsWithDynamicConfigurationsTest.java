@@ -76,11 +76,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     public List<BuildOptions> split(BuildOptions buildOptions) {
       return ImmutableList.of();
     }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
   }
 
   private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
@@ -89,11 +84,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       BuildOptions result = buildOptions.clone();
       result.get(BuildConfiguration.Options.class).hostCpu = "SET BY SPLIT";
       return ImmutableList.of(result);
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
     }
   }
 
@@ -105,11 +95,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       result.get(BuildConfiguration.Options.class).cpu = "SET BY SPLIT";
       return ImmutableList.of(result);
     }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
   }
 
   private static class SetsCpuPatchTransition implements PatchTransition {
@@ -119,11 +104,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       BuildOptions result = options.clone();
       result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
       return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
     }
   }
 
@@ -223,11 +203,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       BuildOptions result = options.clone();
       result.get(TestConfiguration.TestOptions.class).testFilter = "SET BY PATCH FACTORY: " + value;
       return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
     }
   }
 
@@ -475,11 +450,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
         baseOptions.testFilter = (nullToEmpty(baseOptions.testFilter)) + value;
         return toOptions;
       }
-
-      @Override
-      public boolean defaultsToSelf() {
-        return false;
-      }
     };
   }
 
@@ -502,11 +472,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
           result.add(toOptions);
         }
         return result.build();
-      }
-
-      @Override
-      public boolean defaultsToSelf() {
-        return false;
       }
     };
   }

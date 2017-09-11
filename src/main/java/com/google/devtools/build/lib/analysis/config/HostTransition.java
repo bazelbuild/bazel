@@ -43,9 +43,4 @@ public final class HostTransition implements PatchTransition {
       return options.createHostOptions();
     }
   }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
-  }
 }

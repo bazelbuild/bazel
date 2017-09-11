@@ -209,12 +209,6 @@ public final class AndroidRuleClasses {
 
   private static final class AndroidSplitTransition implements
       SplitTransition<BuildOptions>, SkylarkValue {
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-
     private static void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
       AndroidConfiguration.Options inputAndroidOptions =
           input.get(AndroidConfiguration.Options.class);

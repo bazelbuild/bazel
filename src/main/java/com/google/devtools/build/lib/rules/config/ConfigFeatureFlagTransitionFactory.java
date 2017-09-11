@@ -54,11 +54,6 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     }
 
     @Override
-    public boolean defaultsToSelf() {
-      throw new UnsupportedOperationException("supported in dynamic mode only");
-    }
-
-    @Override
     public boolean equals(Object other) {
       return other instanceof ConfigFeatureFlagValuesTransition
           && this.flagValues.equals(((ConfigFeatureFlagValuesTransition) other).flagValues);
