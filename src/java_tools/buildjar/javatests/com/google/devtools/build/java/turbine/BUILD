@@ -1,13 +1,9 @@
-package(default_visibility = [":packages"])
-
-package_group(
-    name = "packages",
-    packages = ["//src/java_tools/buildjar/..."],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
+    srcs = glob(["*.java"]) + [
+        "BUILD",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine/javac:srcs",
     ],
 )

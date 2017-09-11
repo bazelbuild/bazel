@@ -1,40 +1,54 @@
+# Description:
+# JavaBuilder and java tools used by Bazel
 package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
+        "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
+        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/bazel:srcs",
+        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
+    ],
+)
 
 java_binary(
     name = "JavaBuilder",
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
-    visibility = ["//visibility:public"],
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar"],
 )
 
 java_binary(
     name = "VanillaJavaBuilder",
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
-    visibility = ["//visibility:public"],
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:vanilla_java_builder"],
 )
 
 filegroup(
     name = "JavaBuilderDeploy",
     srcs = [":JavaBuilder_deploy.jar"],
+    tags = ["manual"],
 )
 
 filegroup(
     name = "bootstrap_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_deploy.jar"],
-    visibility = ["//visibility:public"],
+    tags = ["manual"],
 )
 
 filegroup(
     name = "bootstrap_VanillaJavaBuilder_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
-    visibility = ["//visibility:public"],
+    tags = ["manual"],
 )
 
 filegroup(
     name = "bootstrap_genclass_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:bootstrap_genclass_deploy.jar"],
-    visibility = ["//visibility:public"],
+    tags = ["manual"],
 )
 
 java_library(
@@ -43,19 +57,6 @@ java_library(
     exports = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:BazelJavaCompiler",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]) + [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/bazel:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
-    ],
-    visibility = ["//src:__pkg__"],
 )
 
 java_toolchain(
@@ -74,6 +75,7 @@ java_toolchain(
     ],
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "8",
+    tags = ["manual"],
     target_version = "8",
     visibility = ["//visibility:public"],
 )

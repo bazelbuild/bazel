@@ -1,9 +1,4 @@
-package(default_visibility = [":packages"])
-
-package_group(
-    name = "packages",
-    packages = ["//src/java_tools/buildjar/..."],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
     name = "javac_turbine",
@@ -68,7 +63,6 @@ java_library(
     srcs = ["JavacTurbineJavaCompiler.java"],
     deps = [
         ":javac_transitive",
-        ":javac_turbine_compile_request",
         ":tree_pruner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:jsr305",
@@ -109,6 +103,7 @@ java_library(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:__pkg__"],
+    srcs = glob(["**/*.java"]) + [
+        "BUILD",
+    ],
 )
