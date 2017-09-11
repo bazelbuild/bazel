@@ -877,10 +877,13 @@ public final class BlazeRuntime {
     parser.parse(OptionPriority.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
-    Function<String, String> sourceFunction = option ->
-        !optionSources.containsKey(option) ? "default"
-            : optionSources.get(option).isEmpty() ? "command line"
-            : optionSources.get(option);
+    Function<OptionDefinition, String> sourceFunction =
+        option ->
+            !optionSources.containsKey(option.getOptionName())
+                ? "default"
+                : optionSources.get(option.getOptionName()).isEmpty()
+                    ? "command line"
+                    : optionSources.get(option.getOptionName());
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.newOptionsParser(optionClasses);

@@ -274,6 +274,25 @@ public class OptionDefinition {
     return defaultValue;
   }
 
+  /**
+   * {@link OptionDefinition} is really a wrapper around a {@link Field} that caches information
+   * obtained through reflection. Checking that the fields they represent are equal is sufficient
+   * to check that two {@link OptionDefinition} objects are equal.
+   */
+  @Override
+  public boolean equals(Object object) {
+    if (!(object instanceof OptionDefinition)) {
+      return false;
+    }
+    OptionDefinition otherOption = (OptionDefinition) object;
+    return field.equals(otherOption.field);
+  }
+
+  @Override
+  public int hashCode() {
+    return field.hashCode();
+  }
+
   static final Comparator<OptionDefinition> BY_OPTION_NAME =
       Comparator.comparing(OptionDefinition::getOptionName);
 

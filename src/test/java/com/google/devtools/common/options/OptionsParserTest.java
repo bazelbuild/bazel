@@ -1190,7 +1190,7 @@ public class OptionsParserTest {
         Arrays.asList("--simple=abc"));
     OptionValueDescription result = parser.getOptionValueDescription("simple");
     assertThat(result).isNotNull();
-    assertThat(result.getName()).isEqualTo("simple");
+    assertThat(result.getOptionDefinition().getOptionName()).isEqualTo("simple");
     assertThat(result.getValue()).isEqualTo("abc");
     assertThat(result.getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
     assertThat(result.getSource()).isEqualTo("my description");
@@ -1562,7 +1562,7 @@ public class OptionsParserTest {
       OptionPriority expectedPriority, String expectedSource,
       OptionValueDescription actual) {
     assertThat(actual).isNotNull();
-    assertThat(actual.getName()).isEqualTo(expectedName);
+    assertThat(actual.getOptionDefinition().getOptionName()).isEqualTo(expectedName);
     assertThat(actual.getValue()).isEqualTo(expectedValue);
     assertThat(actual.getPriority()).isEqualTo(expectedPriority);
     assertThat(actual.getSource()).isEqualTo(expectedSource);
@@ -1578,7 +1578,7 @@ public class OptionsParserTest {
     assertThat(result).hasSize(5);
     HashMap<String,OptionValueDescription> map = new HashMap<String,OptionValueDescription>();
     for (OptionValueDescription description : result) {
-      map.put(description.getName(), description);
+      map.put(description.getOptionDefinition().getOptionName(), description);
     }
 
     assertOptionValue("alpha", "one", OptionPriority.COMMAND_LINE, "source",
