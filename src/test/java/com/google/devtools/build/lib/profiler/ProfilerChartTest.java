@@ -236,10 +236,14 @@ public class ProfilerChartTest extends FoundationTestCase {
 
   @Test
   public void testHtmlChartVisitorFormatColor() {
+    Locale defaultLocale = Locale.getDefault();
+
     Locale.setDefault(Locale.GERMANY);
     String black = HtmlChartVisitor.formatColor(Color.GRAY);
     String[] grayComponents = black.split(",");
     assertThat(grayComponents.length).isEqualTo(4);
+
+    Locale.setDefault(defaultLocale);
   }
 
   private ProfileInfo createProfileInfo(Runnable runnable, int noOfRows) throws Exception {

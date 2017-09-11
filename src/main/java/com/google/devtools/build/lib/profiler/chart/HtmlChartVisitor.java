@@ -320,7 +320,8 @@ public class HtmlChartVisitor implements ChartVisitor {
     int b = color.getBlue();
     int a = color.getAlpha();
 
-    return String.format(Locale.ROOT, "rgba(%d,%d,%d,%f)", r, g, b, (a / 255.0));
+    // US Locale is used to ensure a dot as decimal separator
+    return String.format(Locale.US, "rgba(%d,%d,%d,%f)", r, g, b, (a / 255.0));
   }
 
   /**
