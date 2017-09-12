@@ -44,10 +44,10 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
   }
 
   /**
-   * Dynamic configurations maintain a host configuration cache that stores configurations
-   * instantiated outside of Skyframe. We shouldn't, in general, instantiate configurations
-   * outside of {@link BuildConfigurationValue}. But in this specific case Bazel performance
-   * suffers through the Skyframe interface and maintaining a local cache is much faster.
+   * Bazel maintains a host configuration cache that stores configurations instantiated outside of
+   * Skyframe. We shouldn't, in general, instantiate configurations outside of
+   * {@link BuildConfigurationValue}. But in this specific case Bazel performance suffers through
+   * the Skyframe interface and maintaining a local cache is much faster.
    * See {@link SkyframeBuildView} for details.
    *
    * <p>One consequence of this is that requesting a config that would be a Skyframe cache hit
@@ -69,7 +69,7 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
    * reference-equal to its generating rule's config.
    */
   @Test
-  public void dynamicConfigsWithHostConfigSwitch() throws Exception {
+  public void hostConfigSwitch() throws Exception {
     scratch.file("foo/BUILD",
         "genrule(",
         "    name = 'host_generated_file_producer',",
@@ -93,12 +93,11 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
         "genrule(name = 'gen3', srcs = [], outs = ['gen3.out'], cmd = 'echo hi > $@',",
         "    tools = [':host_generated_file_consumer3'])");
 
-    String dynamicConfigsMode = "--experimental_dynamic_configs=notrim";
-    useConfiguration(dynamicConfigsMode);
+    useConfiguration();
     update("//foo:gen1");
-    useConfiguration(dynamicConfigsMode, "--host_copt", "a=b");
+    useConfiguration("--host_copt", "a=b");
     update("//foo:gen2");
-    useConfiguration(dynamicConfigsMode);
+    useConfiguration();
     update("//foo:gen3");
 
     OutputFileConfiguredTarget hostSrc3 = (OutputFileConfiguredTarget)
