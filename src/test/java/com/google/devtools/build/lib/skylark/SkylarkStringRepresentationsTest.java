@@ -179,6 +179,8 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         ")",
         "",
         "def _check_impl(ctx):",
+        "  source_file = ctx.attr.srcs[0].files.to_list()[0]",
+        "  generated_file = ctx.attr.srcs[1].files.to_list()[0]",
         "  objects = {",
         "    'target': ctx.attr.deps[0],",
         "    'alias_target': ctx.attr.deps[1],",
@@ -188,8 +190,10 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "    'rule_ctx': ctx,",
         "    'aspect_ctx': ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,",
         "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule,",
-        "    'source_file': ctx.attr.srcs[0].files.to_list()[0],",
-        "    'generated_file': ctx.attr.srcs[1].files.to_list()[0],",
+        "    'source_file': source_file,",
+        "    'generated_file': generated_file,",
+        "    'source_root': source_file.root,",
+        "    'generated_root': generated_file.root,",
         "  }",
         "  return struct(**prepare_params(objects))",
         "check = rule(",
@@ -331,6 +335,19 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
           .isEqualTo("<source file test/skylark/input.txt>");
       assertThat(target.get("generated_file" + suffix))
           .isEqualTo("<generated file test/skylark/output.txt>");
+    }
+  }
+
+  @Test
+  public void testStringRepresentations_Root() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("source_root" + suffix)).isEqualTo("<source root>");
+      assertThat(target.get("generated_root" + suffix)).isEqualTo("<derived root>");
     }
   }
 

@@ -222,6 +222,11 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
 
   @Override
   public void repr(SkylarkPrinter printer) {
+    printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
     printer.append(toString());
   }
 }
