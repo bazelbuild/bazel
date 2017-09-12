@@ -1075,19 +1075,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
     setConfigurationFragmentFactories(configurationFragmentFactories);
-    return createDynamicConfigurations(eventHandler, buildOptions, multiCpu);
-  }
-
-  /**
-   * {@link #createConfigurations} implementation that creates the configurations dynamically.
-   */
-  private BuildConfigurationCollection createDynamicConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu)
-      throws InvalidConfigurationException, InterruptedException {
     List<BuildConfiguration> topLevelTargetConfigs =
-        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu));
+        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), keepGoing);
 
     // The host configuration inherits the data, not target options. This is so host tools don't
     // apply LIPO.
@@ -1104,7 +1093,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         dataOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
             ? HostTransition.INSTANCE.apply(dataOptions)
             : dataOptions;
-    BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions);
+    BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated
     // accessor (i.e. not the event handler) to trigger the exception below.
@@ -1365,9 +1354,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if the build options produces an invalid configuration
    */
   public BuildConfiguration getConfiguration(ExtendedEventHandler eventHandler,
-      BuildOptions options) throws InvalidConfigurationException {
+      BuildOptions options, boolean keepGoing) throws InvalidConfigurationException {
     return Iterables.getOnlyElement(
-        getConfigurations(eventHandler, ImmutableList.<BuildOptions>of(options)));
+        getConfigurations(eventHandler, ImmutableList.of(options), keepGoing));
   }
 
   /**
@@ -1377,7 +1366,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   public List<BuildConfiguration> getConfigurations(ExtendedEventHandler eventHandler,
-      List<BuildOptions> optionsList) throws InvalidConfigurationException {
+      List<BuildOptions> optionsList, boolean keepGoing) throws InvalidConfigurationException {
     Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
 
     // Prepare the Skyframe inputs.
@@ -1395,7 +1384,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // Skyframe-evaluate the configurations and throw errors if any.
     EvaluationResult<SkyValue> evalResult =
-        evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/true);
+        evaluateSkyKeys(eventHandler, configSkyKeys, keepGoing);
     if (evalResult.hasError()) {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
