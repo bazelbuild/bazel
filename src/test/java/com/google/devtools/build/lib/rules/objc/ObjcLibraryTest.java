@@ -1319,7 +1319,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("package/BUILD",
         "cc_library(",

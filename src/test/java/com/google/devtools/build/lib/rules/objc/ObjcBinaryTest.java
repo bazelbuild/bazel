@@ -353,7 +353,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",
@@ -394,7 +394,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkCcDependenciesAreForceLoaded() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",

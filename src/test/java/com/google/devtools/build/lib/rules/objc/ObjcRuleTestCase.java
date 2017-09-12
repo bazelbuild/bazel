@@ -519,7 +519,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   // Regression test for b/29094356.
   protected void checkLinkActionDuplicateInputs(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
       throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("lib/BUILD",
         "cc_library(",
@@ -3582,7 +3582,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private void checkCcDependency(
       ConfigurationDistinguisher configurationDistinguisher, String targetName) throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("lib/BUILD",
         "cc_library(",
@@ -3610,7 +3610,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkCcDependencyMultiArch(BinaryRuleTypePair ruleTypePair,
       ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--ios_multi_cpus=armv7,arm64");
+    useConfiguration("--ios_multi_cpus=armv7,arm64");
 
     scratch.file("lib/BUILD",
         "cc_library(",
@@ -3710,7 +3710,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkGenruleWithoutJavaCcDependency(BinaryRuleTypePair ruleTypePair)
       throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--ios_multi_cpus=armv7,arm64");
+    useConfiguration("--ios_multi_cpus=armv7,arm64");
 
     String targets = ruleTypePair.targets(scratch, "x", "srcs", "['gen.m']");
     scratch.file("x/BUILD",
@@ -3743,7 +3743,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkCcDependencyWithProtoDependency(BinaryRuleTypePair ruleTypePair,
       ConfigurationDistinguisher configurationDistinguisher) throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
     scratch.file("lib/BUILD",
         "proto_library(",
         "    name = 'protolib',",
@@ -3832,7 +3832,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkCcDependencyWithProtoDependencyMultiArch(BinaryRuleTypePair ruleTypePair,
       ConfigurationDistinguisher configurationDistinguisher) throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    useConfiguration("--experimental_disable_jvm", "--ios_multi_cpus=armv7,arm64");
+    useConfiguration("--ios_multi_cpus=armv7,arm64");
     scratch.file("lib/BUILD",
         "proto_library(",
         "    name = 'protolib',",
@@ -4254,7 +4254,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    framework_imports = glob(['MyFramework.framework/*']),",
         "    is_dynamic = 1,",
         ")");
-    useConfiguration("--ios_multi_cpus=i386,x86_64", "--experimental_disable_jvm");
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     Action lipobinAction = lipoBinAction("//x:x");
 
@@ -4320,7 +4320,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("package/BUILD",
         "cc_library(name = 'cclib', srcs = ['dep.c'])");
 
-    useConfiguration("--ios_multi_cpus=i386,x86_64", "--experimental_disable_jvm");
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     Action appLipoAction = actionProducingArtifact("//x:x", "_lipobin");
     String i386Prefix =
@@ -4366,7 +4366,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "srcs", "['a.m']",
         "deps", "['//lib1:lib1', '//lib2:lib2']");
-    useConfiguration("--ios_multi_cpus=i386,x86_64", "--experimental_disable_jvm");
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     Action lipobinAction = lipoBinAction("//x:x");
 
@@ -4401,7 +4401,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   // Regression test for b/32310268.
   protected void checkAliasedLinkoptsThroughObjcLibrary(RuleType ruleType) throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("bin/BUILD",
         "objc_library(",
@@ -4430,7 +4430,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkCcDependencyLinkoptsArePropagatedToLinkAction(
       RuleType ruleType) throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("bin/BUILD",
         "cc_library(",
@@ -4468,7 +4468,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkObjcProviderLinkInputsInLinkAction(RuleType ruleType) throws Exception {
-    useConfiguration("--experimental_disable_jvm", "--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file("bin/defs.bzl",
         "def _custom_rule_impl(ctx):",
