@@ -322,6 +322,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Runfiles defaultRunfiles = runfilesBuilder.build();
 
     RunfilesSupport runfilesSupport = null;
+    NestedSetBuilder<Artifact> extraFilesToRunBuilder = NestedSetBuilder.stableOrder();
     if (createExecutable) {
       List<String> extraArgs =
           new ArrayList<>(semantics.getExtraArguments(ruleContext, common.getSrcsArtifacts()));
@@ -348,6 +349,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       runfilesSupport =
           RunfilesSupport.withExecutable(
               ruleContext, defaultRunfiles, executableForRunfiles, extraArgs);
+      extraFilesToRunBuilder.add(runfilesSupport.getRunfilesMiddleman());
     }
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
@@ -422,6 +424,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // shell script), on Windows they are different (the executable to run is a batch file, the
         // executable for runfiles is the shell script).
         .setRunfilesSupport(runfilesSupport, executableToRun)
+        .addFilesToRun(extraFilesToRunBuilder.build())
         .add(
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))

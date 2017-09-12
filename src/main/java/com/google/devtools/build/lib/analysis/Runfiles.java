@@ -932,8 +932,6 @@ public final class Runfiles {
       if (runfilesSupport == null) {
         return this;
       }
-      // TODO(bazel-team): We may be able to remove this now.
-      addArtifact(runfilesSupport.getRunfilesMiddleman());
       merge(runfilesSupport.getRunfiles());
       return this;
     }
