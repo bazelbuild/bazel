@@ -30,7 +30,7 @@ We are doing this to reduce confusion between the specialized
 [depset](depsets.md) data structure and Python's set datatype.
 
 *   Flag: `--incompatible_disallow_set_constructor`
-*   Default: `false`
+*   Default: `true`
 
 
 ## Keyword-only arguments
@@ -87,6 +87,16 @@ where the left-hand side is a dictionary. This is done to improve compatibility
 with Python. A possible workaround is to use the `.update` method instead.
 
 *   Flag: `--incompatible_disallow_dict_plus`
+*   Default: `false`
+
+
+## Load must appear at top of file
+
+Previously, the `load` statement could appear anywhere in a `.bzl` file so long
+as it was at the top level. With this change, for `.bzl` files, `load` must
+appear at the beginning of the file, i.e. before any other non-`load` statement.
+
+*   Flag: `--incompatible_bzl_disallow_load_after_statement`
 *   Default: `false`
 
 
@@ -223,6 +233,27 @@ If you really want to override a value, use a separate statement:
 *   Default: `true`
 
 
+## New actions API
+
+This change removes the old methods for registering actions within rules, and
+requires that you use the new methods instead (which are available regardless).
+The deprecated methods and their replacements are as follows.
+
+*   `ctx.new_file(...)` --> `ctx.actions.declare_file(...)`
+*   `ctx.experimental_new_directory(...)` -->
+    `ctx.actions.declare_directory(...)`
+*   `ctx.action(...)` --> either `ctx.actions.run(...)` or
+    `ctx.actions.run_shell(...)`
+*   `ctx.file_action(...)` --> `ctx.actions.write(...)`
+*   `ctx.empty_action(...)` --> `ctx.actions.do_nothing(...)`
+*   `ctx.template_action(...)` --> `ctx.actions.expand_template(...)`
+
+<!-- filler comment, needed by Markdown to separate the lists -->
+
+*   Flag: `--incompatible_new_actions_api`
+*   Default: `false`
+
+
 ## Checked arithmetic
 
 When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
@@ -230,3 +261,16 @@ All integers are stored using signed 32 bits.
 
 *   Flag: `--incompatible_checked_arithmetic`
 *   Default: `true`
+
+
+## Descriptive string representations
+
+For certain types of objects, this changes the string representations returned
+by `str()` and `repr()` to be more uniform and safe. In particular, the new
+representations are hermetic and deterministic.
+
+*   Flag: `--incompatible_descriptive_string_representations`
+*   Default: `true`
+
+
+<!-- Add new options here -->
