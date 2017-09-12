@@ -59,7 +59,6 @@ java_test(
 java_test(
     name = "AndroidBinaryTest",
     srcs = ["AndroidBinaryTest.java"],
-    shard_count = 5,
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
