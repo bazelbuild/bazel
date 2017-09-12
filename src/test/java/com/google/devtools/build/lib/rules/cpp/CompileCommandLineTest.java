@@ -19,7 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
@@ -139,8 +138,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
   }
 
   private Builder makeCompileCommandLineBuilder() throws Exception {
-    ConfiguredTarget dummyTarget =
-        scratchConfiguredTarget("a", "a", "cc_binary(name='a', srcs=['a.cc'])");
     return CompileCommandLine.builder(
         scratchArtifact("a/FakeInput"),
         scratchArtifact("a/FakeOutput"),
@@ -152,7 +149,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         },
         "c++-compile",
         getTargetConfiguration().getFragment(CppConfiguration.class),
-        new DotdFile(scratchArtifact("a/dotD")),
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(dummyTarget)));
+        new DotdFile(scratchArtifact("a/dotD")));
   }
 }

@@ -355,11 +355,11 @@ public final class CcToolchainProvider extends ToolchainInfo {
             + "rules. These should be appended to the command line after filtering."
   )
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptions(features, sysroot);
+    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, sysroot);
   }
 
   public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptions(features, null);
+    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, /* sysroot= */ null);
   }
 
   @SkylarkCallable(
@@ -369,9 +369,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
         "Returns the set of command-line linker options, including any flags "
             + "inferred from the command-line options."
   )
-  public ImmutableList<String> getLinkOptions() {
-    return cppConfiguration.getLinkOptions(sysroot);
+  public ImmutableList<String> getLinkOptionsWithSysroot() {
+    return cppConfiguration.getLinkOptionsDoNotUse(sysroot);
   }
+
+  public ImmutableList<String> getLinkOptions() {
+    return cppConfiguration.getLinkOptionsDoNotUse(/* sysroot= */ null);
+  }
+
 
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they

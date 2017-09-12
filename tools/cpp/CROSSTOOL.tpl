@@ -284,6 +284,7 @@ toolchain {
     implies: 'msvc_env'
     implies: 'parse_showincludes'
     implies: 'user_compile_flags'
+    implies: 'sysroot'
     implies: 'unfiltered_compile_flags'
   }
 
@@ -323,6 +324,7 @@ toolchain {
     implies: 'msvc_env'
     implies: 'parse_showincludes'
     implies: 'user_compile_flags'
+    implies: 'sysroot'
     implies: 'unfiltered_compile_flags'
   }
 
@@ -892,6 +894,27 @@ toolchain {
       flag_group {
         iterate_over: 'user_compile_flags'
         flag: '%{user_compile_flags}'
+      }
+    }
+  }
+
+  feature {
+    name: 'sysroot'
+    flag_set {
+      expand_if_all_available: 'sysroot'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        iterate_over: 'sysroot'
+        flag: '--sysroot=%{sysroot}'
       }
     }
   }

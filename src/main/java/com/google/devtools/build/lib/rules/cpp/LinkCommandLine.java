@@ -547,16 +547,10 @@ public final class LinkCommandLine extends CommandLine {
       // Needed to find headers included from linkstamps.
       optionList.add("-I.");
 
-      // Add sysroot.
-      PathFragment sysroot = ccProvider.getSysroot();
-      if (sysroot != null) {
-        optionList.add("--sysroot=" + sysroot.getPathString());
-      }
-
       // Add toolchain compiler options.
       optionList.addAll(cppConfiguration.getCompilerOptions(features));
       optionList.addAll(cppConfiguration.getCOptions());
-      optionList.addAll(ccProvider.getUnfilteredCompilerOptions(features));
+      optionList.addAll(ccProvider.getUnfilteredCompilerOptionsWithSysroot(features));
       if (CppFileTypes.CPP_SOURCE.matches(linkstamp.getKey().getExecPath())) {
         optionList.addAll(cppConfiguration.getCxxOptions(features));
       }

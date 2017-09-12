@@ -649,6 +649,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -980,27 +1002,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -1106,6 +1107,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -1158,6 +1180,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1175,6 +1198,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1192,6 +1216,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1209,6 +1234,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1226,6 +1252,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1253,6 +1280,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1281,6 +1309,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1296,6 +1325,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1313,6 +1343,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -1486,6 +1517,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -1507,6 +1539,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -2206,6 +2239,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -2537,27 +2592,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -2668,6 +2702,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -2720,6 +2775,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2737,6 +2793,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2754,6 +2811,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2771,6 +2829,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2788,6 +2847,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2815,6 +2875,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -2844,6 +2905,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -2860,6 +2922,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -2877,6 +2940,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -3050,6 +3114,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -3071,6 +3136,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -3770,6 +3836,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -4103,27 +4191,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -4234,6 +4301,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -4286,6 +4374,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4303,6 +4392,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4320,6 +4410,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4337,6 +4428,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4354,6 +4446,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4381,6 +4474,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -4410,6 +4504,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -4426,6 +4521,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4443,6 +4539,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -4616,6 +4713,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -4637,6 +4735,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -5337,6 +5436,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -5668,27 +5789,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -5822,6 +5922,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -5874,6 +5995,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -5892,6 +6014,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -5910,6 +6033,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -5928,6 +6052,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -5946,6 +6071,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -5974,6 +6100,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -6003,6 +6130,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -6019,6 +6147,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -6037,6 +6166,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -6211,6 +6341,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
     implies: "cpp_linker_flags"
   }
   action_config {
@@ -6233,6 +6364,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
     implies: "cpp_linker_flags"
   }
   action_config {
@@ -6933,6 +7065,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -7264,27 +7418,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -7395,6 +7528,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -7447,6 +7601,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7464,6 +7619,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7481,6 +7637,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7498,6 +7655,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7515,6 +7673,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7542,6 +7701,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -7571,6 +7731,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "apply_simulator_compiler_flags"
   }
@@ -7587,6 +7748,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7604,6 +7766,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -7777,6 +7940,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -7798,6 +7962,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -8497,6 +8662,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -8828,27 +9015,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -8949,6 +9115,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -9001,6 +9188,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9018,6 +9206,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9035,6 +9224,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9052,6 +9242,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9069,6 +9260,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9096,6 +9288,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9124,6 +9317,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9139,6 +9333,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9156,6 +9351,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -9329,6 +9525,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -9350,6 +9547,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -10049,6 +10247,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -10382,27 +10602,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -10503,6 +10702,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -10555,6 +10775,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10572,6 +10793,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10589,6 +10811,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10606,6 +10829,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10623,6 +10847,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10650,6 +10875,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10678,6 +10904,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10693,6 +10920,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10710,6 +10938,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -10883,6 +11112,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -10904,6 +11134,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -11604,6 +11835,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -11935,27 +12188,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -12079,6 +12311,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -12131,6 +12384,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12149,6 +12403,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12167,6 +12422,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12185,6 +12441,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12203,6 +12460,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12231,6 +12489,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -12259,6 +12518,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -12274,6 +12534,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12292,6 +12553,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
   }
@@ -12466,6 +12728,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
     implies: "cpp_linker_flags"
   }
   action_config {
@@ -12488,6 +12751,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
     implies: "cpp_linker_flags"
   }
   action_config {
@@ -13188,6 +13452,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -13519,27 +13805,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -13640,6 +13905,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -13692,6 +13978,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13709,6 +13996,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13726,6 +14014,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13743,6 +14032,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13760,6 +14050,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13787,6 +14078,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13815,6 +14107,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13830,6 +14123,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -13847,6 +14141,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -14020,6 +14315,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -14041,6 +14337,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"
@@ -14746,6 +15043,28 @@ toolchain {
     }
   }
   feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
     name: "dependency_file"
     flag_set {
       action: "assemble"
@@ -15077,27 +15396,6 @@ toolchain {
     }
   }
   feature {
-    name: "linker_param_file"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      flag_group {
-        flag: "-Wl,@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-    flag_set {
-      action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
-      flag_group {
-        flag: "@%{linker_param_file}"
-      }
-      expand_if_all_available: "linker_param_file"
-    }
-  }
-  feature {
     name: "version_min"
     flag_set {
       action: "objc-executable"
@@ -15198,6 +15496,27 @@ toolchain {
       expand_if_all_available: "unfiltered_compile_flags"
     }
   }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -15250,6 +15569,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15267,6 +15587,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15284,6 +15605,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15301,6 +15623,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15318,6 +15641,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15345,6 +15669,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15373,6 +15698,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15388,6 +15714,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15405,6 +15732,7 @@ toolchain {
     implies: "apple_env"
     implies: "legacy_compile_flags"
     implies: "user_compile_flags"
+    implies: "sysroot"
     implies: "unfiltered_compile_flags"
   }
   action_config {
@@ -15578,6 +15906,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-dynamic-library"
@@ -15599,6 +15928,7 @@ toolchain {
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
+    implies: "sysroot"
   }
   action_config {
     config_name: "c++-link-static-library"

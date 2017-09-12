@@ -345,8 +345,7 @@ public class CppCompileAction extends AbstractAction
                 coptsFilter,
                 actionName,
                 cppConfiguration,
-                dotdFile,
-                cppProvider)
+                dotdFile)
             .setFeatureConfiguration(featureConfiguration)
             .setVariables(variables)
             .build();

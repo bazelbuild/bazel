@@ -1436,6 +1436,11 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(FORCE_PIC_VARIABLE, "");
       }
 
+      if (toolchain.getSysroot() != null) {
+        buildVariables.addStringVariable(
+            CppModel.SYSROOT_VARIABLE_NAME, toolchain.getSysroot().getPathString());
+      }
+
       if (cppConfiguration.shouldStripBinaries()) {
         buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
       }

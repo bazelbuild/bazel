@@ -159,7 +159,10 @@ public final class CppModel {
 
   /** Build variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
   public static final String UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME = "unfiltered_compile_flags";
-  
+
+  /** Name of the build variable for the sysroot path variable name. */
+  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
+
   private final CppSemantics semantics;
   private final RuleContext ruleContext;
   private final BuildConfiguration configuration;
@@ -639,6 +642,11 @@ public final class CppModel {
     if (ltoIndexingFile != null) {
       buildVariables.addStringVariable(
           LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME, ltoIndexingFile.getExecPathString());
+    }
+
+    if (ccToolchain.getSysroot() != null) {
+      buildVariables.addStringVariable(
+          SYSROOT_VARIABLE_NAME, ccToolchain.getSysroot().getPathString());
     }
 
     buildVariables.addAllStringVariables(ccToolchain.getBuildVariables());

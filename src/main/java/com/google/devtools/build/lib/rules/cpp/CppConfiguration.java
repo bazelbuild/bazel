@@ -1139,31 +1139,40 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the default list of options which cannot be filtered by BUILD rules. These should be
    * appended to the command line after filtering.
+   *
+   * @deprecated since it uses nonconfigured sysroot. Use
+   * {@link CcToolchainProvider#getUnfilteredCompilerOptionsWithSysroot(Iterable)} if you *really*
+   * need to.
    */
+  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
+  @Deprecated
   @SkylarkCallable(
     name = "unfiltered_compiler_options",
     doc =
         "Returns the default list of options which cannot be filtered by BUILD "
             + "rules. These should be appended to the command line after filtering."
   )
-  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return getUnfilteredCompilerOptions(features, nonConfiguredSysroot);
+  public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
+      Iterable<String> features) {
+    return getUnfilteredCompilerOptionsDoNotUse(features, nonConfiguredSysroot);
   }
 
-  public ImmutableList<String> getUnfilteredCompilerOptions(
-      Iterable<String> features, PathFragment sysroot) {
+  /**
+   * @deprecated since it hardcodes --sysroot flag. Use
+   * {@link com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration}
+   * instead.
+   */
+  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
+  @Deprecated
+  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(
+      Iterable<String> features, @Nullable PathFragment sysroot) {
     if (sysroot == null) {
       return unfilteredCompilerFlags.evaluate(features);
-    } else {
-      return ImmutableList.<String>builder()
-          .add(getSysrootCompilerOption(sysroot))
-          .addAll(unfilteredCompilerFlags.evaluate(features))
-          .build();
     }
-  }
-
-  public String getSysrootCompilerOption(PathFragment sysroot) {
-    return "--sysroot=" + sysroot;
+    return ImmutableList.<String>builder()
+        .add("--sysroot=" + sysroot)
+        .addAll(unfilteredCompilerFlags.evaluate(features))
+        .build();
   }
 
   /**
@@ -1171,8 +1180,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * command-line options.
    *
    * @see Link
+   * @deprecated since it uses nonconfigured sysroot. Use
+   * {@link CcToolchainProvider#getLinkOptionsWithSysroot()} if you *really* need to.
    */
-  // TODO(bazel-team): Clean up the linker options computation!
+  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
+  @Deprecated
   @SkylarkCallable(
     name = "link_options",
     structField = true,
@@ -1180,11 +1192,18 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         "Returns the set of command-line linker options, including any flags "
             + "inferred from the command-line options."
   )
-  public ImmutableList<String> getLinkOptions() {
-    return getLinkOptions(nonConfiguredSysroot);
+  public ImmutableList<String> getLinkOptionsWithLegacySysroot() {
+    return getLinkOptionsDoNotUse(nonConfiguredSysroot);
   }
 
-  public ImmutableList<String> getLinkOptions(PathFragment sysroot) {
+  /**
+   * @deprecated since it hardcodes --sysroot flag. Use
+   * {@link com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration}
+   * instead.
+   */
+  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
+  @Deprecated
+  ImmutableList<String> getLinkOptionsDoNotUse(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
       return linkOptions;
     } else {
