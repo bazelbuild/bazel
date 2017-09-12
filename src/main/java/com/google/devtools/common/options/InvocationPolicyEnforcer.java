@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.UseDefault;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

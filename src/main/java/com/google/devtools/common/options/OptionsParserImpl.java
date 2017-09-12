@@ -25,8 +25,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;

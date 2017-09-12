@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import java.lang.reflect.Constructor;
@@ -267,268 +266,6 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * The name and value of an option with additional metadata describing its
-   * priority, source, whether it was set via an implicit dependency, and if so,
-   * by which other option.
-   */
-  public static class OptionValueDescription {
-    private final OptionDefinition optionDefinition;
-    private final boolean isDefaultValue;
-    @Nullable private final String originalValueString;
-    @Nullable private final Object value;
-    @Nullable private final OptionPriority priority;
-    @Nullable private final String source;
-    @Nullable private final OptionDefinition implicitDependant;
-    @Nullable private final OptionDefinition expandedFrom;
-
-    private OptionValueDescription(
-        OptionDefinition optionDefinition,
-        boolean isDefaultValue,
-        @Nullable String originalValueString,
-        @Nullable Object value,
-        @Nullable OptionPriority priority,
-        @Nullable String source,
-        @Nullable OptionDefinition implicitDependant,
-        @Nullable OptionDefinition expandedFrom) {
-      this.optionDefinition = optionDefinition;
-      this.isDefaultValue = isDefaultValue;
-      this.originalValueString = originalValueString;
-      this.value = value;
-      this.priority = priority;
-      this.source = source;
-      this.implicitDependant = implicitDependant;
-      this.expandedFrom = expandedFrom;
-    }
-
-    public static OptionValueDescription newOptionValue(
-        OptionDefinition optionDefinition,
-        @Nullable String originalValueString,
-        @Nullable Object value,
-        @Nullable OptionPriority priority,
-        @Nullable String source,
-        @Nullable OptionDefinition implicitDependant,
-        @Nullable OptionDefinition expandedFrom) {
-      return new OptionValueDescription(
-          optionDefinition,
-          false,
-          originalValueString,
-          value,
-          priority,
-          source,
-          implicitDependant,
-          expandedFrom);
-    }
-
-    public static OptionValueDescription newDefaultValue(OptionDefinition optionDefinition) {
-      return new OptionValueDescription(
-          optionDefinition, true, null, null, OptionPriority.DEFAULT, null, null, null);
-    }
-
-    public OptionDefinition getOptionDefinition() {
-      return optionDefinition;
-    }
-
-    public String getName() {
-      return optionDefinition.getOptionName();
-    }
-
-    public String getOriginalValueString() {
-      return originalValueString;
-    }
-
-    // Need to suppress unchecked warnings, because the "multiple occurrence"
-    // options use unchecked ListMultimaps due to limitations of Java generics.
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public Object getValue() {
-      if (isDefaultValue) {
-        // If no value was present, we want the default value for this option.
-        return optionDefinition.getDefaultValue();
-      }
-      if (getAllowMultiple() && value != null) {
-        // Sort the results by option priority and return them in a new list.
-        // The generic type of the list is not known at runtime, so we can't
-        // use it here. It was already checked in the constructor, so this is
-        // type-safe.
-        List result = new ArrayList<>();
-        ListMultimap realValue = (ListMultimap) value;
-        for (OptionPriority priority : OptionPriority.values()) {
-          // If there is no mapping for this key, this check avoids object creation (because
-          // ListMultimap has to return a new object on get) and also an unnecessary addAll call.
-          if (realValue.containsKey(priority)) {
-            result.addAll(realValue.get(priority));
-          }
-        }
-        return result;
-      }
-      return value;
-    }
-
-    /**
-     * @return the priority of the thing that set this value for this flag
-     */
-    public OptionPriority getPriority() {
-      return priority;
-    }
-
-    /**
-     * @return the thing that set this value for this flag
-     */
-    public String getSource() {
-      return source;
-    }
-
-    public OptionDefinition getImplicitDependant() {
-      return implicitDependant;
-    }
-
-    public boolean isImplicitDependency() {
-      return implicitDependant != null;
-    }
-
-    public OptionDefinition getExpansionParent() {
-      return expandedFrom;
-    }
-
-    public boolean isExpansion() {
-      return expandedFrom != null;
-    }
-
-    public boolean getAllowMultiple() {
-      return optionDefinition.allowsMultiple();
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder result = new StringBuilder();
-      result.append("option '").append(optionDefinition.getOptionName()).append("' ");
-      if (isDefaultValue) {
-        result
-            .append("set to its default value: '")
-            .append(optionDefinition.getUnparsedDefaultValue())
-            .append("'");
-        return result.toString();
-      } else {
-        result.append("set to '").append(value).append("' ");
-        result.append("with priority ").append(priority);
-        if (source != null) {
-          result.append(" and source '").append(source).append("'");
-        }
-        if (implicitDependant != null) {
-          result.append(" implicitly by ");
-        }
-        return result.toString();
-      }
-    }
-
-    // Need to suppress unchecked warnings, because the "multiple occurrence"
-    // options use unchecked ListMultimaps due to limitations of Java generics.
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void addValue(OptionPriority addedPriority, Object addedValue) {
-      Preconditions.checkState(optionDefinition.allowsMultiple());
-      Preconditions.checkState(!isDefaultValue);
-      ListMultimap optionValueList = (ListMultimap) value;
-      if (addedValue instanceof List<?>) {
-        optionValueList.putAll(addedPriority, (List<?>) addedValue);
-      } else {
-        optionValueList.put(addedPriority, addedValue);
-      }
-    }
-  }
-
-  /**
-   * The name and unparsed value of an option with additional metadata describing its
-   * priority, source, whether it was set via an implicit dependency, and if so,
-   * by which other option.
-   *
-   * <p>Note that the unparsed value and the source parameters can both be null.
-   */
-  public static class UnparsedOptionValueDescription {
-
-    private final OptionDefinition optionDefinition;
-    @Nullable private final String unparsedValue;
-    private final OptionPriority priority;
-    @Nullable private final String source;
-    private final boolean explicit;
-
-    public UnparsedOptionValueDescription(
-        OptionDefinition optionDefinition,
-        @Nullable String unparsedValue,
-        OptionPriority priority,
-        @Nullable String source,
-        boolean explicit) {
-      this.optionDefinition = optionDefinition;
-      this.unparsedValue = unparsedValue;
-      this.priority = priority;
-      this.source = source;
-      this.explicit = explicit;
-    }
-
-    public String getName() {
-      return optionDefinition.getOptionName();
-    }
-    OptionDefinition getOptionDefinition() {
-      return optionDefinition;
-    }
-
-    public boolean isBooleanOption() {
-      return optionDefinition.getType().equals(boolean.class);
-    }
-
-    private OptionDocumentationCategory documentationCategory() {
-      return optionDefinition.getDocumentationCategory();
-    }
-
-    private ImmutableList<OptionMetadataTag> metadataTags() {
-      return ImmutableList.copyOf(optionDefinition.getOptionMetadataTags());
-    }
-
-    public boolean isDocumented() {
-      return documentationCategory() != OptionDocumentationCategory.UNDOCUMENTED && !isHidden();
-    }
-
-    public boolean isHidden() {
-      ImmutableList<OptionMetadataTag> tags = metadataTags();
-      return tags.contains(OptionMetadataTag.HIDDEN) || tags.contains(OptionMetadataTag.INTERNAL);
-    }
-
-    boolean isExpansion() {
-      return optionDefinition.isExpansionOption();
-    }
-
-    boolean isImplicitRequirement() {
-      return optionDefinition.getImplicitRequirements().length > 0;
-    }
-
-    public String getUnparsedValue() {
-      return unparsedValue;
-    }
-
-    OptionPriority getPriority() {
-      return priority;
-    }
-
-    public String getSource() {
-      return source;
-    }
-
-    public boolean isExplicit() {
-      return explicit;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder result = new StringBuilder();
-      result.append("option '").append(optionDefinition.getOptionName()).append("' ");
-      result.append("set to '").append(unparsedValue).append("' ");
-      result.append("with priority ").append(priority);
-      if (source != null) {
-        result.append(" and source '").append(source).append("'");
-      }
-      return result.toString();
-    }
-  }
-
-  /**
    * The verbosity with which option help messages are displayed: short (just
    * the name), medium (name, type, default, abbreviation), and long (full
    * description).
@@ -676,8 +413,8 @@ public class OptionsParser implements OptionsProvider {
    * Returns a description of the options values that get expanded from this option with the given
    * value.
    *
-   * @return The {@link ImmutableList<OptionValueDescription>} for the option, or null if there is
-   *     no option by the given name.
+   * @return The {@link com.google.devtools.common.options.OptionValueDescriptionlueDescription>}
+   *     for the option, or null if there is no option by the given name.
    */
   ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
       OptionDefinition option, @Nullable String optionValue) throws OptionsParsingException {
@@ -690,8 +427,8 @@ public class OptionsParser implements OptionsProvider {
    * of type {@link List}, the description will correspond to any one of the calls, but not
    * necessarily the last.
    *
-   * @return The {@link OptionValueDescription} for the option, or null if the value has not been
-   *     set.
+   * @return The {@link com.google.devtools.common.options.OptionValueDescription} for the option,
+   *     or null if the value has not been set.
    * @throws IllegalArgumentException if there is no option by the given name.
    */
   OptionValueDescription getOptionValueDescription(String name) {
