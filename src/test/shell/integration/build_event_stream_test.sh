@@ -101,6 +101,11 @@ filegroup(
   name = "outergroup",
   srcs = ["sourcefileC", ":innergroup"],
 )
+genrule(
+  name = "not_a_test",
+  outs = ["not_a_test.txt"],
+  cmd = "touch $@",
+)
 EOF
 cat > simpleaspect.bzl <<EOF
 def _simple_aspect_impl(target, ctx):
@@ -616,6 +621,14 @@ function test_test_fails_to_build() {
   (bazel test --build_event_text_file=$TEST_log \
          pkg:test_that_fails_to_build && fail "test failure expected") || true
   expect_not_log '^test_summary'
+  expect_log 'last_message: true'
+}
+
+function test_no_tests_found() {
+  (bazel test --build_event_text_file=$TEST_log \
+         pkg:not_a_test && fail "failure expected") || true
+  expect_not_log '^test_summary'
+  expect_log 'last_message: true'
 }
 
 run_suite "Integration tests for the build event stream"
