@@ -112,7 +112,7 @@ public final class AspectValue extends ActionLookupValue {
     /**
      * Returns the configuration to be used for the evaluation of the aspect itself.
      *
-     * <p>In dynamic configuration mode, the aspect may require more fragments than the target on
+     * <p>In trimmed configuration mode, the aspect may require more fragments than the target on
      * which it is being evaluated; in addition to configuration fragments required by the target
      * and its dependencies, an aspect has configuration fragment requirements of its own, as well
      * as dependencies of its own with their own configuration fragment requirements.
@@ -122,7 +122,7 @@ public final class AspectValue extends ActionLookupValue {
      * configurations trimmed from this one as normal.
      *
      * <p>Because of these properties, this configuration is always a superset of that returned by
-     * {@link #getBaseConfiguration()}. In static configuration mode, this configuration will be
+     * {@link #getBaseConfiguration()}. In untrimmed configuration mode, this configuration will be
      * equivalent to that returned by {@link #getBaseConfiguration()}.
      *
      * @see #getBaseConfiguration()
@@ -134,7 +134,7 @@ public final class AspectValue extends ActionLookupValue {
     /**
      * Returns the configuration to be used for the base target.
      *
-     * <p>In dynamic configuration mode, the configured target this aspect is attached to may have
+     * <p>In trimmed configuration mode, the configured target this aspect is attached to may have
      * a different configuration than the aspect itself (see the documentation for
      * {@link #getAspectConfiguration()} for an explanation why). The base configuration is the one
      * used to construct a key to look up the base configured target.

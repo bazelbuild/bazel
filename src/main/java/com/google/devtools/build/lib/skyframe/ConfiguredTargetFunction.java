@@ -531,7 +531,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Creates a dynamic configuration for each dep that's custom-fitted specifically for that dep.
    *
    * <p>More specifically: given a set of {@link Dependency} instances holding dynamic config
-   * transition requests (e.g. {@link Dependency#hasStaticConfiguration()} == false}), returns
+   * transition requests (e.g. {@link Dependency#hasExplicitConfiguration()} == false}), returns
    * equivalent dependencies containing dynamically created configurations applying those
    * transitions. If {@link BuildConfiguration.Options#trimConfigurations()} is true, these
    * configurations only contain the fragments needed by the dep and its transitive closure. Else
@@ -618,7 +618,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       //
       // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
       // simple cc_binary show this saves ~1% of total analysis phase time.
-      if (dep.hasStaticConfiguration()) {
+      if (dep.hasExplicitConfiguration()) {
         continue;
       }
 
@@ -869,7 +869,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       AttributeAndLabel attrAndLabel = iterator.next();
-      if (depsEntry.getValue().hasStaticConfiguration()) {
+      if (depsEntry.getValue().hasExplicitConfiguration()) {
         result.put(attrAndLabel.attribute, depsEntry.getValue());
       } else {
         Collection<Dependency> dynamicAttrDeps = dynamicDeps.get(attrAndLabel);
