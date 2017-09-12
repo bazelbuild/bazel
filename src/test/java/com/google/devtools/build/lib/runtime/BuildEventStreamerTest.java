@@ -110,6 +110,10 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       return Futures.immediateFuture(null);
     }
 
+    @Override
+    public void closeNow() {
+    }
+
     List<BuildEvent> getEvents() {
       return events;
     }

@@ -62,6 +62,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   private OutErr outErr;
 
+  private Set<BuildEventTransport> transports = ImmutableSet.of();
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableList.of(optionsClass(), AuthAndTLSOptions.class, BuildEventStreamOptions.class);
@@ -183,7 +185,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         transportsBuilder.add(besTransport);
       }
 
-      ImmutableSet<BuildEventTransport> transports = transportsBuilder.build();
+      transports = transportsBuilder.build();
       if (!transports.isEmpty()) {
         return new BuildEventStreamer(transports, reporter);
       }
@@ -236,6 +238,13 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               besOptions.projectId);
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
+    }
+  }
+
+  @Override
+  public void blazeShutdown() {
+    for (BuildEventTransport transport : transports) {
+      transport.closeNow();
     }
   }
 

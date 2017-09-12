@@ -68,9 +68,15 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   @Override
   public Status publish(PublishLifecycleEventRequest lifecycleEvent) throws Exception {
-    besBlocking
-        .withDeadlineAfter(RPC_TIMEOUT.toMillis(), MILLISECONDS)
-        .publishLifecycleEvent(lifecycleEvent);
+    try {
+      besBlocking
+          .withDeadlineAfter(RPC_TIMEOUT.toMillis(), MILLISECONDS)
+          .publishLifecycleEvent(lifecycleEvent);
+    } catch (StatusRuntimeException e) {
+      Throwable rootCause = Throwables.getRootCause(e);
+      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
+      throw e;
+    }
     return Status.OK;
   }
 
@@ -87,32 +93,44 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   private StreamObserver<PublishBuildToolEventStreamRequest> createStream(
       final Function<PublishBuildToolEventStreamResponse, Void> ack,
-      final SettableFuture<Status> streamFinished) {
-    return besAsync.publishBuildToolEventStream(
-        new StreamObserver<PublishBuildToolEventStreamResponse>() {
-          @Override
-          public void onNext(PublishBuildToolEventStreamResponse response) {
-            ack.apply(response);
-          }
+      final SettableFuture<Status> streamFinished) throws InterruptedException {
+    try {
+      return besAsync.publishBuildToolEventStream(
+          new StreamObserver<PublishBuildToolEventStreamResponse>() {
+            @Override
+            public void onNext(PublishBuildToolEventStreamResponse response) {
+              ack.apply(response);
+            }
 
-          @Override
-          public void onError(Throwable t) {
-            streamReference.set(null);
-            streamFinished.setException(t);
-          }
+            @Override
+            public void onError(Throwable t) {
+              streamReference.set(null);
+              streamFinished.setException(t);
+            }
 
-          @Override
-          public void onCompleted() {
-            streamReference.set(null);
-            streamFinished.set(Status.OK);
-          }
-        });
+            @Override
+            public void onCompleted() {
+              streamReference.set(null);
+              streamFinished.set(Status.OK);
+            }
+          });
+    } catch (StatusRuntimeException e) {
+      Throwable rootCause = Throwables.getRootCause(e);
+      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
+      throw e;
+    }
   }
 
   @Override
   public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws Exception {
-    checkNotNull(streamReference.get(), "Attempting to send over a closed or unopened stream")
-        .onNext(buildEvent);
+    try {
+      checkNotNull(streamReference.get(), "Attempting to send over a closed or unopened stream")
+          .onNext(buildEvent);
+    } catch (StatusRuntimeException e) {
+      Throwable rootCause = Throwables.getRootCause(e);
+      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
+      throw e;
+    }
   }
 
   @Override

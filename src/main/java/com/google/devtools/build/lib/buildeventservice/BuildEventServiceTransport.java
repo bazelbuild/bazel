@@ -165,8 +165,24 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
-  public synchronized ListenableFuture<Void> close() {
+  public ListenableFuture<Void> close() {
+    return close(/*now=*/false);
+  }
+
+  @Override
+  @SuppressWarnings("FutureReturnValueIgnored")
+  public void closeNow() {
+    close(/*now=*/true);
+  }
+
+  private synchronized ListenableFuture<Void> close(boolean now) {
     if (shutdownFuture != null) {
+      if (now) {
+        cancelUpload();
+        if (!shutdownFuture.isDone()) {
+          shutdownFuture.set(null);
+        }
+      }
       return shutdownFuture;
     }
 
@@ -174,6 +190,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
     // The future is completed once the close succeeded or failed.
     shutdownFuture = SettableFuture.create();
+
+    if (now) {
+      cancelUpload();
+      shutdownFuture.set(null);
+      return shutdownFuture;
+    }
 
     uploaderExecutorService.execute(
         () -> {
@@ -221,6 +243,23 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         });
 
     return shutdownFuture;
+  }
+
+  private void cancelUpload() {
+    if (!uploaderExecutorService.isShutdown()) {
+      logger.log(Level.INFO, "Forcefully closing the build event service transport.");
+      // This will interrupt the thread doing the BES upload.
+      if (uploadComplete != null) {
+        uploadComplete.cancel(true);
+      }
+      uploaderExecutorService.shutdownNow();
+      try {
+        uploaderExecutorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        // Ignore this exception. We are shutting down independently no matter what the BES
+        // upload does.
+      }
+    }
   }
 
   @Override
@@ -415,7 +454,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       final BlockingDeque<PublishBuildToolEventStreamRequest> pendingSend,
       final BuildEventServiceClient besClient)
       throws Exception {
-    ListenableFuture<Status> streamDone = besClient.openStream(ackCallback(pendingAck, besClient));
+    ListenableFuture<Status> streamDone = besClient
+        .openStream(ackCallback(pendingAck, besClient));
     try {
       PublishBuildToolEventStreamRequest event;
       do {
@@ -423,7 +463,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         pendingAck.add(event);
         besClient.sendOverStream(event);
       } while (!isLastEvent(event));
-      besClient.closeStream();
+    } catch (InterruptedException e) {
+      // By convention the interrupted flag should have been cleared,
+      // but just to be sure clear it.
+      Thread.interrupted();
+      String additionalDetails = "Sending build events.";
+      besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetails));
+      throw e;
     } catch (Exception e) {
       String additionalDetail = e.getMessage();
       logger.log(Level.WARNING, "Aborting publishBuildToolEventStream RPC: " + additionalDetail);
@@ -435,9 +481,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Status status =
           streamDone.get(PUBLISH_EVENT_STREAM_FINISHED_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
       logger.log(Level.INFO, "Done with publishEventStream(). Status: " + status);
+    } catch (InterruptedException e) {
+      // By convention the interrupted flag should have been cleared,
+      // but just to be sure clear it.
+      Thread.interrupted();
+      String additionalDetails = "Waiting for ACK messages.";
+      besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetails));
+      throw e;
     } catch (TimeoutException e) {
       String additionalDetail = "Build Event Protocol upload timed out waiting for ACK messages";
-      logger.log(Level.WARNING, "Cancelling publishBuildToolEventStream RPC: " + additionalDetail);
+      logger
+          .log(Level.WARNING, "Cancelling publishBuildToolEventStream RPC: " + additionalDetail);
       besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetail));
       throw e;
     }
@@ -466,6 +520,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       PublishBuildToolEventStreamRequest event = pendingAck.removeFirst();
       if (isLastEvent(event)) {
         logger.log(Level.INFO, "Last ACK received.");
+        besClient.closeStream();
       }
       return null;
     };
@@ -487,8 +542,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         c.call();
         lastKnownError = null;
         return;
-        // TODO(buchgr): Narrow the exception to not catch InterruptedException and
-        // RuntimeException's.
+      } catch (InterruptedException e) {
+        throw e;
       } catch (Exception e) {
         tries++;
         lastKnownError = e;
