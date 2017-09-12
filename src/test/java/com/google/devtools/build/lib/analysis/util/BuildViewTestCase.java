@@ -234,7 +234,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             analysisMock.getSkyFunctions(),
-            getPrecomputedValues(),
+            ImmutableList.of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             PathFragment.EMPTY_FRAGMENT,
             analysisMock.getProductName(),
@@ -280,10 +280,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
     return ImmutableList.<EnvironmentExtension>of();
-  }
-
-  protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
-    return ImmutableList.of();
   }
 
   protected SkylarkSemanticsOptions getSkylarkSemantics() {

@@ -178,7 +178,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             analysisMock.getSkyFunctions(),
-            getPrecomputedValues(),
+            ImmutableList.of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             PathFragment.EMPTY_FRAGMENT,
             analysisMock.getProductName(),
@@ -211,10 +211,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisMock getAnalysisMock() {
     return AnalysisMock.get();
-  }
-
-  protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
-    return ImmutableList.of();
   }
 
   /**
