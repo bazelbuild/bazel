@@ -311,22 +311,6 @@ public final class Attribute implements Comparable<Attribute> {
       };
 
   /**
-   * Using this callback function, rules can change the configuration of their dependencies during
-   * the analysis phase.
-   *
-   * <p>If dynamic configurations are enabled, the returned transition must be a
-   * {@link com.google.devtools.build.lib.analysis.config.PatchTransition}.
-   *
-   * @deprecated this is only needed for statically configured builds. Dynamically configured builds
-   *     should just use {@link Attribute.Builder#cfg(Transition)}} with a directly provided
-   *     {@link com.google.devtools.build.lib.analysis.config.PatchTransition}.
-   */
-  @Deprecated
-  public interface Configurator<TBuildOptions> {
-    Transition apply(TBuildOptions fromOptions);
-  }
-
-  /**
    * Provides a {@link SplitTransition} given the originating target {@link Rule}. The split
    * transition may be constant for all instances of the originating rule, or it may differ
    * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
@@ -424,7 +408,6 @@ public final class Attribute implements Comparable<Attribute> {
     private Transition configTransition = ConfigurationTransition.NONE;
     private Predicate<RuleClass> allowedRuleClassesForLabels = Predicates.alwaysTrue();
     private Predicate<RuleClass> allowedRuleClassesForLabelsWarning = Predicates.alwaysFalse();
-    private Configurator<?> configurator;
     private SplitTransitionProvider splitTransitionProvider;
     private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
@@ -573,17 +556,6 @@ public final class Attribute implements Comparable<Attribute> {
         this.configTransition = configTransition;
         return this;
       }
-    }
-
-    /**
-     * @deprecated Use {@link #cfg(Transition)}} with a
-     * {@link com.google.devtools.build.lib.analysis.config.PatchTransition} instead. This method
-     * only provides legacy support for statically configured builds.
-     */
-    @Deprecated
-    public Builder<TYPE> cfg(Configurator<?> configurator) {
-      this.configurator = configurator;
-      return this;
     }
 
     /**
@@ -1143,7 +1115,6 @@ public final class Attribute implements Comparable<Attribute> {
           Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(),
           configTransition,
-          configurator,
           splitTransitionProvider,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
@@ -1731,7 +1702,6 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final Transition configTransition;
 
-  private final Configurator<?> configurator;
   private final SplitTransitionProvider splitTransitionProvider;
 
   /**
@@ -1786,7 +1756,6 @@ public final class Attribute implements Comparable<Attribute> {
       Set<PropertyFlag> propertyFlags,
       Object defaultValue,
       Transition configTransition,
-      Configurator<?> configurator,
       SplitTransitionProvider splitTransitionProvider,
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
@@ -1798,7 +1767,7 @@ public final class Attribute implements Comparable<Attribute> {
       ImmutableList<RuleAspect<?>> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
-        (configTransition == ConfigurationTransition.NONE && configurator == null)
+        (configTransition == ConfigurationTransition.NONE)
         || type.getLabelClass() == LabelClass.DEPENDENCY
         || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");
@@ -1808,8 +1777,6 @@ public final class Attribute implements Comparable<Attribute> {
         name);
     if (isLateBound(name)) {
       LateBoundDefault<?> lateBoundDefault = (LateBoundDefault<?>) defaultValue;
-      Preconditions.checkArgument((configurator == null),
-          "a late bound attribute cannot specify a configurator");
       Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
           || (configTransition == ConfigurationTransition.HOST),
           "a late bound default value using the host configuration must use the host transition");
@@ -1820,7 +1787,6 @@ public final class Attribute implements Comparable<Attribute> {
     this.propertyFlags = propertyFlags;
     this.defaultValue = defaultValue;
     this.configTransition = configTransition;
-    this.configurator = configurator;
     this.splitTransitionProvider = splitTransitionProvider;
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
@@ -1917,14 +1883,6 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public Transition getConfigurationTransition() {
     return configTransition;
-  }
-
-  /**
-   * Returns the configurator instance for this attribute for label or label list attributes.
-   * For other attributes it will always return {@code null}.
-   */
-  public Configurator<?> getConfigurator() {
-    return configurator;
   }
 
   /**

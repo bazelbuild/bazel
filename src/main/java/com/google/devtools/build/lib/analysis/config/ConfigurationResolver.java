@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.Configurator;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -109,23 +107,13 @@ public final class ConfigurationResolver {
     // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses).
     // The "else" is a legacy restriction from static configurations.
     if (attribute.hasSplitConfigurationTransition()) {
-      Preconditions.checkState(attribute.getConfigurator() == null);
       currentTransition = split(currentTransition,
           (SplitTransition<BuildOptions>) attribute.getSplitTransition(fromRule));
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.
-      @SuppressWarnings("unchecked")
-      Configurator<BuildOptions> configurator =
-          (Configurator<BuildOptions>) attribute.getConfigurator();
-      if (configurator != null) {
-        // TODO(gregce): attribute configurators are a holdover from static configurations. Remove
-        // them and remove this branch.
-        currentTransition = applyAttributeConfigurator(currentTransition, configurator);
-      } else {
-        currentTransition = composeTransitions(currentTransition,
-            attribute.getConfigurationTransition());
-      }
+      currentTransition = composeTransitions(currentTransition,
+          attribute.getConfigurationTransition());
     }
 
     return applyConfigurationHook(currentTransition, toTarget);
@@ -187,37 +175,6 @@ public final class ConfigurationResolver {
     return currentTransition == Attribute.ConfigurationTransition.NONE
         ? split
         : new ComposingSplitTransition(currentTransition, split);
-  }
-
-  /**
-   * Applies the given attribute configurator and composes it after an existing transition.
-   */
-  @VisibleForTesting
-  public Transition applyAttributeConfigurator(Transition currentTransition,
-      Configurator<BuildOptions> configurator) {
-    if (isFinal(currentTransition)) {
-      return currentTransition;
-    }
-    return composeTransitions(currentTransition, new AttributeConfiguratorTransition(configurator));
-  }
-
-  /**
-   * A {@link PatchTransition} that applies an attribute configurator over some input options
-   * to determine which transition to use, then applies that transition over those options
-   * for the final output.
-   */
-  private static final class AttributeConfiguratorTransition implements PatchTransition {
-    private final Configurator<BuildOptions> configurator;
-
-    AttributeConfiguratorTransition(Configurator<BuildOptions> configurator) {
-      this.configurator = configurator;
-    }
-
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      return Iterables.getOnlyElement(
-          ComposingSplitTransition.apply(options, configurator.apply(options)));
-    }
   }
 
   /**

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
@@ -529,92 +528,6 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
             newSplitTransition("s"),
             newSplitTransition("t"))))
         .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
-  }
-
-  /**
-   * Returns a new {@link Attribute} definition with the given configurator.
-   */
-  private static Attribute newAttributeWithConfigurator(
-      final Attribute.Configurator<BuildOptions> configurator) {
-    return attr("foo_attr", LABEL)
-        .allowedRuleClasses(ANY_RULE)
-        .allowedFileTypes(FileTypeSet.ANY_FILE)
-        .cfg(configurator)
-        .build();
-  }
-
-  /**
-   * Returns a new {@link Attribute.Configurator} that appends a given value to {@link
-   * TestConfiguration.TestOptions#testFilter}.
-   */
-  private static Attribute.Configurator<BuildOptions> newAttributeWithStaticConfigurator(
-      final String value) {
-    return (Attribute.Configurator<BuildOptions>) newAttributeWithConfigurator(
-        new Attribute.Configurator<BuildOptions>() {
-          @Override
-          public Attribute.Transition apply(BuildOptions fromOptions) {
-            return newPatchTransition(value);
-          }
-        }).getConfigurator();
-  }
-
-  @Test
-  public void attributeConfigurator() throws Exception {
-    update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        configResolver.applyAttributeConfigurator(
-            Attribute.ConfigurationTransition.NONE,
-            newAttributeWithStaticConfigurator("from attr"))))
-        .containsExactly("from attr");
-  }
-
-  @Test
-  public void straightTransitionThenAttributeConfigurator() throws Exception {
-    update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        configResolver.applyAttributeConfigurator(
-            newPatchTransition("from patch "),
-            newAttributeWithStaticConfigurator("from attr"))))
-        .containsExactly("from patch from attr");
-  }
-
-  /**
-   * Returns an {@link Attribute.Configurator} that repeats the existing value of {@link
-   * TestConfiguration.TestOptions#testFilter}, plus a signature suffix.
-   */
-  private static final Attribute.Configurator<BuildOptions> ATTRIBUTE_WITH_REPEATING_CONFIGURATOR =
-      (Attribute.Configurator<BuildOptions>)
-          newAttributeWithConfigurator(
-                  new Attribute.Configurator<BuildOptions>() {
-                    @Override
-                    public Attribute.Transition apply(BuildOptions fromOptions) {
-                      return newPatchTransition(
-                          fromOptions.get(TestConfiguration.TestOptions.class).testFilter
-                              + " (attr)");
-                    }
-                  })
-              .getConfigurator();
-
-  @Test
-  public void splitTransitionThenAttributeConfigurator() throws Exception {
-    update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        configResolver.applyAttributeConfigurator(
-            newSplitTransition(" split"),
-            ATTRIBUTE_WITH_REPEATING_CONFIGURATOR)))
-        .containsExactly(" split1 split1 (attr)", " split2 split2 (attr)");
-  }
-
-  @Test
-  public void composedAttributeConfigurators() throws Exception {
-    update(); // Creates the target configuration.
-    assertThat(getTestFilterOptionValue(
-        configResolver.applyAttributeConfigurator(
-            configResolver.applyAttributeConfigurator(
-                Attribute.ConfigurationTransition.NONE,
-                newAttributeWithStaticConfigurator("from attr 1 ")),
-            ATTRIBUTE_WITH_REPEATING_CONFIGURATOR)))
-        .containsExactly("from attr 1 from attr 1  (attr)");
   }
 
   /** Sets {@link TestConfiguration.TestOptions#testFilter} to the rule class of the given rule. */

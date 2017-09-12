@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -376,16 +375,12 @@ public abstract class DependencyResolver {
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
       if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
-        // Since we want to get the same results as BuildConfiguration.evaluateTransition (but
+        // Since we want to get the same results as ConfigurationResolver.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
-        // doesn't do anything differently. evaluateTransition has additional logic
-        // for host configs and attributes with configurators. To keep the fork as simple as
-        // possible, we don't support the configurator case. And when we're in the host
-        // configuration, we fall back to the non-split branch, which calls
-        // BuildConfiguration.evaluateTransition, which returns its "host mode" result without
-        // ever looking at the split.
-        Verify.verify(attribute.getConfigurator() == null);
-
+        // doesn't do anything differently. ConfigurationResolver.evaluateTransition has additional
+        // logic for host configs. So when we're in the host configuration we fall back to the
+        // non-split branch, which calls ConfigurationResolver.evaluateTransition, which returns its
+        // "host mode" result without ever looking at the split.
         Iterable<BuildConfiguration> splitConfigs =
             getConfigurations(ruleConfig.fragmentClasses(), splitOptions);
         if (splitConfigs == null) {

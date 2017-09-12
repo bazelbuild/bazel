@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
@@ -1232,20 +1233,21 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
+    Attribute.Transition transition = attributeDefinition.getConfigurationTransition();
     if (mode == Mode.HOST) {
-      if (attributeDefinition.getConfigurationTransition() != ConfigurationTransition.HOST) {
+      if (!(transition instanceof PatchTransition) && transition != ConfigurationTransition.HOST) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the host configuration");
       }
     } else if (mode == Mode.TARGET) {
-      if (attributeDefinition.getConfigurationTransition() != ConfigurationTransition.NONE) {
+      if (!(transition instanceof PatchTransition) && transition != ConfigurationTransition.NONE) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the target configuration");
       }
     } else if (mode == Mode.DATA) {
-      if (attributeDefinition.getConfigurationTransition() != ConfigurationTransition.DATA) {
+      if (!(transition instanceof PatchTransition) && transition != ConfigurationTransition.DATA) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the data configuration");
