@@ -180,7 +180,9 @@ ExitCode BinaryLauncherBase::LaunchProcess(
       /* lpStartupInfo */ &startupInfo,
       /* lpProcessInformation */ &processInfo);
   if (!ok) {
-    PrintError("Cannot launch process:\n%s", GetLastErrorString().c_str());
+    PrintError("Cannot launch process: %s\nReason: %s",
+               cmdline.cmdline,
+               GetLastErrorString().c_str());
     return GetLastError();
   }
   WaitForSingleObject(processInfo.hProcess, INFINITE);
