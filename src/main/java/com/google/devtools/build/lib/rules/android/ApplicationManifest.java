@@ -318,13 +318,14 @@ public final class ApplicationManifest {
     return new ApplicationManifest(ruleContext, outputManifest, targetAaptVersion);
   }
 
-  /** Packages up the manifest with assets from the rule and dependent resources. */
-  public ResourceApk packWithAssets(
-      Artifact resourceApk,
+  public ResourceApk packTestWithDataAndResources(
       RuleContext ruleContext,
+      Artifact resourceApk,
       ResourceDependencies resourceDeps,
       boolean incremental,
-      Artifact proguardCfg) throws InterruptedException, RuleErrorException {
+      Artifact proguardCfg,
+      @Nullable String packageUnderTest)
+      throws InterruptedException, RuleErrorException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -332,7 +333,21 @@ public final class ApplicationManifest {
                 // TODO(bazel-team): Remove the ResourceType construct.
                 ResourceType.ASSETS.getAttribute(),
                 Mode.TARGET,
+                FileProvider.class))
+        .withResources(
+            ruleContext.getPrerequisites(
+                "local_resource_files",
+                Mode.TARGET,
                 FileProvider.class)).build();
+    ResourceContainer.Builder builder =
+        ResourceContainer.builderFromRule(ruleContext)
+            .setAssetsAndResourcesFrom(data)
+            .setManifest(getManifest())
+            .setApk(resourceApk);
+
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
 
     return createApk(
         ruleContext,
@@ -341,15 +356,16 @@ public final class ApplicationManifest {
         ImmutableList.of(), /* uncompressedExtensions */
         true, /* crunchPng */
         incremental,
-        ResourceContainer.builderFromRule(ruleContext).setApk(resourceApk),
+        builder,
         data,
         proguardCfg,
         null, /* Artifact mainDexProguardCfg */
-        null, /* Artifact manifestOut */
+        null /* Artifact manifestOut */,
         null, /* Artifact mergedResources */
         null, /* Artifact dataBindingInfoZip */
         null, /* featureOf */
-        null /* featureAfter */);
+        null /* featureAfter */,
+        packageUnderTest);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -386,7 +402,8 @@ public final class ApplicationManifest {
         mergedResources,
         null, /* Artifact dataBindingInfoZip */
         null, /* Artifact featureOf */
-        null /* Artifact featureAfter */);
+        null /* Artifact featureAfter */,
+        null /* packageUnderTest */);
   }
 
   /* Creates an incremental apk from assets and data. */
@@ -427,7 +444,8 @@ public final class ApplicationManifest {
         null, /* mergedResources */
         null, /* dataBindingInfoZip */
         null, /* featureOf */
-        null /* featureAfter */);
+        null /* featureAfter */,
+        null /* packageUnderTest */);
   }
 
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
@@ -486,7 +504,8 @@ public final class ApplicationManifest {
         mergedResources,
         dataBindingInfoZip,
         featureOf,
-        featureAfter);
+        featureAfter,
+        null /* packageUnderTest */);
   }
 
   public ResourceApk packLibraryWithDataAndResources(
@@ -552,7 +571,8 @@ public final class ApplicationManifest {
         mergedResources,
         dataBindingInfoZip,
         null /* featureOf */,
-        null /* featureAfter */);
+        null /* featureAfter */,
+        null /* packageUnderTest */);
   }
 
   private ResourceApk createApk(
@@ -570,7 +590,8 @@ public final class ApplicationManifest {
       Artifact mergedResources,
       Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter)
+      @Nullable Artifact featureAfter,
+      @Nullable String packageUnderTest)
       throws InterruptedException, RuleErrorException {
     // Filter the resources during analysis to prevent processing of and dependencies on unwanted
     // resources during execution.
@@ -678,7 +699,8 @@ public final class ApplicationManifest {
               .setFeatureAfter(featureAfter)
               .setThrowOnResourceConflict(
                 ruleContext.getConfiguration()
-                    .getFragment(AndroidConfiguration.class).throwOnResourceConflict());
+                    .getFragment(AndroidConfiguration.class).throwOnResourceConflict())
+              .setPackageUnderTest(packageUnderTest);
       if (!incremental) {
         builder
             .targetAaptVersion(targetAaptVersion)

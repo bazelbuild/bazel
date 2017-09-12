@@ -115,6 +115,7 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact featureAfter;
   private AndroidAaptVersion aaptVersion;
   private boolean throwOnResourceConflict;
+  private String packageUnderTest;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -269,6 +270,11 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setVersionName(String versionName) {
     this.versionName = versionName;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setPackageUnderTest(String packageUnderTest) {
+    this.packageUnderTest = packageUnderTest;
     return this;
   }
 
@@ -515,6 +521,10 @@ public class AndroidResourcesProcessorBuilder {
 
     if (throwOnResourceConflict) {
       builder.add("--throwOnResourceConflict");
+    }
+
+    if (packageUnderTest != null) {
+      builder.add("--packageUnderTest", packageUnderTest);
     }
   }
 }
