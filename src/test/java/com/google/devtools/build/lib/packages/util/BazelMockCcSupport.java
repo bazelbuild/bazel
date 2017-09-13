@@ -78,6 +78,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "/bazel_tools_workspace/tools/cpp/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'stl')",
+        "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'malloc')",
         "cc_toolchain_suite(",
         "    name = 'toolchain',",
@@ -145,16 +146,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
         ")",
-        "toolchain_type(name = 'toolchain_type')",
+        "load('//tools/build_defs/toolchains:toolchain_category.bzl', 'toolchain_category')",
+        "toolchain_category(name = 'toolchain_category')",
         "toolchain(",
         "   name = 'toolchain_cc-compiler-piii',",
-        "   toolchain_type = ':toolchain_type',",
+        "   toolchain_type = ':toolchain_category',",
         "   toolchain = '//third_party/crosstool/mock:cc-compiler-piii',",
         "   target_compatible_with = [':mock_value'],",
         ")",
         "toolchain(",
         "   name = 'dummy_cc_toolchain',",
-        "   toolchain_type = ':toolchain_type',",
+        "   toolchain_type = ':toolchain_category',",
         "   toolchain = ':dummy_cc_toolchain_impl',",
         ")",
         "load(':dummy_toolchain.bzl', 'dummy_toolchain')",
@@ -165,6 +167,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "   toolchain = platform_common.ToolchainInfo()",
         "   return [toolchain]",
         "dummy_toolchain = rule(_dummy_toolchain_impl, attrs = {})");
+    config.create("/bazel_tools_workspace/tools/build_defs/toolchains/BUILD");
+    config.create(
+        "/bazel_tools_workspace/tools/build_defs/toolchains/toolchain_category.bzl",
+        "def _toolchain_category_impl(ctx):",
+        "   ctx = ctx",
+        "toolchain_category = rule(_toolchain_category_impl, attrs = {})");
     config.create(
         "/bazel_tools_workspace/tools/cpp/CROSSTOOL",
         readCrosstoolFile());
