@@ -52,7 +52,6 @@ nav: docs
                 <ul class="collapse sidebar-nav sidebar-submenu" id="tutorial-menu">
                   <li><a href="/versions/{{ site.version }}/tutorial/java.html">Build a Java Project</a></li>
                   <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Build a C++ Project</a></li>
-                  <li><a href="/versions/{{ site.version }}/tutorial/cpp-use-cases.html">Common C++ Use Cases</a></li>
                   <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Build an Android App</a></li>
                   <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Build an iOS App</a></li>
                 </ul>
@@ -66,14 +65,48 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#cpp-menu" aria-expanded="false"
+                    aria-controls="cpp-menu">
+                  C++<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ and Bazel</a></li>
+                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">Common C++ Use Cases</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#java-menu" aria-expanded="false"
                     aria-controls="java-menu">
-                  Java and Bazel <span class="caret"></span>
+                  Java<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
-                  <li><a href="/versions/{{ site.version }}/tutorial/java.html">Tutorial: Build a Java Project</a></li>
+                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java and Bazel</a></li>
                   <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven to Bazel</a></li>
                   <li><a href="/versions/{{ site.version }}/generate-workspace.html">Generate External Dependencies from Maven</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#android-menu" aria-expanded="false"
+                    aria-controls="android-menu">
+                  Android<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android and Bazel</a></li>
+                </ul>
+              </li>
+
+               <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#apple-menu" aria-expanded="false"
+                    aria-controls="apple-menu">
+                  Apple<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-apple.html">Apple apps and Bazel</a></li>
                 </ul>
               </li>
 
