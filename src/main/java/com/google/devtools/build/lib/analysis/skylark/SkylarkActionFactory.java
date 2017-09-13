@@ -292,15 +292,11 @@ public class SkylarkActionFactory implements SkylarkValue {
         type = Object.class,
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc =
-            "command line arguments of the action. "
-                + "May be either a list or an actions.args() object. "
-                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
+        doc = "command line arguments of the action."
       ),
       @Param(
         name = "mnemonic",
@@ -442,14 +438,12 @@ public class SkylarkActionFactory implements SkylarkValue {
         name = "arguments",
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
         doc =
             "command line arguments of the action. "
-                + "May be either a list or an actions.args() object.<br><br>"
                 + "Blaze passes the elements in this attribute as arguments to the command."
                 + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
                 + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
@@ -970,15 +964,6 @@ public class SkylarkActionFactory implements SkylarkValue {
     static {
       SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
     }
-  }
-
-  @SkylarkCallable(
-    name = "args",
-    doc = "returns an Args object that can be used to build memory-efficient command lines."
-  )
-  public Args args() {
-    return new Args(
-        skylarkSemanticsOptions, ruleContext.getAnalysisEnvironment().getEventHandler());
   }
 
   @Override
