@@ -77,15 +77,15 @@ To build C++ targets, you need:
 
     You can install it in one of the following ways:
 
-    *   Install [Visual Studio](https://www.visualstudio.com/) (Community
-        Edition is enough) with Visual C++.
+    *   Install [Visual Studio 2015 or later](https://www.visualstudio.com/)
+        (Community Edition is enough) with Visual C++.
 
         Make sure to also install the `Visual C++ > Common Tools for Visual C++`
         and `Visual C++ > Microsoft Foundation Classes for C++` features. These
         features are not installed by default.
 
     *   Install the [Visual C++ Build
-        Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
+        Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
 *   The `BAZEL_VS` or `BAZEL_VC` environment variable.
 
