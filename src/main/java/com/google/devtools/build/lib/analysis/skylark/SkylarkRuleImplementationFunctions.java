@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory.Args;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -120,14 +119,12 @@ public class SkylarkRuleImplementationFunctions {
         name = "arguments",
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
         doc =
             "command line arguments of the action."
-                + "May be either a list or an actions.args() object."
       ),
       @Param(
         name = "mnemonic",
