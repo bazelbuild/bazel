@@ -34,7 +34,7 @@ function log_progress() {
   # TODO(laszlocsomor): remove this method after we fixed
   # https://github.com/bazelbuild/bazel/issues/3618. I added this method only to
   # catch that bug.
-  echo "DEBUG[$0 ($date)] test_bootstrap, $@"
+  echo "DEBUG[$0 $(date)] test_bootstrap, $@"
 }
 
 function test_bootstrap()  {
