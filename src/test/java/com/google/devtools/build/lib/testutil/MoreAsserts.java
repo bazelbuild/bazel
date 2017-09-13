@@ -439,4 +439,37 @@ public class MoreAsserts {
     assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
     return foundEvents;
   }
+
+
+  /*
+   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static void assertThrows(
+      Class<? extends Throwable> expectedThrown, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable actualThrown) {
+      if (expectedThrown.isInstance(actualThrown)) {
+        return;
+      } else {
+        throw new AssertionError(
+            String.format(
+                "expected %s to be thrown, but %s was thrown",
+                expectedThrown.getSimpleName(),
+                actualThrown.getClass().getSimpleName()),
+            actualThrown);
+      }
+    }
+    throw new AssertionError(
+        String.format(
+            "expected %s to be thrown, but nothing was thrown", expectedThrown.getSimpleName()));
+  }
+
+  /** A helper interface for {@link assertThrows}. */
+  public interface ThrowingRunnable {
+    void run() throws Throwable;
+  }
 }

@@ -13,6 +13,7 @@ java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
     visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
     ],
     runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension"],
@@ -32,6 +33,9 @@ java_library(
 java_binary(
     name = "Desugar",
     main_class = "com.google.devtools.build.android.desugar.Desugar",
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
+    ],
     runtime_deps = [":desugar"],
 )
 
