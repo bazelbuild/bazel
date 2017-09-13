@@ -8,10 +8,7 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-        exclude = ["testenv.py"],
-    ),
+    srcs = glob(["**"]),
 )
 
 py_test(
