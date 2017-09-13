@@ -156,7 +156,6 @@ public class Artifact
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final int hashCode;
-  private final Path path;
   private final Root root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
@@ -190,7 +189,6 @@ public class Artifact
           + " (root: " + root + ")");
     }
     this.hashCode = path.hashCode();
-    this.path = path;
     this.root = root;
     this.execPath = execPath;
     // These two lines establish the invariant that
@@ -246,7 +244,7 @@ public class Artifact
   }
 
   public final Path getPath() {
-    return path;
+    return root.getPath().getRelative(rootRelativePath);
   }
 
   public boolean hasParent() {
@@ -589,10 +587,9 @@ public class Artifact
     if (!(other instanceof Artifact)) {
       return false;
     }
-    // We don't bother to check root in the equivalence relation, because we
-    // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return Objects.equals(this.path, that.path);
+    return Objects.equals(this.rootRelativePath, that.rootRelativePath)
+        && Objects.equals(this.root, that.root);
   }
 
   @Override
@@ -626,7 +623,7 @@ public class Artifact
       return "[" + root + "]" + rootRelativePath;
     } else {
       // Derived Artifact: path and root are under execRoot
-      PathFragment execRoot = trimTail(path.asFragment(), execPath);
+      PathFragment execRoot = trimTail(getPath().asFragment(), execPath);
       return "[[" + execRoot + "]" + root.getPath().asFragment().relativeTo(execRoot) + "]"
           + rootRelativePath;
     }
