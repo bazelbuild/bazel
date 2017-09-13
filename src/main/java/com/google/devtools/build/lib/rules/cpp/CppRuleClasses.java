@@ -102,16 +102,9 @@ public class CppRuleClasses {
   /**
    * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
    * TARGET transition).
-   *
-   * <p>This is how dynamic configurations enable LIPO on the LIPO context.
    */
   public static final RuleTransitionFactory LIPO_ON_DEMAND =
-      new RuleTransitionFactory() {
-        @Override
-        public Attribute.Transition buildTransitionFor(Rule rule) {
-          return new EnableLipoTransition(rule.getLabel());
-        }
-      };
+      (rule) -> new EnableLipoTransition(rule.getLabel());
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,

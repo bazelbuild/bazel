@@ -52,10 +52,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Runs an expanded set of ConfigurationsForTargetsTest with trimmed dynamic configurations. */
+/** Runs an expanded set of ConfigurationsForTargetsTest with trimmed configurations. */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class ConfigurationsForTargetsWithDynamicConfigurationsTest
+public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     extends ConfigurationsForTargetsTest {
 
   private ConfigurationResolver configResolver;
@@ -67,7 +67,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
 
   @Override
   protected FlagBuilder defaultFlags() {
-    return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
+    return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
   }
 
   private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
@@ -430,7 +430,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     ConfiguredTarget target = getView().getConfiguredTargetForTesting(
         reporter,
         Label.parseAbsoluteUnchecked("@//a:factory"),
-        getTargetConfiguration(true));
+        getTargetConfiguration());
     assertThat(target.getConfiguration().getFragment(TestConfiguration.class).getTestFilter())
         .isEqualTo("SET ON COMMAND LINE: original and best");
   }

@@ -14,12 +14,16 @@
 package com.google.devtools.build.lib.analysis.util;
 
 /**
- * Reference point for expected test failures when dynamic configurations are enabled.
+ * Reference point for expected test failures when trimmed configurations are enabled.
  *
- * <p>Every Bazel test should either succeed with --experimental_dynamic_configs or
+ * <p>Every Bazel test should either succeed with --experimental_dynamic_configs=on or
  * fail with a clear reason due to known features gaps.
  */
-public class ExpectedDynamicConfigurationErrors {
+public class ExpectedTrimmedConfigurationErrors {
   public static final String LATE_BOUND_ATTRIBUTES_UNSUPPORTED =
-      "dynamic configurations don't yet support fragments from late-bound dependencies";
+      "trimmed configurations don't yet support fragments from late-bound dependencies";
+
+  public static final String MAKE_VARIABLE_FRAGMENTS_UNSUPPORTED =
+      "Trimmed configurations don't yet support fragments required by make variables. See "
+          + "b/25768144";
 }

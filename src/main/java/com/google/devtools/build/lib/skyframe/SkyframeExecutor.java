@@ -1406,9 +1406,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ArrayListMultimap.<Dependency, BuildConfiguration>create();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
-    // Check: if !Configuration.useDynamicConfigs then just return the original configs.
     Set<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
-    if (useUntrimmedDynamicConfigs(fromOptions)) {
+    if (useUntrimmedConfigs(fromOptions)) {
       allFragments = ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
     }
 
@@ -1419,7 +1418,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (Dependency key : keys) {
       if (key.hasExplicitConfiguration()) {
         builder.put(key, key.getConfiguration());
-      } else if (useUntrimmedDynamicConfigs(fromOptions)) {
+      } else if (useUntrimmedConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
@@ -1484,12 +1483,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns whether dynamic configurations should trim their fragments to only those needed by
+   * Returns whether configurations should trim their fragments to only those needed by
    * targets and their transitive dependencies.
    */
-  private static boolean useUntrimmedDynamicConfigs(BuildOptions options) {
-    return options.get(BuildConfiguration.Options.class).useDynamicConfigurations
-        == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM;
+  private static boolean useUntrimmedConfigs(BuildOptions options) {
+    return options.get(BuildConfiguration.Options.class).configsMode
+        == BuildConfiguration.Options.ConfigsMode.NOTRIM;
   }
 
   /**

@@ -96,10 +96,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     KEEP_GOING,
     SKYFRAME_LOADING_PHASE,
-    // Dynamic configurations that only include the fragments a target needs to properly analyze.
-    DYNAMIC_CONFIGURATIONS,
-    // Dynamic configurations that always include all fragments even when targets don't need them.
-    DYNAMIC_CONFIGURATIONS_NOTRIM
+    // Configurations that only include the fragments a target needs to properly analyze.
+    TRIMMED_CONFIGURATIONS
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -227,10 +225,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
-    if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
-    } else if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM)) {
-      optionsParser.parse("--experimental_dynamic_configs=notrim");
     }
 
     InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
@@ -264,30 +260,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   /**
    * Returns the target configuration for the most recent build, as created in Blaze's
-   * master configuration creation phase. Most significantly, this is never a dynamic
-   * configuration.
+   * master configuration creation phase.
    */
   protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
-    return getTargetConfiguration(false);
-  }
-
-  /**
-   * Returns the target configuration for the most recent build. If useDynamicVersionIfEnabled is
-   * true and dynamic configurations are enabled, returns the dynamic version. Else returns the
-   * static version.
-   */
-  // TODO(gregce): force getTargetConfiguration() to getTargetConfiguration(true) once we know
-  //    all callers can handle the dynamic version
-  protected BuildConfiguration getTargetConfiguration(boolean useDynamicVersionIfEnabled)
-    throws InterruptedException {
-    BuildConfiguration targetConfig =
-        Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
-    if (useDynamicVersionIfEnabled) {
-      return skyframeExecutor.getConfigurationForTesting(
-          reporter, targetConfig.fragmentClasses(), targetConfig.getOptions());
-    } else {
-      return targetConfig;
-    }
+    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }
 
   protected BuildConfiguration getHostConfiguration() {

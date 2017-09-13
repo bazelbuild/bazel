@@ -205,23 +205,13 @@ public class DependencyResolverTest extends AnalysisTestCase {
     assertThat(dep.getConfiguration()).isNull();
   }
 
-  /** Runs the same test with trimmed dynamic configurations. */
+  /** Runs the same test with trimmed configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurations extends DependencyResolverTest {
+  public static class WithTrimmedConfigurations extends DependencyResolverTest {
     @Override
     protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
-    }
-  }
-
-  /** Runs the same test with untrimmed dynamic configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurationsNoTrim extends DependencyResolverTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM);
+      return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
     }
   }
 }
