@@ -526,8 +526,6 @@ public final class JavaCompileAction extends SpawnAction {
     private PathFragment classDirectory;
     private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private final List<String> processorNames = new ArrayList<>();
-    /** The list of custom javac flags to pass to annotation processors. */
-    private final List<String> processorFlags = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
     private boolean testOnly = false;
@@ -712,9 +710,6 @@ public final class JavaCompileAction extends SpawnAction {
       }
       if (!processorNames.isEmpty()) {
         result.addAll("--processors", ImmutableList.copyOf(processorNames));
-      }
-      if (!processorFlags.isEmpty()) {
-        result.addAll("--javacopts", ImmutableList.copyOf(processorFlags));
       }
       if (!sourceJars.isEmpty()) {
         result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
@@ -978,11 +973,6 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addProcessorFlags(Collection<String> processorFlags) {
-      this.processorFlags.addAll(processorFlags);
-      return this;
-    }
-
     public Builder setLangtoolsJar(Artifact langtoolsJar) {
       this.langtoolsJar = langtoolsJar;
       return this;
@@ -1014,7 +1004,7 @@ public final class JavaCompileAction extends SpawnAction {
       this.targetLabel = targetLabel;
       return this;
     }
-    
+
     public Builder setTestOnly(boolean testOnly) {
       this.testOnly = testOnly;
       return this;

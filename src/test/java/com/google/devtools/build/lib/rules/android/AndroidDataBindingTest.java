@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -181,17 +183,23 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir = targetConfig.getBinDirectory(RepositoryName.MAIN).getExecPath()
         .getRelative("java/android/binary/databinding/app").getPathString();
-    assertThat(getParamFileContents(binCompileAction))
-         .containsAllOf(
-             "-Aandroid.databinding.bindingBuildFolder=" + dataBindingFilesDir,
-             "-Aandroid.databinding.generationalFileOutDir=" + dataBindingFilesDir,
-             "-Aandroid.databinding.sdkDir=/not/used",
-             "-Aandroid.databinding.artifactType=APPLICATION",
-             "-Aandroid.databinding.xmlOutDir=" + dataBindingFilesDir,
-             "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
-             "-Aandroid.databinding.modulePackage=android.binary",
-             "-Aandroid.databinding.minApi=14",
-             "-Aandroid.databinding.printEncodedErrors=0");
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.bindingBuildFolder=" + dataBindingFilesDir,
+            "-Aandroid.databinding.generationalFileOutDir=" + dataBindingFilesDir,
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.xmlOutDir=" + dataBindingFilesDir,
+            "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.binary",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.printEncodedErrors=0");
+    assertThat(getParamFileContents(binCompileAction)).containsAllIn(expectedJavacopts);
+
+    // Regression test for b/63134122
+    JavaCompileInfo javaCompileInfo =
+        binCompileAction.getExtraActionInfo().getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
   }
 
   @Test

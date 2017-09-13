@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -556,14 +557,16 @@ public class AndroidCommon {
       bootclasspath =
           ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
     }
+    Iterable<String> javacopts = androidSemantics.getJavacArguments(ruleContext);
+    if (DataBinding.isEnabled(ruleContext)) {
+      javacopts = Iterables.concat(javacopts, DataBinding.getJavacopts(ruleContext, isBinary));
+    }
     JavaTargetAttributes.Builder attributes =
         javaCommon
-            .initCommon(
-                idlHelper.getIdlGeneratedJavaSources(),
-                androidSemantics.getJavacArguments(ruleContext))
+            .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts)
             .setBootClassPath(bootclasspath);
     if (DataBinding.isEnabled(ruleContext)) {
-      DataBinding.addAnnotationProcessor(ruleContext, attributes, isBinary);
+      DataBinding.addAnnotationProcessor(ruleContext, attributes);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
