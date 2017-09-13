@@ -476,23 +476,6 @@ public final class BuildConfiguration implements BuildEvent {
     )
     public String cpu;
 
-    /**
-     * Allows a configuration to record if --experimental_multi_cpu was used to set a cpu value.
-     * This is necessary to ensure that a configuration transition that sets cpu does not erase the
-     * difference between a pair of configurations created by --experimental_multi_cpu, leading to a
-     * crash when the configurations are treated as the same.
-     *
-     * <p>TODO(b/33780512): Remove once dynamic configurations are used.
-     */
-    @Option(
-      name = "experimental multi cpu distinguisher",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INTERNAL}
-    )
-    public String experimentalMultiCpuDistinguisher;
-
     @Option(
       name = "min_param_file_size",
       defaultValue = "32768",

@@ -1118,7 +1118,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (String cpu : multiCpu) {
       BuildOptions clonedOptions = buildOptions.clone();
       clonedOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-      clonedOptions.get(BuildConfiguration.Options.class).experimentalMultiCpuDistinguisher = cpu;
       multiCpuOptions.add(clonedOptions);
     }
     return multiCpuOptions.build();
