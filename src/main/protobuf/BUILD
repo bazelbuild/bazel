@@ -60,6 +60,25 @@ java_library_srcs(
     deps = [":option_filters_java_proto"],
 )
 
+proto_library(
+    name = "command_line_proto",
+    srcs = ["command_line.proto"],
+    visibility = ["//visibility:private"],
+    deps = [":option_filters_proto"],
+)
+
+java_proto_library(
+    name = "command_line_java_proto",
+    visibility = ["//src:__subpackages__"],
+    deps = [":command_line_proto"],
+)
+
+java_library_srcs(
+    name = "command_line_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = [":command_line_java_proto"],
+)
+
 cc_proto_library(
     name = "worker_protocol_cc_proto",
     deps = [":worker_protocol_proto"],
@@ -91,6 +110,7 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
+        ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",
     ],
