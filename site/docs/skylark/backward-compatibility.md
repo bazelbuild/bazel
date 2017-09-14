@@ -236,8 +236,8 @@ If you really want to override a value, use a separate statement:
 ## New actions API
 
 This change removes the old methods for registering actions within rules, and
-requires that you use the new methods instead (which are available regardless).
-The deprecated methods and their replacements are as follows.
+requires that you use the new methods instead. The deprecated methods and their
+replacements are as follows.
 
 *   `ctx.new_file(...)` --> `ctx.actions.declare_file(...)`
 *   `ctx.experimental_new_directory(...)` -->
@@ -265,9 +265,10 @@ All integers are stored using signed 32 bits.
 
 ## Descriptive string representations
 
-For certain types of objects, this changes the string representations returned
-by `str()` and `repr()` to be more uniform and safe. In particular, the new
-representations are hermetic and deterministic.
+For certain types of objects (such as `Label`, `File`, and rule contexts), this
+flag changes the string representations returned by `str()` and `repr()` to be
+more uniform and safe. In particular, the new representations are hermetic and
+deterministic.
 
 *   Flag: `--incompatible_descriptive_string_representations`
 *   Default: `true`
