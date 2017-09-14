@@ -8,7 +8,6 @@ filegroup(
         "//examples/gen:srcs",
         "//examples/java-native:srcs",
         "//examples/java-skylark:srcs",
-        "//examples/j2objc:srcs",
         "//examples/objc:srcs",
         "//examples/py:srcs",
         "//examples/py_native:srcs",
