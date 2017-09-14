@@ -375,11 +375,6 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   @Subscribe
-  public void noTestsFound(NoTestsFound event) {
-    buildComplete();
-  }
-
-  @Subscribe
   public void buildEvent(BuildEvent event) {
     if (isActionWithoutError(event)
         || bufferUntilPrerequisitesReceived(event)
@@ -421,7 +416,8 @@ public class BuildEventStreamer implements EventHandler {
 
     if (event instanceof BuildCompleteEvent
         || event instanceof TestingCompleteEvent
-        || event instanceof NoBuildRequestFinishedEvent) {
+        || event instanceof NoBuildRequestFinishedEvent
+        || event instanceof NoTestsFound) {
       buildComplete();
     }
 

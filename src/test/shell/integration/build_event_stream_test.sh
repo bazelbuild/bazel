@@ -104,7 +104,7 @@ filegroup(
 genrule(
   name = "not_a_test",
   outs = ["not_a_test.txt"],
-  cmd = "touch $@",
+  cmd = "touch \$@",
 )
 EOF
 cat > simpleaspect.bzl <<EOF
@@ -622,6 +622,7 @@ function test_test_fails_to_build() {
          pkg:test_that_fails_to_build && fail "test failure expected") || true
   expect_not_log '^test_summary'
   expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
 }
 
 function test_no_tests_found() {
@@ -629,6 +630,16 @@ function test_no_tests_found() {
          pkg:not_a_test && fail "failure expected") || true
   expect_not_log '^test_summary'
   expect_log 'last_message: true'
+  expect_log 'NO_TESTS_FOUND'
+}
+
+function test_no_tests_found_build_failure() {
+  (bazel test -k --build_event_text_file=$TEST_log \
+         pkg:not_a_test pkg:fails_to_build && fail "failure expected") || true
+  expect_not_log '^test_summary'
+  expect_log 'last_message: true'
+  expect_log 'yet testing was requested'
+  expect_log 'BUILD_FAILURE'
 }
 
 run_suite "Integration tests for the build event stream"
