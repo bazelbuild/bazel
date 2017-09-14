@@ -1064,7 +1064,7 @@ public class MethodLibrary {
     returnType = Boolean.class,
     doc =
         "Returns true if all elements evaluate to True or if the collection is empty. "
-            + "Elements are converted to boolean using the <a href=\"#bool\">bool<a> function."
+            + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
             + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
             + "all([-1, 0, 1]) == False</pre>",
     parameters = {
@@ -1086,8 +1086,8 @@ public class MethodLibrary {
     name = "any",
     returnType = Boolean.class,
     doc =
-        "Returns true if at least one element evaluates to True."
-            + "Elements are converted to boolean using the <a href=\"#bool\">bool<a> function."
+        "Returns true if at least one element evaluates to True. "
+            + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
             + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
             + "any([False, 0, \"\"]) == False</pre>",
     parameters = {
