@@ -782,4 +782,8 @@ void DetectBashOrDie() {
   // do nothing.
 }
 
+void EnsurePythonPathOption(vector<string>* options) {
+  // do nothing.
+}
+
 }   // namespace blaze.

@@ -236,6 +236,12 @@ bool UnlimitResources();
 
 void DetectBashOrDie();
 
+// This function has no effect on Unix platforms.
+// On Windows, this function looks into PATH to find python.exe, if python
+// binary is found then add
+// --default_override=0:build=--python_path=<python/path> into options.
+void EnsurePythonPathOption(std::vector<std::string>* options);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

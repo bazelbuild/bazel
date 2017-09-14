@@ -509,6 +509,8 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     "--default_override=0:common=--terminal_columns=" +
         ToString(GetTerminalColumns())};
 
+  EnsurePythonPathOption(&result);
+
   // Push the options mapping .blazerc numbers to filenames.
   for (const RcFile* blazerc : blazercs) {
     result.push_back("--rc_source=" + blaze::ConvertPath(blazerc->Filename()));

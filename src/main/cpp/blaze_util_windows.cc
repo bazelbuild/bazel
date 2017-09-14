@@ -1307,7 +1307,7 @@ static string GetBashFromGitOnWin() {
   return bash_exe;
 }
 
-static string GetBashFromPath() {
+static string GetBinaryFromPath(const string& binary_name) {
   char found[MAX_PATH];
   string path_list = blaze::GetEnv("PATH");
 
@@ -1324,14 +1324,14 @@ static string GetBashFromPath() {
     if (path.size() > 1 && path[0] == '"' && path[path.size() - 1] == '"') {
       path = path.substr(1, path.size() - 2);
     }
-    if (SearchPathA(path.c_str(),   // _In_opt_  LPCTSTR lpPath,
-                    "bash.exe",     // _In_      LPCTSTR lpFileName,
-                    0,              // LPCTSTR lpExtension,
-                    sizeof(found),  // DWORD   nBufferLength,
-                    found,          // _Out_     LPTSTR  lpBuffer,
-                    0               // _Out_opt_ LPTSTR  *lpFilePart
+    if (SearchPathA(path.c_str(),         // _In_opt_  LPCTSTR lpPath,
+                    binary_name.c_str(),  // _In_      LPCTSTR lpFileName,
+                    0,                    // LPCTSTR lpExtension,
+                    sizeof(found),        // DWORD   nBufferLength,
+                    found,                // _Out_     LPTSTR  lpBuffer,
+                    0                     // _Out_opt_ LPTSTR  *lpFilePart
                     )) {
-      debug_log("bash.exe found on PATH: %s", found);
+      debug_log("%s found on PATH: %s", binary_name.c_str(), found);
       return string(found);
     }
     if (end == string::npos) {
@@ -1340,7 +1340,7 @@ static string GetBashFromPath() {
     start = end + 1;
   } while (true);
 
-  debug_log("bash.exe not found on PATH");
+  debug_log("%s not found on PATH", binary_name.c_str());
   return string();
 }
 
@@ -1355,7 +1355,7 @@ static string LocateBash() {
     return git_on_win_bash;
   }
 
-  return GetBashFromPath();
+  return GetBinaryFromPath("bash.exe");
 }
 
 void DetectBashOrDie() {
@@ -1385,6 +1385,16 @@ void DetectBashOrDie() {
         "set BAZEL_SH environment variable to its location:\n"
         "       set BAZEL_SH=c:\\path\\to\\bash.exe\n");
     exit(1);
+  }
+}
+
+void EnsurePythonPathOption(std::vector<string>* options) {
+  string python_path = GetBinaryFromPath("python.exe");
+  if (!python_path.empty()) {
+    // Provide python path as coming from the least important rc file.
+    std::replace(python_path.begin(), python_path.end(), '\\', '/');
+    options->push_back(string("--default_override=0:build=--python_path=") +
+                       python_path);
   }
 }
 
