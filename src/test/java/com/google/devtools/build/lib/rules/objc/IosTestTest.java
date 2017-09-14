@@ -1259,4 +1259,14 @@ public class IosTestTest extends ObjcRuleTestCase {
         compileAction("//x:test", "test.o").getPossibleInputsForTesting();
     assertThat(Artifact.toExecPaths(compileInputs)).containsAllOf("x/lib.h", "x/bin.h", "x/test.h");
   }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
+  }
 }

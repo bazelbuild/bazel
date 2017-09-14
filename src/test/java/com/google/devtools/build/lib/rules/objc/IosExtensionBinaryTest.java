@@ -223,4 +223,29 @@ public class IosExtensionBinaryTest extends ObjcRuleTestCase {
   public void testCompilesSources() throws Exception {
     checkCompilesSources(RULE_TYPE);
   }
+
+  @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, EXTRA_LINK_ARGS);
+  }
+
+  @Test
+  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
+  }
+
+  @Test
+  public void testForceLoadsAlwayslinkTargets() throws Exception {
+    checkForceLoadsAlwayslinkTargets(RULE_TYPE, EXTRA_LINK_ARGS);
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
+  }
 }

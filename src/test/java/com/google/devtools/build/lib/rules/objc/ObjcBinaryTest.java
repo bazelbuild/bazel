@@ -879,6 +879,31 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
+  }
+
+  @Test
+  public void testForceLoadsAlwayslinkTargets() throws Exception {
+    checkForceLoadsAlwayslinkTargets(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
+  }
+
+  @Test
   public void testCreate_debugSymbolActionWithAppleFlag() throws Exception {
     useConfiguration("--apple_generate_dsym");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");

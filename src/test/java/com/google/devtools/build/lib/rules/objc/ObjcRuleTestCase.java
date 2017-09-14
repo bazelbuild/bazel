@@ -25,8 +25,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
@@ -645,9 +643,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch, "srcs", "['c.m']", "deps", "['//lib2:lib2']");
 
     CommandAction action = linkAction("//x:x");
-    assertThat(action.getArguments().get(2))
-        .startsWith(
-            MOCK_XCRUNWRAPPER_PATH + " " + CLANG_PLUSPLUS + " -stdlib=libc++ -std=gnu++11");
+    String commandLine = Joiner.on(" ").join(action.getArguments());
+    assertThat(commandLine).contains("-stdlib=libc++");
+    assertThat(commandLine).contains("-std=gnu++11");
   }
 
   protected Map<String, String> mobileProvisionProfiles(BundleMergeProtos.Control control) {
@@ -1073,7 +1071,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction linkAction = linkAction("//x:x");
     String linkActionArgs = Joiner.on(" ").join(linkAction.getArguments());
     assertThat(linkActionArgs).contains("-framework fx1 -framework fx2");
-    assertThat(linkActionArgs).contains("-F fx");
+    // In the legacy rules, "-F" is followed by a space in framework includes.
+    String linkActionArgsNoSpaces = linkActionArgs.replace(" ", "");
+    assertThat(linkActionArgsNoSpaces).contains("-Ffx");
     assertThat(linkAction.getInputs()).containsAllOf(
         getSourceArtifact("fx/fx1.framework/a"),
         getSourceArtifact("fx/fx1.framework/b"),
@@ -2523,37 +2523,32 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Iterable<String> forceLoadArchives = ImmutableList.of(
         execPathEndingWith(action.getInputs(), "imp1.a"),
         execPathEndingWith(action.getInputs(), "lib1.a"));
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/bash",
-            "-c",
-            Joiner.on(" ")
-                .join(
-                    new ImmutableList.Builder<String>()
-                        .add(MOCK_XCRUNWRAPPER_PATH)
-                        .add(CLANG)
-                        .add("-filelist")
-                        .add(execPathEndingWith(action.getInputs(), "x-linker.objlist"))
-                        .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
-                        .add("-arch")
-                        .add("x86_64")
-                        .add("-isysroot", AppleToolchain.sdkDir())
-                        .add(
-                            "-F", AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
-                        .add("-F", frameworkDir(getConfiguredTarget("//x:x")))
-                        .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
-                        .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
-                        .add("-fobjc-link-runtime")
-                        .add("-ObjC")
-                        .addAll(
-                            Interspersing.beforeEach(
-                                "-framework", SdkFramework.names(AUTOMATIC_SDK_FRAMEWORKS)))
-                        .add("-o")
-                        .addAll(Artifact.toExecPaths(action.getOutputs()))
-                        .addAll(Interspersing.beforeEach("-force_load", forceLoadArchives))
-                        .addAll(extraLinkArgs)
-                        .build()))
-        .inOrder();
+    List<String> expectedArgs =
+        new ImmutableList.Builder<String>()
+            .add("-filelist")
+            .add(execPathEndingWith(action.getInputs(), "x-linker.objlist"))
+            .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
+            .add("-arch")
+            .add("x86_64")
+            .add("-isysroot", AppleToolchain.sdkDir())
+            .add("-F", AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
+            .add("-F", frameworkDir(getConfiguredTarget("//x:x")))
+            .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
+            .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
+            .add("-fobjc-link-runtime")
+            .add("-ObjC")
+            .addAll(
+                Interspersing.beforeEach(
+                    "-framework", SdkFramework.names(AUTOMATIC_SDK_FRAMEWORKS)))
+            .add("-o")
+            .addAll(Artifact.toExecPaths(action.getOutputs()))
+            .addAll(Interspersing.beforeEach("-force_load", forceLoadArchives))
+            .addAll(extraLinkArgs)
+            .build();
+    String commandLine = Joiner.on(" ").join(action.getArguments());
+    for (String expectedArg : expectedArgs) {
+      assertThat(commandLine).contains(expectedArg);
+    }
   }
 
   protected void checkObjcCopts(RuleType ruleType) throws Exception {
@@ -2711,10 +2706,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkReceivesTransitivelyPropagatedDefines(RuleType ruleType) throws Exception {
     addTransitiveDefinesUsage(ruleType);
-    assertContainsSublist(compileAction("//x:x", "a.o").getArguments(),
-        ImmutableList.of("-DA=foo", "-DB", "-DC=bar", "-DD", "-DE=baz", "explicit_copt"));
-    assertContainsSublist(compileAction("//x:x", "b.o").getArguments(),
-        ImmutableList.of("-DA=foo", "-DB", "-DC=bar", "-DD", "-DE=baz", "explicit_copt"));
+    List<String> expectedArgs =
+        ImmutableList.of("-DA=foo", "-DB", "-DC=bar", "-DD", "-DE=baz", "explicit_copt");
+    List<String> compileActionAArgs = compileAction("//x:x", "a.o").getArguments();
+    List<String> compileActionBArgs = compileAction("//x:x", "b.o").getArguments();
+    for (String expectedArg : expectedArgs) {
+      assertThat(compileActionAArgs).contains(expectedArg);
+      assertThat(compileActionBArgs).contains(expectedArg);
+    }
   }
 
   protected void checkDefinesFromCcLibraryDep(RuleType ruleType) throws Exception {
@@ -2738,16 +2737,16 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "sdk_includes", "['foo', 'bar/baz']",
         "srcs", "['a.m', 'b.m']");
     String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
-    assertThat(compileAction("//x:x", "a.o").getArguments())
-        .containsAllOf(
-            "-I", sdkIncludeDir + "/foo",
-            "-I", sdkIncludeDir + "/bar/baz")
-        .inOrder();
-    assertThat(compileAction("//x:x", "b.o").getArguments())
-        .containsAllOf(
-            "-I", sdkIncludeDir + "/foo",
-            "-I", sdkIncludeDir + "/bar/baz")
-        .inOrder();
+    // we remove spaces, since the legacy rules put a space after "-I" in include paths.
+    String compileActionACommandLine =
+        Joiner.on(" ").join(compileAction("//x:x", "a.o").getArguments()).replace(" ", "");
+    assertThat(compileActionACommandLine).contains("-I" + sdkIncludeDir + "/foo");
+    assertThat(compileActionACommandLine).contains("-I" + sdkIncludeDir + "/bar/baz");
+
+    String compileActionBCommandLine =
+        Joiner.on(" ").join(compileAction("//x:x", "b.o").getArguments()).replace(" ", "");
+    assertThat(compileActionBCommandLine).contains("-I" + sdkIncludeDir + "/foo");
+    assertThat(compileActionBCommandLine).contains("-I" + sdkIncludeDir + "/bar/baz");
   }
 
   protected void checkSdkIncludesUsedInCompileActionsOfDependers(RuleType ruleType)

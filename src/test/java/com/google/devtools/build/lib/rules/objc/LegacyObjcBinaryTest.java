@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,34 +36,10 @@ public class LegacyObjcBinaryTest extends ObjcBinaryTest {
     return ObjcCrosstoolMode.OFF;
   }
 
-  @Test
-  public void testLinkActionWithTransitiveCppDependency() throws Exception {
-    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
-  }
-
+  // Module maps are not made action inputs in the crosstool rules.
   @Test
   public void testCompilesSourcesWithModuleMapsEnabled() throws Exception {
     checkCompilesSourcesWithModuleMapsEnabled(RULE_TYPE);
-  }
-
-  @Test
-  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
-    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testForceLoadsAlwayslinkTargets() throws Exception {
-    checkForceLoadsAlwayslinkTargets(RULE_TYPE, new ExtraLinkArgs());
-  }
-
-  @Test
-  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
-    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
-  }
-
-  @Test
-  public void testSdkIncludesUsedInCompileAction() throws Exception {
-    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
   @Override

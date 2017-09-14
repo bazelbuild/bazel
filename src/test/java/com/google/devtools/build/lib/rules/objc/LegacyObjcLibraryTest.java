@@ -709,16 +709,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   }
 
   @Test
-  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
-    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
-  }
-
-  @Test
-  public void testSdkIncludesUsedInCompileAction() throws Exception {
-    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
-  }
-
-  @Test
   public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
     checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
   }
