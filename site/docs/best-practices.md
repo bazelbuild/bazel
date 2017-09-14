@@ -41,14 +41,10 @@ This document uses the requirement levels described in
    - [Repository rules](#repository-rules)
    - [Custom BUILD files](#custom-build-files)
    - [Skylark repository rules](#skylark-repository-rules)
-- [Java](#java)
-   - [Directory structure](#directory-structure)
-   - [BUILD files](#build-files)
-- [C++](#c)
-   - [BUILD files](#build-files)
-   - [Include paths](#include-paths)
-- [Protos](#protos)
-   - [Recommended Code Organization](#recommended-code-organization)
+- [Programming languages](#programming-languages)
+   - [C++ and Bazel](#c-and-bazel)
+   - [Java and Bazel](#java-and-bazel)
+   - [Protos and Bazel](#protos-and-bazel)
 
 # General structure
 
@@ -163,76 +159,22 @@ Avoid using `repository_ctx.execute` when possible.  For example, when using a n
 library that has a build using Make, it is preferable to use `respository_ctx.download()` and then
 write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.
 
-# Java
 
-## Directory structure
+# Programming languages
 
-Prefer Maven's standard directory layout (sources under `src/main/java`, tests under
-`src/test/java`).
+This section describes best practices for specific programming languages.
 
-## BUILD files
+## C++ and Bazel
 
-Use one BUILD file per package containing Java sources. Every BUILD file should contain one
-`java_library` rule that looks like this:
+For best practices for C++ projects, see [C++ and Bazel](bazel-and-cpp.md).
 
-```python
-java_library(
-    name = "directory-name",
-    srcs = glob(["*.java"]),
-    deps = [...],
-)
-```
+## Java and Bazel
 
-The name of the library should be the name of the directory containing the BUILD file.  The sources
-should be a non-recursive glob of all Java files in the directory.
+For best practices for Java projects, see [Java and Bazel](bazel-and-java.md).
 
-Tests should be in a matching directory under `src/test` and depend on this library.
+## Protos and Bazel
 
-# C++
-
-## BUILD files
-
-Each BUILD file should contain one `cc_library` rule target per compilation unit in the directory.
-C++ libraries should be as fine-grained as possible to provide as much incrementality as possible.
-
-If there is a single source file in `srcs`, the library should be named based on that C++ file's
-name. This library should contain a C++ file(s), any matching header file(s), and the library's
-direct dependencies.  For example,
-
-```python
-cc_library(
-    name = "mylib",
-    srcs = ["mylib.cc"],
-    hdrs = ["mylib.h"],
-    deps = [":lower-level-lib"]
-)
-```
-
-There should be one `cc_test` rule target per `cc_library` target in the file. The `cc_test`'s
-source should be a file named `[libname]_test.cc`.  For example, a test for the target above might
-look like:
-
-```
-cc_test(
-    name = "mylib_test",
-    srcs = ["mylib_test.cc"],
-    deps = [":mylib"]
-)
-```
-
-## Include paths
-
-All include paths should be relative to the workspace directory. Use `includes` only if a public
-header needs to be widely used at a non-workspace-relative path (for legacy or `third_party` code).
-Otherwise, prefer to use the `copts` attribute, not the `includes` attribute.
-
-Using `cc_inc_library` is discouraged, prefer `copts` or `includes`.
-See [the design document](https://docs.google.com/document/d/18qUWh0uUiJBv6ZOySvp6DEV0NjVnBoEy-r-ZHa9cmhU/edit#heading=h.kmep1cl5ym9k)
-on C++ include directories for reasoning.
-
-# Protos
-
-## Recommended Code Organization
+Recommended code organization:
 
 -  One `proto_library` rule per `.proto` file.
 -  A file named `foo.proto` will be in a rule named `foo_proto`, which is located in the same
