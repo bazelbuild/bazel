@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -26,8 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
 import com.google.devtools.build.lib.util.OS;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Builder for generating R classes for robolectric action.
@@ -37,13 +34,6 @@ import java.util.List;
  */
 public class RobolectricResourceSymbolsActionBuilder {
 
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeRTxt()
-          .includeSymbolsBin()
-          .toArtifactConverter();
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -80,7 +70,7 @@ public class RobolectricResourceSymbolsActionBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("GENERATE_ROBOLECTRIC_R").add("--");
 
-    List<Artifact> inputs = new ArrayList<>();
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
@@ -93,9 +83,11 @@ public class RobolectricResourceSymbolsActionBuilder {
               .mapped(RESOURCE_CONTAINER_TO_ARG));
     }
 
-    // This flattens the nested set.
-    Iterables.addAll(inputs, FluentIterable.from(dependencies.getResources())
-        .transformAndConcat(RESOURCE_CONTAINER_TO_ARTIFACTS));
+    inputs
+        .addTransitive(dependencies.getTransitiveResourceRoots())
+        .addTransitive(dependencies.getTransitiveManifests())
+        .addTransitive(dependencies.getTransitiveRTxt())
+        .addTransitive(dependencies.getTransitiveSymbolsBin());
 
     builder.addExecPath("--classJarOutput", classJarOut);
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
@@ -117,7 +109,7 @@ public class RobolectricResourceSymbolsActionBuilder {
     ruleContext.registerAction(
         spawnActionBuilder
             .useDefaultShellEnvironment()
-            .addInputs(inputs)
+            .addTransitiveInputs(inputs.build())
             .addOutput(classJarOut)
             .setCommandLine(builder.build())
             .setExecutable(

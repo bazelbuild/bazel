@@ -38,11 +38,6 @@ import java.util.List;
  */
 public class AndroidResourceMergingActionBuilder {
 
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeSymbolsBin()
-          .toArtifactConverter();
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -138,14 +133,18 @@ public class AndroidResourceMergingActionBuilder {
 
     Preconditions.checkNotNull(primary);
     builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
-    inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
+    inputs.addAll(primary.getArtifacts());
+    inputs.add(primary.getSymbols());
 
     Preconditions.checkNotNull(primary.getManifest());
     builder.addExecPath("--primaryManifest", primary.getManifest());
     inputs.add(primary.getManifest());
 
-    ResourceContainerConverter.convertDependencies(
-        dependencies, builder, inputs, RESOURCE_CONTAINER_TO_ARG, RESOURCE_CONTAINER_TO_ARTIFACTS);
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
+      inputs.addTransitive(dependencies.getTransitiveResourceRoots());
+      inputs.addTransitive(dependencies.getTransitiveSymbolsBin());
+    }
 
     List<Artifact> outs = new ArrayList<>();
     if (classJarOut != null) {
