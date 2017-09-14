@@ -39,6 +39,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -140,6 +141,7 @@ public class BazelCppRuleClasses {
               attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
+          .requiresConfigurationFragments(PlatformConfiguration.class)
           .addRequiredToolchains(CppHelper.getCcToolchainType(env.getToolsRepository()))
           .build();
     }
