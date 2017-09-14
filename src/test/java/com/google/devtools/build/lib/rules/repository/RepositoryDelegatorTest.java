@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -74,8 +75,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         ImmutableMap.<String, RepositoryFunction>of(), null, new AtomicBoolean(true));
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(
         new PathPackageLocator(root, ImmutableList.of(root)));
-    BlazeDirectories directories = new BlazeDirectories(root, root, root,
-        TestConstants.PRODUCT_NAME);
+    BlazeDirectories directories =
+        new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,

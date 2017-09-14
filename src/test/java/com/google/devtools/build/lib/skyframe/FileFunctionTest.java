@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -121,7 +122,8 @@ public class FileFunctionTest {
   private SequentialBuildDriver makeDriver(ExternalFileAction externalFileAction) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
     BlazeDirectories directories =
-        new BlazeDirectories(pkgRoot, outputBase, pkgRoot, TestConstants.PRODUCT_NAME);
+        new BlazeDirectories(
+            new ServerDirectories(pkgRoot, outputBase), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
     differencer = new RecordingDifferencer();
