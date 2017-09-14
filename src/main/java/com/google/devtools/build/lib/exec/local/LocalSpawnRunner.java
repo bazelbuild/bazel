@@ -90,7 +90,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
     this.execRoot = execRoot;
     this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
-    this.hostName = NetUtil.findShortHostName();
+    this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
     this.productName = productName;
