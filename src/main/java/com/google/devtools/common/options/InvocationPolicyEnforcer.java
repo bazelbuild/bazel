@@ -51,9 +51,9 @@ public final class InvocationPolicyEnforcer {
 
   private static final Logger logger = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
 
-  private static final Function<OptionDefinition, String> INVOCATION_POLICY_SOURCE =
-      o -> "Invocation policy";
-
+  private static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
+  private static final Function<OptionDefinition, String> INVOCATION_POLICY_SOURCE_FUNCTION =
+      o -> INVOCATION_POLICY_SOURCE;
   @Nullable private final InvocationPolicy invocationPolicy;
 
   /**
@@ -114,8 +114,10 @@ public final class InvocationPolicyEnforcer {
         continue;
       }
 
-      OptionDescription optionDescription = parser.getOptionDescription(flagName);
-      // extractOptionDefinition() will return null if the option does not exist, however
+      OptionDescription optionDescription =
+          parser.getOptionDescription(
+              flagName, OptionPriority.INVOCATION_POLICY, INVOCATION_POLICY_SOURCE);
+      // getOptionDescription() will return null if the option does not exist, however
       // getOptionValueDescription() above would have thrown an IllegalArgumentException if that
       // were the case.
       Verify.verifyNotNull(optionDescription);
@@ -255,19 +257,28 @@ public final class InvocationPolicyEnforcer {
             for (String value : setValue.getFlagValueList()) {
               resultsBuilder.addAll(
                   parser.getExpansionOptionValueDescriptions(
-                      optionDescription.getOptionDefinition(), value));
+                      optionDescription.getOptionDefinition(),
+                      value,
+                      OptionPriority.INVOCATION_POLICY,
+                      INVOCATION_POLICY_SOURCE));
             }
           } else {
             resultsBuilder.addAll(
                 parser.getExpansionOptionValueDescriptions(
-                    optionDescription.getOptionDefinition(), null));
+                    optionDescription.getOptionDefinition(),
+                    null,
+                    OptionPriority.INVOCATION_POLICY,
+                    INVOCATION_POLICY_SOURCE));
           }
         }
         break;
       case USE_DEFAULT:
         resultsBuilder.addAll(
             parser.getExpansionOptionValueDescriptions(
-                optionDescription.getOptionDefinition(), null));
+                optionDescription.getOptionDefinition(),
+                null,
+                OptionPriority.INVOCATION_POLICY,
+                INVOCATION_POLICY_SOURCE));
         break;
       case ALLOW_VALUES:
         // All expansions originally given to the parser have been expanded by now, so these two
@@ -307,7 +318,10 @@ public final class InvocationPolicyEnforcer {
     List<FlagPolicy> expandedPolicies = new ArrayList<>();
 
     OptionDescription originalOptionDescription =
-        parser.getOptionDescription(originalPolicy.getFlagName());
+        parser.getOptionDescription(
+            originalPolicy.getFlagName(),
+            OptionPriority.INVOCATION_POLICY,
+            INVOCATION_POLICY_SOURCE);
     if (originalOptionDescription == null) {
       // InvocationPolicy ignores policy on non-existing flags by design, for version compatibility.
       return expandedPolicies;
@@ -574,7 +588,9 @@ public final class InvocationPolicyEnforcer {
       String originalValue = clearedValueDescription.getValue().toString();
       String source = clearedValueDescription.getSource();
 
-      OptionDescription desc = parser.getOptionDescription(clearedFlagName);
+      OptionDescription desc =
+          parser.getOptionDescription(
+              clearedFlagName, OptionPriority.INVOCATION_POLICY, INVOCATION_POLICY_SOURCE);
       Object clearedFlagDefaultValue = null;
       if (desc != null) {
         clearedFlagDefaultValue = desc.getOptionDefinition().getDefaultValue();
@@ -794,7 +810,7 @@ public final class InvocationPolicyEnforcer {
 
     parser.parseWithSourceFunction(
         OptionPriority.INVOCATION_POLICY,
-        INVOCATION_POLICY_SOURCE,
+        INVOCATION_POLICY_SOURCE_FUNCTION,
         ImmutableList.of(String.format("--%s=%s", flag.getOptionName(), flagValue)));
   }
 }

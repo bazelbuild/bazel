@@ -1512,24 +1512,24 @@ public class OptionsParserTest {
     assertThat(result).isNotNull();
     assertThat(result).hasSize(3);
 
-    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).getOptionDefinition().getOptionName()).isEqualTo("alpha");
     assertThat(result.get(0).isDocumented()).isTrue();
     assertThat(result.get(0).isHidden()).isFalse();
-    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getUnconvertedValue()).isEqualTo("one");
     assertThat(result.get(0).getSource()).isEqualTo("source");
     assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).getOptionDefinition().getOptionName()).isEqualTo("gamma");
     assertThat(result.get(1).isDocumented()).isFalse();
     assertThat(result.get(1).isHidden()).isFalse();
-    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getUnconvertedValue()).isEqualTo("two");
     assertThat(result.get(1).getSource()).isEqualTo("source");
     assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(2).getName()).isEqualTo("echo");
+    assertThat(result.get(2).getOptionDefinition().getOptionName()).isEqualTo("echo");
     assertThat(result.get(2).isDocumented()).isFalse();
     assertThat(result.get(2).isHidden()).isTrue();
-    assertThat(result.get(2).getUnparsedValue()).isEqualTo("three");
+    assertThat(result.get(2).getUnconvertedValue()).isEqualTo("three");
     assertThat(result.get(2).getSource()).isEqualTo("source");
     assertThat(result.get(2).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
@@ -1543,15 +1543,15 @@ public class OptionsParserTest {
     assertThat(result).isNotNull();
     assertThat(result).hasSize(2);
 
-    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).getOptionDefinition().getOptionName()).isEqualTo("alpha");
     assertThat(result.get(0).isDocumented()).isTrue();
-    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getUnconvertedValue()).isEqualTo("one");
     assertThat(result.get(0).getSource()).isEqualTo("source");
     assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).getOptionDefinition().getOptionName()).isEqualTo("gamma");
     assertThat(result.get(1).isDocumented()).isFalse();
-    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getUnconvertedValue()).isEqualTo("two");
     assertThat(result.get(1).getSource()).isEqualTo("source");
     assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }

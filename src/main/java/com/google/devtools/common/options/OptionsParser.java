@@ -405,20 +405,22 @@ public class OptionsParser implements OptionsProvider {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
-    return impl.getOptionDescription(name);
+  OptionDescription getOptionDescription(String name, OptionPriority priority, String source)
+      throws OptionsParsingException {
+    return impl.getOptionDescription(name, priority, source);
   }
 
   /**
    * Returns a description of the options values that get expanded from this option with the given
    * value.
    *
-   * @return The {@link com.google.devtools.common.options.OptionValueDescriptionlueDescription>}
-   *     for the option, or null if there is no option by the given name.
+   * @return The {@link com.google.devtools.common.options.OptionValueDescription>} for the option,
+   *     or null if there is no option by the given name.
    */
   ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
-      OptionDefinition option, @Nullable String optionValue) throws OptionsParsingException {
-    return impl.getExpansionOptionValueDescriptions(option, optionValue);
+      OptionDefinition option, @Nullable String optionValue, OptionPriority priority, String source)
+      throws OptionsParsingException {
+    return impl.getExpansionOptionValueDescriptions(option, optionValue, priority, source);
   }
 
   /**

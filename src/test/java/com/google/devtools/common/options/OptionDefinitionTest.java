@@ -114,7 +114,7 @@ public class OptionDefinitionTest {
 
     // Do a bunch of potentially repeat operations on this option that need to know information
     // about the converter and default value. Also verify that the values are as expected.
-    boolean isBoolean = mockOptionDef.isBooleanField();
+    boolean isBoolean = mockOptionDef.usesBooleanValueSyntax();
     assertThat(isBoolean).isFalse();
 
     Converter<?> converter = mockOptionDef.getConverter();
@@ -150,7 +150,7 @@ public class OptionDefinitionTest {
 
     // Do a bunch of potentially repeat operations on this option that need to know information
     // about the converter and default value. Also verify that the values are as expected.
-    boolean isBoolean = mockOptionDef.isBooleanField();
+    boolean isBoolean = mockOptionDef.usesBooleanValueSyntax();
     assertThat(isBoolean).isFalse();
 
     Converter<?> converter = mockOptionDef.getConverter();
