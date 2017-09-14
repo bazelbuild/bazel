@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * An implementation for the "android_library" rule.
@@ -63,6 +66,66 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           "resources",
           "The resources attribute has been removed. Please use resource_files instead.");
     }
+
+    /**
+     * TODO(b/14473160): Remove when deps are no longer implicitly exported.
+     *
+     * Warn if android_library rule contains deps without srcs or locally-used resources.
+     * Such deps are implicitly exported (deprecated behavior), and will soon be disallowed
+     * entirely.
+     */
+    if (usesDeprecatedImplicitExport(ruleContext)) {
+      String message = "android_library will be deprecating the use of deps to export "
+              + "targets implicitly. Please use android_library.exports to explicitly specify "
+              + "targets this rule exports";
+      AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
+      if (androidConfig.allowSrcsLessAndroidLibraryDeps()) {
+        ruleContext.attributeWarning("deps", message);
+      } else {
+        ruleContext.attributeError("deps", message);
+      }
+    }
+  }
+
+  /**
+   * TODO(b/14473160): Remove when deps are no longer implicitly exported.
+   *
+   * Returns true if the rule (possibly) relies on the implicit dep exports behavior.
+   *
+   * If this returns true, then the rule *is* exporting deps implicitly, and does not have
+   * any srcs or locally-used resources consuming the deps.
+   *
+   * Else, this rule either:
+   * 1) is not using deps
+   * 2) has another deps-consuming attribute (src, locally-used resources)
+   */
+  private static boolean usesDeprecatedImplicitExport(RuleContext ruleContext)
+      throws RuleErrorException {
+    AttributeMap attrs = ruleContext.attributes();
+
+    if (!attrs.isAttributeValueExplicitlySpecified("deps")
+        || attrs.get("deps", BuildType.LABEL_LIST).isEmpty()) {
+      return false;
+    }
+
+    String[] labelListAttrs = { "srcs", "idl_srcs", "assets", "resource_files" };
+    for (String attr : labelListAttrs) {
+      if (attrs.isAttributeValueExplicitlySpecified(attr)
+          && !attrs.get(attr, BuildType.LABEL_LIST).isEmpty()) {
+        return false;
+      }
+    }
+
+    boolean hasManifest = attrs.isAttributeValueExplicitlySpecified("manifest");
+    boolean hasAssetsDir = attrs.isAttributeValueExplicitlySpecified("assets_dir");
+    boolean hasInlineConsts =
+        attrs.isAttributeValueExplicitlySpecified("inline_constants")
+            && attrs.get("inline_constants", Type.BOOLEAN);
+    boolean hasExportsManifest =
+        attrs.isAttributeValueExplicitlySpecified("exports_manifest")
+            && attrs.get("exports_manifest", BuildType.TRISTATE) == TriState.YES;
+
+    return !(hasManifest || hasInlineConsts || hasAssetsDir || hasExportsManifest);
   }
 
   /**
@@ -136,7 +199,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
     boolean definesLocalResources =
-      LocalResourceContainer.definesAndroidResources(ruleContext.attributes());
+        LocalResourceContainer.definesAndroidResources(ruleContext.attributes());
     if (definesLocalResources) {
       LocalResourceContainer.validateRuleContext(ruleContext);
     }
@@ -165,13 +228,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
 
     AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
-    if (!androidConfig.allowSrcsLessAndroidLibraryDeps()
-        && !definesLocalResources
-        && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
-        && ruleContext.attributes().get("idl_srcs", BuildType.LABEL_LIST).isEmpty()
-        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
-      ruleContext.attributeError("deps", "deps not allowed without srcs; move to exports?");
-    }
 
     JavaTargetAttributes javaTargetAttributes = androidCommon.init(
         javaSemantics,

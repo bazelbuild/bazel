@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -274,11 +276,22 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDisallowDepsWithoutSrcs() throws Exception {
+  public void testDisallowDepsWithoutSrcsWarning() throws Exception {
+    useConfiguration("--experimental_allow_android_library_deps_without_srcs=true");
+    checkWarning("android/deps", "b",
+        // message:
+        "android_library will be deprecating the use of deps to export targets implicitly",
+        // build file
+        "android_library(name = 'a', srcs = ['a.java'])",
+        "android_library(name = 'b', deps = [':a'])");
+  }
+
+  @Test
+  public void testDisallowDepsWithoutSrcsError() throws Exception {
     useConfiguration("--experimental_allow_android_library_deps_without_srcs=false");
     checkError("android/deps", "b",
         // message:
-        "deps not allowed without srcs; move to exports?",
+        "android_library will be deprecating the use of deps to export targets implicitly",
         // build file
         "android_library(name = 'a', srcs = ['a.java'])",
         "android_library(name = 'b', deps = [':a'])");
@@ -397,7 +410,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(cTarget).getArtifacts()))
         .isEqualTo(Arrays.asList("liba.jar", "libc.jar"));
 
-    assertNoEvents();
+    assertContainsEvent(
+        "android_library will be deprecating the use of deps "
+            + "to export targets implicitly.",  ImmutableSet.of(EventKind.WARNING));
   }
 
   @Test
