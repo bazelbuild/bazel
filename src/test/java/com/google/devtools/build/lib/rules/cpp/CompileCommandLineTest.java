@@ -92,7 +92,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "  }",
                     "}"))
             .build();
-    assertThat(compileCommandLine.getArgv(scratchArtifact("a/FakeOutput").getExecPath(), null))
+    assertThat(compileCommandLine.getArguments(/* overwrittenVariables= */ null))
         .contains("-some_foo_flag");
   }
 
@@ -134,13 +134,12 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "}"))
             .setCoptsFilter(flag -> !flag.contains("i_am_a_flag"))
             .build();
-    return compileCommandLine.getArgv(scratchArtifact("a/FakeOutput").getExecPath(), null);
+    return compileCommandLine.getArguments(/* overwrittenVariables= */ null);
   }
 
   private Builder makeCompileCommandLineBuilder() throws Exception {
     return CompileCommandLine.builder(
         scratchArtifact("a/FakeInput"),
-        scratchArtifact("a/FakeOutput"),
         new Predicate<String>() {
           @Override
           public boolean apply(String s) {
