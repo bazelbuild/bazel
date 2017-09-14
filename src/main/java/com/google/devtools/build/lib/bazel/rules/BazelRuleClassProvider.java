@@ -154,6 +154,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
 import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
+import com.google.devtools.build.lib.rules.platform.PlatformBaseRule;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.rules.platform.ToolchainRule;
@@ -233,6 +234,7 @@ public class BazelRuleClassProvider {
           builder.addConfigurationOptions(PlatformOptions.class);
           builder.addConfigurationFragment(new PlatformConfigurationLoader());
 
+          builder.addRuleDefinition(new PlatformBaseRule());
           builder.addRuleDefinition(new ConstraintSettingRule());
           builder.addRuleDefinition(new ConstraintValueRule());
           builder.addRuleDefinition(new PlatformRule());

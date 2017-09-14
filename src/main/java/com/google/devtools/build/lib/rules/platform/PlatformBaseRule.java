@@ -14,30 +14,43 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.syntax.Type;
 
-/** Rule definition for {@link ConstraintSetting}. */
-public class ConstraintSettingRule implements RuleDefinition {
-  public static final String RULE_NAME = "constraint_setting";
+/**
+ * Describes the common settings for all platform-related rules.
+ */
+public class PlatformBaseRule implements RuleDefinition{
+
+  private static final String RULE_NAME = "$platform_base_rule";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return builder.build();
+    return builder
+        .override(
+            attr("tags", Type.STRING_LIST)
+                // No need to show up in ":all", etc. target patterns.
+                .value(ImmutableList.of("manual"))
+                .nonconfigurable("low-level attribute, used in platform configuration"))
+        .exemptFromConstraintChecking("this rule helps *define* a constraint")
+        .removeAttribute("deps")
+        .removeAttribute("data")
+        .build();
   }
 
   @Override
-  public RuleDefinition.Metadata getMetadata() {
+  public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(PlatformBaseRule.class)
-        .factoryClass(ConstraintSetting.class)
+        .type(RuleClass.Builder.RuleClassType.ABSTRACT)
+        .ancestors(BaseRuleClasses.RuleBase.class)
         .build();
   }
+
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_setting, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
-
-<p>This rule defines a type of constraint that can be used to define an execution platform.</p>
-
-<!-- #END_BLAZE_RULE -->*/
