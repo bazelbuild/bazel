@@ -490,6 +490,14 @@ TEST_F(OptionProcessorTest, SplitCommandLineWithBlazeVersion) {
   SuccessfulSplitStartupOptionsTest(
       {"bazel", "version"},
       CommandLine("bazel", {}, "version", {}));
+
+  SuccessfulSplitStartupOptionsTest(
+      {"bazel", "-v"},
+      CommandLine("bazel", {}, "-v", {}));
+
+  SuccessfulSplitStartupOptionsTest(
+      {"bazel", "--version"},
+      CommandLine("bazel", {}, "--version", {}));
 }
 
 TEST_F(OptionProcessorTest, SplitCommandLineWithMultipleCommandArgs) {
