@@ -155,13 +155,18 @@ To build Python targets, you need:
 
     Both Python 2 and Python 3 are supported.
 
-    Bazel tries to locate the Python runtime the first time you build any
-    target. To tell Bazel where Python is, you can set the `BAZEL_PYTHON`
-    environment variable to the Python interpreter's path. For example:
+    To tell Bazel where Python is, you can use `--python_path=<path/to/python>`.
+    For example:
 
     ```
-    set BAZEL_PYTHON=C:\Python27\python.exe
+    bazel build --python_path=C:/Python27/python.exe ...
     ```
+
+    If `--python_path` is not specified, Bazel uses `python.exe` as
+    the interpreter and the binary looks for it in `$PATH` during runtime.
+    If it is not in `$PATH`(for example, when you use `py_binary` as an action's
+    executable, Bazel will sanitize `$PATH`), then the execution will fail.
+
 
 On Windows, Bazel builds two output files for `py_binary` rules:
 
