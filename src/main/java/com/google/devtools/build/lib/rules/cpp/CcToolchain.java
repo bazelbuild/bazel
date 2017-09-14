@@ -122,7 +122,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         return null;
       }
 
+      // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
+      String cpu = cppConfiguration.getTargetCpu();
+      if (!"k8".equals(cpu)) {
+        rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
+      }
       rawProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "fdo", rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
