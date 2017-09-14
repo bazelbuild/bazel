@@ -1000,6 +1000,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:action_cache_java_proto",
+        "//src/main/protobuf:bazel_flags_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",

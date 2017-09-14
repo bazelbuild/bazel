@@ -9,6 +9,7 @@ FILES = [
     "action_cache",
     "android_deploy_info",
     "apk_manifest",
+    "bazel_flags",
     "build",
     "bundlemerge",
     "command_server",
