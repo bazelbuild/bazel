@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -20,20 +21,26 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 
-/**
- * A simple rule configured target factory for custom test rules.
- */
+/** A simple rule configured target factory for custom test rules. */
 public class MockConfiguredTargetFactory implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    return
-        new RuleConfiguredTargetBuilder(ruleContext)
-            .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
-            .setRunfilesSupport(null, null)
-            .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
-            .build();
+    NestedSet<Artifact> filesToBuild =
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts());
+    for (Artifact artifact : ruleContext.getOutputArtifacts()) {
+      ruleContext.registerAction(
+          FileWriteAction.createEmptyWithInputs(
+              ruleContext.getActionOwner(), ImmutableList.of(), artifact));
+    }
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .setFilesToBuild(filesToBuild)
+        .setRunfilesSupport(null, null)
+        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+        .build();
   }
 }

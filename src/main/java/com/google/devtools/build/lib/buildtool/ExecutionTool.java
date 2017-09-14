@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.base.Joiner;
@@ -118,7 +119,7 @@ import java.util.logging.Logger;
  *
  * <p>This is only intended for use by {@link BuildTool}.
  *
- * <p>This class contains an ActionCache, and refers to the BlazeRuntime's BuildView and
+ * <p>This class contains an ActionCache, and refers to the Blaze Runtime's BuildView and
  * PackageCache.
  *
  * @see BuildTool
@@ -357,17 +358,26 @@ public class ExecutionTool {
     // Must be created after the output path is created above.
     createActionLogDirectory();
 
-    List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
-    BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
-        ? targetConfigurations.get(0) : null;
-    if (targetConfigurations.size() == 1) {
-      String productName = runtime.getProductName();
-      String workspaceName = env.getWorkspaceName();
-      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
-          env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfiguration,
-          request.getBuildOptions().getSymlinkPrefix(productName), productName);
-    }
+    // Create convenience symlinks from the configurations actually used by the requested targets.
+    // Symlinks will be created if all such configurations would point the symlink to the same path;
+    // if this does not hold, stale symlinks (if present from a previous invocation) will be
+    // deleted instead.
+    Set<BuildConfiguration> targetConfigurations =
+        request.getBuildOptions().useTopLevelTargetsForSymlinks()
+        ? analysisResult
+            .getTargetsToBuild()
+            .stream()
+            .map(ConfiguredTarget::getConfiguration)
+            .filter(configuration -> configuration != null)
+            .distinct()
+            .collect(toImmutableSet())
+        : ImmutableSet.copyOf(configurations.getTargetConfigurations());
+    String productName = runtime.getProductName();
+    String workspaceName = env.getWorkspaceName();
+    OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+        workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
+        env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfigurations,
+        request.getBuildOptions().getSymlinkPrefix(productName), productName);
 
     ActionCache actionCache = getActionCache();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
