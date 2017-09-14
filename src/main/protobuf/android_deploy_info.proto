@@ -15,6 +15,7 @@
 syntax = "proto3";
 package blaze;
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.rules.android.deployinfo";
 
 message Artifact {

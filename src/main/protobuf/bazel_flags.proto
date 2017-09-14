@@ -18,6 +18,7 @@ syntax = "proto2";
 
 option java_outer_classname = "BazelFlagsProto";
 option java_package = "com.google.devtools.build.lib.runtime.commands.proto";
+// option java_api_version = 2;
 
 package bazel_flags;
 
