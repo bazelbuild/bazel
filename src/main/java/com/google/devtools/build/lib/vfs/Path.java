@@ -31,6 +31,8 @@ import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -378,6 +380,39 @@ public class Path implements Comparable<Path>, Serializable {
         result.append(PathFragment.SEPARATOR_CHAR);
       }
       result.append(name);
+    }
+  }
+
+  /**
+   * Returns the path encoded as an {@link URI}.
+   *
+   * <p>This concrete implementation returns URIs with "file" as the scheme.
+   * For Example:
+   *  - On Unix the path "/tmp/foo bar.txt" will be encoded as
+   *    "file:///tmp/foo%20bar.txt".
+   *  - On Windows the path "C:\Temp\Foo Bar.txt" will be encoded as
+   *    "file:///C:/Temp/Foo%20Bar.txt"
+   *
+   * <p>Implementors extending this class for special filesystems will likely need to override
+   * this method.
+   *
+   * @throws URISyntaxException if the URI cannot be constructed.
+   */
+  public URI toURI() {
+    String ps = getPathString();
+    if (!ps.startsWith("/")) {
+      // On Windows URI's need to start with a '/'. i.e. C:\Foo\Bar would be file:///C:/Foo/Bar
+      ps = "/" + ps;
+    }
+    try {
+      return new URI("file",
+          // Needs to be "" instead of null, so that toString() will append "//" after the scheme.
+          // We need this for backwards compatibility reasons as some consumers of the BEP are
+          // broken.
+          "",
+          ps, null, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException(e);
     }
   }
 

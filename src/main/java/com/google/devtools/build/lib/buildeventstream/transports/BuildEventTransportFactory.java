@@ -101,7 +101,7 @@ public enum BuildEventTransportFactory {
   private static class NullPathConverter implements PathConverter {
     @Override
     public String apply(Path path) {
-      return "file://" + path;
+      return path.toURI().toString();
     }
   }
 }
