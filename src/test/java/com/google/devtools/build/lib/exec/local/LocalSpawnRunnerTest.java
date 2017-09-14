@@ -258,7 +258,7 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.setupSuccess()).isTrue();
-    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(
@@ -304,7 +304,7 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.setupSuccess()).isTrue();
-    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(ImmutableList.of("/bin/echo", "Hi!"));
@@ -339,7 +339,7 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(3);
     assertThat(result.setupSuccess()).isTrue();
-    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(
@@ -377,7 +377,7 @@ public class LocalSpawnRunnerTest {
     assertThat(result.exitCode()).isEqualTo(-1);
     assertThat(result.setupSuccess()).isFalse();
     assertThat(result.getWallTimeMillis()).isEqualTo(0);
-    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), StandardCharsets.UTF_8))
         .isEqualTo("Action failed to execute: java.io.IOException: I'm sorry, Dave\n");
@@ -399,7 +399,7 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
     assertThat(reply.getWallTimeMillis()).isEqualTo(0);
-    assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+    assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?
     assertThat(policy.lockOutputFilesCalled).isTrue();
