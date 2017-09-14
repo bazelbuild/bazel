@@ -23,11 +23,12 @@ import javax.annotation.Nullable;
  * <p>This class represents an option as the parser received it, which is distinct from the final
  * value of an option, as these values may be overridden or combined in some way.
  *
- * <p>The origin includes the value it was set to, its priority, a message about where it came
+ * <p>The origin includes the form it had when parsed, its priority, a message about where it came
  * from, and whether it was set explicitly or expanded/implied by other flags.
  */
 public final class UnparsedOptionValueDescription {
   private final OptionDefinition optionDefinition;
+  private final String commandLineForm;
   @Nullable private final String unconvertedValue;
   private final OptionPriority priority;
   @Nullable private final String source;
@@ -39,11 +40,13 @@ public final class UnparsedOptionValueDescription {
 
   public UnparsedOptionValueDescription(
       OptionDefinition optionDefinition,
+      String commandLineForm,
       @Nullable String unconvertedValue,
       OptionPriority priority,
       @Nullable String source,
       boolean explicit) {
     this.optionDefinition = optionDefinition;
+    this.commandLineForm = commandLineForm;
     this.unconvertedValue = unconvertedValue;
     this.priority = priority;
     this.source = source;
@@ -52,6 +55,10 @@ public final class UnparsedOptionValueDescription {
 
   public OptionDefinition getOptionDefinition() {
     return optionDefinition;
+  }
+
+  public String getCommandLineForm() {
+    return commandLineForm;
   }
 
   public boolean isBooleanOption() {
@@ -97,6 +104,17 @@ public final class UnparsedOptionValueDescription {
 
   public boolean isExplicit() {
     return explicit;
+  }
+
+  public Object getConvertedValue() throws OptionsParsingException {
+    Converter<?> converter = optionDefinition.getConverter();
+    try {
+      return converter.convert(unconvertedValue);
+    } catch (OptionsParsingException e) {
+      // The converter doesn't know the option name, so we supply it here by re-throwing:
+      throw new OptionsParsingException(
+          String.format("While parsing option %s: %s", commandLineForm, e.getMessage()), e);
+    }
   }
 
   @Override
