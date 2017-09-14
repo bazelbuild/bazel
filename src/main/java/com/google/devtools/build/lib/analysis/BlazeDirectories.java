@@ -18,9 +18,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
+import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Encapsulates the directories related to a workspace.
@@ -209,5 +215,41 @@ public final class BlazeDirectories {
    */
   public static String getRelativeOutputPath(String productName) {
     return StringCanonicalizer.intern(productName + "-out");
+  }
+
+  @Override
+  public int hashCode() {
+    // execRoot is derivable from other fields, but better safe than sorry.
+    return Objects.hash(serverDirectories, workspace, productName, execRoot);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof BlazeDirectories)) {
+      return false;
+    }
+    BlazeDirectories that = (BlazeDirectories) obj;
+    return this.serverDirectories.equals(that.serverDirectories)
+        && this.workspace.equals(that.workspace)
+        && this.productName.equals(that.productName)
+        // execRoot is derivable from other fields, but better safe than sorry.
+        && this.execRoot.equals(that.execRoot);
+  }
+
+  void serialize(CodedOutputStream codedOut, PathCodec pathCodec) throws IOException {
+    serverDirectories.serialize(codedOut, pathCodec);
+    pathCodec.serialize(workspace, codedOut);
+    FastStringCodec.INSTANCE.serialize(productName, codedOut);
+  }
+
+  static BlazeDirectories deserialize(CodedInputStream codedIn, PathCodec pathCodec)
+      throws IOException {
+    return new BlazeDirectories(
+        ServerDirectories.deserialize(codedIn, pathCodec),
+        pathCodec.deserialize(codedIn),
+        FastStringCodec.INSTANCE.deserialize(codedIn));
   }
 }
