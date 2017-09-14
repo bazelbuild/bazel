@@ -190,10 +190,13 @@ public final class Mutability implements AutoCloseable, Serializable {
     }
     Preconditions.checkArgument(lockedItems.containsKey(object),
         "trying to unlock an object that is not locked");
+
     List<Location> locList = lockedItems.get(object);
-    boolean changed = locList.remove(loc);
-    Preconditions.checkArgument(changed, Printer.format(
-        "trying to unlock an object for a location at which it was not locked (%r)", loc));
+    if (!locList.remove(loc)) {
+      throw new IllegalArgumentException(
+          Printer.format(
+              "trying to unlock an object for a location at which it was not locked (%r)", loc));
+    }
     if (locList.isEmpty()) {
       lockedItems.remove(object);
     }
