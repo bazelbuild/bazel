@@ -60,12 +60,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           + "Use \"resource_files\" instead.");
     }
 
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
-        && !ruleContext.getFragment(AndroidConfiguration.class).allowResourcesAttr()) {
-      ruleContext.throwWithAttributeError(
-          "resources",
-          "The resources attribute has been removed. Please use resource_files instead.");
-    }
+    AndroidCommon.validateResourcesAttribute(ruleContext);
 
     /**
      * TODO(b/14473160): Remove when deps are no longer implicitly exported.

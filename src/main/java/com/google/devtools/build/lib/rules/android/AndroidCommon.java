@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -113,6 +114,8 @@ public class AndroidCommon {
     }
     return builder.build();
   }
+
+  public static final String RESOURCES_WHITELIST_NAME = "android_resources";
 
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
@@ -1031,5 +1034,15 @@ public class AndroidCommon {
       }
     }
     return supportApks.build();
+  }
+
+  public static void validateResourcesAttribute(RuleContext ruleContext) throws RuleErrorException {
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
+        && !ruleContext.getFragment(AndroidConfiguration.class).allowResourcesAttr()
+        && !Whitelist.isAvailable(ruleContext, RESOURCES_WHITELIST_NAME)) {
+      ruleContext.throwWithAttributeError(
+          "resources",
+          "The resources attribute has been removed. Please use resource_files instead.");
+    }
   }
 }
