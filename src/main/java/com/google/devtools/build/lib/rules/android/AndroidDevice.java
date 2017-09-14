@@ -337,7 +337,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         spawnBuilder.addInput(defaultProperties.get());
         commandLine.addPrefixedExecPath("--default_properties_file=", defaultProperties.get());
       }
-      spawnBuilder.setCommandLine(commandLine.build());
+      spawnBuilder.addCommandLine(commandLine.build());
       ruleContext.registerAction(spawnBuilder.build(ruleContext));
     }
 

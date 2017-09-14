@@ -121,17 +121,13 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
 
     CommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
         ImmutableList.of(inputTreeFileArtifact, outputTreeFileArtifact));
-    actionBuilder.setCommandLine(commandLine);
+    actionBuilder.addCommandLine(commandLine);
 
     // Note that we pass in nulls below because SpawnActionTemplate does not support param file, and
     // it does not use any default value for executable or shell environment. They must be set
     // explicitly via builder method #setExecutable and #setEnvironment.
     return actionBuilder.buildSpawnAction(
-        getOwner(),
-        commandLine,
-        /*configEnv=*/ null,
-        /*defaultShellExecutable=*/ null,
-        /*paramsFile=*/ null);
+        getOwner(), actionBuilder.buildCommandLineWithoutParamsFiles(), /*configEnv=*/ null);
   }
 
   /**
@@ -206,7 +202,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
     return spawnActionBuilder
-        .buildSpawnAction(getOwner(), CommandLine.of(ImmutableList.of()), null, null, null)
+        .buildSpawnAction(getOwner(), CommandLine.of(ImmutableList.of()), null)
         .getClientEnvironmentVariables();
   }
 

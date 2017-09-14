@@ -53,7 +53,7 @@ public class LipoSupport {
               .addTransitiveInputs(inputBinaries)
               .addOutput(outputBinary)
               .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .add(ObjcRuleClasses.LIPO)
                       .addExecPaths("-create", inputBinaries)

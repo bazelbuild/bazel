@@ -240,7 +240,7 @@ final class BundleSupport {
           ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("StoryboardCompile")
               .setExecutable(attributes.ibtoolWrapper())
-              .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
+              .addCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
               .build(ruleContext));
@@ -290,7 +290,7 @@ final class BundleSupport {
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .addExecPath(outputZip)
                       .addDynamicString(datamodel.archiveRootForMomczip())
@@ -319,7 +319,7 @@ final class BundleSupport {
           ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("XibCompile")
               .setExecutable(attributes.ibtoolWrapper())
-              .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
+              .addCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
               // Disable sandboxing due to Bazel issue #2189.
@@ -335,7 +335,7 @@ final class BundleSupport {
           ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("ConvertStringsPlist")
               .setExecutable(PathFragment.create("/usr/bin/plutil"))
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .add("-convert")
                       .add("binary1")
@@ -377,7 +377,7 @@ final class BundleSupport {
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(bundling.getIntermediateArtifacts().mergedInfoplist())
             .addInput(plMergeControlArtifact)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--control", plMergeControlArtifact)
                     .build())
@@ -420,10 +420,7 @@ final class BundleSupport {
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)
             .addOutput(actoolPartialInfoplist)
-            .setCommandLine(actoolzipCommandLine(
-                objcProvider,
-                zipOutput,
-                actoolPartialInfoplist))
+            .addCommandLine(actoolzipCommandLine(objcProvider, zipOutput, actoolPartialInfoplist))
             .disableSandboxing()
             .build(ruleContext));
   }

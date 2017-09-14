@@ -47,7 +47,7 @@ public final class AndroidManifestMergeHelper {
             .setExecutable(ruleContext.getPrerequisite("$android_manifest_merge_tool", Mode.HOST))
             .setProgressMessage("Merging Android Manifests")
             .setMnemonic("AndroidManifestMerger")
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .build(ruleContext));
   }
 }

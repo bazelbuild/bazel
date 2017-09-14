@@ -182,7 +182,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
         .addInput(aar)
         .addOutput(outputArtifact)
-        .setCommandLine(
+        .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("x", aar)
                 .addPath("-d", outputArtifact.getExecPath().getParentDirectory())
@@ -201,7 +201,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .setMnemonic("AarResourcesExtractor")
         .addInput(aar)
         .addOutput(outputTree)
-        .setCommandLine(
+        .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_res_dir", outputTree)
@@ -221,7 +221,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addInput(aar)
         .addOutput(jarsTreeArtifact)
         .addOutput(singleJarParamFile)
-        .setCommandLine(
+        .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_dir", jarsTreeArtifact)
@@ -238,7 +238,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addInput(jarsTreeArtifact)
         .addOutput(mergedJar)
         .addInput(paramFile)
-        .setCommandLine(
+        .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--output", mergedJar)
                 .add("--dont_change_compression")
@@ -259,7 +259,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setProgressMessage("Filtering AAR native libs by architecture")
             .addInput(aar)
             .addOutput(outputZip)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--input_aar", aar)
                     .add("--cpu", ruleContext.getConfiguration().getCpu())

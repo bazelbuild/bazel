@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -251,12 +252,13 @@ public class ProtoCompileActionBuilder {
     }
 
     result
-        .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED)
         .addOutputs(outputs)
         .setResources(GENPROTO_RESOURCE_SET)
         .useDefaultShellEnvironment()
         .setExecutable(compilerTarget)
-        .setCommandLine(createProtoCompilerCommandLine().build())
+        .addCommandLine(
+            createProtoCompilerCommandLine().build(),
+            ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", language, ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
 
@@ -455,12 +457,11 @@ public class ProtoCompileActionBuilder {
     }
 
     result
-        .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED)
         .addOutputs(outputs)
         .setResources(GENPROTO_RESOURCE_SET)
         .useDefaultShellEnvironment()
         .setExecutable(compilerTarget)
-        .setCommandLine(
+        .addCommandLine(
             createCommandLineFromToolchains(
                 toolchainInvocations,
                 protosToCompile,
@@ -468,7 +469,8 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
                 ruleLabel,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts()))
+                ruleContext.getFragment(ProtoConfiguration.class).protocOpts()),
+            ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
 

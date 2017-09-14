@@ -459,7 +459,7 @@ public final class JavaCompilationHelper {
                     JavaCommon.getHostJavaExecutable(ruleContext),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
-                .setCommandLine(
+                .addCommandLine(
                     CustomCommandLine.builder()
                         .addExecPath("--manifest_proto", manifestProto)
                         .addExecPath("--class_jar", classJar)
@@ -805,7 +805,7 @@ public final class JavaCompilationHelper {
               .useDefaultShellEnvironment()
               .setProgressMessage("Extracting interface %s", ruleContext.getLabel())
               .setMnemonic("JavaIjar")
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .addExecPath(inputJar)
                       .addExecPath(interfaceJar)

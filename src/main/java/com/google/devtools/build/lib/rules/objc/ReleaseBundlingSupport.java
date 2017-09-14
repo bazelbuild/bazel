@@ -390,7 +390,7 @@ public final class ReleaseBundlingSupport {
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addOutput(getGeneratedEnvironmentPlist())
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("--platform", platformWithVersion)
                     .addExecPath("--output", getGeneratedEnvironmentPlist())
@@ -609,7 +609,7 @@ public final class ReleaseBundlingSupport {
             .addTransitiveInputs(entitlements)
             .addOutput(intermediateArtifacts.entitlements())
             .addInput(plMergeControlArtifact)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--control", plMergeControlArtifact)
                     .build())
@@ -861,7 +861,7 @@ public final class ReleaseBundlingSupport {
             .addInput(bundleMergeControlArtifact)
             .addTransitiveInputs(bundling.getBundleContentArtifacts())
             .addOutput(intermediateArtifacts.unprocessedIpa())
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder().addExecPath(bundleMergeControlArtifact).build())
             .build(ruleContext));
   }
@@ -1048,7 +1048,7 @@ public final class ReleaseBundlingSupport {
         ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
             .addInput(combinedArchBinary)
             .build(ruleContext));
@@ -1080,7 +1080,7 @@ public final class ReleaseBundlingSupport {
         ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("SwiftCopySwiftSupport")
             .setExecutable(attributes.swiftStdlibToolWrapper())
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftSupportZip())
             .addInput(combinedArchBinary)
             .build(ruleContext));

@@ -317,7 +317,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("cC")
                     .addExecPath(zipFile)

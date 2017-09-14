@@ -457,7 +457,7 @@ final class ProtobufSupport {
             .addOutputs(getGeneratedProtoOutputs(outputProtos, HEADER_SUFFIX))
             .addOutputs(getProtoSourceFilesForCompilation(outputProtos))
             .setExecutable(attributes.getProtoCompiler().getExecPath())
-            .setCommandLine(getGenerationCommandLine(protoInputsFile))
+            .addCommandLine(getGenerationCommandLine(protoInputsFile))
             .build(ruleContext));
   }
 

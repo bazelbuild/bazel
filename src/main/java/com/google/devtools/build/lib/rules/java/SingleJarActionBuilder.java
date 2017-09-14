@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,8 +74,9 @@ public final class SingleJarActionBuilder {
         .addOutput(outputJar)
         .addInputs(resources.values())
         .addInputs(resourceJars)
-        .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
-        .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+        .addCommandLine(
+            sourceJarCommandLine(outputJar, resources, resourceJars),
+            ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
         .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
         .setMnemonic("JavaSourceJar");
     ruleContext.registerAction(builder.build(ruleContext));

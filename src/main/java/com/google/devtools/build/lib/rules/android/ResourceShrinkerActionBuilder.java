@@ -239,7 +239,7 @@ public class ResourceShrinkerActionBuilder {
             .addTool(aapt)
             .addInputs(inputs.build())
             .addOutputs(outputs.build())
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Shrinking resources for %s", ruleContext.getLabel())

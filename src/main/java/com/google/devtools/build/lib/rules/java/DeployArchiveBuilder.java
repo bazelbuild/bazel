@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -278,8 +279,9 @@ public class DeployArchiveBuilder {
               .addOutput(outputJar)
               .setResources(resourceSet)
               .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)
-              .setCommandLine(commandLine)
-              .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+              .addCommandLine(
+                  commandLine,
+                  ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
               .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
               .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
@@ -291,8 +293,9 @@ public class DeployArchiveBuilder {
               .addOutput(outputJar)
               .setResources(resourceSet)
               .setExecutable(singlejar)
-              .setCommandLine(commandLine)
-              .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+              .addCommandLine(
+                  commandLine,
+                  ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
               .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
               .build(ruleContext));

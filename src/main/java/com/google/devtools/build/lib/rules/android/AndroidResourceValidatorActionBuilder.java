@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import java.util.ArrayList;
 import java.util.List;
@@ -193,12 +194,12 @@ public class AndroidResourceValidatorActionBuilder {
 
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .useParameterFile(ParameterFileType.UNQUOTED)
             .useDefaultShellEnvironment()
             .addTool(sdk.getAapt2())
             .addInputs(inputs.build())
             .addOutputs(outs.build())
-            .setCommandLine(builder.build())
+            .addCommandLine(
+                builder.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage(
@@ -269,12 +270,12 @@ public class AndroidResourceValidatorActionBuilder {
     // Create the spawn action.
     ruleContext.registerAction(
         spawnActionBuilder
-            .useParameterFile(ParameterFileType.UNQUOTED)
             .useDefaultShellEnvironment()
             .addTool(sdk.getAapt())
             .addInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(
+                builder.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Validating Android resources for %s", ruleContext.getLabel())

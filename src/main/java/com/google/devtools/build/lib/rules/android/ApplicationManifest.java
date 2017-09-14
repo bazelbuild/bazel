@@ -89,7 +89,7 @@ public final class ApplicationManifest {
       commandLine.add("--override_package", overridePackage);
     }
 
-    builder.setCommandLine(commandLine.build());
+    builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
     return new ApplicationManifest(ruleContext, result, targetAaptVersion);
   }
@@ -123,7 +123,7 @@ public final class ApplicationManifest {
       commandLine.add("--override_package", overridePackage);
     }
 
-    builder.setCommandLine(commandLine.build());
+    builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
 
     return new ApplicationManifest(ruleContext, stubManifest, targetAaptVersion);
@@ -142,7 +142,7 @@ public final class ApplicationManifest {
             .setMnemonic("InjectInstantRunStubApplication")
             .addInput(manifest)
             .addOutput(stubManifest)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("--mode=instant_run")
                     .addExecPath("--input_manifest", manifest)

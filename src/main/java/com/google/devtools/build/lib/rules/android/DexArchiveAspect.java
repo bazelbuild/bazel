@@ -401,7 +401,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .addOutput(result)
             .setMnemonic("Desugar")
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .setCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
+            .addCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
             .build(ruleContext));
     return result;
   }
@@ -453,7 +453,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .setMnemonic("DexBuilder")
             .setProgressMessage(
                 "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build());
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);

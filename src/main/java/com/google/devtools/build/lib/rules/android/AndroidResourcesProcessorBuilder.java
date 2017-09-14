@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -278,19 +279,16 @@ public class AndroidResourcesProcessorBuilder {
 
     configureCommonFlags(outs, inputs, builder);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     // Create the spawn action.
     ruleContext.registerAction(
@@ -300,7 +298,7 @@ public class AndroidResourcesProcessorBuilder {
             .addTool(sdk.getAapt2())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
@@ -344,19 +342,16 @@ public class AndroidResourcesProcessorBuilder {
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     configureCommonFlags(outs, inputs, builder);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     // Create the spawn action.
     ruleContext.registerAction(
@@ -366,7 +361,7 @@ public class AndroidResourcesProcessorBuilder {
             .addTool(sdk.getAapt())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())

@@ -382,10 +382,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       SkylarkList skylarkList = ((SkylarkList) arguments);
       @SuppressWarnings("unchecked")
       List<String> argumentsContents = skylarkList.getContents(String.class, "arguments");
-      builder.setCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
+      builder.addCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
     } else {
       Args args = (Args) arguments;
-      builder.setCommandLine(args.build());
+      builder.addCommandLine(args.build());
     }
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
@@ -564,10 +564,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       @SuppressWarnings("unchecked")
       List<String> argumentsContents = argumentList.getContents(String.class, "arguments");
       commandLine.addAll(argumentsContents);
-      builder.setCommandLine(commandLine.build());
+      builder.addCommandLine(commandLine.build());
     } else {
       Args args = (Args) arguments;
-      builder.setCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
+      builder.addCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
     }
 
     if (commandUnchecked instanceof String) {

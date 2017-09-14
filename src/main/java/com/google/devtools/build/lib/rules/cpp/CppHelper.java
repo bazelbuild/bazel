@@ -664,7 +664,7 @@ public class CppHelper {
             .setExecutionInfo(executionInfoBuilder.build())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")
-            .setCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
+            .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
             .build(context);
     context.registerAction(stripAction);
   }

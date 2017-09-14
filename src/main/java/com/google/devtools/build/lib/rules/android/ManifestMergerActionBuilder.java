@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -131,26 +132,23 @@ public class ManifestMergerActionBuilder {
       outputs.add(logOut);
     }
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED);
-    } else {
-      spawnActionBuilder.useParameterFile(ParameterFileType.SHELL_QUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     ruleContext.registerAction(
         this.spawnActionBuilder
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Merging manifest for %s", ruleContext.getLabel())

@@ -230,7 +230,7 @@ public class AndroidCommon {
             .addOutput(classesDex)
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
     if (mainDexList != null) {
       builder.addInput(mainDexList);
@@ -508,7 +508,7 @@ public class AndroidCommon {
               .addInput(jarJarRuleFile)
               .addInput(binaryResourcesJar)
               .addOutput(resourcesJar)
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .add("process")
                       .addExecPath(jarJarRuleFile)

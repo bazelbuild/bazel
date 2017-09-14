@@ -154,7 +154,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               .setProgressMessage(
                   "LLVMUnzipProfileAction: Generating %s", rawProfileArtifact.prettyPrint())
               .setMnemonic("LLVMUnzipProfileAction")
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .addExecPath("xf", zipProfileArtifact)
                       .add(
@@ -192,7 +192,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .setExecutable(cppConfiguration.getLLVMProfDataExecutable())
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("merge")
                     .add("-o")

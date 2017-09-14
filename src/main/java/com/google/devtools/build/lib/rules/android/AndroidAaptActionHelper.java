@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -108,8 +109,8 @@ public final class AndroidAaptActionHelper {
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
             .addOutput(javaSourcesJar)
-            .setCommandLine(CommandLine.of(args))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(args), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating Java resources")
             .setMnemonic("AaptJavaGenerator");
     if (rTxt != null) {
@@ -149,8 +150,8 @@ public final class AndroidAaptActionHelper {
             .addOutput(apk)
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-            .setCommandLine(CommandLine.of(args))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(args), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating apk resources")
             .setMnemonic("AaptResourceApk")
             .build(ruleContext));
@@ -277,8 +278,9 @@ public final class AndroidAaptActionHelper {
             .addOutputs(outputs.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-            .setCommandLine(CommandLine.of(aaptCommand))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(aaptCommand),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating Proguard configuration for resources")
             .setMnemonic("AaptProguardConfiguration")
             .build(ruleContext));

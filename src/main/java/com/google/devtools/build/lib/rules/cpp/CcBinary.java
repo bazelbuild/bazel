@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -627,7 +628,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
     Action[] build(RuleContext context) {
-      spawnAction.setCommandLine(commandLine.build());
+      spawnAction.addCommandLine(
+          commandLine.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build());
       return spawnAction.build(context);
     }
   }
@@ -696,8 +698,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     packager
         .spawnAction
         .addTransitiveInputs(dwpTools)
-        .setExecutable(cppConfiguration.getDwpExecutable())
-        .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED);
+        .setExecutable(cppConfiguration.getDwpExecutable());
     return packager;
   }
 

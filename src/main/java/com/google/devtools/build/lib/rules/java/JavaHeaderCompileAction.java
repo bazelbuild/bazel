@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -385,12 +386,15 @@ public class JavaHeaderCompileAction extends SpawnAction {
       if ((noFallback || directJars.isEmpty()) && !requiresAnnotationProcessing) {
         SpawnAction.Builder builder = new SpawnAction.Builder();
         NestedSet<Artifact> classpath;
+        final ParamFileInfo paramFileInfo;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
           classpath = directJars;
+          paramFileInfo = null;
         } else {
           classpath = classpathEntries;
           // Transitive classpath actions may exceed the command line length limit.
-          builder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+          paramFileInfo =
+              ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build();
         }
         CustomCommandLine.Builder commandLine =
             baseCommandLine(CustomCommandLine.builder(), classpath);
@@ -402,7 +406,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
             .addTransitiveInputs(baseInputs)
             .addTransitiveInputs(classpath)
             .addOutputs(outputs)
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build(), paramFileInfo)
             .setJarExecutable(
                 JavaCommon.getHostJavaExecutable(ruleContext),
                 javaToolchain.getHeaderCompiler(),

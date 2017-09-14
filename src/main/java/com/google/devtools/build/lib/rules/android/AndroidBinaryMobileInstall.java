@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -160,12 +161,12 @@ public final class AndroidBinaryMobileInstall {
                 ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest", Mode.HOST))
             .addOutput(incrementalDexManifest)
             .addInputs(dexingOutput.shardDexZips)
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath(incrementalDexManifest)
                     .addExecPaths(dexingOutput.shardDexZips)
-                    .build())
+                    .build(),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ruleContext));
 
     Artifact stubData = ruleContext.getImplicitOutputArtifact(
@@ -277,7 +278,7 @@ public final class AndroidBinaryMobileInstall {
             .setExecutable(ruleContext.getExecutablePrerequisite("$strip_resources", Mode.HOST))
             .addInput(resourceApk.getArtifact())
             .addOutput(splitMainApkResources)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--input_resource_apk", resourceApk.getArtifact())
                     .addExecPath("--output_resource_apk", splitMainApkResources)
@@ -450,7 +451,7 @@ public final class AndroidBinaryMobileInstall {
       }
     }
 
-    builder.setCommandLine(commandLine.build());
+    builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
@@ -485,7 +486,7 @@ public final class AndroidBinaryMobileInstall {
       commandLine.addExecPath("--split_apk", splitApk);
     }
 
-    builder.setCommandLine(commandLine.build());
+    builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
@@ -504,7 +505,7 @@ public final class AndroidBinaryMobileInstall {
             .addOutput(splitResources)
             .addInput(splitManifest)
             .addInput(sdk.getAndroidJar())
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("package")
                     .addExecPath("-F", splitResources)

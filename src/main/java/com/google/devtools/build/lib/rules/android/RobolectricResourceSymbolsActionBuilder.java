@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -92,26 +93,23 @@ public class RobolectricResourceSymbolsActionBuilder {
     builder.addExecPath("--classJarOutput", classJarOut);
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFile.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     ruleContext.registerAction(
         spawnActionBuilder
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutput(classJarOut)
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFile.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Generating R classes for %s", ruleContext.getLabel())

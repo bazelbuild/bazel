@@ -87,7 +87,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .setProgressMessage("hi, mom!")
             .setMnemonic("Dummy")
             .setEnvironment(environmentVariables)
-            .setCommandLine(CommandLine.of(arguments))
+            .addCommandLine(CommandLine.of(arguments))
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     return (SpawnAction) actions[0];
@@ -173,8 +173,9 @@ public class SpawnActionTest extends BuildViewTestCase {
                 jarArtifact,
                 "MyMainClass",
                 asList("-jvmarg"))
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .setCommandLine(CustomCommandLine.builder().add("-X").build())
+            .addCommandLine(
+                CustomCommandLine.builder().add("-X").build(),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
@@ -216,8 +217,12 @@ public class SpawnActionTest extends BuildViewTestCase {
                 jarArtifact,
                 "MyMainClass",
                 asList("-jvmarg"))
-            .setCommandLine(CustomCommandLine.builder().add("-X").build())
-            .useParameterFile(ParameterFileType.UNQUOTED, ISO_8859_1, "--flagfile=")
+            .addCommandLine(
+                CustomCommandLine.builder().add("-X").build(),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+                    .setCharset(ISO_8859_1)
+                    .setFlag("--flagfile=")
+                    .build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
@@ -253,7 +258,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 "MyMainClass",
                 asList("-jvmarg"))
             .addExecutableArguments("execArg1", "execArg2")
-            .setCommandLine(CustomCommandLine.builder().add("arg1").build())
+            .addCommandLine(CustomCommandLine.builder().add("arg1").build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
@@ -286,8 +291,9 @@ public class SpawnActionTest extends BuildViewTestCase {
                 "MyMainClass",
                 asList("-jvmarg"))
             .addExecutableArguments("execArg1", "execArg2")
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .setCommandLine(CustomCommandLine.builder().add("arg1").add("arg2").add("arg3").build())
+            .addCommandLine(
+                CustomCommandLine.builder().add("arg1").add("arg2").add("arg3").build(),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
@@ -338,8 +344,9 @@ public class SpawnActionTest extends BuildViewTestCase {
             builder()
                 .addOutput(output1)
                 .setExecutable(executable)
-                .useParameterFile(ParameterFileType.UNQUOTED)
-                .setCommandLine(CustomCommandLine.builder().addDynamicString(longOption).build())
+                .addCommandLine(
+                    CustomCommandLine.builder().addDynamicString(longOption).build(),
+                    ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
                 .build(
                     ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig)[
                 0]);
@@ -352,12 +359,55 @@ public class SpawnActionTest extends BuildViewTestCase {
             builder()
                 .addOutput(output2)
                 .setExecutable(executable)
-                .useParameterFile(ParameterFileType.UNQUOTED)
-                .setCommandLine(CustomCommandLine.builder().addDynamicString(longOption).build())
+                .addCommandLine(
+                    CustomCommandLine.builder().addDynamicString(longOption).build(),
+                    ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
                 .build(
                     ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig)[
                 0]);
     assertThat(spawnAction.getRemainingArguments()).containsExactly(longOption).inOrder();
+  }
+
+  @Test
+  public void testMultipleCommandLines() throws Exception {
+    Artifact input = getSourceArtifact("input");
+    Artifact output = getBinArtifactWithNoOwner("output");
+    Action[] actions =
+        builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .addCommandLine(CommandLine.of(ImmutableList.of("arg1")))
+            .addCommandLine(CommandLine.of(ImmutableList.of("arg2")))
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
+  }
+
+  @Test
+  public void testMultipleParameterFiles() throws Exception {
+    useConfiguration("--min_param_file_size=0");
+    Artifact input = getSourceArtifact("input");
+    Artifact output = getBinArtifactWithNoOwner("output");
+    Artifact paramFile1 = getBinArtifactWithNoOwner("output-2.params");
+    Artifact paramFile2 = getBinArtifactWithNoOwner("output-3.params");
+    Action[] actions =
+        builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("arg1")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("arg2")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(actions).hasLength(3);
+    assertThat(action.getArguments())
+        .containsExactly(
+            "/bin/xxx", "@" + paramFile1.getExecPathString(), "@" + paramFile2.getExecPathString());
   }
 
   @Test
