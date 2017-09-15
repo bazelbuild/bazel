@@ -2,6 +2,7 @@
 layout: documentation
 title: Macros
 ---
+
 # Macros
 
 ## Macro creation

@@ -2,6 +2,7 @@
 layout: documentation
 title: Extensions examples
 ---
+
 # Extensions examples
 
 ## <a name="macro"></a>Macro creating a rule
