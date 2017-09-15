@@ -89,7 +89,7 @@ public class CppHelper {
 
   /** Returns label used to select resolved cc_toolchain instances based on platform. */
   public static Label getCcToolchainType(String toolsRepository) {
-    return Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:toolchain_type");
+    return Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:toolchain_category");
   }
 
   private CppHelper() {

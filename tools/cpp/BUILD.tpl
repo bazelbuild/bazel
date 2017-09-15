@@ -76,7 +76,7 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-toolchain_type(name = "toolchain_type")
+filegroup(name = "toolchain_category")
 
 # A dummy toolchain is necessary to satisfy toolchain resolution until platforms
 # are used in c++ by default.
@@ -84,7 +84,7 @@ toolchain_type(name = "toolchain_type")
 toolchain(
     name = "dummy_cc_toolchain",
     toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_type",
+    toolchain_type = ":toolchain_category",
 )
 
 load(":dummy_toolchain.bzl", "dummy_toolchain")
