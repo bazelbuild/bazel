@@ -22,6 +22,7 @@ Example uses of depsets include:
 *   for an interpreted language, storing the transitive source files that will
     be included in an executable's runfiles
 
+<!-- [TOC] -->
 
 ## Full example
 

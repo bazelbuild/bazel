@@ -22,6 +22,8 @@ Before creating or modifying any rule, make sure you are familiar with the
 [extensibility model](concepts.md) (understand the three phases and the
 differences between macros and rules).
 
+<!-- [TOC] -->
+
 ## Rule creation
 
 In a `.bzl` file, use the [rule](lib/globals.html#rule)

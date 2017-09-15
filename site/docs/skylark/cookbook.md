@@ -5,6 +5,8 @@ title: Extensions examples
 
 # Extensions examples
 
+<!-- [TOC] -->
+
 ## <a name="macro"></a>Macro creating a rule
 
 An example of a macro creating a rule.

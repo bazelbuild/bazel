@@ -5,6 +5,7 @@ title: Extensions - Overview
 
 # Language
 
+<!-- [TOC] -->
 
 ## Syntax
 

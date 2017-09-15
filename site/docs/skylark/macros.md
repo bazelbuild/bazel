@@ -5,6 +5,8 @@ title: Macros
 
 # Macros
 
+<!-- [TOC] -->
+
 ## Macro creation
 
 A macro is a function called from the BUILD file that can instantiate rules.
