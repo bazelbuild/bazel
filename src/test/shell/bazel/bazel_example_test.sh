@@ -100,17 +100,6 @@ function test_genrule_and_genquery() {
   }
 }
 
-if [ "${PLATFORM}" = "darwin" ]; then
-  function test_objc() {
-    setup_objc_test_support
-    # https://github.com/bazelbuild/bazel/issues/162
-    # prevents us from running iOS tests.
-    # TODO(bazel-team): Execute iOStests here when this issue is resolved.
-    assert_build_output ./bazel-bin/examples/objc/PrenotCalculator.ipa \
-        --ios_sdk_version=$IOS_SDK_VERSION //examples/objc:PrenotCalculator
-  }
-fi
-
 function test_native_python() {
   assert_build //examples/py_native:bin --python2_path=python
   assert_test_ok //examples/py_native:test --python2_path=python
