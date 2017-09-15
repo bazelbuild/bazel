@@ -205,10 +205,7 @@ filegroup(
     srcs = ["link_dynamic_library.sh"],
 )
 
-# The c++ toolchain type
-load("//tools/build_defs/toolchains:toolchain_category.bzl", "toolchain_category")
-
-toolchain_category(name = "toolchain_category")
+toolchain_type(name = "toolchain_type")
 
 # A dummy toolchain is necessary to satisfy toolchain resolution until platforms
 # are used in c++ by default.
@@ -216,7 +213,7 @@ toolchain_category(name = "toolchain_category")
 toolchain(
     name = "dummy_cc_toolchain",
     toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_category",
+    toolchain_type = ":toolchain_type",
 )
 
 load(":dummy_toolchain.bzl", "dummy_toolchain")

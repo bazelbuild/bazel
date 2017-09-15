@@ -76,9 +76,7 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-# The c++ toolchain type
-load("//tools/build_rules:toolchain_category.bzl", "toolchain_category")
-toolchain_category(name = "toolchain_category")
+toolchain_type(name = "toolchain_type")
 
 # A dummy toolchain is necessary to satisfy toolchain resolution until platforms
 # are used in c++ by default.
@@ -86,7 +84,7 @@ toolchain_category(name = "toolchain_category")
 toolchain(
     name = "dummy_cc_toolchain",
     toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_category",
+    toolchain_type = ":toolchain_type",
 )
 
 load(":dummy_toolchain.bzl", "dummy_toolchain")
