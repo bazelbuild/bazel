@@ -116,7 +116,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext,
         filesBuilder,
         resourceDeps,
-        javaCommon,
         androidCommon,
         javaSemantics,
         androidSemantics);
@@ -173,7 +172,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       ResourceDependencies resourceDeps,
-      JavaCommon javaCommon,
       AndroidCommon androidCommon,
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics)
@@ -368,7 +366,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         deployJar,
         derivedJarFunction,
         /* isBinaryJarFiltered */ false,
-        javaCommon,
         androidCommon,
         javaSemantics,
         androidSemantics,
@@ -392,7 +389,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact binaryJar,
       Function<Artifact, Artifact> derivedJarFunction,
       boolean isBinaryJarFiltered,
-      JavaCommon javaCommon,
       AndroidCommon androidCommon,
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
