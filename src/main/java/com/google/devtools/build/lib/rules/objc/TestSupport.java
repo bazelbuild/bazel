@@ -124,8 +124,13 @@ public class TestSupport {
       template = testTemplateForLabDevice();
     }
 
-    ruleContext.registerAction(new TemplateExpansionAction(ruleContext.getActionOwner(),
-        template, generatedTestScript(), substitutions.build(), /*executable=*/true));
+    ruleContext.registerAction(
+        new TemplateExpansionAction(
+            ruleContext.getActionOwner(),
+            template,
+            generatedTestScript(),
+            substitutions.build(),
+            /* makeExecutable= */ true));
   }
 
   private boolean runWithLabDevice() {

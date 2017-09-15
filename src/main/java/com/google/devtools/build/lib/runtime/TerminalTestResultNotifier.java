@@ -188,11 +188,11 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         break;
 
       case SHORT:
-        printShortSummary(summaries, /*printSuccess=*/true);
+        printShortSummary(summaries, /* showPassingTests= */ true);
         break;
 
       case TERSE:
-        printShortSummary(summaries, /*printSuccess=*/false);
+        printShortSummary(summaries, /* showPassingTests= */ false);
         break;
 
       case NONE:

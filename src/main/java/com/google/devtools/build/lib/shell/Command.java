@@ -362,7 +362,7 @@ public final class Command {
 
     outErrConsumers.logConsumptionStrategy();
     outErrConsumers.registerInputs(
-        process.getInputStream(), process.getErrorStream(), /*closeOutputStreams=*/false);
+        process.getInputStream(), process.getErrorStream(), /* closeStreams= */ false);
 
     // TODO(ulfjack): This call blocks until all input is written. If stdinInput is large (or
     // unbounded), then the async calls can block for a long time, and the timeout is not properly

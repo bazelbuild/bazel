@@ -561,9 +561,9 @@ public class AbstractQueueVisitorTest {
     public CountingQueueVisitor() {
       super(
           /*parallelism=*/ 5,
-          /*keepAlive=*/ 3L,
+          /* keepAliveTime= */ 3L,
           TimeUnit.SECONDS,
-          /*failFast=*/ false,
+          /* failFastOnException= */ false,
           THREAD_NAME,
           AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
@@ -602,7 +602,7 @@ public class AbstractQueueVisitorTest {
           5,
           3L,
           TimeUnit.SECONDS,
-          /*failFast=*/ false,
+          /* failFastOnException= */ false,
           THREAD_NAME,
           AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);

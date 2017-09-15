@@ -1288,7 +1288,7 @@ public abstract class CompilationSupport {
             ImmutableList.<PathFragment>of(),
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
-            /*generateSubModules=*/ false,
+            /* generateSubmodules= */ false,
             /*externDependencies=*/ true));
 
     return this;

@@ -31,10 +31,11 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    return new JavaLibrary(semantics).init(
-        ruleContext,
-        new JavaCommon(ruleContext, semantics),
-        /* includeGeneratedExtensionRegistry = */ true,
-        /* includeJavaPluginInfoProvider = */ true);
+    return new JavaLibrary(semantics)
+        .init(
+            ruleContext,
+            new JavaCommon(ruleContext, semantics),
+            /* includeGeneratedExtensionRegistry = */ true,
+            /* isJavaPluginRule= */ true);
   }
 }

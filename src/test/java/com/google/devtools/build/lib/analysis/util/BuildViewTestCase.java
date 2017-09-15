@@ -485,9 +485,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
-    return new CachingAnalysisEnvironment(view.getArtifactFactory(),
-        ArtifactOwner.NULL_OWNER, /*isSystemEnv=*/true, /*extendedSanityChecks*/false, reporter,
-        /*skyframeEnv=*/ null, /*actionsEnabled=*/true);
+    return new CachingAnalysisEnvironment(
+        view.getArtifactFactory(),
+        ArtifactOwner.NULL_OWNER,
+        /*isSystemEnv=*/ true, /*extendedSanityChecks*/
+        false,
+        reporter,
+        /* env= */ null,
+        /* allowRegisteringActions= */ true);
   }
 
   /**

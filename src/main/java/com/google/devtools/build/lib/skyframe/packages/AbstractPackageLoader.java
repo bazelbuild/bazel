@@ -349,7 +349,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(
-                /*deletedPackagesRef=*/ new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
+                /* deletedPackages= */ new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
                 getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority()))
         .put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, new BlacklistedPackagePrefixesFunction())

@@ -467,7 +467,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             getPchFile(),
             Optional.<Artifact>absent(),
             otherFlags,
-            /* runCodeCoverage=*/ false,
+            /* collectCodeCoverage= */ false,
             /* isCPlusPlusSource=*/ false);
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);

@@ -47,8 +47,8 @@ public class ResourceManagerTest {
   public final void configureResourceManager() throws Exception  {
     rm.setRamUtilizationPercentage(100);
     rm.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1000.0, /*cpuUsage=*/1.0, /*ioUsage=*/1.0,
-        /*testCount=*/2));
+        ResourceSet.create(
+            /*memoryMb=*/ 1000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
@@ -357,7 +357,7 @@ public class ResourceManagerTest {
     // the available memory. But it shouldn't.
     rm.setAvailableResources(
         ResourceSet.create(
-            /*memoryMb=*/ 2000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /*testCount=*/ 2));
+            /*memoryMb=*/ 2000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /* localTestCount= */ 2));
     TestThread thread2 =
         new TestThread() {
           @Override

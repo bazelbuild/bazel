@@ -371,7 +371,7 @@ public final class CommandInterruptionTest {
     dispatcher = new BlazeCommandDispatcher(runtime, snooze);
     BlazeDirectories blazeDirectories =
         new BlazeDirectories(serverDirectories, scratch.dir("workspace"), productName);
-    runtime.initWorkspace(blazeDirectories, /*bintools=*/ null);
+    runtime.initWorkspace(blazeDirectories, /* binTools= */ null);
   }
 
   @After

@@ -780,7 +780,7 @@ public class MemoizingEvaluatorTest {
     }
     tester.set("leaf", new StringValue("leaf"));
 
-    EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, values);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, values);
     for (int i = 0; i < values.length; i++) {
       SkyValue actual = result.get(toSkyKey(values[i]));
       assertThat(actual).isEqualTo(new StringValue("leaf"));
@@ -789,7 +789,7 @@ public class MemoizingEvaluatorTest {
     for (int j = 0; j < TESTED_NODES; j++) {
       tester.set("leaf", new StringValue("other" + j));
       tester.invalidate();
-      result = tester.eval(/*keep_going=*/false, values);
+      result = tester.eval(/* keepGoing= */ false, values);
       for (int i = 0; i < values.length; i++) {
         SkyValue actual = result.get(toSkyKey(values[i]));
         assertWithMessage("Run " + j + ", value " + i)
@@ -816,7 +816,7 @@ public class MemoizingEvaluatorTest {
       value.addDependency(values[i]);
     }
 
-    EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, rootKey);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, rootKey);
     assertThat(result.get(rootKey)).isEqualTo(new StringValue(expected.toString()));
 
     for (int j = 0; j < 10; j++) {
@@ -828,7 +828,7 @@ public class MemoizingEvaluatorTest {
       }
       tester.invalidate();
 
-      result = tester.eval(/*keep_going=*/false, rootKey);
+      result = tester.eval(/* keepGoing= */ false, rootKey);
       assertThat(result.get(rootKey)).isEqualTo(new StringValue(expected.toString()));
     }
   }
@@ -864,7 +864,7 @@ public class MemoizingEvaluatorTest {
     String lastLeft = "left-" + (TEST_NODE_COUNT - 1);
     String lastRight = "right-" + (TEST_NODE_COUNT - 1);
 
-    EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
     assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
     assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue("leaf"));
 
@@ -872,7 +872,7 @@ public class MemoizingEvaluatorTest {
       String value = "other" + j;
       tester.set("leaf", new StringValue(value));
       tester.invalidate();
-      result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+      result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
       assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue(value));
       assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue(value));
     }
@@ -2342,7 +2342,7 @@ public class MemoizingEvaluatorTest {
       tester.getOrCreate(topKey, /*markAsModified=*/false).setHasError(true);
       tester.invalidate();
 
-      result = tester.eval(/*keep_going=*/false, topKey);
+      result = tester.eval(/* keepGoing= */ false, topKey);
       assertThat(result.get(topKey)).isEqualTo(new StringValue(expected.toString()));
     }
   }
@@ -3643,16 +3643,16 @@ public class MemoizingEvaluatorTest {
       try {
         tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(true);
         tester.invalidate();
-        EvaluationResult<StringValue> result = tester.eval(
-            /*keep_going=*/false, lastLeft, lastRight);
+        EvaluationResult<StringValue> result =
+            tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
         assertThat(result.hasError()).isTrue();
         tester.differencer.invalidate(ImmutableList.of(leftValues[i]));
         tester.invalidate();
-        result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+        result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
         assertThat(result.hasError()).isTrue();
         tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(false);
         tester.invalidate();
-        result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+        result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
         assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
         assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue("leaf"));
       } catch (Exception e) {
