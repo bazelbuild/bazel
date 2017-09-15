@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -52,7 +52,7 @@ public final class SingleJarActionBuilder {
   public static void createSourceJarAction(
       RuleContext ruleContext,
       Map<PathFragment, Artifact> resources,
-      Collection<Artifact> resourceJars,
+      NestedSet<Artifact> resourceJars,
       Artifact outputJar) {
     Artifact singleJar = getSingleJar(ruleContext);
     SpawnAction.Builder builder = new SpawnAction.Builder();
@@ -73,7 +73,7 @@ public final class SingleJarActionBuilder {
     builder
         .addOutput(outputJar)
         .addInputs(resources.values())
-        .addInputs(resourceJars)
+        .addTransitiveInputs(resourceJars)
         .addCommandLine(
             sourceJarCommandLine(outputJar, resources, resourceJars),
             ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
@@ -92,11 +92,11 @@ public final class SingleJarActionBuilder {
   }
 
   private static CommandLine sourceJarCommandLine(Artifact outputJar,
-      Map<PathFragment, Artifact> resources, Iterable<Artifact> resourceJars) {
+      Map<PathFragment, Artifact> resources, NestedSet<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
     args.addAll(SOURCE_JAR_COMMAND_LINE_ARGS);
-    args.addExecPaths("--sources", ImmutableList.copyOf(resourceJars));
+    args.addExecPaths("--sources", resourceJars);
     if (!resources.isEmpty()) {
       args.add("--resources");
       for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {

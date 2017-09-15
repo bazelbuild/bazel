@@ -588,7 +588,8 @@ public final class JavaCompilationHelper {
    */
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
     JavaTargetAttributes attributes = getAttributes();
-    Collection<Artifact> resourceJars = new ArrayList<>(attributes.getSourceJars());
+    NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
+    resourceJars.addAll(attributes.getSourceJars());
     if (gensrcJar != null) {
       resourceJars.add(gensrcJar);
     }
@@ -596,7 +597,8 @@ public final class JavaCompilationHelper {
     for (Artifact sourceFile : attributes.getSourceFiles()) {
       resources.put(semantics.getDefaultJavaResourcePath(sourceFile.getRootRelativePath()), sourceFile);
     }
-    SingleJarActionBuilder.createSourceJarAction(ruleContext, resources, resourceJars, outputJar);
+    SingleJarActionBuilder.createSourceJarAction(
+        ruleContext, resources, resourceJars.build(), outputJar);
   }
 
   /**
