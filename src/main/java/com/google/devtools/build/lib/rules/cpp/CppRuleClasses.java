@@ -131,6 +131,17 @@ public class CppRuleClasses {
     };
   }
 
+  public static LateBoundLabel<BuildConfiguration> ccToolchainTypeAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return CppHelper.getCcToolchainType(env.getToolsRepository());
+      }
+    };
+  }
+
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
       ARCHIVE,
