@@ -207,6 +207,7 @@ java_test(
 
 java_test(
     name = "AndroidLibraryTest",
+    timeout = "long",
     srcs = ["AndroidLibraryTest.java"],
     deps = [
         ":AndroidBuildViewTestCase",
