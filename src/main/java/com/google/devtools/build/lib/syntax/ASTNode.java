@@ -25,7 +25,9 @@ import java.util.List;
  *
  * The standard {@link Object#equals} and {@link Object#hashCode} methods are not supported. This is
  * because their implementation would require traversing the entire tree in the worst case, and we
- * don't want this kind of cost to occur implicitly.
+ * don't want this kind of cost to occur implicitly. An incomplete way to compare for equality is to
+ * test whether two ASTs have the same string representation under {@link #prettyPrint()}. This
+ * might miss some metadata, but it's useful in test assertions.
  */
 public abstract class ASTNode implements Serializable {
 

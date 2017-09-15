@@ -142,7 +142,7 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/.*-fastbuild/genfiles/external/a/b/c" \
+  assert_contains "bazel-out/.*-fastbuild/.*/external/a/b/c" \
     "bazel-genfiles/external/a/b/c/d"
 }
 

@@ -117,6 +117,11 @@ public abstract class PackageLookupValue implements SkyValue {
     return new InvalidNamePackageLookupValue(errorMsg);
   }
 
+  public static PackageLookupValue incorrectRepositoryReference(
+      PackageIdentifier invalidPackage, PackageIdentifier correctPackage) {
+    return new IncorrectRepositoryReferencePackageLookupValue(invalidPackage, correctPackage);
+  }
+
   /**
    * For a successful package lookup, returns the root (package path entry) that the package
    * resides in.
@@ -150,7 +155,7 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public abstract String getErrorMsg();
 
-  static SkyKey key(PathFragment directory) {
+  public static SkyKey key(PathFragment directory) {
     Preconditions.checkArgument(!directory.isAbsolute(), directory);
     return key(PackageIdentifier.createInMainRepo(directory));
   }
@@ -277,6 +282,59 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return errorMsg.hashCode();
+    }
+  }
+
+  /** Value indicating the package name was in error. */
+  public static class IncorrectRepositoryReferencePackageLookupValue
+      extends UnsuccessfulPackageLookupValue {
+
+    private final PackageIdentifier invalidPackageIdentifier;
+    private final PackageIdentifier correctedPackageIdentifier;
+
+    private IncorrectRepositoryReferencePackageLookupValue(
+        PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
+      this.invalidPackageIdentifier = invalidPackageIdentifier;
+      this.correctedPackageIdentifier = correctedPackageIdentifier;
+    }
+
+    public PackageIdentifier getInvalidPackageIdentifier() {
+      return invalidPackageIdentifier;
+    }
+
+    public PackageIdentifier getCorrectedPackageIdentifier() {
+      return correctedPackageIdentifier;
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.INVALID_PACKAGE_NAME;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return String.format(
+          "Invalid package reference %s crosses into repository %s:"
+              + " did you mean to use %s instead?",
+          invalidPackageIdentifier,
+          correctedPackageIdentifier.getRepository(),
+          correctedPackageIdentifier);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue)) {
+        return false;
+      }
+      IncorrectRepositoryReferencePackageLookupValue other =
+          (IncorrectRepositoryReferencePackageLookupValue) obj;
+      return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
+          && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(invalidPackageIdentifier, correctedPackageIdentifier);
     }
   }
 

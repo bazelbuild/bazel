@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -40,7 +43,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -338,15 +341,15 @@ public class IncrementalLoadingTest {
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
     tester.sync();
-    Target target = tester.getTarget("//e:e");
-    assertThat(((Rule) target).containsErrors()).isTrue();
-    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
-    assertThat(globList).isEmpty();
+    try {
+      tester.getTarget("//e:e");
+    } catch (NoSuchPackageException expected) {
+    }
     throwOnReaddir = null;
     tester.sync();
-    target = tester.getTarget("//e:e");
+    Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
-    globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
+    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
   }
 
@@ -461,13 +464,12 @@ public class IncrementalLoadingTest {
 
       LoadingMock loadingMock = LoadingMock.get();
       skyframeExecutor =
-          SequencedSkyframeExecutor.createForTesting(
+          SequencedSkyframeExecutor.create(
               loadingMock
                   .getPackageFactoryBuilderForTesting()
                   .build(loadingMock.createRuleClassProvider(), fs),
               new BlazeDirectories(
-                  fs.getPath("/install"),
-                  fs.getPath("/output"),
+                  new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
                   workspace,
                   loadingMock.getProductName()),
               null, /* BinTools */
@@ -478,7 +480,12 @@ public class IncrementalLoadingTest {
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
-              loadingMock.getProductName());
+              PathFragment.EMPTY_FRAGMENT,
+              loadingMock.getProductName(),
+              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
       packageCacheOptions.showLoadingProgress = true;

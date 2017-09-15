@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -26,14 +27,14 @@ import javax.annotation.Nullable;
  *
  * <p>Represents the information made available by a {@link ConfiguredTarget} to other ones that
  * depend on it. For more information about the analysis phase, see {@link
- * com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
  * <p>Implementations of build rules should <b>not</b> hold on to references to the {@link
  * TransitiveInfoCollection}s representing their direct prerequisites in order to reduce their
  * memory footprint (otherwise, the referenced object could refer one of its direct dependencies in
  * turn, thereby making the size of the objects reachable from a single instance unbounded).
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see TransitiveInfoProvider
  */
 @SkylarkModule(
@@ -79,4 +80,25 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
    * <b>null</b>.</p>
    */
   @Nullable BuildConfiguration getConfiguration();
+
+  /**
+   * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.
+   */
+  default boolean satisfies(RequiredProviders providers) {
+    return providers.isSatisfiedBy(
+        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
+        id -> this.get(id) != null);
+  }
+
+  /**
+   * Returns providers that this {@link TransitiveInfoCollection} misses from a given {@link
+   * RequiredProviders}.
+   *
+   * <p>If none are missing, returns {@link RequiredProviders} that accept any set of providers.
+   */
+  default RequiredProviders missingProviders(RequiredProviders providers) {
+    return providers.getMissing(
+        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
+        id -> this.get(id) != null);
+  }
 }

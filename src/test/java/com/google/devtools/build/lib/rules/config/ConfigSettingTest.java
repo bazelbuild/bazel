@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,10 +93,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     @Option(
       name = "internal_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String optwithDefault;
   }
@@ -285,6 +285,48 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--define", "foo=bar", "--define", "bar=baz", "--define", "foo=nope");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
     useConfiguration("--define", "foo=nope", "--define", "bar=baz", "--define", "foo=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void multipleDefines() throws Exception {
+    scratch.file("test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    define_values = {",
+        "        'foo1': 'bar',",
+        "        'foo2': 'baz',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo1=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo2=baz");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo1=bar", "--define", "foo2=baz");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void definesCrossAttributes() throws Exception {
+    scratch.file("test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'a=c'",
+        "    },",
+        "    define_values = {",
+        "        'b': 'd',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "b=d");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c", "--define", "b=d");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
@@ -1028,7 +1070,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
     checkError("test", "invalid_flag",
         "in flag_values attribute of config_setting rule //test:invalid_flag: "
-        + "'//test:genrule' does not have mandatory provider 'FeatureFlagInfo'",
+        + "'//test:genrule' does not have mandatory providers: 'FeatureFlagInfo'",
         "config_setting(",
         "    name = 'invalid_flag',",
         "    flag_values = {",
@@ -1079,92 +1121,5 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'valid'],",
         "    default_value = 'valid',",
         ")");
-  }
-
-  @Test
-  public void policyMustContainRuleToUseFlagValues() throws Exception {
-    reporter.removeHandler(failFastHandler); // expecting an error
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag'])");
-    scratch.file(
-        "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//test:__pkg__'],",
-        ")");
-    scratch.file(
-        "test/BUILD",
-        "config_setting(",
-        "    name = 'flag_values_user',",
-        "    flag_values = {",
-        "        '//flag:flag': 'right',",
-        "    },",
-        ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNull();
-    assertContainsEvent(
-        "in config_setting rule //test:flag_values_user: the flag_values attribute is not "
-            + "available in package 'test' according to policy "
-            + "'//policy:feature_flag_users'");
-  }
-
-  @Test
-  public void policyDoesNotBlockRuleIfInPolicy() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag', '//test'])");
-    scratch.file(
-        "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//test:__pkg__'],",
-        ")");
-    scratch.file(
-        "test/BUILD",
-        "config_setting(",
-        "    name = 'flag_values_user',",
-        "    flag_values = {",
-        "        '//flag:flag': 'right',",
-        "    },",
-        ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void policyDoesNotBlockRuleIfFlagValuesNotUsed() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag'])");
-    scratch.file("flag/BUILD");
-    scratch.file(
-        "test/BUILD",
-        "config_setting(",
-        "    name = 'flag_values_user',",
-        "    values = {",
-        "        'cpu': 'k8',",
-        "    },",
-        ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
-    assertNoEvents();
   }
 }

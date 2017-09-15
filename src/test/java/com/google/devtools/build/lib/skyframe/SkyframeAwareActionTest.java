@@ -378,6 +378,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         null,
         null,
+        null,
         executor,
         null,
         false,
@@ -402,6 +403,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(actionOutput),
+        null,
         null,
         null,
         null,
@@ -777,6 +779,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(genFile2),
+        null,
         null,
         null,
         null,

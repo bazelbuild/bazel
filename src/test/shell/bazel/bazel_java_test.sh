@@ -183,7 +183,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 
@@ -300,7 +300,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 
@@ -377,7 +377,7 @@ def _impl(ctx):
     host_javabase = ctx.attr._host_javabase
   )
   return struct(
-    files = set([output_jar]),
+    files = depset([output_jar]),
     providers = [compilation_provider]
   )
 
@@ -453,7 +453,7 @@ EOF
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],
-             javacopts = ['-extra_checks:off'],);
+             javacopts = ['-XepDisableAllChecks'],);
 EOF
 
   bazel build //java/main:main &> $TEST_log || fail "build failed"
@@ -1068,6 +1068,27 @@ EOF
   expect_log "Message from C"
 }
 
+function test_java_sandwich_default_strict_deps() {
+  mkdir -p java/com/google/sandwich
+  touch java/com/google/sandwich/{BUILD,A.java,java_custom_library.bzl}
+  write_java_custom_rule
+
+  cat > java/com/google/sandwich/BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"]
+)
+EOF
+
+  sed -i -- 's/ERROR/DEFAULT/g' 'java/com/google/sandwich/java_custom_library.bzl'
+  bazel build java/com/google/sandwich:custom > $TEST_log || fail "Java sandwich build failed"
+
+  sed -i -- 's/DEFAULT/WARN/g' 'java/com/google/sandwich/java_custom_library.bzl'
+  bazel build java/com/google/sandwich:custom > $TEST_log || fail "Java sandwich build failed"
+}
+
 function test_basic_java_sandwich_with_transitive_deps_and_java_library_should_fail() {
   mkdir -p java/com/google/sandwich
   touch java/com/google/sandwich/{BUILD,{A,B,C,Main}.java,java_custom_library.bzl}
@@ -1216,6 +1237,66 @@ EOF
   bazel run java/com/google/sandwich:Main &> "$TEST_log" && fail "Java sandwich build shold have failed" || true
   expect_log "Using type com.google.sandwich.B from an indirect dependency"
   expect_log "Using type com.google.sandwich.C from an indirect dependency"
+}
+
+function test_java_common_build_ijar() {
+  mkdir -p java/com/google/foo
+  touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}
+  cat > java/com/google/foo/A.java << EOF
+package com.google.foo;
+class A {}
+EOF
+  cat > java/com/google/foo/BUILD << EOF
+load(":my_rule.bzl", "my_rule")
+java_library(name = "a", srcs = ["A.java"])
+my_rule(name = "banana", jar = "liba.jar")
+EOF
+
+  cat > java/com/google/foo/my_rule.bzl << EOF
+def _impl(ctx):
+  ijar = java_common.build_ijar(ctx, ctx.files.jar[0], ctx.attr._java_toolchain)
+  print(ijar.path)
+  return DefaultInfo(files = depset([ijar]))
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "jar": attr.label(allow_files=True),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+  }
+)
+EOF
+  bazel build java/com/google/foo:banana >& "$TEST_log" || fail "Unexpected fail"
+  expect_log "liba-ijar.jar"
+  unzip -l bazel-genfiles/java/com/google/foo/_ijar/banana/java/com/google/foo/liba-ijar.jar >> "$TEST_log"
+  expect_log "00:00   com/google/foo/A.class"
+}
+
+function test_java_common_create_empty_ijars() {
+  mkdir -p java/com/google/foo
+  touch java/com/google/foo/{BUILD,a.jar,my_rule.bzl}
+  cat > java/com/google/foo/BUILD << EOF
+load(":my_rule.bzl", "my_rule")
+exports_files(["a.jar"])
+my_rule(name = "banana", jar = "a.jar")
+EOF
+
+  cat > java/com/google/foo/my_rule.bzl << EOF
+def _impl(ctx):
+  ijar = java_common.build_ijar(ctx, ctx.files.jar[0], ctx.attr._java_toolchain)
+  print(ijar.path)
+  return DefaultInfo(files = depset([ijar]))
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "jar": attr.label(allow_files=True),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+  }
+)
+EOF
+  bazel build java/com/google/foo:banana >& "$TEST_log" && fail "Unexpected success"
+  expect_log "Unable to open Zip file java/com/google/foo/a.jar: Invalid argument"
 }
 
 run_suite "Java integration tests"

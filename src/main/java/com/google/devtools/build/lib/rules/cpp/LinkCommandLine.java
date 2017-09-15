@@ -385,6 +385,9 @@ public final class LinkCommandLine extends CommandLine {
     if (forcedToolPath != null) {
       argv.add(forcedToolPath);
     } else {
+      Preconditions.checkArgument(
+          featureConfiguration.actionIsConfigured(actionName),
+          String.format("Expected action_config for '%s' to be configured", actionName));
       argv.add(
           featureConfiguration
               .getToolForAction(linkTargetType.getActionName())
@@ -544,16 +547,10 @@ public final class LinkCommandLine extends CommandLine {
       // Needed to find headers included from linkstamps.
       optionList.add("-I.");
 
-      // Add sysroot.
-      PathFragment sysroot = ccProvider.getSysroot();
-      if (sysroot != null) {
-        optionList.add("--sysroot=" + sysroot.getPathString());
-      }
-
       // Add toolchain compiler options.
       optionList.addAll(cppConfiguration.getCompilerOptions(features));
       optionList.addAll(cppConfiguration.getCOptions());
-      optionList.addAll(ccProvider.getUnfilteredCompilerOptions(features));
+      optionList.addAll(ccProvider.getUnfilteredCompilerOptionsWithSysroot(features));
       if (CppFileTypes.CPP_SOURCE.matches(linkstamp.getKey().getExecPath())) {
         optionList.addAll(cppConfiguration.getCxxOptions(features));
       }
@@ -657,8 +654,7 @@ public final class LinkCommandLine extends CommandLine {
       if (linkstampCompileOptions.isEmpty()) {
         actualLinkstampCompileOptions = DEFAULT_LINKSTAMP_OPTIONS;
       } else {
-        actualLinkstampCompileOptions =
-            ImmutableList.copyOf(
+        actualLinkstampCompileOptions = ImmutableList.copyOf(
                 Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
 
@@ -670,10 +666,7 @@ public final class LinkCommandLine extends CommandLine {
 
       // The ruleContext can be null for some tests.
       if (ruleContext != null) {
-        if (featureConfiguration == null) {
-          featureConfiguration =
-              CcCommon.configureFeatures(ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
-        }
+        Preconditions.checkNotNull(featureConfiguration);
 
         if (fdoSupport == null) {
           fdoSupport =

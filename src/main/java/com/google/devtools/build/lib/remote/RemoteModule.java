@@ -17,18 +17,23 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import java.io.IOException;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -73,6 +78,8 @@ public final class RemoteModule extends BlazeModule {
 
   private final CasPathConverter converter = new CasPathConverter();
 
+  private RemoteActionContextProvider actionContextProvider;
+
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
       throws AbruptExitException {
@@ -82,16 +89,57 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
-  }
 
-  @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    converter.options = optionsProvider.getOptions(RemoteOptions.class);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    converter.options = remoteOptions;
+
+    // Quit if no remote options specified.
+    if (remoteOptions == null) {
+      return;
+    }
+
+    try {
+      boolean restCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+      boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
+
+      Retrier retrier = new Retrier(remoteOptions);
+      CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
+      final RemoteActionCache cache;
+      if (restCache) {
+        cache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+      } else if (grpcCache || remoteOptions.remoteExecutor != null) {
+        // If a remote executor but no remote cache is specified, assume both at the same target.
+        String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
+        Channel ch = GrpcUtils.newChannel(target, authAndTlsOptions);
+        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier);
+      } else {
+        cache = null;
+      }
+
+      final GrpcRemoteExecutor executor;
+      if (remoteOptions.remoteExecutor != null) {
+        executor = new GrpcRemoteExecutor(
+            GrpcUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
+            creds,
+            remoteOptions.remoteTimeout,
+            retrier);
+      } else {
+        executor = null;
+      }
+
+      actionContextProvider = new RemoteActionContextProvider(env, cache, executor);
+    } catch (IOException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));
+    }
   }
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContextProvider(new RemoteActionContextProvider(env));
+    if (actionContextProvider != null) {
+      builder.addActionContextProvider(actionContextProvider);
+    }
   }
 
   @Override

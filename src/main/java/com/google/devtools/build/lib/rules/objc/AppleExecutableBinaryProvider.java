@@ -16,30 +16,29 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
- * the 'executable' type.  This provider contains:
+ * the 'executable' type. This provider contains:
+ *
  * <ul>
- *   <li>'binary': The dylib artifact output by apple_binary</li>
+ *   <li>'binary': The dylib artifact output by apple_binary
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *     dependencies linked into the binary, (intended so that bundle loaders depending on this
- *     executable may avoid relinking symbols included in the loadable binary</li>
- * </ul> 
+ *       dependencies linked into the binary, (intended so that bundle loaders depending on this
+ *       executable may avoid relinking symbols included in the loadable binary
+ * </ul>
  */
-public final class AppleExecutableBinaryProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public final class AppleExecutableBinaryProvider extends NativeInfo {
 
   /** Skylark name for the AppleExecutableBinaryProvider. */
   public static final String SKYLARK_NAME = "AppleExecutableBinary";
 
- /** Skylark constructor and identifier for AppleExecutableBinaryProvider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-     new NativeClassObjectConstructor(SKYLARK_NAME) { };
+  /** Skylark constructor and identifier for AppleExecutableBinaryProvider. */
+  public static final NativeProvider<AppleExecutableBinaryProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleExecutableBinaryProvider>(
+          AppleExecutableBinaryProvider.class, SKYLARK_NAME) {};
 
   private final Artifact appleExecutableBinary;
   private final ObjcProvider depsObjcProvider;

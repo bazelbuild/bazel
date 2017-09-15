@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -52,8 +53,8 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   @Before
   public final void createExecutorAndContext() throws Exception {
     executor = new TestExecutorBuilder(directories, binTools).build();
-    context = new ActionExecutionContext(executor, null, null, new FileOutErr(),
-          ImmutableMap.<String, String>of(), null);
+    context = new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        new FileOutErr(), ImmutableMap.<String, String>of(), null);
   }
 
   protected abstract Action createAction(

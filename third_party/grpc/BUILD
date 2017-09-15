@@ -20,13 +20,13 @@ config_setting(
 filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
-        "grpc-auth-1.3.0.jar",
-        "grpc-netty-1.3.0.jar",
-        "grpc-protobuf-1.3.0.jar",
-        "grpc-protobuf-lite-1.3.0.jar",
-        "grpc-stub-1.3.0.jar",
-        "grpc-core-1.3.0.jar",
-        "grpc-context-1.3.0.jar",
+        "grpc-auth-1.6.1.jar",
+        "grpc-netty-1.6.1.jar",
+        "grpc-protobuf-1.6.1.jar",
+        "grpc-protobuf-lite-1.6.1.jar",
+        "grpc-stub-1.6.1.jar",
+        "grpc-core-1.6.1.jar",
+        "grpc-context-1.6.1.jar",
     ],
 )
 
@@ -37,7 +37,9 @@ java_import(
       "//third_party:guava",
       "//third_party:instrumentation",
     ],
-    runtime_deps = ["//third_party:netty"],
+    runtime_deps = ["//third_party:netty",
+                    "//third_party:opencensus-api",
+                   ],
 )
 
 cc_binary(

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -34,34 +35,46 @@ public class JarDecompressor implements Decompressor {
   protected JarDecompressor() {
   }
 
-  /**
-   * The .jar can be used compressed, so this just exposes it in a way Bazel can use.
-   *
-   * <p>It moves the jar from some-name/x/y/z/foo.jar to some-name/jar/foo.jar and creates a
-   * BUILD.bazel file containing one entry: the .jar.
-   */
   @Override
   @Nullable
   public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
-    // Example: archiveFile is external/some-name/foo.jar.
-    String baseName = descriptor.archivePath().getBaseName();
+    return decompressWithSrcjar(descriptor, Optional.absent());
+  }
 
+  /**
+   * The jar (and srcjar if available) can be used compressed, so this just exposes them in a way
+   * Bazel can use.
+   *
+   * <p>It moves the jar(s) from some-name/x/y/z/foo.jar to some-name/jar/foo.jar and creates a
+   * BUILD.bazel file containing only the jar(s).
+   */
+  public Path decompressWithSrcjar(
+      DecompressorDescriptor descriptor, Optional<DecompressorDescriptor> srcjarDescriptor)
+      throws RepositoryFunctionException {
     try {
+      // external/some-name/
       FileSystemUtils.createDirectoryAndParents(descriptor.repositoryPath());
-      // external/some-name/WORKSPACE.
+      // external/some-name/WORKSPACE
       RepositoryFunction.createWorkspaceFile(
           descriptor.repositoryPath(), descriptor.targetKind(), descriptor.targetName());
-      // external/some-name/jar.
+      // external/some-name/jar/
       Path jarDirectory = descriptor.repositoryPath().getRelative(getPackageName());
       FileSystemUtils.createDirectoryAndParents(jarDirectory);
-      // external/some-name/repository/jar/foo.jar is a symbolic link to the jar in
-      // external/some-name.
-      Path jarSymlink = jarDirectory.getRelative(baseName);
-      if (!jarSymlink.exists()) {
-        jarSymlink.createSymbolicLink(descriptor.archivePath());
-      }
-      // external/some-name/repository/jar/BUILD.bazel defines the //jar target.
+      // external/some-name/jar/BUILD.bazel defines the //jar target.
       Path buildFile = jarDirectory.getRelative("BUILD.bazel");
+
+      // Example: get foo.jar from external/some-name/foo.jar.
+      String baseName = descriptor.archivePath().getBaseName();
+      makeSymlink(descriptor);
+      String buildFileContents;
+      if (srcjarDescriptor.isPresent()) {
+        String srcjarBaseName = srcjarDescriptor.get().archivePath().getBaseName();
+        makeSymlink(srcjarDescriptor.get());
+        buildFileContents = createBuildFileWithSrcjar(baseName, srcjarBaseName);
+      } else {
+        buildFileContents = createBuildFile(baseName);
+      }
+
       FileSystemUtils.writeLinesAs(
           buildFile,
           Charset.forName("UTF-8"),
@@ -69,7 +82,7 @@ public class JarDecompressor implements Decompressor {
               + descriptor.targetKind()
               + " rule "
               + descriptor.targetName(),
-          createBuildFile(baseName));
+          buildFileContents);
       if (descriptor.executable()) {
         descriptor.archivePath().chmod(0755);
       }
@@ -78,6 +91,25 @@ public class JarDecompressor implements Decompressor {
           "Error auto-creating jar repo structure: " + e.getMessage()), Transience.TRANSIENT);
     }
     return descriptor.repositoryPath();
+  }
+
+  /*
+   * Links some-name/x/y/z/foo.jar to some-name/jar/foo.jar (represented by {@code descriptor}
+   */
+  protected void makeSymlink(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
+    try {
+      Path jarDirectory = descriptor.repositoryPath().getRelative(getPackageName());
+      // external/some-name/jar/foo.jar is a symbolic link to the jar in
+      // external/some-name.
+      Path jarSymlink = jarDirectory.getRelative(descriptor.archivePath().getBaseName());
+      if (!jarSymlink.exists()) {
+        jarSymlink.createSymbolicLink(descriptor.archivePath());
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Error auto-creating jar repo structure: " + e.getMessage()),
+          Transience.TRANSIENT);
+    }
   }
 
   protected String getPackageName() {
@@ -96,6 +128,26 @@ public class JarDecompressor implements Decompressor {
             "filegroup(",
             "    name = 'file',",
             "    srcs = ['" + baseName + "'],",
+            "    visibility = ['//visibility:public']",
+            ")");
+  }
+
+  protected String createBuildFileWithSrcjar(String baseName, String srcjarBaseName) {
+    return Joiner.on("\n")
+        .join(
+            "java_import(",
+            "    name = 'jar',",
+            "    jars = ['" + baseName + "'],",
+            "    srcjar = '" + srcjarBaseName + "',",
+            "    visibility = ['//visibility:public']",
+            ")",
+            "",
+            "filegroup(",
+            "    name = 'file',",
+            "    srcs = [",
+            "        '" + baseName + "',",
+            "        '" + srcjarBaseName + "',",
+            "    ],",
             "    visibility = ['//visibility:public']",
             ")");
   }

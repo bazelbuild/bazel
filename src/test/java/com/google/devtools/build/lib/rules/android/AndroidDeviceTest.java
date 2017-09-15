@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
@@ -167,10 +167,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    ExecutionInfoProvider executionInfoProvider =
-        (ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey());
-    assertThat(executionInfoProvider.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    ExecutionInfo executionInfo =
+        target.get(ExecutionInfo.PROVIDER);
+    assertThat(executionInfo.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     TemplateExpansionAction stubAction = (TemplateExpansionAction) getGeneratingAction(
         getExecutable(target));
     String stubContents = stubAction.getFileContents();
@@ -227,10 +227,8 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo())
         .containsEntry(REQUIRES_KVM, "");
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    assertThat(
-            ((ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
-                .getExecutionInfo())
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    assertThat(target.get(ExecutionInfo.PROVIDER).getExecutionInfo())
         .containsKey(REQUIRES_KVM);
   }
 
@@ -276,12 +274,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
     Iterable<String> biosFilesExecPathStrings =
         Iterables.transform(
             getToolDependency("//tools/android/emulator:emulator_x86_bios").getFilesToRun(),
-            new Function<Artifact, String>() {
-              @Override
-              public String apply(Artifact artifact) {
-                return artifact.getExecPathString();
-              }
-            });
+            Artifact::getExecPathString);
 
     assertWithMessage("Invalid boot commandline.")
         .that(action.getArguments())

@@ -18,9 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -79,8 +78,11 @@ public class OptionsDataTest {
     try {
       construct(ExampleNameConflictOptions.class);
       fail("foo should conflict with the previous flag foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e).hasMessageThat().contains("Duplicate option name, due to option: --foo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to option name collision: --foo");
     }
   }
 
@@ -111,13 +113,16 @@ public class OptionsDataTest {
     try {
       construct(ExampleIntegerFooOptions.class, ExampleBooleanFooOptions.class);
       fail("foo should conflict with the previous flag foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e).hasMessageThat().contains("Duplicate option name, due to option: --foo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to option name collision: --foo");
     }
   }
 
   /** Dummy options class. */
-  public static class ExamplePrefixFooOptions extends OptionsBase {
+  public static class ExamplePrefixedFooOptions extends OptionsBase {
     @Option(
       name = "nofoo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -132,10 +137,11 @@ public class OptionsDataTest {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
     try {
-      construct(ExampleBooleanFooOptions.class, ExamplePrefixFooOptions.class);
+      construct(ExampleBooleanFooOptions.class, ExamplePrefixedFooOptions.class);
       fail("nofoo should conflict with the previous flag foo, "
          + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
       assertThat(e)
           .hasMessageThat()
           .contains(
@@ -144,10 +150,12 @@ public class OptionsDataTest {
     }
 
     try {
-      construct(ExamplePrefixFooOptions.class, ExampleBooleanFooOptions.class);
-      fail("nofoo should conflict with the previous flag foo, "
-         + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
+      construct(ExamplePrefixedFooOptions.class, ExampleBooleanFooOptions.class);
+      fail(
+          "option nofoo should conflict with the previous flag foo, "
+              + "since foo, as a boolean flag, can be written as --nofoo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
       assertThat(e)
           .hasMessageThat()
           .contains("Duplicate option name, due to boolean option alias: --nofoo");
@@ -171,13 +179,29 @@ public class OptionsDataTest {
     // Try the same test in both orders, the parser should fail if the overlapping flag is defined
     // before or after the boolean flag introduces the alias.
     try {
-      construct(ExamplePrefixFooOptions.class, ExampleBarWasNamedFooOption.class);
-      fail("nofoo should conflict with the previous flag foo, "
-         + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
+      construct(ExamplePrefixedFooOptions.class, ExampleBarWasNamedFooOption.class);
+      fail(
+          "bar has old name foo, which is a boolean flag and can be named as nofoo, so it "
+              + "should conflict with the previous option --nofoo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
       assertThat(e)
           .hasMessageThat()
           .contains("Duplicate option name, due to boolean option alias: --nofoo");
+    }
+
+    try {
+      construct(ExampleBarWasNamedFooOption.class, ExamplePrefixedFooOptions.class);
+      fail(
+          "nofoo should conflict with the previous flag bar that has old name foo, "
+              + "since foo, as a boolean flag, can be written as --nofoo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Duplicate option name, due to option --nofoo, it conflicts with a negating "
+                  + "alias for boolean flag --foo");
     }
   }
 
@@ -199,19 +223,60 @@ public class OptionsDataTest {
     // before or after the boolean flag introduces the alias.
     try {
       construct(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class);
-      fail("nofoo, the old name for bar, should conflict with the previous flag foo, "
-         + "since foo, as a boolean flag, can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
+      fail(
+          "nofoo, the old name for bar, should conflict with the previous flag foo, "
+              + "since foo, as a boolean flag, can be written as --nofoo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
       assertThat(e)
           .hasMessageThat()
           .contains(
               "Duplicate option name, due to old option name --nofoo, it conflicts with a "
                   + "negating alias for boolean flag --foo");
     }
+
+    try {
+      construct(ExampleBarWasNamedNoFooOption.class, ExampleBooleanFooOptions.class);
+      fail(
+          "foo, as a boolean flag, can be written as --nofoo and should conflict with the "
+              + "previous option bar that has old name nofoo");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to boolean option alias: --nofoo");
+    }
   }
 
   /** Dummy options class. */
-  public static class OldNameConflictExample extends OptionsBase {
+  public static class ExampleFooBooleanConflictsWithOwnOldName extends OptionsBase {
+    @Option(
+      name = "nofoo",
+      oldName = "foo",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean foo;
+  }
+
+  @Test
+  public void testSelfConflictBooleanAliases() {
+    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
+    // before or after the boolean flag introduces the alias.
+    try {
+      construct(ExampleFooBooleanConflictsWithOwnOldName.class);
+      fail("foo, the old name for boolean option nofoo, should conflict with its own new name.");
+    } catch (ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to boolean option alias: --nofoo");
+    }
+  }
+
+  /** Dummy options class. */
+  public static class OldNameToCanonicalNameConflictExample extends OptionsBase {
     @Option(
       name = "new_name",
       oldName = "old_name",
@@ -231,11 +296,53 @@ public class OptionsDataTest {
   }
 
   @Test
-  public void testOldNameConflict() {
+  public void testOldNameToCanonicalNameConflict() {
+    try {
+      construct(OldNameToCanonicalNameConflictExample.class);
+      fail("old_name should conflict with the flag already named old_name");
+    } catch (ConstructionException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(expected)
+          .hasMessageThat()
+          .contains(
+              "Duplicate option name, due to option name collision with another option's old name:"
+                  + " --old_name");
+    }
+  }
+
+  /** Dummy options class. */
+  public static class OldNameConflictExample extends OptionsBase {
+    @Option(
+      name = "new_name",
+      oldName = "old_name",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "defaultValue"
+    )
+    public String flag1;
+
+    @Option(
+      name = "another_name",
+      oldName = "old_name",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "defaultValue"
+    )
+    public String flag2;
+  }
+
+  @Test
+  public void testOldNameToOldNameConflict() {
     try {
       construct(OldNameConflictExample.class);
       fail("old_name should conflict with the flag already named old_name");
-    } catch (DuplicateOptionDeclarationException expected) {
+    } catch (ConstructionException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+      assertThat(expected)
+          .hasMessageThat()
+          .contains(
+              "Duplicate option name, due to old option name collision with another "
+                  + "old option name: --old_name");
     }
   }
 
@@ -249,79 +356,6 @@ public class OptionsDataTest {
     @Override
     public String getTypeDescription() {
       return "a string";
-    }
-  }
-
-  /** Dummy options class. */
-  public static class InvalidOptionConverter extends OptionsBase {
-    @Option(
-      name = "foo",
-      converter = StringConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public Integer foo;
-  }
-
-  @Test
-  public void errorForInvalidOptionConverter() throws Exception {
-    try {
-      construct(InvalidOptionConverter.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
-  /** Dummy options class. */
-  public static class InvalidListOptionConverter extends OptionsBase {
-    @Option(
-      name = "foo",
-      converter = StringConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1",
-      allowMultiple = true
-    )
-    public List<Integer> foo;
-  }
-
-  @Test
-  public void errorForInvalidListOptionConverter() throws Exception {
-    try {
-      construct(InvalidListOptionConverter.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
-  /** Dummy options class using deprecated category. */
-  public static class InvalidUndocumentedCategory extends OptionsBase {
-    @Option(
-      name = "experimental_foo",
-      category = "undocumented",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "true"
-    )
-    public boolean experimentalFoo;
-  }
-
-  @Test
-  public void invalidUndocumentedCategoryFails() {
-    try {
-      construct(InvalidUndocumentedCategory.class);
-      fail();
-    } catch (ConstructionException e) {
-      // Expected exception
-      assertThat(e).hasMessageThat().contains(
-          "Documentation level is no longer read from the option category.");
-      assertThat(e).hasMessageThat().contains("undocumented");
-      assertThat(e).hasMessageThat().contains("experimental_foo");
     }
   }
 
@@ -432,65 +466,92 @@ public class OptionsDataTest {
         EndOfAlphabetOptions.class,
         ReverseOrderedOptions.class);
     ArrayList<String> names = new ArrayList<>();
-    for (Map.Entry<String, Field> entry : data.getAllNamedFields()) {
+    for (Map.Entry<String, OptionDefinition> entry : data.getAllOptionDefinitions()) {
       names.add(entry.getKey());
     }
     assertThat(names).containsExactly(
         "bar", "baz", "foo", "qux", "X", "Y", "A", "B", "C").inOrder();
   }
 
-  private List<String> getOptionNames(Iterable<Field> fields) {
+  private List<String> getOptionNames(Class<? extends OptionsBase> optionsBase) {
     ArrayList<String> result = new ArrayList<>();
-    for (Field field : fields) {
-      result.add(field.getAnnotation(Option.class).name());
+    for (OptionDefinition optionDefinition :
+        OptionsData.getAllOptionDefinitionsForClass(optionsBase)) {
+      result.add(optionDefinition.getOptionName());
     }
     return result;
   }
 
   @Test
   public void getFieldsForClassIsOrdered() throws Exception {
-    IsolatedOptionsData data = construct(
-        FieldNamesDifferOptions.class,
-        EndOfAlphabetOptions.class,
-        ReverseOrderedOptions.class);
-    assertThat(getOptionNames(data.getFieldsForClass(FieldNamesDifferOptions.class)))
-        .containsExactly("bar", "baz", "foo", "qux").inOrder();
-    assertThat(getOptionNames(data.getFieldsForClass(EndOfAlphabetOptions.class)))
-        .containsExactly("X", "Y").inOrder();
-    assertThat(getOptionNames(data.getFieldsForClass(ReverseOrderedOptions.class)))
-        .containsExactly("A", "B", "C").inOrder();
+    assertThat(getOptionNames(FieldNamesDifferOptions.class))
+        .containsExactly("bar", "baz", "foo", "qux")
+        .inOrder();
+    assertThat(getOptionNames(EndOfAlphabetOptions.class)).containsExactly("X", "Y").inOrder();
+    assertThat(getOptionNames(ReverseOrderedOptions.class))
+        .containsExactly("A", "B", "C")
+        .inOrder();
   }
 
-  /** Dummy options class. */
-  public static class InvalidExpansionOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public int foo;
+  private static class ReferenceEqualityCorrespondence extends Correspondence<Object, Object> {
 
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1",
-      expansion = {"--foo=42"}
-    )
-    public int bar;
+    @Override
+    public boolean compare(Object obj1, Object obj2) {
+      return obj1 == obj2;
+    }
+
+    @Override
+    public String toString() {
+      return "is the same object as";
+    }
   }
 
   @Test
-  public void staticExpansionOptionsShouldNotHaveValues() {
-    try {
-      construct(InvalidExpansionOptions.class);
-      fail();
-    } catch (ConstructionException e) {
-      // Expected exception
-      assertThat(e).hasMessageThat().contains(
-          "Option bar is an expansion flag with a static expansion, but does not have Void type.");
-    }
+  public void optionsDefinitionsAreSharedBetweenOptionsBases() throws Exception {
+    Class<FieldNamesDifferOptions> class1 = FieldNamesDifferOptions.class;
+    Class<EndOfAlphabetOptions> class2 = EndOfAlphabetOptions.class;
+    Class<ReverseOrderedOptions> class3 = ReverseOrderedOptions.class;
+
+    // Construct the definitions once and accumulate them so we can test that these are not
+    // recomputed during the construction of the options data.
+    ImmutableList<OptionDefinition> optionDefinitions =
+        new ImmutableList.Builder<OptionDefinition>()
+            .addAll(OptionsData.getAllOptionDefinitionsForClass(class1))
+            .addAll(OptionsData.getAllOptionDefinitionsForClass(class2))
+            .addAll(OptionsData.getAllOptionDefinitionsForClass(class3))
+            .build();
+
+    // Construct the data all together.
+    IsolatedOptionsData data = construct(class1, class2, class3);
+    ArrayList<OptionDefinition> optionDefinitionsFromData =
+        new ArrayList<>(optionDefinitions.size());
+    data.getAllOptionDefinitions()
+        .forEach(entry -> optionDefinitionsFromData.add(entry.getValue()));
+
+    ReferenceEqualityCorrespondence referenceEquality = new ReferenceEqualityCorrespondence();
+    assertThat(optionDefinitionsFromData)
+        .comparingElementsUsing(referenceEquality)
+        .containsAllIn(optionDefinitions);
+
+    // Construct options data for each class separately, and check again.
+    IsolatedOptionsData data1 = construct(class1);
+    IsolatedOptionsData data2 = construct(class2);
+    IsolatedOptionsData data3 = construct(class3);
+    ArrayList<OptionDefinition> optionDefinitionsFromGroupedData =
+        new ArrayList<>(optionDefinitions.size());
+    data1
+        .getAllOptionDefinitions()
+        .forEach(entry -> optionDefinitionsFromGroupedData.add(entry.getValue()));
+    data2
+        .getAllOptionDefinitions()
+        .forEach(entry -> optionDefinitionsFromGroupedData.add(entry.getValue()));
+    data3
+        .getAllOptionDefinitions()
+        .forEach(entry -> optionDefinitionsFromGroupedData.add(entry.getValue()));
+
+    assertThat(optionDefinitionsFromGroupedData)
+        .comparingElementsUsing(referenceEquality)
+        .containsAllIn(optionDefinitions);
   }
 
   /** Dummy options class. */

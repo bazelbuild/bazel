@@ -209,13 +209,22 @@ function test_cache_computed_file_digests_ui() {
 }
 
 function test_jobs_default_auto() {
+  # The default flag value is only read if --jobs is not set explicitly.
+  # Do not use a bazelrc here, this would break the test.
+  # TODO(b/65166983) this should be --bazelrc=/dev/null, since this is a bazel
+  # test and we want to encourage bazel-specific naming, but that would
+  # currently break the test because --bazelrc and --blazerc are treated
+  # separately.
   mkdir -p package || fail "mkdir failed"
   echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >package/BUILD
   echo "int foo(void) { return 0; }" >package/foo.cc
 
-  local java_log="$(bazel info output_base 2>/dev/null)/java.log"
+  local output_base="$(bazel --nomaster_bazelrc --blazerc=/dev/null info \
+      output_base 2>/dev/null)" || fail "bazel info should work"
+  local java_log="${output_base}/java.log"
+  bazel --nomaster_bazelrc --blazerc=/dev/null build package:foo \
+      >>"${TEST_log}" 2>&1 || fail "Should build"
 
-  bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_last_log "BuildRequest" 'Flag "jobs" was set to "auto"' "${java_log}" \
       "--jobs was not set to auto by default"
 }

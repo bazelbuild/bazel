@@ -101,7 +101,7 @@ public final class UnaryOperatorExpression extends Expression {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    operand.validate(env);
+  public Kind kind() {
+    return Kind.UNARY_OPERATOR;
   }
 }

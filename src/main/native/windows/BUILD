@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:private"])
 
+exports_files(
+    ["resources.o"],
+    visibility = ["//src/main/cpp:__pkg__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -33,17 +38,19 @@ cc_library(
     hdrs = ["util.h"],
 )
 
-genrule(
-    name = "windows_jni",
+cc_binary(
+    name = "windows_jni.dll",
     srcs = glob([
         "*.cc",
         "*.h",
-    ]),
-    outs = ["windows_jni.dll"],
-    cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
-    tools = ["build_windows_jni.sh"],
+    ]) + [
+        "//src/main/native:jni.h",
+        "//src/main/native:jni_md.h",
+    ],
+    linkshared = 1,
     visibility = [
         "//src:__pkg__",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
     ],
 )

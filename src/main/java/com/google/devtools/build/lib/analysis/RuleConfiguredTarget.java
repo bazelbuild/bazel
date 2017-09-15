@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -31,7 +33,7 @@ import javax.annotation.Nullable;
  *
  * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
  * analyzed rule. For more information about how analysis works, see {@link
- * com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
@@ -112,8 +114,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String errorMessage(String name) {
-    return String.format("target (rule class of '%s') doesn't have provider '%s'.",
-        getTarget().getRuleClass(), name);
+    return Printer.format("%r (rule '%s') doesn't have provider '%s'",
+        this, getTarget().getRuleClass(), name);
   }
 
   @Override
@@ -127,12 +129,17 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected SkylarkClassObject rawGetSkylarkProvider(ClassObjectConstructor.Key providerKey) {
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return providers.getProvider(providerKey);
   }
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
     return providers.getProvider(providerKey);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<target " + getLabel() + ">");
   }
 }

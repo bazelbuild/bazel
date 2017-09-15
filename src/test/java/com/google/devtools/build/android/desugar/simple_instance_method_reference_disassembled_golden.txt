@@ -1,0 +1,21 @@
+final class com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass$$Lambda$0 implements java.util.function.Predicate {
+  private final com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass arg$1;
+
+  com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass$$Lambda$0(com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass);
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #15                 // Field arg$1:Lcom/google/devtools/build/android/desugar/testdata/MethodReferenceSuperclass;
+       9: return
+
+  public boolean test(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field arg$1:Lcom/google/devtools/build/android/desugar/testdata/MethodReferenceSuperclass;
+       4: aload_1
+       5: checkcast     #19                 // class java/lang/String
+       8: invokevirtual #25                 // Method com/google/devtools/build/android/desugar/testdata/MethodReferenceSuperclass.bridge$lambda$0$MethodReferenceSuperclass:(Ljava/lang/String;)Z
+      11: ireturn
+}

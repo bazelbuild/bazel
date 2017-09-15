@@ -22,11 +22,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -41,8 +36,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -125,8 +123,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "nodoc",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "",
       allowMultiple = false
@@ -179,8 +176,8 @@ public class OptionsParserTest {
   public static class ExampleInternalOptions extends OptionsBase {
     @Option(
       name = "internal_boolean",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "true"
     )
@@ -188,21 +185,12 @@ public class OptionsParserTest {
 
     @Option(
       name = "internal_string",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret"
     )
     public String privateString;
-
-    @Option(
-      name = "public string",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "not a secret"
-    )
-    public String publicString;
   }
 
   public static class StringConverter implements Converter<String> {
@@ -398,6 +386,46 @@ public class OptionsParserTest {
   }
 
   @Test
+  public void parseWithParamsFileSingleQuotesUnescaping()
+      throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo", "'fuzzy '\\''foo'", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("fuzzy 'foo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFilePartiallyQuotedNoUnescaping()
+      throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo", "'fuzzy 'foo", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("'fuzzy 'foo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
   public void parseWithParamsFileUnmatchedQuote() throws IOException {
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
@@ -446,7 +474,7 @@ public class OptionsParserTest {
     assertThat(foo.foo).isEqualTo("hello\\\nworld");
     assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+    assertThat(baz.baz).isEqualTo("hello\nworld");
   }
 
   @Test
@@ -464,7 +492,7 @@ public class OptionsParserTest {
     parser.enableParamsFileSupport(FileSystems.getDefault());
     parser.parse("@" + params);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+    assertThat(baz.baz).isEqualTo("hello\nworld");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("hello\\\nworld");
     assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
@@ -593,15 +621,6 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void parsingSucceedsWithSpacesInFlagName() throws OptionsParsingException {
-    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
-    List<String> spacedOpts = asList("--public string=value with spaces");
-    parser.parse(spacedOpts);
-    assertThat(parser.getOptions(ExampleInternalOptions.class).publicString)
-        .isEqualTo("value with spaces");
-  }
-
-  @Test
   public void parsingFailsForInternalOptionWithValueInSameArgAsIfUnknown() {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> internalOpts = asList("--internal_string=any_value");
@@ -658,9 +677,8 @@ public class OptionsParserTest {
   public static class CategoryTest extends OptionsBase {
     @Option(
       name = "swiss_bank_account_number",
-      optionUsageRestrictions =
-          OptionUsageRestrictions.UNDOCUMENTED, // Not printed in usage messages!
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory =
+          OptionDocumentationCategory.UNDOCUMENTED, // Not printed in usage messages!
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "123456789"
     )
@@ -946,40 +964,6 @@ public class OptionsParserTest {
     fail();
   }
 
-  /** ConflictingExpansionOptions */
-  public static class ConflictingExpansionsOptions extends OptionsBase {
-
-    /** ExpFunc */
-    public static class ExpFunc implements ExpansionFunction {
-      @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context) {
-        return ImmutableList.of("--yyy");
-      }
-    }
-
-    @Option(
-      name = "badness",
-      expansion = {"--xxx"},
-      expansionFunction = ExpFunc.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void badness;
-  }
-
-  @Test
-  public void conflictingExpansions() throws Exception {
-    try {
-      newOptionsParser(ConflictingExpansionsOptions.class);
-      fail("Should have failed due to specifying both expansion and expansionFunction");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot set both expansion and expansionFunction for " + "option --badness");
-    }
-  }
-
   /** NullExpansionOptions */
   public static class NullExpansionsOptions extends OptionsBase {
 
@@ -1126,8 +1110,8 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
     String usage =
         parser.describeOptions(ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
-    assertThat(usage).contains("  --expands\n    Expands to: --underlying=from_expansion");
-    assertThat(usage).contains("  --expands_by_function\n    Expands to: --expands");
+    assertThat(usage).contains("  --expands\n      Expands to: --underlying=from_expansion");
+    assertThat(usage).contains("  --expands_by_function\n      Expands to: --expands");
   }
 
   @Test
@@ -1204,7 +1188,7 @@ public class OptionsParserTest {
         Arrays.asList("--simple=abc"));
     OptionValueDescription result = parser.getOptionValueDescription("simple");
     assertThat(result).isNotNull();
-    assertThat(result.getName()).isEqualTo("simple");
+    assertThat(result.getOptionDefinition().getOptionName()).isEqualTo("simple");
     assertThat(result.getValue()).isEqualTo("abc");
     assertThat(result.getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
     assertThat(result.getSource()).isEqualTo("my description");
@@ -1495,8 +1479,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "gamma",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "gamma"
     )
@@ -1504,8 +1487,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "delta",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "delta"
     )
@@ -1513,8 +1495,8 @@ public class OptionsParserTest {
 
     @Option(
       name = "echo",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "echo"
     )
@@ -1530,24 +1512,24 @@ public class OptionsParserTest {
     assertThat(result).isNotNull();
     assertThat(result).hasSize(3);
 
-    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).getOptionDefinition().getOptionName()).isEqualTo("alpha");
     assertThat(result.get(0).isDocumented()).isTrue();
     assertThat(result.get(0).isHidden()).isFalse();
-    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getUnconvertedValue()).isEqualTo("one");
     assertThat(result.get(0).getSource()).isEqualTo("source");
     assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).getOptionDefinition().getOptionName()).isEqualTo("gamma");
     assertThat(result.get(1).isDocumented()).isFalse();
     assertThat(result.get(1).isHidden()).isFalse();
-    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getUnconvertedValue()).isEqualTo("two");
     assertThat(result.get(1).getSource()).isEqualTo("source");
     assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(2).getName()).isEqualTo("echo");
+    assertThat(result.get(2).getOptionDefinition().getOptionName()).isEqualTo("echo");
     assertThat(result.get(2).isDocumented()).isFalse();
     assertThat(result.get(2).isHidden()).isTrue();
-    assertThat(result.get(2).getUnparsedValue()).isEqualTo("three");
+    assertThat(result.get(2).getUnconvertedValue()).isEqualTo("three");
     assertThat(result.get(2).getSource()).isEqualTo("source");
     assertThat(result.get(2).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
@@ -1561,15 +1543,15 @@ public class OptionsParserTest {
     assertThat(result).isNotNull();
     assertThat(result).hasSize(2);
 
-    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).getOptionDefinition().getOptionName()).isEqualTo("alpha");
     assertThat(result.get(0).isDocumented()).isTrue();
-    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getUnconvertedValue()).isEqualTo("one");
     assertThat(result.get(0).getSource()).isEqualTo("source");
     assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).getOptionDefinition().getOptionName()).isEqualTo("gamma");
     assertThat(result.get(1).isDocumented()).isFalse();
-    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getUnconvertedValue()).isEqualTo("two");
     assertThat(result.get(1).getSource()).isEqualTo("source");
     assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
@@ -1578,7 +1560,7 @@ public class OptionsParserTest {
       OptionPriority expectedPriority, String expectedSource,
       OptionValueDescription actual) {
     assertThat(actual).isNotNull();
-    assertThat(actual.getName()).isEqualTo(expectedName);
+    assertThat(actual.getOptionDefinition().getOptionName()).isEqualTo(expectedName);
     assertThat(actual.getValue()).isEqualTo(expectedValue);
     assertThat(actual.getPriority()).isEqualTo(expectedPriority);
     assertThat(actual.getSource()).isEqualTo(expectedSource);
@@ -1594,7 +1576,7 @@ public class OptionsParserTest {
     assertThat(result).hasSize(5);
     HashMap<String,OptionValueDescription> map = new HashMap<String,OptionValueDescription>();
     for (OptionValueDescription description : result) {
-      map.put(description.getName(), description);
+      map.put(description.getOptionDefinition().getOptionName(), description);
     }
 
     assertOptionValue("alpha", "one", OptionPriority.COMMAND_LINE, "source",
@@ -1650,29 +1632,6 @@ public class OptionsParserTest {
         "--alpha=two,three"));
     assertThat(parser.getOptions(CommaSeparatedOptionsExample.class).alpha)
         .isEqualTo(Arrays.asList("one", "two", "three"));
-  }
-
-  public static class IllegalListTypeExample extends OptionsBase {
-    @Option(
-      name = "alpha",
-      converter = CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public List<Integer> alpha;
-  }
-
-  @Test
-  public void illegalListType() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(IllegalListTypeExample.class);
-    } catch (ConstructionException e) {
-      // Expected exception
-      return;
-    }
-    fail();
   }
 
   public static class Yesterday extends OptionsBase {
@@ -2138,5 +2097,84 @@ public class OptionsParserTest {
     byte[] data2 = bos2.toByteArray();
 
     assertThat(data1).isEqualTo(data2);
+  }
+
+  /** Dummy options for testing getHelpCompletion() and visitOptions(). */
+  public static class CompletionOptions extends OptionsBase implements Serializable {
+    @Option(
+      name = "secret",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean secret;
+
+    @Option(
+        name = "b",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false"
+      )
+      public boolean b;
+
+    @Option(
+      name = "a",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean a;
+  }
+
+  @Test
+  public void getOptionsCompletionShouldFilterUndocumentedOptions() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(CompletionOptions.class);
+    assertThat(parser.getOptionsCompletion().split("\n"))
+        .isEqualTo(new String[] {"--a", "--noa", "--b", "--nob"});
+  }
+
+  @Test
+  public void visitOptionsShouldFailWithoutPredicate() throws Exception {
+    checkThatVisitOptionsThrowsNullPointerException(null, option -> {}, "Missing predicate.");
+  }
+
+  @Test
+  public void visitOptionsShouldFailWithoutVisitor() throws Exception {
+    checkThatVisitOptionsThrowsNullPointerException(option -> true, null, "Missing visitor.");
+  }
+
+  private void checkThatVisitOptionsThrowsNullPointerException(
+      Predicate<OptionDefinition> predicate,
+      Consumer<OptionDefinition> visitor,
+      String expectedMessage)
+      throws Exception {
+    try {
+      OptionsParser.newOptionsParser(CompletionOptions.class).visitOptions(predicate, visitor);
+      fail("Expected a NullPointerException.");
+    } catch (NullPointerException ex) {
+      assertThat(ex).hasMessageThat().isEqualTo(expectedMessage);
+    }
+  }
+
+  @Test
+  public void visitOptionsShouldReturnAllOptionsInOrder() throws Exception {
+    assertThat(visitOptionsToCollectTheirNames(option -> true)).containsExactly("a", "b", "secret");
+  }
+
+  @Test
+  public void visitOptionsShouldObeyPredicate() throws Exception {
+    assertThat(visitOptionsToCollectTheirNames(option -> false)).isEmpty();
+    assertThat(visitOptionsToCollectTheirNames(option -> option.getOptionName().length() > 1))
+        .containsExactly("secret");
+  }
+
+  private List<String> visitOptionsToCollectTheirNames(Predicate<OptionDefinition> predicate) {
+    List<String> names = new LinkedList<>();
+    Consumer<OptionDefinition> visitor = option -> names.add(option.getOptionName());
+
+    OptionsParser parser = OptionsParser.newOptionsParser(CompletionOptions.class);
+    parser.visitOptions(predicate, visitor);
+
+    return names;
   }
 }

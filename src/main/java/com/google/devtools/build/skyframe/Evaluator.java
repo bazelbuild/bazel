@@ -30,14 +30,14 @@ public interface Evaluator {
      * @param keepGoing whether {@link #eval} should continue if building a {link Value} fails.
      *                  Otherwise, we throw an exception on failure.
      */
-    Evaluator create(ProcessableGraph graph, long graphVersion, EventHandler reporter,
-        boolean keepGoing);
+    Evaluator create(
+        ProcessableGraph graph, long graphVersion, EventHandler reporter, boolean keepGoing);
   }
 
   /**
    * Evaluates a set of values. Returns an {@link EvaluationResult}. All elements of skyKeys must
    * be keys for Values of subtype T.
    */
-  <T extends SkyValue> EvaluationResult<T> eval(Iterable<SkyKey> skyKeys)
+  <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException;
 }

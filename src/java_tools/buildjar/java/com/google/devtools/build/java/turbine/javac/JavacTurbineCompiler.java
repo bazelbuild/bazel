@@ -53,7 +53,7 @@ public class JavacTurbineCompiler {
     Context context = new Context();
 
     try (PrintWriter pw = new PrintWriter(sw)) {
-      setupContext(context, request.strictJavaDepsPlugin());
+      setupContext(context, request.strictJavaDepsPlugin(), request.transitivePlugin());
       CacheFSInfo.preRegister(context);
       try (FileSystem fs = Jimfs.newFileSystem(Configuration.forCurrentPlatform());
           JavacFileManager fm = new JavacFileManager(new Context(), false, UTF_8)) {
@@ -105,7 +105,8 @@ public class JavacTurbineCompiler {
     return new JavacTurbineCompileResult(ImmutableMap.copyOf(files), status, sw, context);
   }
 
-  static void setupContext(Context context, @Nullable StrictJavaDepsPlugin sjd) {
-    JavacTurbineJavaCompiler.preRegister(context, sjd);
+  static void setupContext(
+      Context context, @Nullable StrictJavaDepsPlugin sjd, JavacTransitive transitive) {
+    JavacTurbineJavaCompiler.preRegister(context, sjd, transitive);
   }
 }

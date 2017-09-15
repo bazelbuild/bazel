@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -83,8 +81,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
             attr(AVOID_DEPS_ATTR_NAME, LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES)
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+                .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
                 .cfg(splitTransitionProvider)
                 .allowedFileTypes()
                 .aspect(objcProtoAspect))

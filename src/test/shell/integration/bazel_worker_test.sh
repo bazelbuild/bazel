@@ -96,6 +96,9 @@ function prepare_example_worker() {
   chmod +w worker_lib.jar
   echo "exampledata" > worker_data.txt
 
+  mkdir worker_data_dir
+  echo "veryexample" > worker_data_dir/more_data.txt
+
   cat >work.bzl <<'EOF'
 def _impl(ctx):
   worker = ctx.executable.worker
@@ -160,7 +163,8 @@ java_binary(
     ":worker_lib",
   ],
   data = [
-    ":worker_data.txt"
+    ":worker_data.txt",
+    ":worker_data_dir",
   ]
 )
 EOF
@@ -288,6 +292,7 @@ EOF
   assert_equals "1" $work_count
 
   expect_log "worker .* can no longer be used, because its files have changed on disk"
+  expect_log "worker_lib.jar: .* -> .*"
 
   # Check that we used a new worker.
   assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
@@ -328,6 +333,7 @@ EOF
   assert_equals "1" $work_count
 
   expect_log "worker .* can no longer be used, because its files have changed on disk"
+  expect_log "worker_data.txt: edcca2268a017586e6b62a8d572b1b72 -> 594038395d71f98c79c00405e0f0eba8"
 
   # Check that we used a new worker.
   assert_not_equals "$worker_uuid_2" "$worker_uuid_3"

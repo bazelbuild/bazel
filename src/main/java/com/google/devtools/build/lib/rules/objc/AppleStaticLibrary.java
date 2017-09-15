@@ -25,15 +25,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
@@ -56,8 +56,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       ImmutableSet.<Key<?>>of(
           ObjcProvider.ASSET_CATALOG,
           ObjcProvider.BUNDLE_FILE,
-          ObjcProvider.GENERAL_RESOURCE_DIR,
-          ObjcProvider.GENERAL_RESOURCE_FILE,
           ObjcProvider.SDK_DYLIB,
           ObjcProvider.SDK_FRAMEWORK,
           ObjcProvider.STORYBOARD,
@@ -81,10 +79,10 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, ObjcProvider.class);
-    ImmutableListMultimap<BuildConfiguration, CcLinkParamsProvider> configToCcAvoidDepsMap =
+            Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ImmutableListMultimap<BuildConfiguration, CcLinkParamsInfo> configToCcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, CcLinkParamsProvider.class);
+            Mode.SPLIT, CcLinkParamsInfo.PROVIDER);
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
             ObjcProtoProvider.class);
@@ -117,7 +115,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                   protosToAvoid,
                   ImmutableList.<ProtoSourcesProvider>of(),
                   objcProtoProviders,
-                  ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
+                  ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
+                  childConfigurationsAndToolchains.get(childConfig))
               .registerGenerationActions()
               .registerCompilationActions();
 
@@ -180,7 +179,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     targetBuilder
         // TODO(cparsons): Remove ObjcProvider as a direct provider.
-        .addProvider(ObjcProvider.class, objcProvider)
+        .addNativeDeclaredProvider(objcProvider)
         .addNativeDeclaredProvider(
             new AppleStaticLibraryProvider(
                 ruleIntermediateArtifacts.combinedArchitectureArchive(),
@@ -214,7 +213,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .addDeps(propagatedDeps)
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .addDepObjcProviders(protosObjcProvider.asSet())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)

@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.Striped;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -64,7 +67,6 @@ import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrappe
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
@@ -94,6 +96,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -103,6 +106,10 @@ import javax.annotation.Nullable;
  */
 public final class SkyframeActionExecutor implements ActionExecutionContextFactory {
   private static final Logger logger = Logger.getLogger(SkyframeActionExecutor.class.getName());
+
+  // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
+  // more detail.
+  private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
 
   private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
@@ -136,6 +143,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private boolean keepGoing;
   private boolean hadExecutionError;
   private ActionInputFileCache perBuildFileCache;
+  private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
   private ProgressSupplier progressSupplier;
   private ActionCompletedReceiver completionReceiver;
@@ -457,6 +465,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     return new ActionExecutionContext(
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
+        actionInputPrefetcher,
         metadataHandler,
         fileOutErr,
         clientEnv,
@@ -565,6 +574,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
             new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
+            actionInputPrefetcher,
             metadataHandler,
             actionLogBufferPathGenerator.generate(),
             clientEnv,
@@ -572,7 +582,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     try {
       return action.discoverInputs(actionExecutionContext);
     } catch (ActionExecutionException e) {
-      throw processAndThrow(e, action, actionExecutionContext.getFileOutErr());
+      throw processAndThrow(
+          e, action, actionExecutionContext.getFileOutErr(), ErrorTiming.BEFORE_EXECUTION);
     }
   }
 
@@ -599,8 +610,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     return hadExecutionError && !keepGoing;
   }
 
-  void setFileCache(ActionInputFileCache fileCache) {
+  void configure(ActionInputFileCache fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     this.perBuildFileCache = fileCache;
+    this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
   private class ActionRunner implements Callable<ActionExecutionValue> {
@@ -677,18 +689,52 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             /* Fall through to plan B. */
           }
 
-          // Possibly some direct ancestors are not directories.  In that case, we unlink all the
-          // ancestors until we reach a directory, then try again. This handles the case where a
-          // file becomes a directory, either from one build to another, or within a single build.
+          // Possibly some direct ancestors are not directories.  In that case, we traverse the
+          // ancestors upward, deleting any non-directories, until we reach a directory, then try
+          // again. This handles the case where a file becomes a directory, either from one build to
+          // another, or within a single build.
           //
           // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
           // outputs from previous builds. See bug [incremental build of Fileset fails if
           // Fileset.out was changed to be a subdirectory of the old value].
           try {
-            for (Path p = outputDir; !p.isDirectory(Symlinks.NOFOLLOW);
-                p = p.getParentDirectory()) {
-              // p may be a file or dangling symlink, or a symlink to an old Fileset output
-              p.delete(); // throws IOException
+            Path p = outputDir;
+            while (true) {
+
+              // This lock ensures that the only thread that observes a filesystem transition in
+              // which the path p first exists and then does not is the thread that calls
+              // p.delete() and causes the transition.
+              //
+              // If it were otherwise, then some thread A could test p.exists(), see that it does,
+              // then test p.isDirectory(), see that p isn't a directory (because, say, thread
+              // B deleted it), and then call p.delete(). That could result in two different kinds
+              // of failures:
+              //
+              // 1) In the time between when thread A sees that p is not a directory and when thread
+              // A calls p.delete(), thread B may reach the call to createDirectoryAndParents
+              // and create a directory at p, which thread A then deletes. Thread B would then try
+              // adding outputs to the directory it thought was there, and fail.
+              //
+              // 2) In the time between when thread A sees that p is not a directory and when thread
+              // A calls p.delete(), thread B may create a directory at p, and then either create a
+              // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
+              // it would fail.
+              Lock lock = outputDirectoryDeletionLock.get(p);
+              lock.lock();
+              try {
+                if (p.exists(Symlinks.NOFOLLOW)) {
+                  boolean isDirectory = p.isDirectory(Symlinks.NOFOLLOW);
+                  if (isDirectory) {
+                    break;
+                  }
+                  // p may be a file or dangling symlink, or a symlink to an old Fileset output
+                  p.delete(); // throws IOException
+                }
+              } finally {
+                lock.unlock();
+              }
+
+              p = p.getParentDirectory();
             }
             createDirectoryAndParents(outputDir);
           } catch (IOException e) {
@@ -752,10 +798,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
-  ActionExecutionException processAndThrow(
-      ActionExecutionException e, Action action, FileOutErr outErrBuffer)
+  private ActionExecutionException processAndThrow(
+      ActionExecutionException e, Action action, FileOutErr outErrBuffer, ErrorTiming errorTiming)
       throws ActionExecutionException {
-    reportActionExecution(action, e, outErrBuffer);
+    reportActionExecution(action, e, outErrBuffer, errorTiming);
     boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
 
     ActionExecutionException toThrow = e;
@@ -814,7 +860,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       }
       // Defer reporting action success until outputs are checked
     } catch (ActionExecutionException e) {
-      processAndThrow(e, action, outErrBuffer);
+      throw processAndThrow(e, action, outErrBuffer, ErrorTiming.AFTER_EXECUTION);
     } finally {
       profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
     }
@@ -845,15 +891,18 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         }
       }
 
-      reportActionExecution(action, null, fileOutErr);
+      reportActionExecution(action, null, fileOutErr, ErrorTiming.NO_ERROR);
     } catch (ActionExecutionException actionException) {
       // Success in execution but failure in completion.
-      reportActionExecution(action, actionException, fileOutErr);
+      reportActionExecution(action, actionException, fileOutErr, ErrorTiming.AFTER_EXECUTION);
       throw actionException;
     } catch (IllegalStateException exception) {
       // More serious internal error, but failure still reported.
-      reportActionExecution(action,
-          new ActionExecutionException(exception, action, true), fileOutErr);
+      reportActionExecution(
+          action,
+          new ActionExecutionException(exception, action, true),
+          fileOutErr,
+          ErrorTiming.AFTER_EXECUTION);
       throw exception;
     }
   }
@@ -904,9 +953,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private boolean checkOutputs(Action action, MetadataHandler metadataHandler) {
     boolean success = true;
     for (Artifact output : action.getOutputs()) {
-      // artifactExists has the side effect of potentially adding the artifact to the cache,
-      // therefore we only call it if we know the artifact is indeed not omitted to avoid any
-      // unintended side effects.
+      // getMetadata has the side effect of adding the artifact to the cache if it's not there
+      // already (e.g., due to a previous call to MetadataHandler.injectDigest), therefore we only
+      // call it if we know the artifact is not omitted.
       if (!metadataHandler.artifactOmitted(output)) {
         try {
           metadataHandler.getMetadata(output);
@@ -1030,8 +1079,11 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
-  private void reportActionExecution(Action action,
-      ActionExecutionException exception, FileOutErr outErr) {
+  private void reportActionExecution(
+      Action action,
+      ActionExecutionException exception,
+      FileOutErr outErr,
+      ErrorTiming errorTiming) {
     Path stdout = null;
     Path stderr = null;
 
@@ -1041,7 +1093,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     if (outErr.hasRecordedStderr()) {
       stderr = outErr.getErrorPath();
     }
-    postEvent(new ActionExecutedEvent(action, exception, stdout, stderr));
+    postEvent(new ActionExecutedEvent(action, exception, stdout, stderr, errorTiming));
   }
 
   /**

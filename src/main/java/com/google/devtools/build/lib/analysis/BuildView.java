@@ -42,7 +42,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ComposingSplitTransition;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -70,9 +76,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
-import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
@@ -82,11 +86,13 @@ import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImports;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -96,10 +102,9 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -239,8 +244,7 @@ public class BuildView {
     @Option(
       name = "version_window_for_dirty_node_gc",
       defaultValue = "0",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Nodes that have been dirty for more than this many versions will be deleted"
@@ -261,7 +265,7 @@ public class BuildView {
     public boolean interleaveLoadingAndAnalysis;
   }
 
-  private static Logger LOG = Logger.getLogger(BuildView.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
 
   private final BlazeDirectories directories;
 
@@ -283,6 +287,10 @@ public class BuildView {
   /** The number of targets freshly evaluated in the last analysis run. */
   public int getTargetsVisited() {
     return skyframeBuildView.getEvaluatedTargetKeys().size();
+  }
+
+  public PackageManagerStatistics getAndClearPkgManagerStatistics() {
+    return skyframeExecutor.getPackageManager().getAndClearStatistics();
   }
 
   public BuildView(BlazeDirectories directories,
@@ -330,8 +338,9 @@ public class BuildView {
    * Return value for {@link BuildView#update} and {@code BuildTool.prepareToBuild}.
    */
   public static final class AnalysisResult {
-    private final ImmutableList<ConfiguredTarget> targetsToBuild;
+    private final ImmutableSet<ConfiguredTarget> targetsToBuild;
     @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
+    private final ImmutableSet<ConfiguredTarget> targetsToSkip;
     @Nullable private final String error;
     private final ActionGraph actionGraph;
     private final ImmutableSet<Artifact> artifactsToBuild;
@@ -346,6 +355,7 @@ public class BuildView {
         Collection<ConfiguredTarget> targetsToBuild,
         Collection<AspectValue> aspects,
         Collection<ConfiguredTarget> targetsToTest,
+        Collection<ConfiguredTarget> targetsToSkip,
         @Nullable String error,
         ActionGraph actionGraph,
         Collection<Artifact> artifactsToBuild,
@@ -354,9 +364,10 @@ public class BuildView {
         TopLevelArtifactContext topLevelContext,
         ImmutableMap<PackageIdentifier, Path> packageRoots,
         String workspaceName) {
-      this.targetsToBuild = ImmutableList.copyOf(targetsToBuild);
+      this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
       this.aspects = ImmutableList.copyOf(aspects);
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
+      this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
       this.error = error;
       this.actionGraph = actionGraph;
       this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
@@ -370,7 +381,7 @@ public class BuildView {
     /**
      * Returns configured targets to build.
      */
-    public Collection<ConfiguredTarget> getTargetsToBuild() {
+    public ImmutableSet<ConfiguredTarget> getTargetsToBuild() {
       return targetsToBuild;
     }
 
@@ -399,6 +410,16 @@ public class BuildView {
     @Nullable
     public Collection<ConfiguredTarget> getTargetsToTest() {
       return targetsToTest;
+    }
+
+    /**
+     * Returns the configured targets that should not be executed because they're not
+     * platform-compatible with the current build.
+     *
+     * <p>For example: tests that aren't intended for the designated CPU.
+     */
+    public ImmutableSet<ConfiguredTarget> getTargetsToSkip() {
+      return targetsToSkip;
     }
 
     public ImmutableSet<Artifact> getAdditionalArtifactsToBuild() {
@@ -468,7 +489,7 @@ public class BuildView {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException {
-    LOG.info("Starting analysis");
+    logger.info("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
@@ -488,8 +509,8 @@ public class BuildView {
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
       byLabel.put(pair.getLabel(), pair.getConfiguration());
     }
-    for (Label label : byLabel.keySet()) {
-      eventBus.post(new TargetConfiguredEvent(label, byLabel.get(label)));
+    for (Target target : targets) {
+      eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
     }
 
     List<ConfiguredTargetKey> topLevelCtKeys = Lists.transform(topLevelTargetsWithConfigs,
@@ -500,6 +521,8 @@ public class BuildView {
           }
         });
 
+    Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
+        ArrayListMultimap.create();
 
     List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
@@ -528,6 +551,8 @@ public class BuildView {
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+          aspectConfigurations.put(
+              Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
@@ -547,6 +572,7 @@ public class BuildView {
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
             BuildConfiguration configuration = targetSpec.getConfiguration();
+            aspectConfigurations.put(Pair.of(targetSpec.getLabel(), aspect), configuration);
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
@@ -559,6 +585,12 @@ public class BuildView {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
         }
       }
+    }
+
+    for (Pair<Label, String> target : aspectConfigurations.keys()) {
+      eventBus.post(
+          new AspectConfiguredEvent(
+              target.getFirst(), target.getSecond(), aspectConfigurations.get(target)));
     }
 
     skyframeExecutor.injectWorkspaceStatusData(loadingResult.getWorkspaceName());
@@ -583,8 +615,14 @@ public class BuildView {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
       eventHandler.handle(Event.info(msg));
-      LOG.info(msg);
+      logger.info(msg);
     }
+
+    Set<ConfiguredTarget> targetsToSkip =
+        TopLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+            skyframeAnalysisResult.getConfiguredTargets(),
+            skyframeExecutor.getPackageManager(),
+            eventHandler);
 
     AnalysisResult result =
         createResult(
@@ -592,8 +630,9 @@ public class BuildView {
             loadingResult,
             topLevelOptions,
             viewOptions,
-            skyframeAnalysisResult);
-    LOG.info("Finished analysis");
+            skyframeAnalysisResult,
+            targetsToSkip);
+    logger.info("Finished analysis");
     return result;
   }
 
@@ -602,19 +641,19 @@ public class BuildView {
       LoadingResult loadingResult,
       TopLevelArtifactContext topLevelOptions,
       BuildView.Options viewOptions,
-      SkyframeAnalysisResult skyframeAnalysisResult)
+      SkyframeAnalysisResult skyframeAnalysisResult,
+      Set<ConfiguredTarget> targetsToSkip)
       throws InterruptedException {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
-    Collection<ConfiguredTarget> configuredTargets = skyframeAnalysisResult.getConfiguredTargets();
+    Set<ConfiguredTarget> configuredTargets =
+        Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
     Collection<AspectValue> aspects = skyframeAnalysisResult.getAspects();
 
-    Collection<ConfiguredTarget> allTargetsToTest = null;
+    Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
-      // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
-      allTargetsToTest =
-          Lists.<ConfiguredTarget>newArrayList(
-              filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
+      allTargetsToTest = Sets.newLinkedHashSet(
+          filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
     Set<Artifact> artifactsToBuild = new HashSet<>();
@@ -679,6 +718,7 @@ public class BuildView {
         configuredTargets,
         aspects,
         allTargetsToTest,
+        targetsToSkip,
         error,
         actionGraph,
         artifactsToBuild,
@@ -845,20 +885,10 @@ public class BuildView {
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target,
-            config.useDynamicConfigurations()
-                // Dynamic configurations apply top-level transitions through a different code path:
-                // BuildConfiguration#topLevelConfigurationHook. That path has the advantages of a)
-                // not requiring a global transitions table and b) making its choices outside core
-                // Bazel code.
-                ? (target.isConfigurable() ? config : null)
-                : BuildConfigurationCollection.configureTopLevelTarget(config, target)));
+        nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
       }
     }
-    return ImmutableList.copyOf(
-        configurations.useDynamicConfigurations()
-            ? getDynamicConfigurations(nodes, eventHandler)
-            : nodes);
+    return ImmutableList.copyOf(getConfigurations(nodes, eventHandler));
   }
 
   /**
@@ -878,7 +908,7 @@ public class BuildView {
    */
   // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
   // never make it through analysis (and especially not seed ConfiguredTargetValues)
-  private LinkedHashSet<TargetAndConfiguration> getDynamicConfigurations(
+  private LinkedHashSet<TargetAndConfiguration> getConfigurations(
       Iterable<TargetAndConfiguration> inputs, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
@@ -893,13 +923,15 @@ public class BuildView {
       if (targetAndConfig.getConfiguration() != null) {
         asDeps.put(targetAndConfig.getConfiguration(),
             Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(), getTopLevelTransition(targetAndConfig),
+                targetAndConfig.getLabel(),
+                getTopLevelTransition(targetAndConfig,
+                    ruleClassProvider.getDynamicTransitionMapper()),
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }
     }
 
-    // Maps <target, originalConfig> pairs to <target, dynamicConfig> pairs for targets that
+    // Maps <target, originalConfig> pairs to <target, finalConfig> pairs for targets that
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
@@ -934,11 +966,10 @@ public class BuildView {
    * Returns the transition to apply to the top-level configuration before applying it to this
    * target. This enables support for rule-triggered top-level configuration hooks.
    */
-  private static Attribute.Transition getTopLevelTransition(
-      TargetAndConfiguration targetAndConfig) {
+  private static Attribute.Transition getTopLevelTransition(TargetAndConfiguration targetAndConfig,
+      DynamicTransitionMapper dynamicTransitionMapper) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
-    Preconditions.checkArgument(fromConfig.useDynamicConfigurations());
 
     // Top-level transitions (chosen by configuration fragments):
     Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
@@ -956,7 +987,11 @@ public class BuildView {
     if (transitionFactory == null) {
       return topLevelTransition;
     }
-    Attribute.Transition ruleClassTransition = transitionFactory.buildTransitionFor(associatedRule);
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition ruleClassTransition = (PatchTransition)
+        dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
     if (ruleClassTransition == null) {
       return topLevelTransition;
     } else if (topLevelTransition == ConfigurationTransition.NONE) {
@@ -968,17 +1003,17 @@ public class BuildView {
 
 
   /**
-   * Gets a dynamic configuration for the given target.
+   * Gets a configuration for the given target.
    *
    * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
    * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
    * includes all fragments.
    */
   @VisibleForTesting
-  public BuildConfiguration getDynamicConfigurationForTesting(
+  public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    return Iterables.getOnlyElement(getDynamicConfigurations(
+    return Iterables.getOnlyElement(getConfigurations(
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config)),
         eventHandler)).getConfiguration();
   }
@@ -1021,24 +1056,31 @@ public class BuildView {
       throws EvalException, InvalidConfigurationException,
       InterruptedException, InconsistentAspectOrderException {
     return skyframeExecutor.getConfiguredTargets(
-        eventHandler, ct.getConfiguration(),
+        eventHandler,
+        ct.getConfiguration(),
         ImmutableSet.copyOf(
-            getDirectPrerequisiteDependenciesForTesting(eventHandler, ct, configurations).values()),
-        false);
+            getDirectPrerequisiteDependenciesForTesting(
+                    eventHandler, ct, configurations, /*toolchainContext=*/ null)
+                .values()));
   }
 
   @VisibleForTesting
   public OrderedSetMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
       final ExtendedEventHandler eventHandler,
       final ConfiguredTarget ct,
-      BuildConfigurationCollection configurations)
+      BuildConfigurationCollection configurations,
+      ToolchainContext toolchainContext)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException {
     if (!(ct.getTarget() instanceof Rule)) {
       return OrderedSetMultimap.create();
     }
 
     class SilentDependencyResolver extends DependencyResolver {
+      private SilentDependencyResolver() {
+        super(ruleClassProvider.getDynamicTransitionMapper());
+      }
+
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
         throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
@@ -1089,8 +1131,11 @@ public class BuildView {
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
     return dependencyResolver.dependentNodeMap(
-        ctgNode, configurations.getHostConfiguration(), /*aspect=*/ null,
-        getConfigurableAttributeKeysForTesting(eventHandler, ctgNode));
+        ctgNode,
+        configurations.getHostConfiguration(),
+        /*aspect=*/ null,
+        getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
+        toolchainContext);
   }
 
   /**
@@ -1121,15 +1166,17 @@ public class BuildView {
   private OrderedSetMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
-      BuildConfigurationCollection configurations)
-      throws EvalException, InvalidConfigurationException,
-             InterruptedException, InconsistentAspectOrderException {
+      BuildConfigurationCollection configurations,
+      ToolchainContext toolchainContext)
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+          InconsistentAspectOrderException {
     OrderedSetMultimap<Attribute, Dependency> depNodeNames =
-        getDirectPrerequisiteDependenciesForTesting(eventHandler, target, configurations);
+        getDirectPrerequisiteDependenciesForTesting(
+            eventHandler, target, configurations, toolchainContext);
 
     ImmutableMultimap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
         eventHandler,
-        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
+        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
@@ -1160,15 +1207,21 @@ public class BuildView {
     if (factory == null) {
       return ConfigurationTransition.NONE;
     }
-    Transition transition = factory.buildTransitionFor(rule);
+
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition transition = (PatchTransition)
+        ruleClassProvider.getDynamicTransitionMapper().map(factory.buildTransitionFor(rule));
     return (transition == null) ? ConfigurationTransition.NONE : transition;
   }
 
   /**
-   * Returns a configured target for the specified target and configuration. If dynamic
-   * configurations are activated, and the target in question has a top-level rule class transition,
-   * that transition is applied in the returned ConfiguredTarget. Returns {@code null} if something
-   * goes wrong.
+   * Returns a configured target for the specified target and configuration. If the target in
+   * question has a top-level rule class transition, that transition is applied in the returned
+   * ConfiguredTarget.
+   *
+   * <p>Returns {@code null} if something goes wrong.
    */
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(
@@ -1182,10 +1235,11 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
-      ConfiguredTarget target, StoredEventHandler eventHandler,
+      ConfiguredTarget target,
+      StoredEventHandler eventHandler,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException, ToolchainContextException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
@@ -1200,12 +1254,23 @@ public class BuildView {
    * given configured target.
    */
   @VisibleForTesting
-  public RuleContext getRuleContextForTesting(ExtendedEventHandler eventHandler,
+  public RuleContext getRuleContextForTesting(
+      ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
-      AnalysisEnvironment env, BuildConfigurationCollection configurations)
+      AnalysisEnvironment env,
+      BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException, ToolchainContextException {
     BuildConfiguration targetConfig = target.getConfiguration();
+    Set<Label> requiredToolchains =
+        target.getTarget().getAssociatedRule().getRuleClassObject().getRequiredToolchains();
+    ToolchainContext toolchainContext =
+        skyframeExecutor.getToolchainContextForTesting(
+            requiredToolchains, targetConfig, eventHandler);
+    OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap =
+        getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext);
+    toolchainContext.resolveToolchains(prerequisiteMap);
+
     return new RuleContext.Builder(
             env,
             (Rule) target.getTarget(),
@@ -1217,9 +1282,11 @@ public class BuildView {
         .setVisibility(
             NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.everything()))
-        .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
+        .setPrerequisites(
+            getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+        .setToolchainContext(toolchainContext)
         .build();
   }
 
@@ -1236,7 +1303,9 @@ public class BuildView {
       throws EvalException, InvalidConfigurationException, InterruptedException,
              InconsistentAspectOrderException {
     Collection<ConfiguredTarget> configuredTargets =
-        getPrerequisiteMapForTesting(eventHandler, dependentTarget, configurations).values();
+        getPrerequisiteMapForTesting(
+                eventHandler, dependentTarget, configurations, /*toolchainContext=*/ null)
+            .values();
     for (ConfiguredTarget ct : configuredTargets) {
       if (ct.getLabel().equals(desiredTarget)) {
         return ct;

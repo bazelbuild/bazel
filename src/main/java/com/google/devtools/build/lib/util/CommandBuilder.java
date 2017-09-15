@@ -158,7 +158,7 @@ public final class CommandBuilder {
       // /D - ignore AutoRun registry entries.
       // /C - execute command. This must be the last option before the command itself.
       return new String[] { "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C",
-          "\"" + Joiner.on(' ').join(modifiedArgv) + "\"" };
+          Joiner.on(' ').join(modifiedArgv) };
     } else {
       return modifiedArgv.toArray(new String[argv.size()]);
     }

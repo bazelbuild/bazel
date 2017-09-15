@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBound
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -84,10 +85,14 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
-        pkgLocator,
-        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, TestConstants.PRODUCT_NAME));
+    ExternalFilesHelper externalFilesHelper =
+        new ExternalFilesHelper(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            new BlazeDirectories(
+                new ServerDirectories(outputBase, outputBase),
+                rootDirectory,
+                TestConstants.PRODUCT_NAME));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
@@ -704,6 +709,43 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   @Test
   public void testExclusionOfDanglingSymlinkWithSymlinkModeDereference() throws Exception {
     assertExclusionOfDanglingSymlink(SymlinkBehavior.DEREFERENCE);
+  }
+
+  @Test
+  public void testExcludes() throws Exception {
+    Artifact buildFile = getSourceArtifact("foo/BUILD");
+    createFile(buildFile);
+    Artifact outerFile = getSourceArtifact("foo/outerfile.txt");
+    createFile(outerFile);
+    Artifact innerFile = getSourceArtifact("foo/dir/innerfile.txt");
+    createFile(innerFile);
+
+    FilesetTraversalParams params =
+        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            PathFragment.create("output-name"),
+            /* excludes */ ImmutableSet.of(),
+            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(
+        params,
+        symlink("output-name/BUILD", buildFile),
+        symlink("output-name/outerfile.txt", outerFile),
+        symlink("output-name/dir/innerfile.txt", innerFile));
+
+    // Make sure the file within the excluded directory is no longer present.
+    params = FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            PathFragment.create("output-name"),
+            /* excludes */ ImmutableSet.of("dir"),
+            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(
+        params,
+        symlink("output-name/BUILD", buildFile),
+        symlink("output-name/outerfile.txt", outerFile));
   }
 
   @Test

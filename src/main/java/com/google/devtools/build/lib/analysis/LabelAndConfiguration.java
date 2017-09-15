@@ -17,11 +17,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**

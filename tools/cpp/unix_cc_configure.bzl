@@ -353,6 +353,7 @@ def find_cc(repository_ctx):
 
 def configure_unix_toolchain(repository_ctx, cpu_value):
   """Configure C++ toolchain on Unix platforms."""
+  repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
   cc = find_cc(repository_ctx)
   tool_paths = _get_tool_paths(repository_ctx, darwin,

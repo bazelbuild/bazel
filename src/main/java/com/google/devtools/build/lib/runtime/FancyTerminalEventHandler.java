@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.joda.time.Duration;
-import org.joda.time.Instant;
 
 /**
  * An event handler for ANSI terminals which uses control characters to
@@ -60,7 +60,7 @@ import org.joda.time.Instant;
  * a choppy UI experience.
  */
 public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
-  private static Logger LOG = Logger.getLogger(FancyTerminalEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(FancyTerminalEventHandler.class.getName());
   private static final Pattern progressPattern = Pattern.compile(
       // Match strings that look like they start with progress info:
       //   [42%] Compiling base/base.cc
@@ -135,8 +135,9 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     if (!eventMask.contains(event.getKind())) {
       return;
     }
-    if (trySpecial && !EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT.contains(event.getKind())
-        && skipUntil.isAfterNow()) {
+    if (trySpecial
+        && !EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT.contains(event.getKind())
+        && skipUntil.isAfter(Instant.now())) {
       // Short-circuit here to avoid wiping out previous terminal contents.
       return;
     }
@@ -151,7 +152,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
         case START:
           {
             String message = event.getMessage();
-            Pair<String,String> progressPair = matchProgress(message);
+            Pair<String, String> progressPair = matchProgress(message);
             if (progressPair != null) {
               progress(progressPair.getFirst(), progressPair.getSecond());
               if (trySpecial && ThreadLocalRandom.current().nextInt(0, 20) == 0) {
@@ -161,8 +162,9 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
                   previousLineErased = maybeOverwritePreviousMessage();
                   progress(progressPair.getFirst(), message);
                   // Skip unimportant messages for a bit so that this message gets some exposure.
-                  skipUntil = Instant.now().plus(
-                      Duration.millis(ThreadLocalRandom.current().nextInt(3000, 8000)));
+                  skipUntil =
+                      Instant.now()
+                          .plus(Duration.ofMillis(ThreadLocalRandom.current().nextInt(3000, 8000)));
                 }
               }
             } else {
@@ -201,6 +203,11 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
           // and scroll it.
           warning(event);
           break;
+        case DEBUG:
+          // For debug messages, highlight the word "Debug" in boldface yellow,
+          // and scroll it.
+          debug(event);
+          break;
         case SUBCOMMAND:
           subcmd(event);
           break;
@@ -225,7 +232,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       // should also kill the blaze client. So this isn't something that should
       // occur here; it will show up in the client/server interface as a broken
       // pipe.
-      LOG.warning("Terminal was closed during build: " + e);
+      logger.warning("Terminal was closed during build: " + e);
       terminalClosed = true;
     }
   }
@@ -361,6 +368,18 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     crlf();
   }
 
+  private void debug(Event debug) throws IOException {
+    previousLineErasable = false;
+    if (useColor) {
+      terminal.textYellow();
+    }
+    terminal.writeString("DEBUG: ");
+    terminal.resetTerminal();
+    writeTimestampAndLocation(debug);
+    writeStringWithPotentialPeriod(debug.getMessage());
+    crlf();
+  }
+
   /**
    * Writes the given String to the terminal. This method also writes a trailing period if the
    * message doesn't end with a punctuation character.
@@ -435,7 +454,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     try {
       terminal.resetTerminal();
     } catch (IOException e) {
-      LOG.warning("IO Error writing to user terminal: " + e);
+      logger.warning("IO Error writing to user terminal: " + e);
     }
   }
 }

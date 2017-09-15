@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 import java.util.TreeMap;
@@ -46,9 +46,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .addNonPropagatedDepObjcProviders(
-            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites(
+                "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -89,15 +90,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
           J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
-        .addProvider(
-            CcLinkParamsProvider.class,
-            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
+        .addNativeDeclaredProvider(
+            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
   }

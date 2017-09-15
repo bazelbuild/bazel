@@ -18,9 +18,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -39,11 +41,13 @@ public class Alias implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
     return new AliasConfiguredTarget(
-        ruleContext.getConfiguration(),
+        ruleContext,
         actual,
         ImmutableMap.of(
-            AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
-            VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility())));
+            AliasProvider.class,
+            AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
+            VisibilityProvider.class,
+            new VisibilityProviderImpl(ruleContext.getVisibility())));
   }
 
   /**

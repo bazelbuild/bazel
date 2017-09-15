@@ -41,105 +41,6 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 
 : ${BOOTSTRAP_BAZEL:=bazel}
 
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]] ; then
-  function checksum() {
-    (cd "$(dirname "$1")" && shasum -a 256 "$(basename "$1")")
-  }
-else
-  function checksum() {
-    (cd "$(dirname "$1")" && sha256sum "$(basename "$1")")
-  }
-fi
-
-function setup_android_repositories() {
-  if [ ! -f WORKSPACE.bak ] && [ -n "${ANDROID_SDK_PATH-}" ]; then
-    cp WORKSPACE WORKSPACE.bak
-    trap '[ -f WORKSPACE.bak ] && rm WORKSPACE && mv WORKSPACE.bak WORKSPACE' \
-      EXIT
-    # Make sure that WORKSPACE ends with a newline, otherwise we'll end up with
-    # a syntax error.
-    echo >>WORKSPACE
-    cat >>WORKSPACE <<EOF
-android_sdk_repository(
-    name = "androidsdk",
-    path = "${ANDROID_SDK_PATH}",
-)
-
-EOF
-    if [ -n "${ANDROID_NDK_PATH-}" ]; then
-      cat >>WORKSPACE <<EOF
-android_ndk_repository(
-    name = "androidndk",
-    path = "${ANDROID_NDK_PATH}",
-)
-EOF
-    fi
-  fi
-}
-
-# Main entry point for building bazel.
-# It sets the embed label to the release name if any, calls the whole
-# test suite, compile the various packages, then copy the artifacts
-# to the folder in $1
-function bazel_build() {
-  local release_label="$(get_full_release_name)"
-  local embed_label_opts=
-
-  if [ -n "${release_label}" ]; then
-    export EMBED_LABEL="${release_label}"
-  fi
-
-  if [[ "${JAVA_VERSION-}" =~ ^(1\.)?7$ ]]; then
-    JAVA_VERSION=1.7
-    release_label="${release_label}-jdk7"
-  else
-    JAVA_VERSION=1.8
-  fi
-
-  # Build the packages
-  local ARGS=
-  if [[ $PLATFORM == "darwin" ]] && \
-      xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
-    ARGS="--define IPHONE_SDK=1"
-  fi
-  local OPTIONAL_TARGETS="//site:jekyll-tree //scripts/packages //src/tools/benchmark/webapp:site"
-  if [[ $PLATFORM =~ "freebsd" ]] ; then
-      OPTIONAL_TARGETS=
-  fi
-  ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
-      --embed_label=${release_label} --stamp \
-      --workspace_status_command=scripts/ci/build_status_command.sh \
-      --define JAVA_VERSION=${JAVA_VERSION} \
-      ${ARGS} \
-      //src:bazel \
-      ${OPTIONAL_TARGETS} || exit $?
-
-  if [ -n "${1-}" ]; then
-    # Copy the results to the output directory
-    mkdir -p $1/packages
-    cp bazel-bin/src/bazel $1/bazel
-    # The version with a bundled JDK may not exist on all platforms.
-    if [ "${JAVA_VERSION}" = "1.8" ] && [ -e "bazel-bin/scripts/packages/with-jdk/install.sh" ]; then
-      cp bazel-bin/scripts/packages/with-jdk/install.sh $1/bazel-${release_label}-installer.sh
-      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-without-jdk-installer.sh
-    else
-      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-installer.sh
-    fi
-    if [ "$PLATFORM" = "linux" ]; then
-      cp bazel-bin/scripts/packages/debian/bazel-debian.deb $1/bazel_${release_label}.deb
-      cp -f bazel-genfiles/scripts/packages/debian/bazel.dsc $1/bazel.dsc
-      cp -f bazel-genfiles/scripts/packages/debian/bazel.tar.gz $1/bazel.tar.gz
-      if [ "${JAVA_VERSION}" = "1.8" ]; then
-        cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
-      fi
-    fi
-    cp bazel-genfiles/site/jekyll-tree.tar $1/docs.bazel.build.tar
-    cp bazel-bin/src/tools/benchmark/webapp/site.tar $1/perf.bazel.build.tar.nobuild
-    cp bazel-genfiles/scripts/packages/README.md $1/README.md
-  fi
-}
-
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
 # is taken as a couple: first is the string the substitute and the second
@@ -181,6 +82,25 @@ function generate_email() {
   fi
 }
 
+function get_release_page() {
+    echo "# $(get_full_release_notes)"'
+
+_Notice_: Bazel installers contain binaries licensed under the GPLv2 with
+Classpath exception. Those installers should always be redistributed along with
+the source code.
+
+Some versions of Bazel contain a bundled version of OpenJDK. The license of the
+bundled OpenJDK and other open-source components can be displayed by running
+the command `bazel license`. The vendor and version information of the bundled
+OpenJDK can be displayed by running the command `bazel info java-runtime`.
+The binaries and source-code of the bundled OpenJDK can be
+[downloaded from our mirror server](https://mirror.bazel.build/openjdk/index.html).
+
+_Security_: All our binaries are signed with our
+[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+'
+}
+
 # Deploy a github release using a third party tool:
 #   https://github.com/c4milo/github-release
 # This methods expects the following arguments:
@@ -193,25 +113,9 @@ function release_to_github() {
   local url="${GIT_REPOSITORY_URL}"
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
-  local release_tool="${GITHUB_RELEASE:-$(which github-release 2>/dev/null || true)}"
-  local gpl_warning='
+  local release_tool="${GITHUB_RELEASE:-$(which github-release 2>/dev/null || echo release-tool-not-found)}"
 
-_Notice_: Bazel installers contain binaries licensed under the GPLv2 with
-Classpath exception. Those installers should always be redistributed along with
-the source code.
-
-Some versions of Bazel contain a bundled version of OpenJDK. The license of the
-bundled OpenJDK and other open-source components can be displayed by running
-the command `bazel license`. The vendor and version information of the bundled
-OpenJDK can be displayed by running the command `bazel info java-runtime`.
-The binaries and source-code of the bundled OpenJDK can be
-[downloaded from our mirror server](https://bazel-mirror.storage.googleapis.com/openjdk/index.html).
-
-_Security_: All our binaries are signed with our
-[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
-'
-
-  if [ ! -x "${release_tool}" ]; then
+  if [ "${release_tool}" = "release-tool-not-found" ]; then
     echo "Please set GITHUB_RELEASE to the path to the github-release binary." >&2
     echo "This probably means you haven't installed https://github.com/c4milo/github-release " >&2
     echo "on this machine." >&2
@@ -221,24 +125,23 @@ _Security_: All our binaries are signed with our
   if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
     mkdir -p "${tmpdir}/to-github"
     cp "${@}" "${tmpdir}/to-github"
-    "${GITHUB_RELEASE}" "${github_repo}" "${release_name}" "" "# $(git_commit_msg) ${gpl_warning}" "${tmpdir}/to-github/"'*'
+    "${release_tool}" "${github_repo}" "${release_name}" "" "$(get_release_page)" "${tmpdir}/to-github/"'*'
   fi
 }
 
 # Creates an index of the files contained in folder $1 in mardown format
 function create_index_md() {
-  # First, add the README.md
-  local file=$1/__temp.md
-  if [ -f $1/README.md ]; then
-    cat $1/README.md
+  # First, add the release notes
+  get_release_page
+  # Build log
+  if [ -f $1/build.log ]; then
+    echo
+    echo " [Build log](build.log)"
+    echo
   fi
   # Then, add the list of files
   echo
   echo "## Index of files"
-  echo
-  # Security notice
-  echo "_Security_: All our binaries are signed with our"
-  echo "[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0."
   echo
   for f in $1/*.sha256; do  # just list the sha256 ones
     local filename=$(basename $f .sha256);
@@ -411,9 +314,8 @@ function release_to_apt() {
 # A wrapper around the release deployment methods.
 function deploy_release() {
   local github_args=()
-  # Filters out README.md for github releases
   for i in "$@"; do
-    if ! ( [[ "$i" =~ README.md$ ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] || [[ "$i" =~ .nobuild$ ]] ) ; then
+    if ! ( [[ "$i" =~ build.log ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] || [[ "$i" =~ .nobuild$ ]] ) ; then
       github_args+=("$i")
     fi
   done
@@ -427,59 +329,6 @@ function deploy_release() {
   release_to_github "${github_args[@]}"
   release_to_gcs "${gcs_args[@]}"
   release_to_apt
-}
-
-# A wrapper for the whole release phase:
-#   Compute the SHA-256, and arrange the input
-#   Sign every binary using gpg and generating .sig files
-#   Deploy the release
-#   Generate the email
-# Input: $1 $2 [$3 $4 [$5 $6 ...]]
-#    Each pair denotes a couple (platform, folder) where the platform
-#    is the platform built for and the folder is the folder where the
-#    artifacts for this platform are.
-# Ouputs:
-#   RELEASE_EMAIL_RECIPIENT: who to send a mail to
-#   RELEASE_EMAIL_SUBJECT: the subject of the email to be sent
-#   RELEASE_EMAIL_CONTENT: the content of the email to be sent
-function bazel_release() {
-  local README=$2/README.md
-  tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
-  trap 'rm -fr ${tmpdir}' EXIT
-  ensure_gpg_secret_key_imported
-
-  while (( $# > 1 )); do
-    local platform=$1
-    local folder=$2
-    shift 2
-    for file in $folder/*; do
-      local filename=$(basename $file)
-      if [ "$filename" != README.md ]; then
-          if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] \
-                 || [[ "$filename" =~ bazel-(.*)-dist\.zip ]]  ; then
-          local destfile=${tmpdir}/$filename
-        elif [[ "$file" =~ /([^/]*)(\.[^\./]+)$ ]]; then
-          local destfile=${tmpdir}/${BASH_REMATCH[1]}-${platform}${BASH_REMATCH[2]}
-        else
-          local destfile=${tmpdir}/$filename-${platform}
-        fi
-        # bazel.tar.gz is duplicated under different platforms
-        # if the file is already there, skip signing and checksum it again.
-        if [ ! -f "$destfile" ]; then
-          mv $file $destfile
-          checksum $destfile > $destfile.sha256
-          gpg --no-tty --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
-        fi
-      fi
-    done
-  done
-  deploy_release $README $(find ${tmpdir} -type f)
-
-  export RELEASE_EMAIL="$(generate_email)"
-
-  export RELEASE_EMAIL_RECIPIENT="$(echo "${RELEASE_EMAIL}" | head -1)"
-  export RELEASE_EMAIL_SUBJECT="$(echo "${RELEASE_EMAIL}" | head -2 | tail -1)"
-  export RELEASE_EMAIL_CONTENT="$(echo "${RELEASE_EMAIL}" | tail -n +3)"
 }
 
 # Use jekyll build to build the site and then gsutil to copy it to GCS

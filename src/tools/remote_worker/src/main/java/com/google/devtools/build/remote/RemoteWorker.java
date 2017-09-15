@@ -57,6 +57,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -64,6 +65,10 @@ import java.util.logging.Logger;
  * based on gRPC.
  */
 public final class RemoteWorker {
+  // We need to keep references to the root and netty loggers to prevent them from being garbage
+  // collected, which would cause us to loose their configuration.
+  private static final Logger rootLogger = Logger.getLogger("");
+  private static final Logger nettyLogger = Logger.getLogger("io.grpc.netty");
   private static final Logger logger = Logger.getLogger(RemoteWorker.class.getName());
 
   private final RemoteWorkerOptions workerOptions;
@@ -169,12 +174,24 @@ public final class RemoteWorker {
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
-    Logger rootLog = Logger.getLogger("");
-    rootLog.getHandlers()[0].setFormatter(new SingleLineFormatter());
+    rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
     if (remoteWorkerOptions.debug) {
-      Logger.getLogger("com.google").setLevel(FINE);
-      rootLog.getHandlers()[0].setLevel(FINE);
+      rootLogger.getHandlers()[0].setLevel(FINE);
     }
+
+    // Only log severe log messages from Netty. Otherwise it logs warnings that look like this:
+    //
+    // 170714 08:16:28.552:WT 18 [io.grpc.netty.NettyServerHandler.onStreamError] Stream Error
+    // io.netty.handler.codec.http2.Http2Exception$StreamException: Received DATA frame for an
+    // unknown stream 11369
+    //
+    // As far as we can tell, these do not indicate any problem with the connection. We believe they
+    // happen when the local side closes a stream, but the remote side hasn't received that
+    // notification yet, so there may still be packets for that stream en-route to the local
+    // machine. The wording 'unknown stream' is misleading - the stream was previously known, but
+    // was recently closed. I'm told upstream discussed this, but didn't want to keep information
+    // about closed streams around.
+    nettyLogger.setLevel(Level.SEVERE);
 
     FileSystem fs = getFileSystem();
     Path sandboxPath = null;

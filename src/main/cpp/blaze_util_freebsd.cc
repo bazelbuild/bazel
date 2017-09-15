@@ -152,20 +152,19 @@ void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid) {
 }
 
-bool VerifyServerProcess(
-    int pid, const string& output_base, const string& install_base) {
-  // TODO(lberki): This might accidentally kill an unrelated process if the
-  // server died and the PID got reused.
-  return true;
-}
-
-bool KillServerProcess(int pid) {
-  killpg(pid, SIGKILL);
-  return true;
+bool VerifyServerProcess(int pid, const string &output_base) {
+  // TODO(lberki): This only checks for the process's existence, not whether
+  // its start time matches. Therefore this might accidentally kill an
+  // unrelated process if the server died and the PID got reused.
+  return killpg(pid, 0) == 0;
 }
 
 // Not supported.
 void ExcludePathFromBackup(const string &path) {
+}
+
+int32_t GetExplicitSystemLimit(const int resource) {
+  return -1;
 }
 
 }  // namespace blaze

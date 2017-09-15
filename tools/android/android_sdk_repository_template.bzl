@@ -113,7 +113,6 @@ def create_android_sdk_rules(
             ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
             "//conditions:default": ":zipalign_binary",
         }),
-        resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
   native.alias(
@@ -281,21 +280,23 @@ def create_system_images_filegroups(system_image_dirs):
   # guarantee that they will work out of the box. Supported system images should
   # be added here once they have been confirmed to work with the Bazel Android
   # testing infrastructure.
-  system_images = [(tag, api, arch)
+  system_images = [(tag, str(api), arch)
                    for tag in ["android", "google"]
                    for api in [10] + range(15, 20) + range(21, 27)
                    for arch in ("x86", "arm")]
-  tv_images = [("tv", api, arch)
+  tv_images = [("tv", str(api), arch)
                for api in range(21, 25) for arch in ("x86", "arm")]
-  wear_images = [("wear", api, "x86")
-                 for api in range(20, 26)] + [("wear", api, "arm")
+  wear_images = [("wear", str(api), "x86")
+                 for api in range(20, 26)] + [("wear", str(api), "arm")
                                               for api in range(24, 26)]
   supported_system_images = system_images + tv_images + wear_images
 
   installed_system_images_dirs = {}
   for system_image_dir in system_image_dirs:
     apidir, tagdir, archdir = system_image_dir.split("/")[1:]
-    api = int(apidir.split("-")[1])  # "android-24" --> 24
+    if "-" not in apidir:
+      continue
+    api = apidir.split("-")[1]  # "android-24" --> "24", "android-O" --> "O"
     if tagdir not in TAGDIR_TO_TAG_MAP:
       continue
     tag = TAGDIR_TO_TAG_MAP[tagdir]

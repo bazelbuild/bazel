@@ -145,6 +145,7 @@ EOF
 load(":foo.bzl", "foo")
 load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
+cc_library(name = 'cclib', srcs = ['cclib.cc'])
 genrule(name = 'histodump',
         srcs = glob(["*.in"]),
         outs = ['histo.txt'],
@@ -155,15 +156,20 @@ genrule(name = 'histodump',
               '|| echo "server_pid in genrule: \$\$server_pid"'
        )
 EOF
+
+  touch histodump/cclib.cc
   rm -f "$server_pid_fifo"
   mkfifo "$server_pid_fifo"
   histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo.txt"
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $build_args //histodump:histodump >& "$TEST_log" &
+  bazel $STARTUP_FLAGS build --show_timestamps $build_args \
+      //histodump:histodump >> "$TEST_log" 2>&1 &
   server_pid=$!
   echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_fifo"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
   # Wait for previous command to finish.
   wait "$server_pid" || fail "Bazel command failed"
   cat "$histo_file" >> "$TEST_log"
@@ -177,20 +183,24 @@ function test_packages_cleared() {
       'devtools\.build\.lib\..*\.Package$')"
   [[ "$package_count" -ge 9 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
-  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -ge 8 ]] \
       || fail "glob count $glob_count too low: did you move/rename the class?"
   local env_count="$(extract_histogram_count "$histo_file" \
       'Environment\$Extension$')"
   [[ "$env_count" -ge 3 ]] \
       || fail "env extension count $env_count too low: did you move/rename the class?"
+  local ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "ct_count" -ge 18 ]] \
+      || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
   [[ "$package_count" -le 8 ]] \
       || fail "package count $package_count too high"
-  glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
   env_count="$(extract_histogram_count "$histo_file" \
@@ -199,6 +209,10 @@ function test_packages_cleared() {
   # a regression in. Fix.
   [[ "$env_count" -le 7 ]] \
       || fail "env extension count $env_count too high"
+  ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "$ct_count" -le 1 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
 }
 
 function test_actions_deleted_after_execution() {
@@ -220,8 +234,10 @@ genrule(name = 'action${i}',
         srcs = [':action${iminus}'],
         outs = ['histo.${i}'],
         local = 1,
-        cmd = '${bazel_javabase}/bin/jmap -histo:live '
-              + '\$\$(cat ${server_pid_file}) > \$(location histo.${i})'
+        cmd = 'server_pid=\$\$(cat $server_pid_file) ; ' +
+              '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
+              '\$(location histo.${i}) ' +
+              '|| echo "server_pid in genrule: \$\$server_pid"'
        )
 EOF
   done
@@ -229,9 +245,13 @@ EOF
   local readonly histo_root="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo."
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $BUILD_FLAGS //histodump:action3 >& "$TEST_log" &
+  bazel $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
+      //histodump:action3 >> "$TEST_log" 2>&1 &
   server_pid=$!
+  echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_file"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
   echo "" > "$wait_fifo"
   # Wait for previous command to finish.
   wait "$server_pid" || fail "Bazel command failed"
@@ -258,7 +278,7 @@ function test_action_conflict() {
 
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
 def _create(ctx):
-  files_to_build = set(ctx.outputs.outs)
+  files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
   action_cmd = "touch " + list(files_to_build)[0].path
@@ -322,8 +342,7 @@ EOF
 
   bazel "$STARTUP_FLAGS" build $BUILD_FLAGS \
       --noexperimental_enable_critical_path_profiling \
-      //foo:c --experimental_skip_unused_modules \
-    --experimental_prune_more_modules >& "$TEST_log" || fail "Build failed"
+      //foo:c >& "$TEST_log" || fail "Build failed"
 }
 
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.

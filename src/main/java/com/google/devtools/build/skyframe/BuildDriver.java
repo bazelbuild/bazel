@@ -26,8 +26,9 @@ public interface BuildDriver {
    * of a {@link Version} value.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, ExtendedEventHandler reporter)
-      throws InterruptedException;
+      Iterable<? extends SkyKey> roots, boolean keepGoing, int numThreads,
+      ExtendedEventHandler reporter)
+          throws InterruptedException;
 
   /**
    * Retrieve metadata about the computation over the given roots. Data returned is specific to the

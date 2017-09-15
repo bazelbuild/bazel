@@ -17,7 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;

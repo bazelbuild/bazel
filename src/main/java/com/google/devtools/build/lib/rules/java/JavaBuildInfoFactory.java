@@ -24,12 +24,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Java build info creation - generates properties file that contain the corresponding build-info
@@ -46,16 +45,19 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       PathFragment.create("build-info-redacted.properties");
 
   private static final DateTimeFormatter DEFAULT_TIME_FORMAT =
-      DateTimeFormat.forPattern("EEE MMM d HH:mm:ss yyyy");
+      DateTimeFormatter.ofPattern("EEE MMM d HH:mm:ss yyyy");
 
   // A default formatter that returns a date in UTC format.
-  private static final TimestampFormatter DEFAULT_FORMATTER = new TimestampFormatter() {
-    @Override
-    public String format(long timestamp) {
-      return new DateTime(timestamp, DateTimeZone.UTC).toString(DEFAULT_TIME_FORMAT) + " ("
-          + timestamp / 1000 + ')';
-    }
-  };
+  private static final TimestampFormatter DEFAULT_FORMATTER =
+      new TimestampFormatter() {
+        @Override
+        public String format(long timestamp) {
+          return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)
+              + " ("
+              + timestamp / 1000
+              + ')';
+        }
+      };
 
   @Override
   public final BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,

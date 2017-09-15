@@ -81,8 +81,8 @@ public abstract class QueryExpression {
    */
   public abstract void collectTargetPatterns(Collection<String> literals);
 
-  /* Implementations should just be {@code return mapper.map(this)}. */
-  public abstract QueryExpression getMapped(QueryExpressionMapper mapper);
+  /* Implementations should just be {@code return visitor.visit(this)}. */
+  public abstract <T> T accept(QueryExpressionVisitor<T> visitor);
 
   /**
    * Returns this query expression pretty-printed.

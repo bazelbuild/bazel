@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 
 /**
@@ -35,7 +36,8 @@ public class AppleCcToolchainRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("apple_cc_toolchain")
-        .ancestors(BaseRuleClasses.BaseRule.class, CcToolchainRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, CcToolchainRule.class,
+            AppleToolchain.RequiresXcodeConfigRule.class)
         .factoryClass(AppleCcToolchain.class)
         .build();
   }

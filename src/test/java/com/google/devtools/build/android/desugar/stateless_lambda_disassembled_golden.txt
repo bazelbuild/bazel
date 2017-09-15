@@ -1,0 +1,24 @@
+final class com.google.devtools.build.android.desugar.testdata.Lambda$$Lambda$0 implements java.util.function.Predicate {
+  static final java.util.function.Predicate $instance;
+
+  private com.google.devtools.build.android.desugar.testdata.Lambda$$Lambda$0();
+    Code:
+       0: aload_0
+       1: invokespecial #10                 // Method java/lang/Object."<init>":()V
+       4: return
+
+  public boolean test(java.lang.Object);
+    Code:
+       0: aload_1
+       1: checkcast     #14                 // class java/lang/String
+       4: invokestatic  #20                 // Method com/google/devtools/build/android/desugar/testdata/Lambda.lambda$as$0$Lambda:(Ljava/lang/String;)Z
+       7: ireturn
+
+  static {};
+    Code:
+       0: new           #2                  // class com/google/devtools/build/android/desugar/testdata/Lambda$$Lambda$0
+       3: dup
+       4: invokespecial #24                 // Method "<init>":()V
+       7: putstatic     #26                 // Field $instance:Ljava/util/function/Predicate;
+      10: return
+}

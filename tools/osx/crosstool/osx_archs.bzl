@@ -14,15 +14,18 @@
 # limitations under the License.
 
 # List of architectures supported by osx crosstool.
+OSX_TOOLS_NON_DEVICE_ARCHS = [
+    "darwin_x86_64",
+    "ios_i386",
+    "ios_x86_64",
+    "watchos_i386",
+    "tvos_x86_64",
+]
+
 OSX_TOOLS_ARCHS = [
     "armeabi-v7a",
-    "darwin_x86_64",
-    "ios_x86_64",
-    "ios_i386",
     "ios_armv7",
     "ios_arm64",
-    "watchos_i386",
     "watchos_armv7k",
-    "tvos_x86_64",
     "tvos_arm64",
-]
+] + OSX_TOOLS_NON_DEVICE_ARCHS

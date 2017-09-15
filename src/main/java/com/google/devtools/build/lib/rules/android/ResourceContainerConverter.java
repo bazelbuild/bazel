@@ -18,16 +18,11 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
-import javax.annotation.Nullable;
 
 /**
  * Factory for functions to convert a {@link ResourceContainer} to a commandline argument, or a
@@ -44,10 +39,6 @@ public class ResourceContainerConverter {
   interface ToArg extends Function<ResourceContainer, String> {
 
     String listSeparator();
-  }
-
-  interface ToArtifacts extends Function<ResourceContainer, NestedSet<Artifact>> {
-
   }
 
   static class Builder {
@@ -182,41 +173,6 @@ public class ResourceContainerConverter {
         }
       };
     }
-
-    ToArtifacts toArtifactConverter() {
-      return new ToArtifacts() {
-        @Override
-        public NestedSet<Artifact> apply(ResourceContainer container) {
-          NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.naiveLinkOrder();
-          if (includeResourceRoots) {
-            artifacts.addAll(container.getArtifacts());
-          }
-          if (includeManifest) {
-            addIfNotNull(container.getManifest(), artifacts);
-          }
-          if (includeRTxt) {
-            addIfNotNull(container.getRTxt(), artifacts);
-          }
-          if (includeSymbolsBin) {
-            addIfNotNull(container.getSymbols(), artifacts);
-          }
-          if (includeAapt2RTxt) {
-            addIfNotNull(container.getAapt2RTxt(), artifacts);
-          }
-          if (includeStaticLibrary) {
-            addIfNotNull(container.getStaticLibrary(), artifacts);
-          }
-          return artifacts.build();
-        }
-      };
-    }
-  }
-
-  private static void addIfNotNull(
-      @Nullable Artifact artifact, NestedSetBuilder<Artifact> artifacts) {
-    if (artifact != null) {
-      artifacts.add(artifact);
-    }
   }
 
   @VisibleForTesting
@@ -231,30 +187,17 @@ public class ResourceContainerConverter {
    * Convert ResourceDependencies to commandline args and artifacts, assuming the commandline
    * arguments should be split into direct deps and transitive deps.
    */
-  static void convertDependencies(
-      ResourceDependencies dependencies,
-      CustomCommandLine.Builder cmdBuilder,
-      NestedSetBuilder<Artifact> inputs,
-      ToArg toArg,
-      ToArtifacts toArtifacts) {
-
-    if (dependencies != null) {
-      if (!dependencies.getTransitiveResources().isEmpty()) {
-        cmdBuilder.addJoinValues(
-            "--data", toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
-      }
-      if (!dependencies.getDirectResources().isEmpty()) {
-        cmdBuilder.addJoinValues(
-            "--directData", toArg.listSeparator(), dependencies.getDirectResources(), toArg);
-      }
-      // This flattens the nested set. Since each ResourceContainer needs to be transformed into
-      // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation
-      // and SpawnActionBuilder.addInputs evaluates Iterables, it becomes necessary to make the
-      // best effort and let it get flattened.
-      inputs.addTransitive(
-          NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER,
-              FluentIterable.from(dependencies.getResources()).transformAndConcat(toArtifacts)));
-    }
+  static void addToCommandLine(
+      ResourceDependencies dependencies, CustomCommandLine.Builder cmdBuilder, ToArg toArg) {
+    cmdBuilder.addAll(
+        "--data",
+        VectorArg.join(toArg.listSeparator())
+            .each(dependencies.getTransitiveResources())
+            .mapped(toArg));
+    cmdBuilder.addAll(
+        "--directData",
+        VectorArg.join(toArg.listSeparator())
+            .each(dependencies.getDirectResources())
+            .mapped(toArg));
   }
 }

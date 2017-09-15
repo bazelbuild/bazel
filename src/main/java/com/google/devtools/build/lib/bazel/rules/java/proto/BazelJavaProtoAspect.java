@@ -19,12 +19,14 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.RpcSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -33,12 +35,13 @@ import java.util.List;
 /** An Aspect which BazelJavaProtoLibrary injects to build Java SPEED protos. */
 public class BazelJavaProtoAspect extends JavaProtoAspect {
 
-  public BazelJavaProtoAspect() {
+  public BazelJavaProtoAspect(LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
     super(
         BazelJavaSemantics.INSTANCE,
         null, /* jacocoAttr */
         new NoopRpcSupport(),
-        "@com_google_protobuf_java//:java_toolchain");
+        "@com_google_protobuf_java//:java_toolchain",
+        hostJdkAttribute);
   }
 
   private static class NoopRpcSupport
@@ -66,8 +69,8 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     }
 
     @Override
-    public void mutateJavaCompileAction(RuleContext ruleContext, JavaLibraryHelper helper) {
-      // Intentionally left empty.
+    public ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext) {
+      return ImmutableList.of();
     }
 
     @Override

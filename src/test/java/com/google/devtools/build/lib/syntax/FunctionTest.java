@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +37,7 @@ public class FunctionTest extends EvaluationTestCase {
     UserDefinedFunction stmt = (UserDefinedFunction) lookup("func");
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getFunctionSignature().getSignature().getShape().getMandatoryPositionals())
+    assertThat(stmt.getSignature().getSignature().getShape().getMandatoryPositionals())
         .isEqualTo(3);
     assertThat(stmt.getStatements()).hasSize(2);
   }
@@ -223,25 +222,6 @@ public class FunctionTest extends EvaluationTestCase {
     assertThat(lookup("a")).isEqualTo(2);
   }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testFunctionListArgumentsAreImmutable() throws Exception {
-    eval("l = [1]",
-        "def func(l):",
-        "  l += [2]",
-        "func(l)");
-    assertThat((Iterable<Object>) lookup("l")).containsExactly(1);
-  }
-
-  @Test
-  public void testFunctionDictArgumentsAreImmutable() throws Exception {
-    eval("d = {'a' : 1}",
-        "def func(d):",
-        "  d += {'a' : 2}",
-        "func(d)");
-    assertThat(lookup("d")).isEqualTo(ImmutableMap.of("a", 1));
-  }
-
   @Test
   public void testFunctionNameAliasing() throws Exception {
     eval("def func(a):",
@@ -319,21 +299,6 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testKwargs() throws Exception {
-    eval("def foo(a, b = 'b', *, c, d = 'd'):",
-      "  return a + b + c + d",
-      "args = {'a': 'x', 'c': 'z'}",
-      "v1 = foo(**args)",
-      "v2 = foo('x', c = 'c', d = 'e', **{'b': 'y'})",
-      "v3 = foo(c = 'z', a = 'x', **{'b': 'y', 'd': 'f'})");
-    assertThat(lookup("v1")).isEqualTo("xbzd");
-    assertThat(lookup("v2")).isEqualTo("xyce");
-    assertThat(lookup("v3")).isEqualTo("xyzf");
-    UserDefinedFunction foo = (UserDefinedFunction) lookup("foo");
-    assertThat(foo.toString()).isEqualTo("foo(a, b = \"b\", *, c, d = \"d\")");
-  }
-
-  @Test
   public void testKeywordOnlyIsForbidden() throws Exception {
     env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
     checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
@@ -404,24 +369,6 @@ public class FunctionTest extends EvaluationTestCase {
     assertThat(lookup("v2")).isEqualTo("0namevalue");
     assertThat(lookup("v3")).isEqualTo("0b3");
     assertThat(lookup("v4")).isEqualTo("a12");
-  }
-
-  @Test
-  public void testStarParam() throws Exception {
-    eval("def f(name, value = '1', *rest, mandatory, optional = '2'):",
-        "  r = name + value + mandatory + optional + '|'",
-        "  for x in rest: r += x",
-        "  return r",
-        "v1 = f('a', 'b', mandatory = 'z')",
-        "v2 = f('a', 'b', 'c', 'd', mandatory = 'z')",
-        "v3 = f('a', *['b', 'c', 'd'], mandatory = 'y', optional = 'z')",
-        "v4 = f(*['a'], **{'value': 'b', 'mandatory': 'c'})",
-        "v5 = f('a', 'b', 'c', *['d', 'e'], mandatory = 'f', **{'optional': 'g'})\n");
-    assertThat(lookup("v1")).isEqualTo("abz2|");
-    assertThat(lookup("v2")).isEqualTo("abz2|cd");
-    assertThat(lookup("v3")).isEqualTo("abyz|cd");
-    assertThat(lookup("v4")).isEqualTo("abc2|");
-    assertThat(lookup("v5")).isEqualTo("abfg|cde");
   }
 
   @Test

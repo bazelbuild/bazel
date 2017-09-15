@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android.dexer;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.android.dex.Dex;
-import com.google.common.io.ByteStreams;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -25,37 +26,37 @@ import java.util.zip.ZipOutputStream;
  * Wrapper around a {@link ZipOutputStream} to simplify writing archives with {@code .dex} files.
  * Adding files generally requires a {@link ZipEntry} in order to control timestamps.
  */
+// TODO(kmb): Remove this class and inline into DexFileAggregator
 class DexFileArchive implements Closeable {
 
   private final ZipOutputStream out;
+
+  /**
+   * Used to ensure writes from different threads are sequenced, which {@link DexFileAggregator}
+   * ensures by making the writer futures wait on each oter.
+   */
+  private final AtomicReference<ZipEntry> inUse = new AtomicReference<>(null);
 
   public DexFileArchive(ZipOutputStream out) {
     this.out = out;
   }
 
   /**
-   * Copies the content of the given {@link InputStream} into an entry with the given details.
-   */
-  public DexFileArchive copy(ZipEntry entry, InputStream in) throws IOException {
-    out.putNextEntry(entry);
-    ByteStreams.copy(in, out);
-    out.closeEntry();
-    return this;
-  }
-
-  /**
    * Adds a {@code .dex} file with the given details.
    */
   public DexFileArchive addFile(ZipEntry entry, Dex dex) throws IOException {
+    checkState(inUse.compareAndSet(null, entry), "Already in use");
     entry.setSize(dex.getLength());
     out.putNextEntry(entry);
     dex.writeTo(out);
     out.closeEntry();
+    checkState(inUse.compareAndSet(entry, null), "Swooped in: ", inUse.get());
     return this;
   }
 
   @Override
   public void close() throws IOException {
+    checkState(inUse.get() == null, "Still in use: ", inUse.get());
     out.close();
   }
 }

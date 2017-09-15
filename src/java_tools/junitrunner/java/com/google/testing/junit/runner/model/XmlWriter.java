@@ -30,7 +30,7 @@ import java.util.List;
  * Writer for XML documents. We do not use third-party code, because all
  * java_test rules have the test runner in their run-time classpath.
  */
-class XmlWriter {
+public class XmlWriter {
   // VisibleForTesting
   static final String EOL = System.getProperty("line.separator", "\n");
 
@@ -57,7 +57,7 @@ class XmlWriter {
    *
    * @param writer
    */
-  static XmlWriter createForTesting(StringWriter writer) {
+  public static XmlWriter createForTesting(StringWriter writer) {
     return new XmlWriter(writer);
   }
 

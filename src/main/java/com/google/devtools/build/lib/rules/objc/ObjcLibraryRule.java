@@ -34,8 +34,6 @@ public class ObjcLibraryRule implements RuleDefinition {
             ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_library).IMPLICIT_OUTPUTS -->
         <ul>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
          <li><code><var>name</var>_fully_linked.a</code>: A fully linked static library that
              contains the full transitive closure of library dependencies.</li>
         </ul>
@@ -51,7 +49,7 @@ public class ObjcLibraryRule implements RuleDefinition {
         .name("objc_library")
         .factoryClass(ObjcLibrary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.CompilingRule.class,
-            ObjcRuleClasses.AlwaysLinkRule.class)
+            ObjcRuleClasses.AlwaysLinkRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
         .build();
   }
 }

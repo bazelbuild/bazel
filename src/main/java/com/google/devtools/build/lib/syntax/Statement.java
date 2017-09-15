@@ -20,44 +20,25 @@ package com.google.devtools.build.lib.syntax;
 public abstract class Statement extends ASTNode {
 
   /**
-   * Executes the statement in the specified build environment, which may be
-   * modified.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
-   * @throws InterruptedException may be thrown in a sub class.
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
    */
-  final void exec(Environment env) throws EvalException, InterruptedException   {
-    try {
-      doExec(env);
-    } catch (EvalException ex) {
-      throw maybeTransformException(ex);
-    }
+  public enum Kind {
+    ASSIGNMENT,
+    AUGMENTED_ASSIGNMENT,
+    CONDITIONAL,
+    EXPRESSION,
+    FLOW,
+    FOR,
+    FUNCTION_DEF,
+    IF,
+    LOAD,
+    RETURN,
   }
 
   /**
-   * Executes the statement.
-   *
-   * <p>This method is only invoked by the super class {@link Statement} when calling {@link
-   * #exec(Environment)}.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
-   * @throws InterruptedException may be thrown in a sub class.
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
    */
-  abstract void doExec(Environment env) throws EvalException, InterruptedException;
-
-  /**
-   * Checks the semantics of the Statement using the Environment according to
-   * the rules of the Skylark language. The Environment can be used e.g. to check
-   * variable type collision, read only variables, detecting recursion, existence of
-   * built-in variables, functions, etc.
-   *
-   * <p>The semantical check should be performed after the Skylark extension is loaded
-   * (i.e. is syntactically correct) and before is executed. The point of the semantical check
-   * is to make sure (as much as possible) that no error can occur during execution (Skylark
-   * programmers get a "compile time" error). It should also check execution branches (e.g. in
-   * if statements) that otherwise might never get executed.
-   *
-   * @throws EvalException if the Statement has a semantical error.
-   */
-  abstract void validate(ValidationEnvironment env) throws EvalException;
+  public abstract Kind kind();
 }

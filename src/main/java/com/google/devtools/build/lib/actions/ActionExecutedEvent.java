@@ -14,15 +14,17 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.causes.ActionFailed;
-import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
@@ -30,18 +32,26 @@ import java.util.Collection;
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
-public class ActionExecutedEvent implements BuildEvent {
+public class ActionExecutedEvent implements BuildEventWithConfiguration {
   private final Action action;
   private final ActionExecutionException exception;
   private final Path stdout;
   private final Path stderr;
+  private final ErrorTiming timing;
 
-  public ActionExecutedEvent(Action action,
-      ActionExecutionException exception, Path stdout, Path stderr) {
+  public ActionExecutedEvent(
+      Action action,
+      ActionExecutionException exception,
+      Path stdout,
+      Path stderr,
+      ErrorTiming timing) {
     this.action = action;
     this.exception = exception;
     this.stdout = stdout;
     this.stderr = stderr;
+    this.timing = timing;
+    Preconditions.checkState(
+        (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
   }
 
   public Action getAction() {
@@ -51,6 +61,10 @@ public class ActionExecutedEvent implements BuildEvent {
   // null if action succeeded
   public ActionExecutionException getException() {
     return exception;
+  }
+
+  public ErrorTiming errorTiming() {
+    return timing;
   }
 
   public String getStdout() {
@@ -69,18 +83,32 @@ public class ActionExecutedEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    if (getException() != null) {
-      Cause cause =
-          new ActionFailed(action.getPrimaryOutput().getPath(), action.getOwner().getLabel());
-      return BuildEventId.fromCause(cause);
-    } else {
+    if (action.getOwner() == null) {
       return BuildEventId.actionCompleted(action.getPrimaryOutput().getPath());
+    } else {
+      return BuildEventId.actionCompleted(
+          action.getPrimaryOutput().getPath(),
+          action.getOwner().getLabel(),
+          action.getOwner().getConfigurationChecksum());
     }
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.<BuildEventId>of();
+  }
+
+  @Override
+  public Collection<BuildEvent> getConfigurations() {
+    if (action.getOwner() != null) {
+      BuildEvent configuration = action.getOwner().getConfiguration();
+      if (configuration == null) {
+        configuration = new NullConfiguration();
+      }
+      return ImmutableList.of(configuration);
+    } else {
+      return ImmutableList.<BuildEvent>of();
+    }
   }
 
   @Override
@@ -99,7 +127,7 @@ public class ActionExecutedEvent implements BuildEvent {
           .build());
     }
     if (stderr != null) {
-      actionBuilder.setStdout(
+      actionBuilder.setStderr(
           BuildEventStreamProtos.File.newBuilder()
           .setName("stderr")
           .setUri(pathConverter.apply(stderr))
@@ -108,13 +136,12 @@ public class ActionExecutedEvent implements BuildEvent {
     if (action.getOwner() != null && action.getOwner().getLabel() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
     }
-    // TODO(aehlig): ensure the configuration is shown in the stream, even if it is not
-    // one of the configurations of a top-level configured target.
     if (action.getOwner() != null) {
-      actionBuilder.setConfiguration(
-          BuildEventStreamProtos.BuildEventId.ConfigurationId.newBuilder()
-              .setId(action.getOwner().getConfigurationChecksum())
-              .build());
+      BuildEvent configuration = action.getOwner().getConfiguration();
+      if (configuration == null) {
+        configuration = new NullConfiguration();
+      }
+      actionBuilder.setConfiguration(configuration.getEventId().asStreamProto().getConfiguration());
     }
     if (exception == null) {
       actionBuilder.setPrimaryOutput(
@@ -123,5 +150,23 @@ public class ActionExecutedEvent implements BuildEvent {
               .build());
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("exception", exception)
+        .add("timing", timing)
+        .add("stdout", stdout)
+        .add("stderr", stderr)
+        .add("action", action)
+        .toString();
+  }
+
+  /** When an error occurred that aborted action execution, if any. */
+  public enum ErrorTiming {
+    NO_ERROR,
+    BEFORE_EXECUTION,
+    AFTER_EXECUTION
   }
 }

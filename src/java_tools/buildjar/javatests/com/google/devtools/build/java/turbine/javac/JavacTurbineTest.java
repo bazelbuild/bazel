@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -51,6 +52,7 @@ import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -115,7 +117,11 @@ public class JavacTurbineTest {
         .setOutput(output.toString())
         .setTempDir(tempdir.toString())
         .addBootClassPathEntries(
-            ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("sun.boot.class.path"))))
+            Splitter.on(':')
+                .splitToList(System.getProperty("sun.boot.class.path"))
+                .stream()
+                .map(e -> Paths.get(e).toAbsolutePath().toString())
+                .collect(toImmutableList()))
         .setOutputDeps(outputDeps.toString())
         .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
         .setTargetLabel("//test")

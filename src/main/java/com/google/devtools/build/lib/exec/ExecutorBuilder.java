@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState
  * generate those artifacts (this is what {@link BuildConfiguration#isActionsEnabled()} means).
  * Those actions are the responsibility of the target configuration. This transition produces that
  * config so artifacts created by the context collector can be associated with the the right
- * "owner". Also see {@link BuildConfiguration#getArtifactOwnerConfiguration()}.
+ * "owner". Also see {@link BuildConfiguration#getArtifactOwnerTransition()}.
  *
  * <p>This is a no-op for all configurations but the context collector.
  */
@@ -49,10 +49,5 @@ public class ContextCollectorOwnerTransition implements PatchTransition {
     BuildOptions ownerOptions = options.clone();
     ownerOptions.get(CppOptions.class).lipoConfigurationState = LipoConfigurationState.APPLY_LIPO;
     return ownerOptions;
-  }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
   }
 }

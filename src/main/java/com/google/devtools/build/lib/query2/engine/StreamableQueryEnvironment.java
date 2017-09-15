@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Predicate;
+import java.util.List;
 
 /**
  * The environment of a Blaze query which supports predefined streaming operations.
@@ -22,7 +23,7 @@ import com.google.common.base.Predicate;
  */
 public interface StreamableQueryEnvironment<T> extends QueryEnvironment<T> {
 
-  /** Retrieve and process all reverse dependencies of given expression in a streaming manner. */
+  /** Retrieves and processes all reverse dependencies of given expression in a streaming manner. */
   QueryTaskFuture<Void> getAllRdeps(
       QueryExpression expression,
       Predicate<T> universe,
@@ -30,12 +31,20 @@ public interface StreamableQueryEnvironment<T> extends QueryEnvironment<T> {
       Callback<T> callback,
       int depth);
 
-  /**
-   * Similar to {@link #getAllRdeps} but finds all rdeps without a depth bound, making use of the
-   * provided {@code forkJoinPool}.
-   */
+  /** Similar to {@link #getAllRdeps} but finds all rdeps without a depth bound. */
   QueryTaskFuture<Void> getAllRdepsUnboundedParallel(
+      QueryExpression expression, VariableContext<T> context, Callback<T> callback);
+
+  /**
+   * Similar to {@link #getAllRdepsUnboundedParallel} but finds rdeps in a universe without a depth
+   * depth.
+   *
+   * @param expression a "rdeps" expression without depth, such as rdeps(u, x)
+   * @param args two-item list containing both universe 'u' and argument set 'x' in rdeps(u, x)
+   */
+  QueryTaskFuture<Void> getRdepsUnboundedInUniverseParallel(
       QueryExpression expression,
       VariableContext<T> context,
+      List<Argument> args,
       Callback<T> callback);
 }

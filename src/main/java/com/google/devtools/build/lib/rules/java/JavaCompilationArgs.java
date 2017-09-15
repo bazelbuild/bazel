@@ -162,7 +162,7 @@ public abstract class JavaCompilationArgs {
     public Builder addTransitiveTarget(TransitiveInfoCollection dep, boolean recursive,
         ClasspathType type) {
       JavaCompilationArgsProvider provider =
-          JavaProvider.getProvider(JavaCompilationArgsProvider.class, dep);
+          JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
       if (provider != null) {
         addTransitiveCompilationArgs(provider, recursive, type);
         return this;

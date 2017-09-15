@@ -22,9 +22,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,11 +34,9 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -86,9 +86,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext context)
       throws RuleErrorException, InterruptedException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
-    LinkTargetType linkType = getStaticLinkType(context);
+    LinkTargetType staticLinkType = getStaticLinkType(context);
     boolean linkStatic = context.attributes().get("linkstatic", Type.BOOLEAN);
-    init(semantics, context, builder, linkType,
+    init(semantics, context, builder, staticLinkType,
         /*neverLink =*/ false,
         linkStatic,
         /*collectLinkstamp =*/ true,
@@ -100,7 +100,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppSemantics semantics,
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder targetBuilder,
-      LinkTargetType linkType,
+      LinkTargetType staticLinkType,
       boolean neverLink,
       boolean linkStatic,
       boolean collectLinkstamp,
@@ -132,7 +132,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             // between Bazel and Blaze.
             .setGenerateLinkActionsIfEmpty(
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
-            .setLinkType(linkType)
+            .setLinkType(staticLinkType)
             .setNeverLink(neverLink)
             .addPrecompiledFiles(precompiledFiles);
 
@@ -312,9 +312,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ccCompilationOutputs.getFilesToCompile(
             isLipoCollector, processHeadersInDependencies, usePic));
     for (OutputGroupProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET,
-            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            OutputGroupProvider.class)) {
+        ruleContext.getPrerequisites(
+            "deps", Mode.TARGET, OutputGroupProvider.SKYLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(
           dep.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }

@@ -19,6 +19,9 @@ syntax = "proto2";
 
 package blaze_query;
 
+// option cc_api_version = 2;
+// option java_api_version = 1;
+// option py_api_version = 1;
 
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
 

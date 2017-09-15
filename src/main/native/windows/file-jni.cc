@@ -16,12 +16,12 @@
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 
-#include <jni.h>
 #include <windows.h>
 
 #include <memory>
 #include <string>
 
+#include "src/main/native/jni.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/jni-util.h"
 #include "src/main/native/windows/util.h"

@@ -34,11 +34,7 @@ public class XcodeVersionRule implements RuleDefinition {
   static final String DEFAULT_IOS_SDK_VERSION_ATTR_NAME = "default_ios_sdk_version";
   static final String DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME = "default_watchos_sdk_version";
   static final String DEFAULT_TVOS_SDK_VERSION_ATTR_NAME = "default_tvos_sdk_version";
-  // TODO(b/37508376): Remove in lieu of default_macos_sdk_version.
-  static final String DEPRECATED_DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME =
-      "default_macosx_sdk_version";
-  static final String DEFAULT_MACOS_SDK_VERSION_ATTR_NAME =
-      "default_macos_sdk_version";
+  static final String DEFAULT_MACOS_SDK_VERSION_ATTR_NAME = "default_macos_sdk_version";
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -82,8 +78,6 @@ public class XcodeVersionRule implements RuleDefinition {
         The <code>macos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, STRING)
-            .nonconfigurable("this rule determines configuration"))
-        .add(attr(DEPRECATED_DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME, STRING)
             .nonconfigurable("this rule determines configuration"))
         .build();
   }

@@ -19,33 +19,37 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -236,6 +240,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         determineLinkerArguments(
             ruleContext,
             ccToolchain,
+            featureConfiguration,
             fdoSupport,
             common,
             precompiledFiles,
@@ -268,7 +273,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     linkActionBuilder.setLinkType(linkType);
     linkActionBuilder.setLinkStaticness(linkStaticness);
     linkActionBuilder.setFake(fake);
-    linkActionBuilder.setFeatureConfiguration(featureConfiguration);
 
     if (CppLinkAction.enableSymbolsCounts(cppConfiguration, fake, linkType)) {
       linkActionBuilder.setSymbolCountsOutput(ruleContext.getBinArtifact(
@@ -282,19 +286,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Store immutable context for use in other *_binary rules that are implemented by
     // linking the interpreter (Java, Python, etc.) together with native deps.
     CppLinkAction.Context linkContext = new CppLinkAction.Context(linkActionBuilder);
-    Iterable<LTOBackendArtifacts> ltoBackendArtifacts = ImmutableList.of();
+    Iterable<LtoBackendArtifacts> ltoBackendArtifacts = ImmutableList.of();
     boolean usePic = CppHelper.usePic(ruleContext, !isLinkShared(ruleContext));
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
-      linkActionBuilder.setLTOIndexing(true);
-      linkActionBuilder.setUsePicForLTOBackendActions(usePic);
-      linkActionBuilder.setUseFissionForLTOBackendActions(cppConfiguration.useFission());
+    if (linkActionBuilder.hasLtoBitcodeInputs()
+        && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
+      linkActionBuilder.setLtoIndexing(true);
+      linkActionBuilder.setUsePicForLtoBackendActions(usePic);
       CppLinkAction indexAction = linkActionBuilder.build();
       ruleContext.registerAction(indexAction);
 
-      ltoBackendArtifacts = indexAction.getAllLTOBackendArtifacts();
+      ltoBackendArtifacts = indexAction.getAllLtoBackendArtifacts();
 
-      linkActionBuilder.setLTOIndexing(false);
+      linkActionBuilder.setLtoIndexing(false);
     }
 
     // On Windows, if GENERATE_PDB_FILE feature is enabled
@@ -331,7 +335,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact strippedFile = ruleContext.getImplicitOutputArtifact(
         CppRuleClasses.CC_BINARY_STRIPPED);
     CppHelper.createStripAction(
-        ruleContext, ccToolchain, cppConfiguration, executable, strippedFile);
+        ruleContext, ccToolchain, cppConfiguration, executable, strippedFile, featureConfiguration);
 
     DwoArtifactsCollector dwoArtifacts =
         collectTransitiveDwoArtifacts(
@@ -377,7 +381,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             helper.getCompilationUnitSources(),
             linkCompileOutputSeparately);
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
-        ruleContext, runfiles, executable, ruleContext.getConfiguration().buildRunfiles());
+        ruleContext, runfiles, executable);
 
     TransitiveLipoInfoProvider transitiveLipoInfo;
     if (cppConfiguration.isLipoContextCollector()) {
@@ -412,12 +416,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         sourceFileMap.put(source.getExecPath(), source);
       }
     }
-   
+
     // Support test execution on darwin.
-    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())
+    if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())
         && TargetUtils.isTestRule(ruleContext.getRule())) {
       ruleBuilder.addNativeDeclaredProvider(
-          new ExecutionInfoProvider(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")));
+          new ExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")));
     }
 
     // If PDB file is generated by the link action, we add it to pdb_file output group
@@ -450,10 +454,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CppLinkActionBuilder determineLinkerArguments(
       RuleContext context,
       CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration,
       FdoSupportProvider fdoSupport,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
-      CcLibraryHelper.Info info,
+      Info info,
       ImmutableSet<Artifact> compilationPrerequisites,
       boolean fake,
       Artifact binary,
@@ -462,7 +467,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean linkCompileOutputSeparately)
       throws InterruptedException {
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(context, binary, toolchain, fdoSupport)
+        new CppLinkActionBuilder(context, binary, toolchain, fdoSupport, featureConfiguration)
             .setCrosstoolInputs(toolchain.getLink())
             .addNonCodeInputs(compilationPrerequisites);
 
@@ -483,7 +488,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    builder.addLTOBitcodeFiles(info.getCcCompilationOutputs().getLtoBitcodeFiles());
+    builder.addLtoBitcodeFiles(info.getCcCompilationOutputs().getLtoBitcodeFiles());
     builder.addNonCodeInputs(common.getLinkerScripts());
 
     // Determine the libraries to link in.
@@ -554,7 +559,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       LinkStaticness linkStaticness,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       return DwoArtifactsCollector.directCollector(
           context, compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
@@ -596,9 +601,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> dwpTools = toolchain.getDwp();
     Preconditions.checkState(!dwpTools.isEmpty());
 
-    List<SpawnAction.Builder> packagers = createIntermediateDwpPackagers(
-        context, dwpOutput, cppConfiguration, dwpTools, allInputs, 1);
-
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
     //
@@ -613,25 +615,41 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // The actions form an n-ary tree with n == MAX_INPUTS_PER_DWP_ACTION. The tree is fuller
     // at the leaves than the root, but that both increases parallelism and reduces the final
     // action's input size.
-    context.registerAction(Iterables.getOnlyElement(packagers)
-        .addArgument("-o")
-        .addOutputArgument(dwpOutput)
-        .setMnemonic("CcGenerateDwp")
-        .build(context));
+    Packager packager =
+        createIntermediateDwpPackagers(
+            context, dwpOutput, cppConfiguration, dwpTools, allInputs, 1);
+    packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
+    packager.commandLine.addExecPath("-o", dwpOutput);
+    context.registerAction(packager.build(context));
+  }
+
+  private static class Packager {
+    SpawnAction.Builder spawnAction = new SpawnAction.Builder();
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
+
+    Action[] build(RuleContext context) {
+      spawnAction.addCommandLine(
+          commandLine.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build());
+      return spawnAction.build(context);
+    }
   }
 
   /**
-   * Creates the intermediate actions needed to generate this target's
-   * "debug info package" (i.e. its .dwp file).
+   * Creates the intermediate actions needed to generate this target's "debug info package" (i.e.
+   * its .dwp file).
    */
-  private static List<SpawnAction.Builder> createIntermediateDwpPackagers(RuleContext context,
-      Artifact dwpOutput, CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools,
-      Iterable<Artifact> inputs, int intermediateDwpCount) {
-    List<SpawnAction.Builder> packagers = new ArrayList<>();
+  private static Packager createIntermediateDwpPackagers(
+      RuleContext context,
+      Artifact dwpOutput,
+      CppConfiguration cppConfiguration,
+      NestedSet<Artifact> dwpTools,
+      Iterable<Artifact> inputs,
+      int intermediateDwpCount) {
+    List<Packager> packagers = new ArrayList<>();
 
     // Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
     // input counts, but we can always apply more intelligent heuristics if the need arises.
-    SpawnAction.Builder currentPackager = newDwpAction(cppConfiguration, dwpTools);
+    Packager currentPackager = newDwpAction(cppConfiguration, dwpTools);
     int inputsForCurrentPackager = 0;
 
     for (Artifact dwoInput : inputs) {
@@ -640,7 +658,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         currentPackager = newDwpAction(cppConfiguration, dwpTools);
         inputsForCurrentPackager = 0;
       }
-      currentPackager.addInputArgument(dwoInput);
+      currentPackager.spawnAction.addInput(dwoInput);
+      currentPackager.commandLine.addExecPath(dwoInput);
       inputsForCurrentPackager++;
     }
     packagers.add(currentPackager);
@@ -650,33 +669,37 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // into an additional level.
       List<Artifact> intermediateOutputs = new ArrayList<>();
 
-      for (SpawnAction.Builder packager : packagers) {
+      for (Packager packager : packagers) {
         Artifact intermediateOutput =
             getIntermediateDwpFile(context, dwpOutput, intermediateDwpCount++);
-        context.registerAction(packager
-            .addArgument("-o")
-            .addOutputArgument(intermediateOutput)
-            .setMnemonic("CcGenerateIntermediateDwp")
-            .build(context));
+        packager.spawnAction.setMnemonic("CcGenerateIntermediateDwp").addOutput(intermediateOutput);
+        packager.commandLine.addExecPath("-o", intermediateOutput);
+        context.registerAction(packager.build(context));
         intermediateOutputs.add(intermediateOutput);
       }
       return createIntermediateDwpPackagers(
-          context, dwpOutput, cppConfiguration, dwpTools, intermediateOutputs,
+          context,
+          dwpOutput,
+          cppConfiguration,
+          dwpTools,
+          intermediateOutputs,
           intermediateDwpCount);
     }
-    return packagers;
+    return Iterables.getOnlyElement(packagers);
   }
 
   /**
-   * Returns a new SpawnAction builder for generating dwp files, pre-initialized with
-   * standard settings.
+   * Returns a new SpawnAction builder for generating dwp files, pre-initialized with standard
+   * settings.
    */
-  private static SpawnAction.Builder newDwpAction(CppConfiguration cppConfiguration,
-      NestedSet<Artifact> dwpTools) {
-    return new SpawnAction.Builder()
+  private static Packager newDwpAction(
+      CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools) {
+    Packager packager = new Packager();
+    packager
+        .spawnAction
         .addTransitiveInputs(dwpTools)
-        .setExecutable(cppConfiguration.getDwpExecutable())
-        .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED);
+        .setExecutable(cppConfiguration.getDwpExecutable());
+    return packager;
   }
 
   /**
@@ -705,7 +728,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     } else {
       builder.addTransitiveTargets(
           context.getPrerequisites("deps", Mode.TARGET),
-          CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+          CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
       builder.addTransitiveTarget(CppHelper.mallocForTarget(context));
       builder.addLinkOpts(linkopts);
     }

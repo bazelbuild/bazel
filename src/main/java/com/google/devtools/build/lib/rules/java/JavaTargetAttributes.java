@@ -73,7 +73,6 @@ public class JavaTargetAttributes {
     // Classpath directories can't be represented as artifacts (TreeArtifact isn't appropriate
     // here since all we need is a path string to apply to the command line).
     private final Set<String> processorNames = new LinkedHashSet<>();
-    private final Set<String> processorFlags = new LinkedHashSet<>();
 
     private final NestedSetBuilder<Artifact> apiGeneratingProcessorPath =
         NestedSetBuilder.naiveLinkOrder();
@@ -314,12 +313,6 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addProcessorFlag(String processorFlag) {
-      Preconditions.checkArgument(!built);
-      processorFlags.add(processorFlag);
-      return this;
-    }
-
     public Builder addProcessorPath(NestedSet<Artifact> jars) {
       Preconditions.checkArgument(!built);
       processorPath.addTransitive(jars);
@@ -370,7 +363,6 @@ public class JavaTargetAttributes {
           nativeLibraries,
           processorPath.build(),
           processorNames,
-          processorFlags,
           apiGeneratingProcessorPath.build(),
           apiGeneratingProcessorNames,
           resources,
@@ -436,7 +428,6 @@ public class JavaTargetAttributes {
 
   private final NestedSet<Artifact> processorPath;
   private final ImmutableSet<String> processorNames;
-  private final ImmutableSet<String> processorFlags;
 
   private final NestedSet<Artifact> apiGeneratingProcessorPath;
   private final ImmutableSet<String> apiGeneratingProcessorNames;
@@ -469,7 +460,6 @@ public class JavaTargetAttributes {
       List<Artifact> nativeLibraries,
       NestedSet<Artifact> processorPath,
       Set<String> processorNames,
-      Set<String> processorFlags,
       NestedSet<Artifact> apiGeneratingProcessorPath,
       Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
@@ -497,7 +487,6 @@ public class JavaTargetAttributes {
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
     this.processorPath = processorPath;
     this.processorNames = ImmutableSet.copyOf(processorNames);
-    this.processorFlags = ImmutableSet.copyOf(processorFlags);
     this.apiGeneratingProcessorPath = apiGeneratingProcessorPath;
     this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
@@ -561,8 +550,7 @@ public class JavaTargetAttributes {
   /**
    * Returns the classpath artifacts needed in a deploy jar for this target.
    *
-   * This excludes the artifacts made available by jars in the deployment
-   * environment.
+   * <p>This excludes the artifacts made available by jars in the deployment environment.
    */
   public Iterable<Artifact> getRuntimeClassPathForArchive() {
     Iterable<Artifact> runtimeClasspath = getRuntimeClassPath();
@@ -572,6 +560,23 @@ public class JavaTargetAttributes {
     } else {
       return Iterables.filter(runtimeClasspath,
           Predicates.not(Predicates.in(getExcludedArtifacts().toSet())));
+    }
+  }
+
+  /**
+   * Adds the classpath artifacts needed in a deploy jar for this target to the passed nested set.
+   *
+   * <p>This excludes the artifacts made available by jars in the deployment environment.
+   */
+  public void addRuntimeClassPathForArchiveToNestedSet(NestedSetBuilder<Artifact> builder) {
+    NestedSet<Artifact> runtimeClasspath = getRuntimeClassPath();
+
+    if (getExcludedArtifacts().isEmpty()) {
+      builder.addTransitive(runtimeClasspath);
+    } else {
+      builder.addAll(
+          Iterables.filter(
+              runtimeClasspath, Predicates.not(Predicates.in(getExcludedArtifacts().toSet()))));
     }
   }
 
@@ -609,10 +614,6 @@ public class JavaTargetAttributes {
 
   public Collection<String> getProcessorNames() {
     return processorNames;
-  }
-
-  public Collection<String> getProcessorFlags() {
-    return processorFlags;
   }
 
   public boolean hasSources() {

@@ -1,5 +1,12 @@
-package(
-    default_visibility = ["//src:__subpackages__"],
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 java_library(
@@ -13,20 +20,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec/apple",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
 )

@@ -96,18 +96,22 @@ import javax.annotation.Nullable;
 @Immutable
 @SkylarkModule(name = "File",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "<p>This type represents a file used by the build system. It can be "
+    doc = "<p>This type represents a file or directory used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.</p>"
         + "<p>The File constructor is private, so you cannot call it directly to create new "
-        + "Files. If you have a Skylark rule that needs to create a new File, you might need to "
-        + "add the label to the attrs (if it's an input) or the outputs (if it's an output). Then "
-        + "you can access the File through the rule's <a href='ctx.html'>context</a>. You can "
-        + "also use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> to "
-        + "declare a new file in the rule implementation.</p>")
+        + "Files. If you have a Skylark rule that needs to create a new File, you have two options:"
+        + "<ul>"
+        + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
+        + "or <a href='actions.html#declare_file'>ctx.actions.declare_director</a>to "
+        + "declare a new file in the rule implementation.</li>"
+        + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
+        + " Then you can access the File through the rule's "
+        + "<a href='ctx.html#outputs'>ctx.outputs</a>.")
 public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
         if (a == b) {
@@ -152,7 +156,6 @@ public class Artifact
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final int hashCode;
-  private final Path path;
   private final Root root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
@@ -186,7 +189,6 @@ public class Artifact
           + " (root: " + root + ")");
     }
     this.hashCode = path.hashCode();
-    this.path = path;
     this.root = root;
     this.execPath = execPath;
     // These two lines establish the invariant that
@@ -242,7 +244,7 @@ public class Artifact
   }
 
   public final Path getPath() {
-    return path;
+    return root.getPath().getRelative(rootRelativePath);
   }
 
   public boolean hasParent() {
@@ -346,6 +348,7 @@ public class Artifact
     structField = true,
     doc = "Returns true if this is a source file, i.e. it is not generated."
   )
+  @SuppressWarnings("ReferenceEquality")  // == is an optimization
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }
@@ -584,10 +587,9 @@ public class Artifact
     if (!(other instanceof Artifact)) {
       return false;
     }
-    // We don't bother to check root in the equivalence relation, because we
-    // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return Objects.equals(this.path, that.path);
+    return Objects.equals(this.rootRelativePath, that.rootRelativePath)
+        && Objects.equals(this.root, that.root);
   }
 
   @Override
@@ -621,7 +623,7 @@ public class Artifact
       return "[" + root + "]" + rootRelativePath;
     } else {
       // Derived Artifact: path and root are under execRoot
-      PathFragment execRoot = trimTail(path.asFragment(), execPath);
+      PathFragment execRoot = trimTail(getPath().asFragment(), execPath);
       return "[[" + execRoot + "]" + root.getPath().asFragment().relativeTo(execRoot) + "]"
           + rootRelativePath;
     }
@@ -878,6 +880,15 @@ public class Artifact
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append(toString()); // TODO(bazel-team): implement a readable representation
+    if (isSourceArtifact()) {
+      printer.append("<source file " + rootRelativePath + ">");
+    } else {
+      printer.append("<generated file " + rootRelativePath + ">");
+    }
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append(toString());
   }
 }

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.actions.cache;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.EOFException;

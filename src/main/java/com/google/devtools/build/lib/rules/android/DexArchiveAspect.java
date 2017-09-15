@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -369,12 +371,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ImmutableList<Artifact> bootclasspath,
       NestedSet<Artifact> classpath,
       Artifact result) {
-    CustomCommandLine args = new CustomCommandLine.Builder()
-        .addExecPath("--input", jar)
-        .addExecPath("--output", result)
-        .addBeforeEachExecPath("--classpath_entry", classpath)
-        .addBeforeEachExecPath("--bootclasspath_entry", bootclasspath)
-        .build();
+    CustomCommandLine args =
+        new Builder()
+            .addExecPath("--input", jar)
+            .addExecPath("--output", result)
+            .addExecPaths(VectorArg.addBefore("--classpath_entry").each(classpath))
+            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
+            .build();
 
     // Just use params file, since classpaths can get long
     Artifact paramFile =
@@ -389,15 +392,16 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             ISO_8859_1));
     ruleContext.registerAction(
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName, Mode.HOST))
-            .addArgument("@" + paramFile.getExecPathString())
             .addInput(jar)
             .addInput(paramFile)
             .addInputs(bootclasspath)
             .addTransitiveInputs(classpath)
             .addOutput(result)
             .setMnemonic("Desugar")
-            .setProgressMessage("Desugaring " + jar.prettyPrint() + " for Android")
+            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
+            .addCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
             .build(ruleContext));
     return result;
   }
@@ -422,11 +426,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Artifact createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
       Artifact jar, Set<String> incrementalDexopts, Artifact dexArchive) {
     // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
-    CustomCommandLine args = new CustomCommandLine.Builder()
-        .addExecPath("--input_jar", jar)
-        .addExecPath("--output_zip", dexArchive)
-        .add(incrementalDexopts)
-        .build();
+    CustomCommandLine args =
+        new Builder()
+            .addExecPath("--input_jar", jar)
+            .addExecPath("--output_zip", dexArchive)
+            .addAll(ImmutableList.copyOf(incrementalDexopts))
+            .build();
     Artifact paramFile =
         ruleContext.getDerivedArtifact(
             ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());
@@ -439,16 +444,20 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             ISO_8859_1));
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
-            .addArgument("@" + paramFile.getExecPathString())
             .addInput(jar)
             .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .setProgressMessage(
-                "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
+                "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
+            .addCommandLine(
+                CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build());
+    if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
+      dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+    }
     ruleContext.registerAction(dexbuilder.build(ruleContext));
     return dexArchive;
   }

@@ -16,13 +16,13 @@
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 
-#include <jni.h>
 #include <windows.h>
 
 #include <atomic>
 #include <memory>
 #include <string>
 
+#include "src/main/native/jni.h"
 #include "src/main/native/windows/jni-util.h"
 #include "src/main/native/windows/util.h"
 
@@ -186,15 +186,18 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     }
   }
 
-  if (!CreatePipe(&stdin_process.handle, &result->stdin_, &sa, 0)) {
+  HANDLE temp_stdin_handle = INVALID_HANDLE_VALUE;
+  if (!CreatePipe(&temp_stdin_handle, &result->stdin_, &sa, 0)) {
     result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stdin)");
+    CloseHandle(temp_stdin_handle);
     return PtrAsJlong(result);
   }
+  stdin_process = temp_stdin_handle;
 
   if (!stdout_redirect.empty()) {
     result->stdout_.close();
 
-    stdout_process.handle = CreateFileW(
+    stdout_process = CreateFileW(
         /* lpFileName */ stdout_redirect.c_str(),
         /* dwDesiredAccess */ FILE_APPEND_DATA,
         /* dwShareMode */ 0,
@@ -208,10 +211,13 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       return PtrAsJlong(result);
     }
   } else {
-    if (!CreatePipe(&result->stdout_.handle_, &stdout_process.handle, &sa, 0)) {
+    HANDLE temp_stdout_handle = INVALID_HANDLE_VALUE;
+    if (!CreatePipe(&result->stdout_.handle_, &temp_stdout_handle, &sa, 0)) {
       result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stdout)");
+      CloseHandle(temp_stdout_handle);
       return PtrAsJlong(result);
     }
+    stdout_process = temp_stdout_handle;
   }
 
   // The value of the stderr HANDLE.
@@ -229,7 +235,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   if (!stderr_redirect.empty()) {
     result->stderr_.close();
     if (stdout_redirect == stderr_redirect) {
-      stderr_handle = stdout_process.handle;
+      stderr_handle = stdout_process;
       // do not set stderr_process.handle; it equals stdout_process.handle and
       // the AutoHandle d'tor would attempt to close it again
     } else {
@@ -249,14 +255,14 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       }
       // stderr_process != stdout_process, so set its handle, so the AutoHandle
       // d'tor will close it
-      stderr_process.handle = stderr_handle;
+      stderr_process = stderr_handle;
     }
   } else {
     if (!CreatePipe(&result->stderr_.handle_, &stderr_handle, &sa, 0)) {
       result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stderr)");
       return PtrAsJlong(result);
     }
-    stderr_process.handle = stderr_handle;
+    stderr_process = stderr_handle;
   }
 
   // MDSN says that the default for job objects is that breakaway is not
@@ -278,8 +284,8 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     return PtrAsJlong(result);
   }
 
-  startup_info.hStdInput = stdin_process.handle;
-  startup_info.hStdOutput = stdout_process.handle;
+  startup_info.hStdInput = stdin_process;
+  startup_info.hStdOutput = stdout_process;
   startup_info.hStdError = stderr_handle;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
@@ -304,7 +310,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
 
   result->pid_ = process_info.dwProcessId;
   result->process_ = process_info.hProcess;
-  thread.handle = process_info.hThread;
+  thread = process_info.hThread;
 
   if (!AssignProcessToJobObject(result->job_, result->process_)) {
     BOOL is_in_job = false;

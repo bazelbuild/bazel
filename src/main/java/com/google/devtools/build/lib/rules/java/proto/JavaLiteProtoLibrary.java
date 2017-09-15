@@ -18,13 +18,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
+import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
+import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -32,9 +36,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
@@ -55,13 +58,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
-        JavaCompilationArgsProvider.merge(
-            WrappingProvider.Helper.unwrapProviders(
-                javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
-
-    if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
-      dependencyArgsProviders = StrictDepsUtils.makeNonStrict(dependencyArgsProviders);
-    }
+        constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
 
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
@@ -84,14 +81,14 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
 
-    JavaProvider javaProvider =
-        JavaProvider.Builder.create()
+    JavaInfo javaInfo =
+        JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(
                 ProtoJavaApiInfoAspectProvider.class,
                 ProtoJavaApiInfoAspectProvider.merge(
-                    JavaProvider.getProvidersFromListOfTargets(
+                    JavaInfo.getProvidersFromListOfTargets(
                         ProtoJavaApiInfoAspectProvider.class,
                         ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
@@ -110,8 +107,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(javaRunfilesProvider)
         .addProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addProvider(JavaRuleOutputJarsProvider.EMPTY)
-        .addProvider(javaProvider)
-        .addNativeDeclaredProvider(javaProvider)
+        .addNativeDeclaredProvider(javaInfo)
+        .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
         .build();
   }
 

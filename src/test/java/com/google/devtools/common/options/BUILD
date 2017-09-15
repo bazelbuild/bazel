@@ -1,6 +1,6 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/common/options/testing:srcs"],
     visibility = ["//src:__pkg__"],
 )
 
@@ -11,6 +11,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -18,6 +19,7 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

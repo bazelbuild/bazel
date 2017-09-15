@@ -98,11 +98,16 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac", LABEL_LIST)
-            .mandatory()
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(
+            attr("javac", LABEL_LIST)
+                .mandatory()
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
+        Labels of tools available for label-expansion in jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder) -->
         Label of the JavaBuilder deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -146,11 +151,12 @@ public final class JavaToolchainRule implements RuleDefinition {
         Label of a resource jar containing timezone data. If set, the timezone data is added as an
         implicitly runtime dependency of all java_binary rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("timezone_data", LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .exec())
+        .add(
+            attr("timezone_data", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(ijar) -->
         Label of the ijar executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -172,11 +178,12 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("oneversion", LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .exec())
+        .add(
+            attr("oneversion", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_whitelist) -->
         Label of the one-version whitelist.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

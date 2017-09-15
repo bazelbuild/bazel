@@ -81,7 +81,7 @@ public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue
   public static <T> GlobList<T> concat(
       List<? extends T> list1, List<? extends T> list2) {
     // we add the list to both includes and matches, preserving order
-    Builder<GlobCriteria> criteriaBuilder = ImmutableList.<GlobCriteria>builder();
+    Builder<GlobCriteria> criteriaBuilder = ImmutableList.builder();
     if (list1 instanceof GlobList<?>) {
       criteriaBuilder.addAll(((GlobList<?>) list1).criteria);
     } else {
@@ -124,11 +124,6 @@ public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue
   @Override
   protected ImmutableList<E> delegate() {
     return matches;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return false;
   }
 
   @Override

@@ -28,13 +28,15 @@ set -e
 function set_up() {
   mkdir -p pkg
   touch pkg/somesourcefile
-  cat > pkg/true.sh <<EOF
+  cat > pkg/true.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 0
 EOF
   chmod 755 pkg/true.sh
-  cat > pkg/false.sh <<EOF
+  cat > pkg/false.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 1
 EOF
   chmod 755 pkg/false.sh
@@ -69,6 +71,11 @@ genrule(
   name = "fails_to_build",
   outs = ["fails_to_build.txt"],
   cmd = "false",
+  executable = 1,
+)
+sh_test(
+  name = "test_that_fails_to_build",
+  srcs = [":fails_to_build"],
 )
 genrule(
   name = "output_files_and_tags",
@@ -94,6 +101,11 @@ filegroup(
   name = "outergroup",
   srcs = ["sourcefileC", ":innergroup"],
 )
+genrule(
+  name = "not_a_test",
+  outs = ["not_a_test.txt"],
+  cmd = "touch \$@",
+)
 EOF
 cat > simpleaspect.bzl <<EOF
 def _simple_aspect_impl(target, ctx):
@@ -103,7 +115,7 @@ def _simple_aspect_impl(target, ctx):
             output=aspect_out,
             content = "Hello from aspect")
     return struct(output_groups={
-        "aspect-out" : set([aspect_out]) })
+        "aspect-out" : depset([aspect_out]) })
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -111,13 +123,13 @@ cat > failingaspect.bzl <<EOF
 def _failing_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
-        ctx.action(
+        ctx.actions.run_shell(
             inputs = [],
             outputs = [aspect_out],
             command = "false",
         )
     return struct(output_groups={
-        "aspect-out" : set([aspect_out]) })
+        "aspect-out" : depset([aspect_out]) })
 
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
@@ -143,6 +155,20 @@ genrule(
     cmd = "cp \$< \$@",
 )
 EOF
+mkdir -p failingtool
+cat > failingtool/BUILD <<'EOF'
+genrule(
+    name = "tool",
+    outs = ["tool.sh"],
+    cmd = "false",
+)
+genrule(
+    name = "usestool",
+    outs = ["out.txt"],
+    tools = [":tool"],
+    cmd = "$(location :tool) > $@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -156,13 +182,15 @@ function test_basic() {
   # - the target_kind is reported
   # - for single-configuration builds, there is precisely one configuration
   #   event reported; also make variables are shown
-  bazel test --build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log --tool_tag=MyFancyTool pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
   # Command line
   expect_log 'args: "test"'
   expect_log 'args: "--build_event_text_file='
   expect_log 'args: "pkg:true"'
+  # Options parsed
+  expect_log 'tool_tag: "MyFancyTool"'
   # Build Finished
   expect_log 'build_finished'
   expect_log 'SUCCESS'
@@ -175,6 +203,42 @@ function test_basic() {
   # configuration reported with make variables
   expect_log_once '^configuration '
   expect_log 'key: "TARGET_CPU"'
+}
+
+function test_target_information_early() {
+  # Verify that certain information is present in the log as part of
+  # the TargetConfigured event (verifying that it comes at least before
+  # the first TargetCompleted event, which is fine, if we only ask for
+  # a single target).
+  bazel test --build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log '^completed'
+  ed $TEST_log <<'EOF'
+1
+/^completed/+1,$d
+a
+...[cut here]
+.
+w
+q
+EOF
+  expect_log 'target_kind:.*sh'
+  expect_log 'test_size: SMALL'
+
+  bazel build --verbose_failures --build_event_text_file=$TEST_log \
+    pkg:output_files_and_tags || fail "bazel build failed"
+  expect_log '^completed'
+  ed $TEST_log <<'EOF'
+1
+/^completed/+1,$d
+a
+...[cut here]
+.
+w
+q
+EOF
+  expect_log 'tag1'
+  expect_log 'tag2'
 }
 
 function test_workspace_status() {
@@ -228,8 +292,8 @@ function test_test_attempts() {
   # mentioned in the stream.
   # Moreover, as the test consistently fails, we expect the overall status
   # to be reported as failure.
-  ( bazel test --build_event_text_file=$TEST_log pkg:flaky \
-    && fail "test failure expected" ) || true
+  (bazel test --build_event_text_file=$TEST_log pkg:flaky \
+      && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
   expect_log 'attempt.*3$'
@@ -240,8 +304,8 @@ function test_test_attempts() {
   expect_not_log 'aborted'
   expect_log '^test_result'
   expect_log 'test_action_output'
-  expect_log 'flaky/.*attempt_1.xml'
-  expect_log 'flaky/.*attempt_2.xml'
+  expect_log 'flaky/.*_1.xml'
+  expect_log 'flaky/.*_2.xml'
   expect_log 'flaky/.*test.xml'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
@@ -340,6 +404,24 @@ function test_extra_action() {
   expect_log '^action'
 }
 
+function test_action_ids() {
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_action_listener=pkg:listener \
+    pkg:output_files_and_tags || fail "bazel build with listener failed"
+  expect_log '^action'
+
+  # Action ids should contain label and configuration if those exist.
+  # Assumes action_completed id is 6 lines long
+  for id_line in $(grep -n 'action_completed {' $TEST_log | cut -f 1 -d :)
+  do
+    sed -n "$id_line,$((id_line+6))p" $TEST_log > "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*primary_output: .*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*label: .*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*configuration.*' "$TEST_TMPDIR/event_id.txt"
+    assert_contains '.*id: .*' "$TEST_TMPDIR/event_id.txt"
+  done
+}
+
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
@@ -349,6 +431,8 @@ function test_aspect_artifacts() {
   expect_log 'name.*aspect-out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
+  count=`grep '^configured' "${TEST_log}" | wc -l`
+  [ "${count}" -eq 2 ] || fail "Expected 2 configured events, found $count."
 }
 
 function test_failing_aspect() {
@@ -377,9 +461,6 @@ function test_build_only() {
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
   # for non-build. In particular, we expect bazel not to crash.
-  bazel version --build_event_text_file=$TEST_log \
-    || fail "bazel version failed"
-  expect_log '^started'
   bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
   expect_log '^started'
@@ -393,6 +474,21 @@ function test_query() {
   expect_log '//pkg:slow'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+}
+
+function test_command_whitelisting() {
+  # We expect the "help" command to not generate a build-event stream,
+  # but the "build" command to do.
+  bazel shutdown
+  rm -f bep.txt
+  bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
+  bazel version --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel version generated a build-event file" ) || :
+  bazel build --build_event_text_file=bep.txt //pkg:true \
+      || fail "bazel build failed"
+  [ -f bep.txt ] || fail "build did not generate requested build-event file"
+  bazel shutdown
 }
 
 function test_multiple_transports() {
@@ -435,6 +531,17 @@ function test_root_cause_early() {
       || fail "failed action not before compelted target"
 }
 
+function test_action_conf() {
+  # Verify that the expected configurations for actions are reported.
+  # The example contains a configuration transition (from building for
+  # target to building for host). As the action fails, we expect the
+  # configuration of the action to be reported as well.
+  (bazel build --build_event_text_file=$TEST_log \
+         -k failingtool/... && fail "build failure expected") || true
+  count=`grep '^configuration' "${TEST_log}" | wc -l`
+  [ "${count}" -eq 2 ] || fail "Expected 2 configurations, found $count."
+}
+
 function test_loading_failure() {
   # Verify that if loading fails, this is properly reported as the
   # reason for the target expansion event not resulting in targets
@@ -442,33 +549,33 @@ function test_loading_failure() {
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
   expect_log_once '^progress '
-  expect_log_once '^loading_failed'
-  expect_log 'details.*BUILD file not found on package path'
+  expect_log_once 'aborted'
+  expect_log_once 'reason: LOADING_FAILURE'
+  expect_log 'description.*BUILD file not found on package path'
   expect_not_log 'expanded'
-  expect_not_log 'aborted'
 }
 
 function test_visibility_failure() {
   bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log '^analysis_failed'
-  expect_not_log '^aborted'
+  expect_log_once 'reason: ANALYSIS_FAILURE'
+  expect_log_once '^aborted'
 
   # The same should hold true, if the server has already analyzed the target
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log '^analysis_failed'
-  expect_not_log '^aborted'
+  expect_log_once 'reason: ANALYSIS_FAILURE'
+  expect_log_once '^aborted'
 }
 
 function test_loading_failure_keep_going() {
   (bazel build --build_event_text_file=$TEST_log \
          -k //does/not/exist && fail "build failure expected") || true
-  expect_log_once '^loading_failed'
+  expect_log_once 'aborted'
+  expect_log_once 'reason: LOADING_FAILURE'
   expect_log_once '^expanded'
-  expect_log 'details.*BUILD file not found on package path'
-  expect_not_log 'aborted'
+  expect_log 'description.*BUILD file not found on package path'
 }
 
 # TODO(aehlig): readd, once we stop reporting the important artifacts
@@ -508,6 +615,31 @@ function test_srcfiles() {
   expect_log 'SUCCESS'
   expect_log_once '^configuration'
   expect_not_log 'aborted'
+}
+
+function test_test_fails_to_build() {
+  (bazel test --build_event_text_file=$TEST_log \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log '^test_summary'
+  expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
+}
+
+function test_no_tests_found() {
+  (bazel test --build_event_text_file=$TEST_log \
+         pkg:not_a_test && fail "failure expected") || true
+  expect_not_log '^test_summary'
+  expect_log 'last_message: true'
+  expect_log 'NO_TESTS_FOUND'
+}
+
+function test_no_tests_found_build_failure() {
+  (bazel test -k --build_event_text_file=$TEST_log \
+         pkg:not_a_test pkg:fails_to_build && fail "failure expected") || true
+  expect_not_log '^test_summary'
+  expect_log 'last_message: true'
+  expect_log 'yet testing was requested'
+  expect_log 'BUILD_FAILURE'
 }
 
 run_suite "Integration tests for the build event stream"

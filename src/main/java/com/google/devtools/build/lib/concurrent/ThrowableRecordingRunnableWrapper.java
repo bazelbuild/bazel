@@ -28,7 +28,7 @@ public class ThrowableRecordingRunnableWrapper {
   private final String name;
   private AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-  private static final Logger LOG =
+  private static final Logger logger =
       Logger.getLogger(ThrowableRecordingRunnableWrapper.class.getName());
 
   public ThrowableRecordingRunnableWrapper(String name) {
@@ -46,7 +46,7 @@ public class ThrowableRecordingRunnableWrapper {
         runnable.run();
       } catch (Throwable error) {
         errorRef.compareAndSet(null, error);
-        LOG.log(Level.SEVERE, "Error thrown by runnable in " + name, error);
+        logger.log(Level.SEVERE, "Error thrown by runnable in " + name, error);
       }
     };
   }

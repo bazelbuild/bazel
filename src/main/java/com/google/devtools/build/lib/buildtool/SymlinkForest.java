@@ -37,8 +37,8 @@ import java.util.logging.Logger;
  */
 class SymlinkForest {
 
-  private static final Logger log = Logger.getLogger(SymlinkForest.class.getName());
-  private static final boolean LOG_FINER = log.isLoggable(Level.FINER);
+  private static final Logger logger = Logger.getLogger(SymlinkForest.class.getName());
+  private static final boolean LOG_FINER = logger.isLoggable(Level.FINER);
 
   private final ImmutableMap<PackageIdentifier, Path> packageRoots;
   private final Path execroot;
@@ -145,7 +145,7 @@ class SymlinkForest {
       }
       if (entry.getValue().size() > 1) {
         if (LOG_FINER) {
-          log.finer("mkdir " + execroot.getRelative(dir.getPathUnderExecRoot()));
+          logger.finer("mkdir " + execroot.getRelative(dir.getPathUnderExecRoot()));
         }
         FileSystemUtils.createDirectoryAndParents(
             execroot.getRelative(dir.getPathUnderExecRoot()));
@@ -165,8 +165,11 @@ class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Path root = roots.iterator().next();  // lone root in set
         if (LOG_FINER) {
-          log.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " "
-              + execroot.getRelative(dir.getPathUnderExecRoot()));
+          logger.finer(
+              "ln -s "
+                  + root.getRelative(dir.getSourceRoot())
+                  + " "
+                  + execroot.getRelative(dir.getPathUnderExecRoot()));
         }
         execroot.getRelative(dir.getPathUnderExecRoot())
             .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
@@ -184,8 +187,8 @@ class SymlinkForest {
             Path absdir = root.getRelative(dir.getSourceRoot());
             if (absdir.isDirectory()) {
               if (LOG_FINER) {
-                log.finer("ln -s " + absdir + "/* "
-                    + execroot.getRelative(dir.getSourceRoot()) + "/");
+                logger.finer(
+                    "ln -s " + absdir + "/* " + execroot.getRelative(dir.getSourceRoot()) + "/");
               }
               for (Path target : absdir.getDirectoryEntries()) {
                 PathFragment p = target.relativeTo(root);
@@ -195,7 +198,7 @@ class SymlinkForest {
                 }
               }
             } else {
-              log.fine("Symlink planting skipping dir '" + absdir + "'");
+              logger.fine("Symlink planting skipping dir '" + absdir + "'");
             }
           } catch (IOException e) {
             e.printStackTrace();

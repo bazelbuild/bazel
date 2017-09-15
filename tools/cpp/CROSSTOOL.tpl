@@ -172,22 +172,17 @@ toolchain {
   needsPic: false
 
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
-  # Don't pollute with GDI macros in windows.h.
-  compiler_flag: "/DNOGDI"
   # Don't define min/max macros in windows.h.
   compiler_flag: "/DNOMINMAX"
-  compiler_flag: "/DPRAGMA_SUPPORTED"
+
   # Platform defines.
   compiler_flag: "/D_WIN32_WINNT=0x0600"
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
   compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
-  # Use math constants (M_PI, etc.) from the math library
-  compiler_flag: "/D_USE_MATH_DEFINES"
 
   # Useful options to have on for compilation.
   # Increase the capacity of object files to 2^32 sections.
@@ -215,8 +210,6 @@ toolchain {
 
   linker_flag: "/MACHINE:X64"
 
-  linker_flag: "/SUBSYSTEM:CONSOLE"
-
   feature {
     name: "no_legacy_features"
   }
@@ -241,6 +234,214 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "/nologo"
+      }
+    }
+  }
+
+  # This feature indicates strip is not supported, building stripped binary will just result a copy of orignial binary
+  feature {
+    name: 'no_stripping'
+  }
+
+  action_config {
+    config_name: 'c-compile'
+    action_name: 'c-compile'
+    tool {
+      tool_path: '%{msvc_cl_path}'
+    }
+    flag_set {
+      flag_group {
+        flag: '/c'
+        flag: '%{source_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_object_file'
+      flag_group {
+        flag: '/Fo%{output_object_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_assembly_file'
+      flag_group {
+        flag: '/Fa%{output_assembly_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_preprocess_file'
+      flag_group {
+        flag: '/P'
+        flag: '/Fi%{output_preprocess_file}'
+      }
+    }
+    implies: 'legacy_compile_flags'
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'parse_showincludes'
+    implies: 'user_compile_flags'
+    implies: 'sysroot'
+    implies: 'unfiltered_compile_flags'
+  }
+
+  action_config {
+    config_name: 'c++-compile'
+    action_name: 'c++-compile'
+    tool {
+      tool_path: '%{msvc_cl_path}'
+    }
+    flag_set {
+      flag_group {
+        flag: '/c'
+        flag: '%{source_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_object_file'
+      flag_group {
+        flag: '/Fo%{output_object_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_assembly_file'
+      flag_group {
+        flag: '/Fa%{output_assembly_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_preprocess_file'
+      flag_group {
+        flag: '/P'
+        flag: '/Fi%{output_preprocess_file}'
+      }
+    }
+    implies: 'legacy_compile_flags'
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'parse_showincludes'
+    implies: 'user_compile_flags'
+    implies: 'sysroot'
+    implies: 'unfiltered_compile_flags'
+  }
+
+  action_config {
+    config_name: 'c++-link-executable'
+    action_name: 'c++-link-executable'
+    tool {
+      tool_path: '%{msvc_link_path}'
+    }
+    implies: 'nologo'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'legacy_link_flags'
+    implies: 'linker_subsystem_flag'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+    implies: 'use_linker'
+    implies: 'no_stripping'
+  }
+
+  action_config {
+    config_name: 'c++-link-dynamic-library'
+    action_name: 'c++-link-dynamic-library'
+    tool {
+      tool_path: '%{msvc_link_path}'
+    }
+    implies: 'nologo'
+    implies: 'shared_flag'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'legacy_link_flags'
+    implies: 'linker_subsystem_flag'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+    implies: 'use_linker'
+    implies: 'no_stripping'
+  }
+
+  action_config {
+    config_name: 'c++-link-static-library'
+    action_name: 'c++-link-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  action_config {
+    config_name: 'c++-link-alwayslink-static-library'
+    action_name: 'c++-link-alwayslink-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
+  # But do we really need them on Windows?
+  action_config {
+    config_name: 'c++-link-pic-static-library'
+    action_name: 'c++-link-pic-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  action_config {
+    config_name: 'c++-link-alwayslink-pic-static-library'
+    action_name: 'c++-link-alwayslink-pic-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  action_config {
+    config_name: 'c++-link-interface-dynamic-library'
+    action_name: 'c++-link-interface-dynamic-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  # TODO(b/65151735): Remove legacy_compile_flags feature when legacy fields are
+  # not used in this crosstool
+  feature {
+    name: 'legacy_compile_flags'
+    flag_set {
+      expand_if_all_available: 'legacy_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'legacy_compile_flags'
+        flag: '%{legacy_compile_flags}'
       }
     }
   }
@@ -321,10 +522,20 @@ toolchain {
     }
   }
 
-  # Stop adding any flag for dotD file, Bazel knows how to parse the output of /showIncludes option
-  # TODO(bazel-team): Remove this empty feature. https://github.com/bazelbuild/bazel/issues/2868
   feature {
-    name: 'dependency_file'
+    name: "preprocessor_defines"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "/D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
+      }
+    }
   }
 
   # Tell Bazel to parse the output of /showIncludes
@@ -344,185 +555,6 @@ toolchain {
     }
   }
 
-  # Stop passing -frandom-seed option
-  feature {
-    name: 'random_seed'
-  }
-
-  # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
-  feature {
-    name: 'compile_action_flags_in_flag_set'
-  }
-
-  action_config {
-    config_name: 'c-compile'
-    action_name: 'c-compile'
-    tool {
-      tool_path: '%{msvc_cl_path}'
-    }
-    flag_set {
-      flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
-      }
-    }
-    implies: 'nologo'
-    implies: 'msvc_env'
-    implies: 'parse_showincludes'
-  }
-
-  action_config {
-    config_name: 'c++-compile'
-    action_name: 'c++-compile'
-    tool {
-      tool_path: '%{msvc_cl_path}'
-    }
-    flag_set {
-      flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
-      }
-    }
-    implies: 'nologo'
-    implies: 'msvc_env'
-    implies: 'parse_showincludes'
-  }
-
-  action_config {
-    config_name: 'c++-link-executable'
-    action_name: 'c++-link-executable'
-    tool {
-      tool_path: '%{msvc_link_path}'
-    }
-    implies: 'nologo'
-    implies: 'linkstamps'
-    implies: 'output_execpath_flags'
-    implies: 'input_param_flags'
-    implies: 'legacy_link_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-    implies: 'use_linker'
-  }
-
-  action_config {
-    config_name: 'c++-link-dynamic-library'
-    action_name: 'c++-link-dynamic-library'
-    tool {
-      tool_path: '%{msvc_link_path}'
-    }
-    implies: 'nologo'
-    implies: 'shared_flag'
-    implies: 'linkstamps'
-    implies: 'output_execpath_flags'
-    implies: 'input_param_flags'
-    implies: 'legacy_link_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-    implies: 'use_linker'
-  }
-
-  action_config {
-    config_name: 'c++-link-static-library'
-    action_name: 'c++-link-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  action_config {
-    config_name: 'c++-link-alwayslink-static-library'
-    action_name: 'c++-link-alwayslink-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
-  # But do we really need them on Windows?
-  action_config {
-    config_name: 'c++-link-pic-static-library'
-    action_name: 'c++-link-pic-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  action_config {
-    config_name: 'c++-link-alwayslink-pic-static-library'
-    action_name: 'c++-link-alwayslink-pic-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  action_config {
-    config_name: 'c++-link-interface-dynamic-library'
-    action_name: 'c++-link-interface-dynamic-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
 
   feature {
     name: 'generate_pdb_file'
@@ -692,6 +724,27 @@ toolchain {
     }
   }
 
+  # Since this feature is declared earlier in the CROSSTOOL than
+  # "legacy_link_flags", this feature will be applied prior to it anwyhere they
+  # are both implied. And since "legacy_link_flags" contains the linkopts from
+  # the build rule, this allows the user to override the /SUBSYSTEM in the BUILD
+  # file.
+  feature {
+    name: 'linker_subsystem_flag'
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '/SUBSYSTEM:CONSOLE'
+      }
+    }
+  }
+
+  # The "legacy_link_flags" may contain user-defined linkopts (from build rules)
+  # so it should be defined after features that declare user-overridable flags.
+  # For example the "linker_subsystem_flag" defines a default "/SUBSYSTEM" flag
+  # but we want to let the user override it, therefore "link_flag_subsystem" is
+  # defined earlier in the CROSSTOOL file than "legacy_link_flags".
   feature {
     name: 'legacy_link_flags'
     flag_set {
@@ -773,10 +826,6 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
-        # This will signal the wrapper that we are doing a debug build, which sets
-        # some internal state of the toolchain wrapper. It is intentionally a "-"
-        # flag to make this very obvious.
-        flag: "-g"
       }
     }
     flag_set {
@@ -824,6 +873,66 @@ toolchain {
     }
     implies: 'link_crt_library'
   }
+
+  feature {
+    name: 'user_compile_flags'
+    flag_set {
+      expand_if_all_available: 'user_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'user_compile_flags'
+        flag: '%{user_compile_flags}'
+      }
+    }
+  }
+
+  feature {
+    name: 'sysroot'
+    flag_set {
+      expand_if_all_available: 'sysroot'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        iterate_over: 'sysroot'
+        flag: '--sysroot=%{sysroot}'
+      }
+    }
+  }
+
+  feature {
+    name: 'unfiltered_compile_flags'
+    flag_set {
+      expand_if_all_available: 'unfiltered_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'unfiltered_compile_flags'
+        flag: '%{unfiltered_compile_flags}'
+      }
+    }
+  }
+
 
 %{compilation_mode_content}
 

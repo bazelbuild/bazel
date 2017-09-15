@@ -94,9 +94,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
-    useConfiguration(
-        "--experimental_disable_jvm",
-        "--experimental_disable_go");
+    useConfiguration("--experimental_disable_jvm");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")
@@ -156,7 +154,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CommandAction linkAction = getGeneratingSpawnAction(binArtifact);
     CppLinkAction objcLibArchiveAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArgv())).contains("ios_arm64");
+    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArguments())).contains("ios_arm64");
   }
   
   @Test
@@ -178,6 +176,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CommandAction linkAction = linkAction("//a:bin");
     CppLinkAction objcLibCompileAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArgv())).contains("watchos_armv7k");
+    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments())).contains("watchos_armv7k");
   }  
 }

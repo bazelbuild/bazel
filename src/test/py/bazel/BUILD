@@ -17,6 +17,11 @@ py_library(
     testonly = 1,
     srcs = ["test_base.py"],
     data = [":test-deps"],
+    visibility = [
+        "//src/test/py/bazel:__pkg__",
+        "//third_party/def_parser:__pkg__",
+        "//tools/android:__pkg__",
+    ],
 )
 
 py_test(
@@ -65,8 +70,8 @@ py_test(
 )
 
 py_test(
-    name = "launcher_script_test",
+    name = "launcher_test",
     size = "medium",
-    srcs = ["launcher_script_test.py"],
+    srcs = ["launcher_test.py"],
     deps = [":test_base"],
 )

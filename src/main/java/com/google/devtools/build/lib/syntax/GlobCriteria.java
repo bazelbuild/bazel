@@ -64,7 +64,7 @@ public class GlobCriteria {
       int excludeIndex = text.indexOf("], exclude=[");
       if (excludeIndex == -1) {
         String listText = text.substring(6, text.length() - 2);
-        return new GlobCriteria(parseList(listText), ImmutableList.<String>of(), true);
+        return new GlobCriteria(parseList(listText), ImmutableList.of(), true);
       } else {
         String listText = text.substring(6, excludeIndex);
         String excludeText = text.substring(excludeIndex + 12, text.length() - 2);
@@ -72,7 +72,7 @@ public class GlobCriteria {
       }
     } else if (text.startsWith("[") && text.endsWith("]")) {
       String listText = text.substring(1, text.length() - 1);
-      return new GlobCriteria(parseList(listText), ImmutableList.<String>of(), false);
+      return new GlobCriteria(parseList(listText), ImmutableList.of(), false);
     } else {
       throw new IllegalArgumentException(
           "unrecognized format (not from toExpression?): " + text);
@@ -101,7 +101,7 @@ public class GlobCriteria {
    */
   public static GlobCriteria fromList(Iterable<?> list) {
     Iterable<String> strings = Iterables.transform(list, Functions.toStringFunction());
-    return new GlobCriteria(ImmutableList.copyOf(strings), ImmutableList.<String>of(), false);
+    return new GlobCriteria(ImmutableList.copyOf(strings), ImmutableList.of(), false);
   }
 
   /**

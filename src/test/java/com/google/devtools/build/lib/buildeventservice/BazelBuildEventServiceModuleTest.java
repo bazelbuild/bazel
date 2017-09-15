@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule.ModuleEnvironment;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -129,8 +129,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "build");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -143,8 +151,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -157,8 +173,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "fetch");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -171,8 +195,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "build");
     assertThat(buildEventStreamer).isNotNull();
   }
 
@@ -185,8 +217,16 @@ public class BazelBuildEventServiceModuleTest {
 
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "test");
     assertThat(buildEventStreamer).isNotNull();
     verifyNoMoreInteractions(moduleEnvironment);
     assertThat(FluentIterable.from(buildEventStreamer.getTransports()).transform(GET_CLASS))
@@ -198,8 +238,16 @@ public class BazelBuildEventServiceModuleTest {
   public void testDoesNotCreatesStreamerWithoutTransports() throws Exception {
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
     BuildEventStreamer buildEventStreamer =
-        module.tryCreateStreamer(optionsProvider, commandLineReporter, moduleEnvironment,
-            clock, PATH_CONVERTER, reporter, "foo", "bar");
+        module.tryCreateStreamer(
+            optionsProvider,
+            commandLineReporter,
+            moduleEnvironment,
+            clock,
+            PATH_CONVERTER,
+            reporter,
+            "foo",
+            "bar",
+            "fetch");
     assertThat(buildEventStreamer).isNull();
   }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Type;
@@ -244,6 +243,27 @@ public final class CommandHelper {
   private static ImmutableList<String> buildCommandLineSimpleArgv(String command,
       PathFragment shellPath) {
     return ImmutableList.of(shellPath.getPathString(), "-c", command);
+  }
+
+  /**
+   * If {@code command} is too long, creates a helper shell script that runs that command.
+   *
+   * <p>Returns the {@link Artifact} corresponding to that script.
+   *
+   * <p>Otherwise, when {@code command} is shorter than the platform's shell's command length limit,
+   * this method does nothing and returns null.
+   */
+  @Nullable
+  public static Artifact shellCommandHelperScriptMaybe(
+      RuleContext ruleCtx,
+      String command,
+      String scriptPostFix,
+      Map<String, String> executionInfo) {
+    if (command.length() <= maxCommandLength) {
+      return null;
+    } else {
+      return buildCommandLineArtifact(ruleCtx, command, scriptPostFix);
+    }
   }
 
   /**

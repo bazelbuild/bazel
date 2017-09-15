@@ -16,23 +16,23 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Information about an {@code android_host_service_fixture} to run as part of an {@code
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidHostServiceFixtureInfoProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class AndroidHostServiceFixtureInfoProvider extends NativeInfo {
 
   private static final String SKYLARK_NAME = "HostServiceFixtureInfo";
-  static final NativeClassObjectConstructor ANDROID_HOST_SERVICE_FIXTURE_INFO =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  static final NativeProvider<AndroidHostServiceFixtureInfoProvider>
+      ANDROID_HOST_SERVICE_FIXTURE_INFO =
+          new NativeProvider<AndroidHostServiceFixtureInfoProvider>(
+              AndroidHostServiceFixtureInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact executable;
   private final ImmutableList<String> serviceNames;

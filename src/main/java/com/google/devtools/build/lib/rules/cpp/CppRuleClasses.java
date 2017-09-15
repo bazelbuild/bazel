@@ -30,8 +30,12 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FI
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -40,9 +44,11 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OsUtils;
 
 /**
  * Rule class definitions for C++ rules.
@@ -79,32 +85,32 @@ public class CppRuleClasses {
      * Transition used for switching back to the LIPO-optimized configuration.
      */
     TARGET_CONFIG_FOR_LIPO;
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
   }
+
+  /**
+   * Declares the implementations for C++ transition enums.
+   *
+   * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
+   */
+  public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
+      ImmutableMap.of(
+          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
+          LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
+      );
+
 
   /**
    * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
    * TARGET transition).
-   *
-   * <p>This is how dynamic configurations enable LIPO on the LIPO context.
    */
   public static final RuleTransitionFactory LIPO_ON_DEMAND =
-      new RuleTransitionFactory() {
-        @Override
-        public Attribute.Transition buildTransitionFor(Rule rule) {
-          return new EnableLipoTransition(rule.getLabel());
-        }
-      };
+      (rule) -> new EnableLipoTransition(rule.getLabel());
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
    * as specified on the command-line.
    */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
+  public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
 
   public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
       new LateBoundLabel<BuildConfiguration>() {
@@ -114,13 +120,16 @@ public class CppRuleClasses {
         }
       };
 
-  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
+  public static LateBoundLabel<BuildConfiguration> ccToolchainAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CROSSTOOL_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
+      }
+    };
+  }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
@@ -147,17 +156,16 @@ public class CppRuleClasses {
 
   public static final LibraryLanguage LANGUAGE = new LibraryLanguage("C++");
 
-  /**
-   * Implicit outputs for cc_binary rules.
-   */
+  /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
-      fromTemplates("%{name}.stripped");
-
+      fromTemplates("%{name}.stripped" + OsUtils.executableExtension());
 
   // Used for requesting dwp "debug packages".
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
+  /** Name of the feature that will be exempt from flag filtering when nocopts are used */
+  public static final String UNFILTERED_COMPILE_FLAGS_FEATURE_NAME = "unfiltered_compile_flags";
 
   /**
    * A string constant for the parse_headers feature.
@@ -180,13 +188,6 @@ public class CppRuleClasses {
    * randomization of symbol names that are in the anonymous namespace but have external linkage.
    */
   public static final String RANDOM_SEED = "random_seed";
-
-  /**
-   * A string constant for the compile_action_flags_in_flag_set feature. This feature is just a
-   * transitional feature which helps telling whether -c and -o options are already in flag_set of
-   * action_config in CROSSTOOL file. Once the transition is done, it should be removed.
-   */
-  public static final String COMPILE_ACTION_FLAGS_IN_FLAG_SET = "compile_action_flags_in_flag_set";
 
   /**
    * A string constant for the dependency_file feature. This feature generates the .d file.
@@ -269,6 +270,13 @@ public class CppRuleClasses {
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
 
   /**
+   * A string constant for the legacy_compile_flags feature. If this feature is present in the
+   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
+   * legacy_compile_flags before other features from {@link CppActionConfigs}.
+   */
+  public static final String LEGACY_COMPILE_FLAGS = "legacy_compile_flags";
+
+  /**
    * A string constant for the feature that makes us build per-object debug info files.
    */
   public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";
@@ -301,6 +309,13 @@ public class CppRuleClasses {
    * targeting Windows that include a linker producing PDB files
    */
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
+
+  /**
+   * A string constant for no_stripping feature, if it's specified, then no strip action config is
+   * needed, instead the stripped binary will simply be a symlink (or a copy on Windows) of the
+   * original binary.
+   */
+  public static final String NO_STRIPPING = "no_stripping";
 
   /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
   public static final String PARSE_SHOWINCLUDES = "parse_showincludes";

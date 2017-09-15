@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A simple {@link BuildEventTransport} that writes the text representation of the protocol-buffer
@@ -58,6 +59,6 @@ public final class TextFormatFileTransport extends FileTransport {
         };
     String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
     String line = "event {\n" + protoTextRepresentation + "}\n\n";
-    writeData(line.getBytes());
+    writeData(line.getBytes(StandardCharsets.UTF_8));
   }
 }

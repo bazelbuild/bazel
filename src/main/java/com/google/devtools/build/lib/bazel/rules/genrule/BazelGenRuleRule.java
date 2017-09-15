@@ -50,8 +50,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("stamp", BOOLEAN).value(false))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                .value(GenRuleBaseRule.CC_TOOLCHAIN))
-        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
+                .value(GenRuleBaseRule.ccToolchainAttribute(env)))
+        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(env)))
         .build();
   }
 
@@ -87,7 +87,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <h4>Cross-compilation Considerations</h4>
 
 <p>
-  <em>See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more info about
+  <em>See <a href="../user-manual.html#configurations">the user manual</a> for more info about
   cross-compilation.</em>
 </p>
 <p>
@@ -126,7 +126,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
   host configuration, because that's where the compiler will run in the other genrule. In this case,
   the build system does the right thing automatically: it builds the <code>srcs</code> and
   <code>outs</code> of the first genrule for the host configuration instead of the target
-  configuration. See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more
+  configuration. See <a href="../user-manual.html#configurations">the user manual</a> for more
   info.
 </p>
 <p>

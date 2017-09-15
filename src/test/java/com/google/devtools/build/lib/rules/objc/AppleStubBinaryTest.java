@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
@@ -44,6 +44,24 @@ public class AppleStubBinaryTest extends ObjcRuleTestCase {
           return attributes.build();
         }
       };
+
+  @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch);
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "xcenv_based_path", "'$(SDKROOT)/Foo'",
+        "minimum_os_version", "'8.0'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
 
   @Test
   public void testCopyActionEnv() throws Exception {
@@ -140,7 +158,7 @@ public class AppleStubBinaryTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    ObjcProvider objc = (ObjcProvider) target.get(ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME);
+    ObjcProvider objc = (ObjcProvider) target.get(ObjcProvider.SKYLARK_NAME);
 
     // The propagated objc provider should only contain one file, and that file is the one selected
     // for the given platform type.

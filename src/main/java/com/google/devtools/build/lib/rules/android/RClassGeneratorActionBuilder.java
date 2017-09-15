@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -95,14 +97,17 @@ public class RClassGeneratorActionBuilder {
       inputs.add(primary.getManifest());
     }
     if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
-      builder.add("--packageForR").add(primary.getJavaPackage());
+      builder.add("--packageForR", primary.getJavaPackage());
     }
     if (dependencies != null) {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
       Iterable<ResourceContainer> depResources = dependencies.getResources();
-      if (depResources.iterator().hasNext()) {
-        builder.addJoinStrings(
-            "--libraries", ",", Iterables.transform(depResources, chooseDepsToArg(version)));
+      if (!Iterables.isEmpty(depResources)) {
+        builder.addAll(
+            VectorArg.addBefore("--library")
+                .each(
+                    ImmutableList.copyOf(
+                        Iterables.transform(depResources, chooseDepsToArg(version)))));
         inputs.addTransitive(
             NestedSetBuilder.wrap(
                 Order.NAIVE_LINK_ORDER,
@@ -115,22 +120,23 @@ public class RClassGeneratorActionBuilder {
 
     // Create the spawn action.
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
+
     ruleContext.registerAction(
         spawnActionBuilder
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .useParameterFile(ParameterFileType.SHELL_QUOTED)
-            .setCommandLine(builder.build())
+            .addCommandLine(
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Generating R Classes: " + ruleContext.getLabel())
+            .setProgressMessage("Generating R Classes: %s", ruleContext.getLabel())
             .setMnemonic("RClassGenerator")
             .build(ruleContext));
   }
 
-  private static Artifact chooseRTxt(ResourceContainer primary, AndroidAaptVersion version) {
-    return version == AndroidAaptVersion.AAPT2 ? primary.getAapt2RTxt() : primary.getRTxt();
+  private static Artifact chooseRTxt(ResourceContainer container, AndroidAaptVersion version) {
+    return version == AndroidAaptVersion.AAPT2 ? container.getAapt2RTxt() : container.getRTxt();
   }
 
   private static Function<ResourceContainer, NestedSet<Artifact>> chooseDepsToArtifacts(
@@ -159,7 +165,7 @@ public class RClassGeneratorActionBuilder {
       public String apply(ResourceContainer container) {
         Artifact rTxt = chooseRTxt(container, version);
         return (rTxt != null ? rTxt.getExecPath() : "")
-            + ":"
+            + ","
             + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
       }
     };

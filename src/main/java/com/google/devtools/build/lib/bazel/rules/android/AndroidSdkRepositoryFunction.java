@@ -58,7 +58,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   private static final PathFragment BUILD_TOOLS_DIR = PathFragment.create("build-tools");
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
-  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
+  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(26, 0, 1);
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =

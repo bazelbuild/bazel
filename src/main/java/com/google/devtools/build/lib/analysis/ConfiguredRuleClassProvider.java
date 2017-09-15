@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -47,8 +49,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -195,7 +195,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static class Builder implements RuleDefinitionEnvironment {
-    private String productName;
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
@@ -213,7 +212,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private ConfigurationCollectionFactory configurationCollectionFactory;
+    private ImmutableMap.Builder<Attribute.Transition, Attribute.Transition> dynamicTransitionMaps
+        = ImmutableMap.builder();
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
@@ -224,8 +224,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         registeredSkylarkProviders = ImmutableBiMap.builder();
     private Map<String, String> platformRegexps = new TreeMap<>();
 
-    public Builder setProductName(String productName) {
-      this.productName = productName;
+    // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
+    private String nativeLauncherLabel;
+
+    public Builder setNativeLauncherLabel(String label) {
+      this.nativeLauncherLabel = label;
       return this;
     }
 
@@ -315,8 +318,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder setConfigurationCollectionFactory(ConfigurationCollectionFactory factory) {
-      this.configurationCollectionFactory = factory;
+    public Builder addDynamicTransitionMaps(Map<Attribute.Transition, Attribute.Transition> maps) {
+      dynamicTransitionMaps.putAll(maps);
       return this;
     }
 
@@ -416,7 +419,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
 
       return new ConfiguredRuleClassProvider(
-          productName,
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
@@ -428,7 +430,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          configurationCollectionFactory,
+          new DynamicTransitionMapper(dynamicTransitionMaps.build()),
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
@@ -443,6 +445,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getToolsLabel(String labelValue) {
       return getLabel(toolsRepository + labelValue);
+    }
+
+    @Override
+    public Label getLauncherLabel() {
+      if (nativeLauncherLabel == null) {
+        return null;
+      }
+      return getToolsLabel(nativeLauncherLabel);
     }
 
     @Override
@@ -471,8 +481,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
     }
   });
-
-  private final String productName;
 
   /**
    * Default content that should be added at the beginning of the WORKSPACE file.
@@ -524,9 +532,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
   /**
-   * The factory that creates the configuration collection.
+   * The dynamic configuration transition mapper.
    */
-  private final ConfigurationCollectionFactory configurationCollectionFactory;
+  private final DynamicTransitionMapper dynamicTransitionMapper;
 
   /**
    * A configuration fragment that should be available to all rules even when they don't
@@ -541,7 +549,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final Environment.Frame globals;
 
   private ConfiguredRuleClassProvider(
-      String productName,
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
@@ -553,12 +560,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ConfigurationCollectionFactory configurationCollectionFactory,
+      DynamicTransitionMapper dynamicTransitionMapper,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules) {
-    this.productName = productName;
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -570,14 +576,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.configurationCollectionFactory = configurationCollectionFactory;
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
-  }
-
-  public String getProductName() {
-    return productName;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -643,10 +645,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns the configuration collection creator.
+   * Returns the dynamic configuration transition mapper.
    */
-  public ConfigurationCollectionFactory getConfigurationCollectionFactory() {
-    return configurationCollectionFactory;
+  public DynamicTransitionMapper getDynamicTransitionMapper() {
+    return dynamicTransitionMapper;
   }
 
   /**
@@ -676,13 +678,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsClassProvider optionsProvider) {
-    // Possibly disable dynamic configurations if they won't work with this build. It's
-    // best to do this as early in the build as possible, because as the build goes on the number
-    // of BuildOptions references grows and the more dangerous it becomes to modify them. We do
-    // this here instead of in BlazeRuntime because tests and production logic don't use
-    // BlazeRuntime the same way.
-    return BuildOptions.applyStaticConfigOverride(
-        BuildOptions.of(configurationOptions, optionsProvider));
+    return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
   private Environment.Frame createGlobals(

@@ -216,6 +216,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       final String originalPattern,
       String directory,
       boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback,
       Class<E> exceptionClass)
@@ -226,6 +227,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
           originalPattern,
           directory,
           rulesOnly,
+          blacklistedSubdirectories,
           excludedSubdirectories,
           new SynchronizedBatchCallback<Target, E>(callback),
           MoreExecutors.newDirectExecutorService()).get();
@@ -242,6 +244,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       String originalPattern,
       String directory,
       boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<Target, E> callback,
       Class<E> exceptionClass,
@@ -251,6 +254,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         originalPattern,
         directory,
         rulesOnly,
+        blacklistedSubdirectories,
         excludedSubdirectories,
         callback,
         executor);
@@ -261,6 +265,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       final String originalPattern,
       String directory,
       boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       final ThreadSafeBatchCallback<Target, E> callback,
       ListeningExecutorService executor) {
@@ -273,7 +278,11 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       packagesUnderDirectory =
           recursivePackageProvider.getPackagesUnderDirectory(
-              eventHandler, repository, pathFragment, excludedSubdirectories);
+              eventHandler,
+              repository,
+              pathFragment,
+              blacklistedSubdirectories,
+              excludedSubdirectories);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
     } catch (InterruptedException e) {

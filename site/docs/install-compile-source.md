@@ -5,41 +5,81 @@ title: Compile Bazel from Source
 
 # <a name="compiling-from-source"></a>Compile Bazel from source
 
-## <a name="unix"></a> On Linux or macOS
+You can build Bazel from source following these steps:
 
-1. Ensure that you have OpenJDK 8 installed on your system.
-   For a system based on debian packages (e.g. Debian, Ubuntu), install
-   OpenJDK 8 by running the command `sudo apt-get install openjdk-8-jdk`.
+1.  Ensure that JDK 8, Python, bash, zip, and the usual C build toolchain
+    are installed on your system.
+    *   On systems based on Debian packages (Debian, Ubuntu): you can install
+        OpenJDK 8 and Python by running the following command in a terminal:
 
-2. The standard way of compiling a release version of Bazel from source is to
-   use a distribution archive. Download `bazel-<VERSION>-dist.zip` from the
-   [release page](https://github.com/bazelbuild/bazel/releases) for the desired
-   version. We recommend to also verify the signature made by our
-   [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
-   The distribution archive also contains generated files in addition to the
-   versioned sources, so this step _cannot_ be short cut by using a checkout
-   of the source tree.
+        ```sh
+        sudo apt-get install build-essential openjdk-8-jdk python zip
+        ```
+    *   On Windows: you need additional software. See the [requirements
+        page](windows.html#requirements).
 
-3. Unzip the archive and call `bash ./compile.sh`; this will create a bazel
-   binary in `output/bazel`. This binary is self-contained, so it can be copied
-   to a directory on the PATH (such as `/usr/local/bin`) or used in-place.
+2.  Download and unpack Bazel's distribution archive.
 
-## <a name="windows"></a> On Windows
+    Download `bazel-<VERSION>-dist.zip` from the [release
+    page](https://github.com/bazelbuild/bazel/releases). We recommend to also
+    verify the signature made by our [release
+    key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
-Windows support is in beta. Known issues are [marked with label
-"Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
-on github issues.
+    The distribution archive contains generated files in addition to the
+    versioned sources, so this step _cannot_ be short cut by checking out the
+    source tree.
 
-Prerequisites:
+3.  Build Bazel using `./compile.sh`.
+    *   On Unix-like systems (e.g. Ubuntu, macOS), do the following steps in a
+        shell session:
+        1.  `cd` into the directory where you unpacked the distribution archive
+        2.  run `bash ./compile.sh`
+    *   On Windows, do following steps in the msys2 shell:
+        1.  `cd` into the directory where you unpacked the distribution archive
+        2.  run `./compile.sh`
 
-*    Follow the [Windows requirements](windows.md#requirements).
-*    Install [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
-     or the full [Visual C++](https://www.visualstudio.com/) (as part of Visual
-     Studio; Community Edition is fine) with Windows SDK installed.
+    The output will be `output/bazel` on Unix-like systems (e.g. Ubuntu, macOS)
+    and `output/bazel.exe` on Windows. This is a self-contained Bazel binary.
+    You can copy it to a directory on the `PATH` (such as `/usr/local/bin` on
+    Linux) or use it in-place.
 
-To build Bazel on Windows:
+## Note to Windows users
 
-*    Open the msys2 shell.
-*    Clone the [Bazel git repository](https://github.com/bazelbuild/bazel) as normal.
-*    Run ``compile.sh`` in Bazel directory.
-*    If all works fine, Bazel will be built at ``output\bazel.exe``.
+Make sure your machine meets the [requirements](windows.html).
+
+Depending on the Bazel version you compile:
+
+*   `bazel-0.5.4-dist.zip` and newer:
+
+    The compilation script uses Visual C++ to compile Bazel's C++ code. The
+    resulting Bazel binary is a native Windows binary and it's not linked to
+    `msys-2.0.dll`.
+
+*   `bazel-0.5.0-dist.zip` through `bazel-0.5.3-dist.zip`:
+
+    The compilation script uses GCC to build Bazel's C++ code. The resulting
+    Bazel binary is an msys binary so it is linked to `msys-2.0.dll`.
+
+    You can patch the compilation script to build Bazel using Visual C++ instead
+    of GCC, and avoid linking it to `msys-2.0.dll`. The patch is to replace
+    these lines in `./compile.sh`:
+
+    ```sh
+    if [[ $PLATFORM == "windows" ]]; then
+      EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msys --host_cpu=x64_windows_msys"
+    fi
+    ```
+
+    with these lines:
+
+    ```sh
+    if [[ $PLATFORM == "windows" ]]; then
+      EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msvc --host_cpu=x64_windows_msvc"
+    fi
+    ```
+
+*   `bazel-0.4.5-dist.zip` and earlier:
+
+    The compilation script uses GCC to compile Bazel's C++ code. The resulting
+    Bazel binary is an msys binary so it is linked to `msys-2.0.dll`. Bazel
+    cannot be built using Visual C++.

@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -154,9 +154,34 @@ public class ProtoConfiguration extends Fragment {
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
+    // TODO(b/64032754): Remove once there's no 'correctRollupTransitiveProtoRuntimes' in the global
+    //     blazerc.
+    @Option(
+      name = "correctRollupTransitiveProtoRuntimes",
+      defaultValue = "true",
+      category = "rollout",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "ignored"
+    )
+    public boolean correctRollupTransitiveProtoRuntimes;
+
+    // TODO(b/62710272): Remove once there's no 'jplNonStrictDepsLikePl' in the global blazerc.
+    @Option(
+      name = "jplNonStrictDepsLikePl",
+      defaultValue = "true",
+      category = "rollout",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "ignored"
+    )
+    public boolean jplNonStrictDepsLikePl;
+
     @Override
-    public FragmentOptions getHost(boolean fallback) {
-      Options host = (Options) super.getHost(fallback);
+    public FragmentOptions getHost() {
+      Options host = (Options) super.getHost();
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
@@ -244,4 +269,5 @@ public class ProtoConfiguration extends Fragment {
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
   }
+
 }

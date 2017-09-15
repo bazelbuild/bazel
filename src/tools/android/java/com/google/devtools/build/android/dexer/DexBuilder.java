@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
-import com.android.dx.command.DxConsole;
+import com.android.dx.command.dexer.DxContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -100,9 +100,9 @@ class DexBuilder {
     @Option(
       name = "persistent_worker",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Run as a Bazel persistent worker."
     )
     public boolean persistentWorker;
@@ -120,13 +120,12 @@ class DexBuilder {
     if (options.persistentWorker) {
       runPersistentWorker();
     } else {
-      buildDexArchive(options, optionsParser.getOptions(DexingOptions.class));
+      buildDexArchive(options, new Dexing(optionsParser.getOptions(DexingOptions.class)));
     }
   }
 
   @VisibleForTesting
-  static void buildDexArchive(Options options, DexingOptions dexingOptions)
-      throws Exception {
+  static void buildDexArchive(Options options, Dexing dexing) throws Exception {
     checkArgument(options.maxThreads > 0,
         "--max_threads must be strictly positive, was: %s", options.maxThreads);
     try (ZipFile in = new ZipFile(options.inputJar.toFile())) {
@@ -134,7 +133,7 @@ class DexBuilder {
       int threads = Math.min(options.maxThreads, in.size() / 1000 + 1);
       ExecutorService executor = newFixedThreadPool(threads);
       try (ZipOutputStream out = createZipOutputStream(options.outputZip)) {
-        produceDexArchive(in, out, executor, threads <= 1, dexingOptions, null);
+        produceDexArchive(in, out, executor, threads <= 1, dexing, null);
       } finally {
         executor.shutdown();
       }
@@ -169,11 +168,11 @@ class DexBuilder {
         // Redirect dx's output so we can return it in response
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(baos, /*autoFlush*/ true);
-        DxConsole.out = DxConsole.err = ps;
+        DxContext context = new DxContext(ps, ps);
         // Make sure that we exit nonzero in case uncaught errors occur during processRequest.
         int exitCode = 1;
         try {
-          processRequest(executor, dexCache, request.getArgumentsList());
+          processRequest(executor, dexCache, context, request.getArgumentsList());
           exitCode = 0; // success!
         } catch (Exception e) {
           // Deliberate catch-all so we can capture a stack trace.
@@ -206,7 +205,10 @@ class DexBuilder {
   }
 
   private static void processRequest(
-      ExecutorService executor, Cache<DexingKey, byte[]> dexCache, List<String> args)
+      ExecutorService executor,
+      Cache<DexingKey, byte[]> dexCache,
+      DxContext context,
+      List<String> args)
       throws OptionsParsingException, IOException, InterruptedException, ExecutionException {
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, DexingOptions.class);
@@ -220,7 +222,7 @@ class DexBuilder {
           out,
           executor,
           /*convertOnReaderThread*/ false,
-          optionsParser.getOptions(DexingOptions.class),
+          new Dexing(context, optionsParser.getOptions(DexingOptions.class)),
           dexCache);
     }
     // Use input's timestamp for output file so the output file is stable.
@@ -236,7 +238,7 @@ class DexBuilder {
       ZipOutputStream out,
       ExecutorService executor,
       boolean convertOnReaderThread,
-      DexingOptions dexingOptions,
+      Dexing dexing,
       @Nullable Cache<DexingKey, byte[]> dexCache)
       throws InterruptedException, ExecutionException, IOException {
     // If we only have one thread in executor, we give a "direct" executor to the stuffer, which
@@ -245,7 +247,7 @@ class DexBuilder {
     // the stuffer is still working its way through the input.
     DexConversionEnqueuer enqueuer = new DexConversionEnqueuer(in,
         convertOnReaderThread ? MoreExecutors.newDirectExecutorService() : executor,
-        new DexConverter(new Dexing(dexingOptions)),
+        new DexConverter(dexing),
         dexCache);
     Future<?> enqueuerTask = executor.submit(enqueuer);
     while (true) {

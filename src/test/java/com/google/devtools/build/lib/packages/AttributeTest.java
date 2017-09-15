@@ -294,11 +294,6 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition<BuildOptions> {
     @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-
-    @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       return ImmutableList.of(buildOptions.clone(), buildOptions.clone());
     }
@@ -308,6 +303,21 @@ public class AttributeTest {
     @Override
     public SplitTransition<?> apply(Rule fromRule) {
       return new TestSplitTransition();
+    }
+  }
+
+  @Test
+  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() throws Exception {
+    try {
+      attr("x", LABEL_LIST)
+          .allowedRuleClasses("foo", "bar", "baz")
+          .allowedRuleClassesWithWarning("bar")
+          .allowedFileTypes()
+          .build();
+      fail("Expected illegal state exception because rule classes and rule classes with warning "
+          + "overlap");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
     }
   }
 }

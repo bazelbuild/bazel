@@ -163,7 +163,7 @@ public final class FilesetEntry implements SkylarkValue {
   }
 
   /**
-   * @return an immutable list of excludes. Null if none specified.
+   * @return an immutable set of excludes. Null if none specified.
    */
   @Nullable
   public ImmutableSet<String> getExcludes() {

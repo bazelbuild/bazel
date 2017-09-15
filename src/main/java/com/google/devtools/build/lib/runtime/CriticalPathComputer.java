@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,6 +99,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * @param event information about the started action
    */
   @Subscribe
+  @AllowConcurrentEvents
   public void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
     tryAddComponent(createComponent(action, event.getNanoTimeStart()));
@@ -111,6 +113,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * for the same middleman. This should only happen if the actions are shared.
    */
   @Subscribe
+  @AllowConcurrentEvents
   public void middlemanAction(ActionMiddlemanEvent event) {
     Action action = event.getAction();
     C component = tryAddComponent(createComponent(action, event.getNanoTimeStart()));
@@ -187,6 +190,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * middle of the critical path.
    */
   @Subscribe
+  @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
     Action action = event.getAction();
     C component = tryAddComponent(createComponent(action, event.getNanoTimeStart()));
@@ -198,6 +202,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * dependent artifacts and records the critical path stats.
    */
   @Subscribe
+  @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
     Action action = event.getAction();
     C component = Preconditions.checkNotNull(

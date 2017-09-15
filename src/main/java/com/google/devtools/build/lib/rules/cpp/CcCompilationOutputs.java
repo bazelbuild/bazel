@@ -223,12 +223,12 @@ public class CcCompilationOutputs {
       return this;
     }
 
-    public Builder addLTOBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
+    public Builder addLtoBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
       ltoBitcodeFiles.put(fullBitcode, ltoIndexingBitcode);
       return this;
     }
 
-    public Builder addLTOBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
+    public Builder addLtoBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
       ltoBitcodeFiles.putAll(artifacts);
       return this;
     }

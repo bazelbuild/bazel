@@ -21,15 +21,16 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
-import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -161,7 +162,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private CcToolchainProvider getCcToolchainProvider(CppConfiguration cppConfiguration)
       throws Exception {
-    return getCcToolchainTarget(cppConfiguration).getProvider(CcToolchainProvider.class);
+    return (CcToolchainProvider)
+        getCcToolchainTarget(cppConfiguration).get(ToolchainInfo.PROVIDER);
   }
 
   /**
@@ -488,8 +490,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfiguration toolchainA =
         create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
-    CcToolchainProvider ccProviderA = ccToolchainA.getProvider(CcToolchainProvider.class);
-    MakeVariableProvider makeProviderA = ccToolchainA.getProvider(MakeVariableProvider.class);
+    CcToolchainProvider ccProviderA =
+        (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.PROVIDER);
+    MakeVariableInfo makeProviderA = ccToolchainA.get(MakeVariableInfo.PROVIDER);
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(toolchainA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(toolchainA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
@@ -524,7 +527,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2")
         .inOrder();
     assertThat(ccProviderA.getUnfilteredCompilerOptions(NO_FEATURES))
-        .containsExactly("--sysroot=some", "unfiltered-flag-A-1", "unfiltered-flag-A-2")
+        .containsExactly("unfiltered-flag-A-1", "unfiltered-flag-A-2")
         .inOrder();
     assertThat(toolchainA.getDynamicLinkOptions(NO_FEATURES, true))
         .containsExactly(
@@ -679,7 +682,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         PackageIdentifier.create(
             TestConstants.TOOLS_REPOSITORY,
             PathFragment.create(
-                PathFragment.create(TestConstants.TOOLS_REPOSITORY_PATH),
+                PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH),
                 PathFragment.create(path)));
     return packageIdentifier.getPathUnderExecRoot();
   }

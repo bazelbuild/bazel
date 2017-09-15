@@ -64,8 +64,7 @@ public final class SandboxModule extends BlazeModule {
 
     try {
       FileSystemUtils.createDirectoryAndParents(sandboxBase);
-      builder.addActionContextProvider(
-          SandboxActionContextProvider.create(cmdEnv, request, sandboxBase));
+      builder.addActionContextProvider(SandboxActionContextProvider.create(cmdEnv, sandboxBase));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

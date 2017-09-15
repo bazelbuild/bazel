@@ -1,4 +1,9 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+)
 
 java_test(
     name = "MainTest",
@@ -26,17 +31,16 @@ java_test(
 java_test(
     name = "BazelBuilderTest",
     srcs = ["BazelBuilderTest.java"],
+    # Needs git to run.
+    tags = [
+        "local",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_java_proto",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

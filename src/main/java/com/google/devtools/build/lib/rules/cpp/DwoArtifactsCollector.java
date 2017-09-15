@@ -46,7 +46,7 @@ public class DwoArtifactsCollector {
       Iterable<TransitiveInfoCollection> deps,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
 
     Preconditions.checkNotNull(compilationOutputs);
     Preconditions.checkNotNull(deps);
@@ -60,9 +60,9 @@ public class DwoArtifactsCollector {
     dwoBuilder.addAll(compilationOutputs.getDwoFiles());
     picDwoBuilder.addAll(compilationOutputs.getPicDwoFiles());
 
-    // If we are generating .dwo, add any generated for LTOBackendArtifacts.
+    // If we are generating .dwo, add any generated for LtoBackendArtifacts.
     if (generateDwo) {
-      for (LTOBackendArtifacts ltoBackendArtifact : ltoBackendArtifacts) {
+      for (LtoBackendArtifacts ltoBackendArtifact : ltoBackendArtifacts) {
         Artifact objectFile = ltoBackendArtifact.getObjectFile();
         if (ltoBackendArtifactsUsePic) {
           picDwoBuilder.add(
@@ -105,7 +105,7 @@ public class DwoArtifactsCollector {
       Iterable<TransitiveInfoCollection> deps,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     return new DwoArtifactsCollector(
         ruleContext,
         compilationOutputs,
@@ -125,7 +125,7 @@ public class DwoArtifactsCollector {
       CcCompilationOutputs compilationOutputs,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     return new DwoArtifactsCollector(
         ruleContext,
         compilationOutputs,

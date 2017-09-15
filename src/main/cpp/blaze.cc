@@ -30,7 +30,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +43,7 @@
 
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
+#include <cinttypes>
 #include <mutex>   // NOLINT
 #include <set>
 #include <string>
@@ -247,20 +247,6 @@ class GrpcBlazeServer : public BlazeServer {
 
 ////////////////////////////////////////////////////////////////////////
 // Logic
-
-void debug_log(const char *format, ...) {
-  if (!globals->options->client_debug) {
-    return;
-  }
-
-  fprintf(stderr, "CLIENT: ");
-  va_list arglist;
-  va_start(arglist, format);
-  vfprintf(stderr, format, arglist);
-  va_end(arglist);
-  fprintf(stderr, "%s", "\n");
-  fflush(stderr);
-}
 
 // A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
 class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
@@ -575,7 +561,7 @@ static void VerifyJavaVersionAndSetJvm() {
     string jvm_version = GetJvmVersion(exe);
 
     // Compare that jvm_version is found and at least the one specified.
-    if (jvm_version.size() == 0) {
+    if (jvm_version.empty()) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Java version not detected while at least %s is needed.\n"
           "Please set JAVA_HOME.",
@@ -640,8 +626,8 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
             globals->options->product_name.c_str());
   }
   string command = globals->option_processor->GetCommand();
-  vector<string> command_arguments;
-  globals->option_processor->GetCommandArguments(&command_arguments);
+  const vector<string> command_arguments =
+      globals->option_processor->GetCommandArguments();
 
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
@@ -655,7 +641,7 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
         globals->options->product_name.c_str(), product.c_str());
   }
   vector<string> jvm_args_vector = GetArgumentArray();
-  if (command != "") {
+  if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(&jvm_args_vector);
   }
@@ -731,9 +717,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   // disaster.
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
-    if (VerifyServerProcess(server_pid, globals->options->output_base,
-                            globals->options->install_base)) {
-      if (KillServerProcess(server_pid)) {
+    if (VerifyServerProcess(server_pid, globals->options->output_base)) {
+      if (KillServerProcess(server_pid, globals->options->output_base)) {
         fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
                 server_pid);
         SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
@@ -776,6 +761,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
+      globals->option_processor->PrintStartupOptionsProvenanceMessage();
       fprintf(stderr,
               "\nunexpected pipe read status: %s\n"
               "Server presumed dead. Now printing '%s':\n",
@@ -962,6 +948,27 @@ static void ExtractData(const string &self_path) {
         continue;
       }
       if (!blaze_util::CanReadFile(path)) {
+        // TODO(laszlocsomor): remove the following `#if 1` block after I or
+        // somebody else fixed https://github.com/bazelbuild/bazel/issues/3618.
+#if 1
+        fprintf(stderr,
+                "DEBUG: corrupt installation: file '%s' missing. "
+                "Dumping debug data.\n",
+                path.c_str());
+        string p = path;
+        while (!p.empty()) {
+          fprintf(stderr, "DEBUG: p=(%s), exists=%d, isdir=%d, canread=%d\n",
+                  p.c_str(), blaze_util::PathExists(p) ? 1 : 0,
+                  blaze_util::IsDirectory(p) ? 1 : 0,
+                  blaze_util::CanReadFile(p) ? 1 : 0);
+          string parent = blaze_util::Dirname(p);
+          if (parent == p) {
+            break;
+          } else {
+            p = parent;
+          }
+        }
+#endif
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' missing."
             " Please remove '%s' and try again.",
@@ -1155,11 +1162,15 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
 
 // Parse the options, storing parsed values in globals.
 static void ParseOptions(int argc, const char *argv[]) {
-  string error;
-  blaze_exit_code::ExitCode parse_exit_code =
-      globals->option_processor->ParseOptions(argc, argv, globals->workspace,
-                                              globals->cwd, &error);
+  std::string error;
+  std::vector<std::string> args;
+  args.insert(args.end(), argv, argv + argc);
+  const blaze_exit_code::ExitCode parse_exit_code =
+      globals->option_processor->ParseOptions(
+          args, globals->workspace, globals->cwd, &error);
+
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
+    globals->option_processor->PrintStartupOptionsProvenanceMessage();
     die(parse_exit_code, "%s", error.c_str());
   }
   globals->options = globals->option_processor->GetParsedStartupOptions();
@@ -1239,7 +1250,10 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
       blaze_util::JoinPath(globals->options->output_base, "server/jvm.out");
 }
 
-static void CheckEnvironment() {
+// Prepares the environment to be suitable to start a JVM.
+// Changes made to the environment in this function *will not* be part
+// of '--client_env'.
+static void PrepareEnvironmentForJvm() {
   if (!blaze::GetEnv("http_proxy").empty()) {
     PrintWarning("ignoring http_proxy in environment.");
     blaze::UnsetEnv("http_proxy");
@@ -1333,15 +1347,35 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
+  if (argc == 1 && blaze::WarnIfStartedFromDesktop()) {
+    // Only check and warn for from-desktop start if there were no args.
+    // In this case the user probably clicked Bazel's icon (as opposed to either
+    // starting it from a terminal, or as a subprocess with args, or on Windows
+    // from a ".lnk" file with some args).
+    return blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR;
+  }
+
+  // Best-effort operation to raise the resource limits from soft to hard.  We
+  // do this early during the main program instead of just before execing the
+  // Blaze server binary, because it's easier (for testing purposes) and because
+  // the Blaze client also benefits from this (e.g. during installation).
+  UnlimitResources();
 
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
+
+  // Must be done before command line parsing.
+  // ParseOptions already populate --client_env, so detect bash before it
+  // happens.
+  DetectBashOrDie();
+
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
+  blaze::SetDebugLog(globals->options->client_debug);
   debug_log("Debug logging active");
 
-  CheckEnvironment();
+  PrepareEnvironmentForJvm();
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();
@@ -1449,8 +1483,7 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!VerifyServerProcess(server_pid, globals->options->output_base,
-      globals->options->install_base)) {
+  if (!VerifyServerProcess(server_pid, globals->options->output_base)) {
     return false;
   }
 
@@ -1578,11 +1611,13 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {
   }
 
-  // Kill the server process for good measure (if we know the server PID)
+  // Wait for the server process to terminate (if we know the server PID).
+  // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
-      VerifyServerProcess(globals->server_pid, globals->options->output_base,
-                          globals->options->install_base)) {
-    KillServerProcess(globals->server_pid);
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   connected_ = false;
@@ -1590,15 +1625,22 @@ void GrpcBlazeServer::KillRunningServer() {
 
 unsigned int GrpcBlazeServer::Communicate() {
   assert(connected_);
+  assert(globals->server_pid > 0);
 
   vector<string> arg_vector;
   string command = globals->option_processor->GetCommand();
-  if (command != "") {
+  if (!command.empty()) {
     arg_vector.push_back(command);
     AddLoggingArgs(&arg_vector);
   }
 
-  globals->option_processor->GetCommandArguments(&arg_vector);
+  const vector<string> command_args =
+      globals->option_processor->GetCommandArguments();
+  if (!command_args.empty()) {
+    arg_vector.insert(arg_vector.end(),
+                      command_args.begin(),
+                      command_args.end());
+  }
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
@@ -1610,6 +1652,17 @@ unsigned int GrpcBlazeServer::Communicate() {
   if (globals->options->invocation_policy != NULL &&
       strlen(globals->options->invocation_policy) > 0) {
     request.set_invocation_policy(globals->options->invocation_policy);
+  }
+
+  const StartupOptions *startup_options(
+      globals->option_processor->GetParsedStartupOptions());
+  for (const auto &startup_option :
+       startup_options->original_startup_options_) {
+    command_server::StartupOption *proto_option_field =
+        request.add_startup_options();
+    request.add_startup_options();
+    proto_option_field->set_source(startup_option.source);
+    proto_option_field->set_option(startup_option.value);
   }
 
   grpc::ClientContext context;
@@ -1628,6 +1681,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   int exit_code = -1;
   bool finished = false;
   bool finished_warning_emitted = false;
+  bool termination_expected = false;
 
   while (reader->Read(&response)) {
     if (finished && !finished_warning_emitted) {
@@ -1644,6 +1698,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (response.finished()) {
       exit_code = response.exit_code();
+      termination_expected = response.termination_expected();
       finished = true;
     }
 
@@ -1671,12 +1726,21 @@ unsigned int GrpcBlazeServer::Communicate() {
       Cancel();
     }
 
-    if (!command_id_set && response.command_id().size() > 0) {
+    if (!command_id_set && !response.command_id().empty()) {
       std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
       command_id_ = response.command_id();
       command_id_set = true;
       SendAction(CancelThreadAction::COMMAND_ID_RECEIVED);
     }
+  }
+
+  // If the server has shut down, but does not terminate itself within a 1m
+  // grace period, terminate it.
+  if (termination_expected &&
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   SendAction(CancelThreadAction::JOIN);

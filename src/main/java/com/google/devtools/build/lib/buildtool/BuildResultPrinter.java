@@ -56,6 +56,7 @@ class BuildResultPrinter {
       BuildRequest request,
       BuildResult result,
       Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredTarget> configuredTargetsToSkip,
       Collection<AspectValue> aspects) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
@@ -71,6 +72,9 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
       (successfulTargets.contains(target) ? succeeded : failed).add(target);
     }
+
+    // TODO(bazel-team): convert these to a new "SKIPPED" status when ready: b/62191890.
+    failed.addAll(configuredTargetsToSkip);
 
     // Suppress summary if --show_result value is exceeded:
     if (succeeded.size() + failed.size() + aspectsToPrint.size()

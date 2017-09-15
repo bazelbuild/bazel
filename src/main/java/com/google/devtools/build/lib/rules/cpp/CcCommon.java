@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,25 +26,28 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -85,14 +90,12 @@ public final class CcCommon {
   private static final ImmutableSet<String> DEFAULT_FEATURES =
       ImmutableSet.of(
           CppRuleClasses.DEPENDENCY_FILE,
-          CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET,
           CppRuleClasses.RANDOM_SEED,
           CppRuleClasses.MODULE_MAPS,
           CppRuleClasses.MODULE_MAP_HOME_CWD,
           CppRuleClasses.HEADER_MODULE_COMPILE,
           CppRuleClasses.INCLUDE_PATHS,
           CppRuleClasses.PIC,
-          CppRuleClasses.PER_OBJECT_DEBUG_INFO,
           CppRuleClasses.PREPROCESSOR_DEFINES);
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
 
@@ -135,7 +138,8 @@ public final class CcCommon {
       }
     }
 
-    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu()) && result.contains("-static")) {
+    if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())
+        && result.contains("-static")) {
       ruleContext.attributeError(
           "linkopts", "Apple builds do not support statically linked binaries");
     }
@@ -145,27 +149,16 @@ public final class CcCommon {
 
   public ImmutableList<String> getCopts() {
     Preconditions.checkState(hasAttribute("copts", Type.STRING_LIST));
-    // TODO(bazel-team): getAttributeCopts should not tokenize the strings. Make a warning for now.
-    List<String> tokens = new ArrayList<>();
-    for (String str : ruleContext.attributes().get("copts", Type.STRING_LIST)) {
-      tokens.clear();
-      try {
-        ShellUtils.tokenize(tokens, str);
-        if (tokens.size() > 1) {
-          ruleContext.attributeWarning("copts",
-              "each item in the list should contain only one option");
-        }
-      } catch (ShellUtils.TokenizationException e) {
-        // ignore, the error is reported in the getAttributeCopts call
-      }
-    }
 
-    Pattern nocopts = getNoCopts(ruleContext);
-    if (nocopts != null && nocopts.matcher("-Wno-future-warnings").matches()) {
-      ruleContext.attributeWarning("nocopts",
-          "Regular expression '" + nocopts.pattern() + "' is too general; for example, it matches "
-          + "'-Wno-future-warnings'.  Thus it might *re-enable* compiler warnings we wish to "
-          + "disable globally.  To disable all compiler warnings, add '-w' to copts instead");
+    if (!getCoptsFilter(ruleContext).apply("-Wno-future-warnings")) {
+      ruleContext.attributeWarning(
+          "nocopts",
+          String.format(
+              "Regular expression '%s' is too general; for example, it matches "
+                  + "'-Wno-future-warnings'.  Thus it might *re-enable* compiler warnings we wish "
+                  + "to disable globally.  To disable all compiler warnings, add '-w' to copts "
+                  + "instead",
+              Preconditions.checkNotNull(getNoCoptsPattern(ruleContext))));
     }
 
     return ImmutableList.<String>builder()
@@ -184,7 +177,7 @@ public final class CcCommon {
       CcCompilationOutputs compilationOutputs,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
-      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
+      Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     ImmutableList.Builder<TransitiveInfoCollection> deps =
         ImmutableList.<TransitiveInfoCollection>builder();
 
@@ -329,33 +322,8 @@ public final class CcCommon {
         return null;
       }
 
-      CcToolchainProvider toolchain =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-      FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeatures(ruleContext, toolchain);
-      if (!featureConfiguration.actionIsConfigured(
-          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
-        return null;
-      }
-
-      Variables buildVariables = new Variables.Builder()
-          .addAllStringVariables(toolchain.getBuildVariables())
-          .build();
-      String toolchainCcFlags =
-          Joiner.on(" ")
-              .join(
-                  featureConfiguration.getCommandLine(
-                      CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
-
-      ImmutableMap<String, String> currentMakeVariables =
-          ruleContext.getMakeVariables(ImmutableList.of(CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME));
-      Preconditions.checkArgument(
-          currentMakeVariables.containsKey(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
-
-      return FluentIterable.of(
-              currentMakeVariables.get(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME))
-          .append(toolchainCcFlags)
-          .join(Joiner.on(" "));
+      return CcCommon.computeCcFlags(ruleContext, ruleContext.getPrerequisite(
+          CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
     }
 
     @Override
@@ -371,27 +339,36 @@ public final class CcCommon {
     return ImmutableList.copyOf(CppHelper.expandMakeVariables(ruleContext, "copts", unexpanded));
   }
 
-  Pattern getNoCopts() {
-    return getNoCopts(ruleContext);
+  /** Returns copts filter built from the make variable expanded nocopts attribute. */
+  Predicate<String> getCoptsFilter() {
+    return getCoptsFilter(ruleContext);
   }
 
-  /**
-   * Returns nocopts pattern built from the make variable expanded nocopts
-   * attribute.
-   */
-  private static Pattern getNoCopts(RuleContext ruleContext) {
-    Pattern nocopts = null;
-    if (ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
-      String nocoptsAttr = ruleContext.expandMakeVariables(NO_COPTS_ATTRIBUTE,
-          ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING));
-      try {
-        nocopts = Pattern.compile(nocoptsAttr);
-      } catch (PatternSyntaxException e) {
-        ruleContext.attributeError(NO_COPTS_ATTRIBUTE,
-            "invalid regular expression '" + nocoptsAttr + "': " + e.getMessage());
-      }
+  /** @see CcCommon#getCoptsFilter() */
+  private static Predicate<String> getCoptsFilter(RuleContext ruleContext) {
+    Pattern noCoptsPattern = getNoCoptsPattern(ruleContext);
+    if (noCoptsPattern == null) {
+      return Predicates.alwaysTrue();
     }
-    return nocopts;
+    return flag -> !noCoptsPattern.matcher(flag).matches();
+  }
+
+  @Nullable
+  private static Pattern getNoCoptsPattern(RuleContext ruleContext) {
+    if (!ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
+      return null;
+    }
+    String nocoptsAttr =
+        ruleContext.expandMakeVariables(
+            NO_COPTS_ATTRIBUTE, ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING));
+    try {
+      return Pattern.compile(nocoptsAttr);
+    } catch (PatternSyntaxException e) {
+      ruleContext.attributeError(
+          NO_COPTS_ATTRIBUTE,
+          "invalid regular expression '" + nocoptsAttr + "': " + e.getMessage());
+      return null;
+    }
   }
 
   // TODO(bazel-team): calculating nocopts every time is not very efficient,
@@ -403,8 +380,7 @@ public final class CcCommon {
    * otherwise.
    */
   static boolean noCoptsMatches(String option, RuleContext ruleContext) {
-    Pattern nocopts = getNoCopts(ruleContext);
-    return nocopts == null ? false : nocopts.matcher(option).matches();
+    return !getCoptsFilter(ruleContext).apply(option);
   }
 
   private static final String DEFINES_ATTRIBUTE = "defines";
@@ -635,22 +611,27 @@ public final class CcCommon {
 
     FeatureSpecification currentFeatureSpecification =
         FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
-    FeatureConfiguration configuration =
-        features.getFeatureConfiguration(currentFeatureSpecification);
-    for (String feature : unsupportedFeatures) {
-      if (configuration.isEnabled(feature)) {
-        ruleContext.ruleError(
-            "The C++ toolchain '"
-                + ruleContext
-                    .getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET)
-                    .getLabel()
-                + "' unconditionally implies feature '"
-                + feature
-                + "', which is unsupported by this rule. "
-                + "This is most likely a misconfiguration in the C++ toolchain.");
+    try {
+      FeatureConfiguration configuration =
+          features.getFeatureConfiguration(currentFeatureSpecification);
+      for (String feature : unsupportedFeatures) {
+        if (configuration.isEnabled(feature)) {
+          ruleContext.ruleError(
+              "The C++ toolchain '"
+                  + ruleContext
+                  .getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET)
+                  .getLabel()
+                  + "' unconditionally implies feature '"
+                  + feature
+                  + "', which is unsupported by this rule. "
+                  + "This is most likely a misconfiguration in the C++ toolchain.");
+        }
       }
+      return configuration;
+    } catch (CollidingProvidesException e) {
+      ruleContext.ruleError(e.getMessage());
+      return FeatureConfiguration.EMPTY;
     }
-    return configuration;
   }
 
 
@@ -694,5 +675,39 @@ public final class CcCommon {
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     return configureFeatures(ruleContext, toolchain, SourceCategory.CC);
+  }
+
+  /**
+   * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
+   * toolchain.
+   */
+  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(ruleContext, toolchainProvider);
+    if (!featureConfiguration.actionIsConfigured(
+        CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)) {
+      return null;
+    }
+
+    Variables buildVariables = new Variables.Builder()
+        .addAllStringVariables(toolchainProvider.getBuildVariables())
+        .build();
+    String toolchainCcFlags =
+        Joiner.on(" ")
+            .join(
+                featureConfiguration.getCommandLine(
+                    CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
+    String oldCcFlags = "";
+    MakeVariableInfo makeVariableInfo =
+        toolchain.get(MakeVariableInfo.PROVIDER);
+    if (makeVariableInfo != null) {
+      oldCcFlags = makeVariableInfo.getMakeVariables().getOrDefault(
+          CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
+    }
+    return FluentIterable.of(oldCcFlags)
+        .append(toolchainCcFlags)
+        .join(Joiner.on(" "));
   }
 }

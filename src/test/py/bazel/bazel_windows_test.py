@@ -32,12 +32,6 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testWindowsUnixRoot(self):
     self.createProjectFiles()
-    exit_code, _, stderr = self.RunBazel(
-        ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'],
-        env_remove={'BAZEL_SH'})
-    self.AssertExitCode(exit_code, 2, stderr)
-    self.assertIn('\'BAZEL_SH\' environment variable is not set',
-                  '\n'.join(stderr))
 
     exit_code, _, stderr = self.RunBazel([
         '--batch', '--host_jvm_args=-Dbazel.windows_unix_root=', 'build',

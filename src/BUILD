@@ -1,5 +1,7 @@
 # Packaging
 
+load(":embedded_tools.bzl", "srcsfile")
+
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
@@ -15,7 +17,6 @@ filegroup(
     }),
     visibility = [
         "//src/test/java:__pkg__",
-        "//src/tools/generate_workspace:__pkg__",
         "//src/tools/remote_worker:__subpackages__",
     ],
 )
@@ -30,7 +31,7 @@ filegroup(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-    ] + embedded_tools,
+    ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
         ":darwin": md5_cmd % "/sbin/md5",
@@ -38,7 +39,7 @@ filegroup(
         ":freebsd": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
     }),
-) for suffix, embedded_tools in {
+) for suffix, embedded_tools_target in {
     "": [":embedded_tools"],
     "_with_jdk": [":embedded_tools_with_jdk"],
     "_notools": [],
@@ -121,11 +122,24 @@ filegroup(
     ],
 )
 
-[genrule(
-    name = "embedded_tools" + suffix,
+py_library(
+    name = "create_embedded_tools_lib",
+    srcs = ["create_embedded_tools_lib.py"],
+    visibility = ["//:__pkg__"],
+)
+
+py_binary(
+    name = "create_embedded_tools",
+    srcs = ["create_embedded_tools.py"],
+    deps = [":create_embedded_tools_lib"],
+)
+
+# TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
+# in Skylark rules on Windows has been released.
+[filegroup(
+    name = "embedded_tools" + suffix + "_srcs",
     srcs = [
         "BUILD.tools",
-        ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
         "//third_party/java/j2objc:embedded_tools_srcs",
@@ -133,12 +147,10 @@ filegroup(
         "//third_party/java/jdk/langtools:test-srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
+        "//third_party/py/six:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
-        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
-        "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
-        "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
-        "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
+        "//src/tools/launcher:srcs",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
@@ -151,6 +163,7 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
         "//third_party/ijar:embedded_tools",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         "//third_party/java/jacoco:srcs",
         "//third_party/zlib:embedded_tools",
     ] + select({
@@ -171,20 +184,21 @@ filegroup(
         # is resolved, use cc implementation of singlejar on windows
         ":windows": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
         ],
         ":windows_msys": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
         ],
         ":windows_msvc": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
+        ],
+        ":arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
         "//conditions:default": [
             "//src/tools/singlejar:singlejar",
-        ],
-    }) + select({
-        "//tools/jdk:jdk7": [],
-        "//conditions:default": [
-            "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         ],
     }) + (select({
         ":darwin": [
@@ -206,12 +220,41 @@ filegroup(
             "@openjdk_linux//file",
         ],
     }) if (suffix == "_with_jdk") else []),
-    outs = ["embedded_tools" + suffix + ".zip"],
-    cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
 ) for suffix in [
     "",
     "_with_jdk",
 ]]
+
+[srcsfile(
+    name = "embedded_tools" + suffix + "_params",
+    srcs = [":embedded_tools" + suffix + "_srcs"],
+    out = "embedded_tools" + suffix + ".params",
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
+
+genrule(
+    name = "embedded_tools",
+    srcs = [
+        ":embedded_tools_params",
+        ":embedded_tools_srcs",
+    ],
+    outs = ["embedded_tools.zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_params)",
+    tools = [":create_embedded_tools"],
+)
+
+genrule(
+    name = "embedded_tools_with_jdk",
+    srcs = [
+        ":embedded_tools_with_jdk_params",
+        ":embedded_tools_with_jdk_srcs",
+    ],
+    outs = ["embedded_tools_with_jdk.zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_with_jdk_params)",
+    tools = [":create_embedded_tools"],
+)
 
 [genrule(
     name = "package-zip" + suffix,
@@ -333,27 +376,21 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "arm",
+    values = {"cpu": "arm"},
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/java_tools/buildjar:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/coverage:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
-        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:srcs",
-        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
+        "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
-        "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/skylark:srcs",
@@ -366,6 +403,7 @@ filegroup(
         "//src/test/docker:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
+        "//src/test/skylark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
@@ -375,7 +413,9 @@ filegroup(
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/benchmark:srcs",
-        "//src/tools/generate_workspace:srcs",
+        "//src/tools/launcher:srcs",
+        "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
+        "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
         "//src/tools/xcode/environment:srcs",
         "//src/tools/xcode/ibtoolwrapper:srcs",

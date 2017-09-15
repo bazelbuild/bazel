@@ -74,7 +74,8 @@ of the original graph.
 
 ## Defining aspects
 
-Aspect definitions are similiar to rule definitions. Let's take a look at
+Aspect definitions are similar to rule definitions, and defined using
+the [`aspect`](lib/globals.html#aspect) function. Let's take a look at
 the example:
 
 ```python
@@ -115,23 +116,23 @@ functions. They return [providers](rules.md#providers), can generate
 Example:
 
 ```python
+MetalProtoInfo = provider()
 def _metal_proto_aspect_impl(target, ctx):
     # For every `src` in proto_library, generate an output file
     proto_sources = [f for src in ctx.rule.attr.srcs
                        for f in src.files]
-    outputs = [ctx.new_file(f.short_path + ".metal")
+    outputs = [ctx.actions.declare_file(f.short_path + ".metal")
                for f in proto_sources]
-    ctx.action(
+    ctx.actions.run(
         executable = ctx.executable._protoc,
         argument = ...
         inputs = proto_sources
         outputs = outputs)
     transitive_outputs = depset(outputs)
     for dep in ctx.rule.attr.deps:
-        transitive_outputs = transitive_outputs | dep.metal_proto.transitive_outputs
-    return struct(
-        metal_proto = struct(direct_outputs = outputs,
-                             transitive_outputs = transitive_outputs))
+        transitive_outputs = transitive_outputs | dep[MetalProtoInfo].transitive_outputs
+    return [MetalProtoInfo(direct_outputs = outputs,
+                           transitive_outputs = transitive_outputs)]
 ```
 
 The implementation function can access the attributes of the target rule via
@@ -181,7 +182,8 @@ on the target objects representing its `proto_deps` attribute values.
 
 ### Applying aspects from command line.
 
-Aspects can also be applied on the command line, using the `--aspects` flag:
+Aspects can also be applied on the command line, using the
+[`--aspects`](../command-line-reference.html#flag--aspects) flag:
 
 
 ```
@@ -190,6 +192,6 @@ bazel build //java/com/company/example:main \
 ```
 
 `--aspects` flag takes one argument, which is a specification of the aspect in
-the format `<extension file path>%<aspect top-level name>`.
+the format `<extension file label>%<aspect top-level name>`.
 
 

@@ -64,7 +64,7 @@ public class IosApplicationRule implements RuleDefinition {
         .add(
             attr("extensions", LABEL_LIST)
                 .allowedRuleClasses(
-                    "ios_extension", "apple_watch1_extension", "apple_watch2_extension")
+                    "ios_extension", "apple_watch1_extension")
                 .allowedFileTypes()
                 .direct_compile_time_input())
         .add(

@@ -32,16 +32,20 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.bazel.rules.NativeLauncherUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -51,7 +55,9 @@ import java.util.List;
  */
 public class BazelPythonSemantics implements PythonSemantics {
   private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "stub_template.txt");
+      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
+  private static final Template STUB_TEMPLATE_WINDOWS =
+      Template.forResource(BazelPythonSemantics.class, "python_stub_template_windows.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
       "srcs", "deps", "data");
@@ -112,18 +118,13 @@ public class BazelPythonSemantics implements PythonSemantics {
     return result;
   }
 
-  /** @return An artifact next to the executable file with ".zip" suffix */
-  public Artifact getPythonZipArtifact(RuleContext ruleContext, Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
-  }
-
   /** @return An artifact next to the executable file with ".temp" suffix */
   public Artifact getPythonTemplateMainArtifact(RuleContext ruleContext, Artifact executable) {
     return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".temp");
   }
 
   @Override
-  public void createExecutable(
+  public Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
       CcLinkParamsStore ccLinkParamsStore,
@@ -150,7 +151,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                       config.getImportAllRepositories() ? "True" : "False")),
               true));
     } else {
-      Artifact zipFile = getPythonZipArtifact(ruleContext, executable);
+      Artifact zipFile = common.getPythonZipArtifact(executable);
       Artifact templateMain = getPythonTemplateMainArtifact(ruleContext, executable);
       // The executable zip file will unzip itself into a tmp directory and then run from there
       ruleContext.registerAction(
@@ -168,19 +169,57 @@ public class BazelPythonSemantics implements PythonSemantics {
                       config.getImportAllRepositories() ? "True" : "False")),
               true));
 
-      ruleContext.registerAction(
-          new SpawnAction.Builder()
-              .addInput(zipFile)
-              .addOutput(executable)
-              .setShellCommand(
-                  "echo '#!/usr/bin/env python' | cat - "
-                      + zipFile.getExecPathString()
-                      + " > "
-                      + executable.getExecPathString())
-              .useDefaultShellEnvironment()
-              .setMnemonic("BuildBinary")
-              .build(ruleContext));
+      if (OS.getCurrent() != OS.WINDOWS) {
+        ruleContext.registerAction(
+            new SpawnAction.Builder()
+                .addInput(zipFile)
+                .addOutput(executable)
+                .setShellCommand(
+                    "echo '#!/usr/bin/env python' | cat - "
+                        + zipFile.getExecPathString()
+                        + " > "
+                        + executable.getExecPathString())
+                .useDefaultShellEnvironment()
+                .setMnemonic("BuildBinary")
+                .build(ruleContext));
+      } else {
+        if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+          return createWindowsExeLauncher(ruleContext, pythonBinary, executable);
+        }
+
+        ruleContext.registerAction(
+            new TemplateExpansionAction(
+                ruleContext.getActionOwner(),
+                executable,
+                STUB_TEMPLATE_WINDOWS,
+                ImmutableList.of(Substitution.of("%python_path%", pythonBinary)),
+                true));
+        return executable;
+      }
     }
+
+    return executable;
+  }
+
+  private static Artifact createWindowsExeLauncher(
+      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher)
+      throws InterruptedException {
+    ByteArrayOutputStream launchInfo = new ByteArrayOutputStream();
+    try {
+      NativeLauncherUtil.writeLaunchInfo(launchInfo, "binary_type", "Python");
+      NativeLauncherUtil.writeLaunchInfo(
+          launchInfo, "workspace_name", ruleContext.getWorkspaceName());
+      NativeLauncherUtil.writeLaunchInfo(launchInfo, "python_bin_path", pythonBinary);
+
+      NativeLauncherUtil.writeDataSize(launchInfo);
+    } catch (IOException e) {
+      ruleContext.ruleError(e.getMessage());
+      throw new InterruptedException();
+    }
+
+    NativeLauncherUtil.createNativeLauncherActions(ruleContext, pythonLauncher, launchInfo);
+
+    return pythonLauncher;
   }
 
   @Override
@@ -193,7 +232,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         createPythonZipAction(
             ruleContext,
             executable,
-            getPythonZipArtifact(ruleContext, executable),
+            common.getPythonZipArtifact(executable),
             getPythonTemplateMainArtifact(ruleContext, executable),
             zipper,
             runfilesSupport);
@@ -216,7 +255,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
-    // Note: This name has to be the same with the one in stub_template.txt.
+    // Note: This name has to be the same with the one in python_stub_template.txt.
     return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zipRunfilesPath).toString();
   }
 
@@ -236,20 +275,20 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment workspaceName = runfilesSupport.getWorkspaceName();
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     inputsBuilder.add(templateMain);
-    argv.add("__main__.py=" + templateMain.getExecPathString());
+    argv.addPrefixedExecPath("__main__.py=", templateMain);
 
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");
-    argv.add(getZipRunfilesPath("__init__.py", workspaceName) + "=");
+    argv.addDynamicString(getZipRunfilesPath("__init__.py", workspaceName) + "=");
     for (String path : runfilesSupport.getRunfiles().getEmptyFilenames()) {
-      argv.add(getZipRunfilesPath(path, workspaceName) + "=");
+      argv.addDynamicString(getZipRunfilesPath(path, workspaceName) + "=");
     }
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
     for (Artifact artifact : runfilesSupport.getRunfilesArtifactsWithoutMiddlemen()) {
-      if (!artifact.equals(executable)) {
-        argv.add(
+      if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
+        argv.addDynamicString(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)
                 + "="
                 + artifact.getExecPathString());
@@ -278,9 +317,12 @@ public class BazelPythonSemantics implements PythonSemantics {
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
-            .addArgument("cC")
-            .addArgument(zipFile.getExecPathString())
-            .addArgument("@" + paramFile.getExecPathString())
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .add("cC")
+                    .addExecPath(zipFile)
+                    .addPrefixedExecPath("@", paramFile)
+                    .build())
             .setMnemonic("PythonZipper")
             .build(ruleContext));
   }

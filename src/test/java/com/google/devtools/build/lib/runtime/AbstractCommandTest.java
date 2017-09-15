@@ -17,14 +17,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -137,6 +138,7 @@ public class AbstractCommandTest {
     Collections.addAll(result, optionClasses);
     result.add(BlazeCommandEventHandler.Options.class);
     result.add(CommonCommandOptions.class);
+    result.add(SkylarkSemanticsOptions.class);
     return result;
   }
 }

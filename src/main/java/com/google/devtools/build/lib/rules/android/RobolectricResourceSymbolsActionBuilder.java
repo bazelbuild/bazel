@@ -13,19 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
-import java.util.ArrayList;
-import java.util.List;
+import com.google.devtools.build.lib.util.OS;
 
 /**
  * Builder for generating R classes for robolectric action.
@@ -35,13 +35,6 @@ import java.util.List;
  */
 public class RobolectricResourceSymbolsActionBuilder {
 
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeRTxt()
-          .includeSymbolsBin()
-          .toArtifactConverter();
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -78,34 +71,48 @@ public class RobolectricResourceSymbolsActionBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("GENERATE_ROBOLECTRIC_R").add("--");
 
-    List<Artifact> inputs = new ArrayList<>();
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     if (!Iterables.isEmpty(dependencies.getResources())) {
-      builder.addJoinValues(
+      builder.addAll(
           "--data",
-          RESOURCE_CONTAINER_TO_ARG.listSeparator(),
-          dependencies.getResources(),
-          RESOURCE_CONTAINER_TO_ARG);
+          VectorArg.join(RESOURCE_CONTAINER_TO_ARG.listSeparator())
+              .each(dependencies.getResources())
+              .mapped(RESOURCE_CONTAINER_TO_ARG));
     }
 
-    // This flattens the nested set.
-    Iterables.addAll(inputs, FluentIterable.from(dependencies.getResources())
-        .transformAndConcat(RESOURCE_CONTAINER_TO_ARTIFACTS));
+    inputs
+        .addTransitive(dependencies.getTransitiveResourceRoots())
+        .addTransitive(dependencies.getTransitiveManifests())
+        .addTransitive(dependencies.getTransitiveRTxt())
+        .addTransitive(dependencies.getTransitiveSymbolsBin());
 
     builder.addExecPath("--classJarOutput", classJarOut);
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
+
+    ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFile.setUseAlways(OS.getCurrent() == OS.WINDOWS);
+
     ruleContext.registerAction(
         spawnActionBuilder
-            .useParameterFile(ParameterFileType.UNQUOTED)
-            .addInputs(inputs)
+            .useDefaultShellEnvironment()
+            .addTransitiveInputs(inputs.build())
             .addOutput(classJarOut)
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFile.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Generating R classes for " + ruleContext.getLabel())
+            .setProgressMessage("Generating R classes for %s", ruleContext.getLabel())
             .setMnemonic("GenerateRobolectricRClasses")
             .build(ruleContext));
 

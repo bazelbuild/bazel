@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 
@@ -60,7 +60,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
   @Override
   protected void validateAttributes(RuleContext ruleContext) {
     Iterable<ObjcProvider> extensionProviders = ruleContext.getPrerequisites(
-        "extensions", Mode.TARGET, ObjcProvider.class);
+        "extensions", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
     if (hasMoreThanOneWatchExtension(extensionProviders, Flag.HAS_WATCH1_EXTENSION)
         || hasMoreThanOneWatchExtension(extensionProviders, Flag.HAS_WATCH2_EXTENSION)) {
       ruleContext.attributeError("extensions", "An iOS application can contain exactly one "
@@ -81,7 +81,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
       ReleaseBundlingSupport releaseBundlingSupport) throws InterruptedException {
     // If this is an application built for the simulator, make it runnable.
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS) == Platform.IOS_SIMULATOR) {
+    if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS) == ApplePlatform.IOS_SIMULATOR) {
       Artifact runnerScript = ObjcRuleClasses.intermediateArtifacts(ruleContext).runnerScript();
       Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
       releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);

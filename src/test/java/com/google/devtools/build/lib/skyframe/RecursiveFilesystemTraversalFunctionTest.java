@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBound
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -89,7 +91,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            rootDirectory, outputBase, rootDirectory, analysisMock.getProductName());
+            new ServerDirectories(rootDirectory, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
@@ -125,6 +129,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+        new FileSymlinkInfiniteExpansionUniquenessFunction());
+    skyFunctions.put(
+        SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new RecordingDifferencer();
@@ -815,5 +824,36 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(error.getException())
         .hasMessageThat()
         .contains("Generated directory a/b/c conflicts with package under the same path.");
+  }
+
+  @Test
+  public void unboundedSymlinkExpansionError() throws Exception {
+    Artifact bazLink = sourceArtifact("foo/baz.sym");
+    Path parentDir = scratch.dir("foo");
+    bazLink.getPath().createSymbolicLink(parentDir);
+    SkyKey key = rftvSkyKey(pkgRoot(parentOf(rootedPath(bazLink)), DONT_CROSS));
+    EvaluationResult<SkyValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo error = result.getError(key);
+    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).hasMessageThat().contains("Infinite symlink expansion");
+  }
+
+  @Test
+  public void symlinkChainError() throws Exception {
+    scratch.dir("a");
+    Artifact fooLink = sourceArtifact("a/foo.sym");
+    Artifact barLink = sourceArtifact("a/bar.sym");
+    Artifact bazLink = sourceArtifact("a/baz.sym");
+    fooLink.getPath().createSymbolicLink(barLink.getPath());
+    barLink.getPath().createSymbolicLink(bazLink.getPath());
+    bazLink.getPath().createSymbolicLink(fooLink.getPath());
+
+    SkyKey key = rftvSkyKey(pkgRoot(parentOf(rootedPath(bazLink)), DONT_CROSS));
+    EvaluationResult<SkyValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo error = result.getError(key);
+    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 }

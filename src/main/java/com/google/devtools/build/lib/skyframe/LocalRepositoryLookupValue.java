@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,8 +40,9 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
     return MAIN_REPO_VALUE;
   }
 
-  public static LocalRepositoryLookupValue success(RepositoryName repositoryName) {
-    return new SuccessfulLocalRepositoryLookupValue(repositoryName);
+  public static LocalRepositoryLookupValue success(
+      RepositoryName repositoryName, PathFragment path) {
+    return new SuccessfulLocalRepositoryLookupValue(repositoryName, path);
   }
 
   public static LocalRepositoryLookupValue notFound() {
@@ -60,6 +62,12 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
    */
   public abstract RepositoryName getRepository();
 
+  /**
+   * Returns the path to the local repository, or throws a {@link IllegalStateException} if there
+   * was no repository found.
+   */
+  public abstract PathFragment getPath();
+
   /** Represents a successful lookup of the main repository. */
   public static final class MainRepositoryLookupValue extends LocalRepositoryLookupValue {
 
@@ -74,6 +82,11 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
     @Override
     public RepositoryName getRepository() {
       return RepositoryName.MAIN;
+    }
+
+    @Override
+    public PathFragment getPath() {
+      return PathFragment.EMPTY_FRAGMENT;
     }
 
     @Override
@@ -97,9 +110,11 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
   public static final class SuccessfulLocalRepositoryLookupValue
       extends LocalRepositoryLookupValue {
     private final RepositoryName repositoryName;
+    private final PathFragment path;
 
-    public SuccessfulLocalRepositoryLookupValue(RepositoryName repositoryName) {
+    public SuccessfulLocalRepositoryLookupValue(RepositoryName repositoryName, PathFragment path) {
       this.repositoryName = repositoryName;
+      this.path = path;
     }
 
     @Override
@@ -110,6 +125,11 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
     @Override
     public RepositoryName getRepository() {
       return repositoryName;
+    }
+
+    @Override
+    public PathFragment getPath() {
+      return path;
     }
 
     @Override
@@ -145,6 +165,11 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
 
     @Override
     public RepositoryName getRepository() {
+      throw new IllegalStateException("Repository was not found");
+    }
+
+    @Override
+    public PathFragment getPath() {
       throw new IllegalStateException("Repository was not found");
     }
 

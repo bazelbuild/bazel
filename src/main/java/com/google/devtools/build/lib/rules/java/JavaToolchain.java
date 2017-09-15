@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -32,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
@@ -72,11 +73,14 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
 
+    NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools", Mode.HOST);
+
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
-    List<String> jvmOpts = getJvmOpts(
-        ruleContext,
-        ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
-            javacDep.getLabel(), ImmutableList.of(javac)));
+    List<String> jvmOpts =
+        getJvmOpts(
+            ruleContext,
+            ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
+                AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac)));
 
     JavaToolchainData toolchainData =
         new JavaToolchainData(
@@ -98,6 +102,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             extclasspath,
             configuration.getDefaultJavacFlags(),
             javac,
+            tools,
             javabuilder,
             headerCompiler,
             forciblyDisableHeaderCompilation,

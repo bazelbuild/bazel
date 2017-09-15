@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -86,7 +86,7 @@ import javax.annotation.Nullable;
  * <p>Covers enough functionality to work as a substitute for {@code BuildView#configureTargets}.
  */
 public final class SkyframeBuildView {
-  private static Logger LOG = Logger.getLogger(BuildView.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildView.class.getName());
 
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
@@ -107,7 +107,7 @@ public final class SkyframeBuildView {
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
 
-  private final RuleClassProvider ruleClassProvider;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   // The host configuration containing all fragments used by this build's transitive closure.
   private BuildConfiguration topLevelHostConfiguration;
@@ -155,7 +155,7 @@ public final class SkyframeBuildView {
     // prevents unbounded memory usage.
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
-      LOG.info("Discarding analysis cache: configurations have changed.");
+      logger.info("Discarding analysis cache: configurations have changed.");
       skyframeExecutor.dropConfiguredTargets();
     }
     skyframeAnalysisWasDiscarded = false;
@@ -477,31 +477,39 @@ public final class SkyframeBuildView {
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
+  ConfiguredTarget createConfiguredTarget(
+      Target target,
+      BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
+      throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
-    return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
-        configuration, getHostConfiguration(configuration), prerequisiteMap,
-        configConditions);
+    return factory.createConfiguredTarget(
+        analysisEnvironment,
+        artifactFactory,
+        target,
+        configuration,
+        getHostConfiguration(configuration),
+        prerequisiteMap,
+        configConditions,
+        toolchainContext);
   }
 
   /**
    * Returns the host configuration trimmed to the same fragments as the input configuration. If
    * the input is null, returns the top-level host configuration.
    *
-   * <p>For static configurations, this unconditionally returns the (sole) top-level configuration.
-   *
    * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the
    * correct host configuration at the top-level.
    */
   public BuildConfiguration getHostConfiguration(BuildConfiguration config) {
-    if (config == null || !config.useDynamicConfigurations()) {
+    if (config == null) {
       return topLevelHostConfiguration;
     }
     // TODO(bazel-team): have the fragment classes be those required by the consuming target's
@@ -521,7 +529,7 @@ public final class SkyframeBuildView {
     Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses =
         config.trimConfigurations()
             ? config.fragmentClasses()
-            : ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
+            : ruleClassProvider.getAllFragments();
     BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
     if (hostConfig != null) {
       return hostConfig;
@@ -543,7 +551,7 @@ public final class SkyframeBuildView {
   }
 
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
-    return new SkyframeDependencyResolver(env);
+    return new SkyframeDependencyResolver(env, ruleClassProvider.getDynamicTransitionMapper());
   }
 
   /**

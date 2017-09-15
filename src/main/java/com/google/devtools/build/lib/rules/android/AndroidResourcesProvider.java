@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -27,14 +28,28 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
   public static AndroidResourcesProvider create(
       Label label,
       NestedSet<ResourceContainer> transitiveAndroidResources,
-      NestedSet<ResourceContainer> directAndroidResources) {
+      NestedSet<ResourceContainer> directAndroidResources,
+      NestedSet<Artifact> transitiveResourceRoots,
+      NestedSet<Artifact> transitiveManifests,
+      NestedSet<Artifact> transitiveAapt2RTxt,
+      NestedSet<Artifact> transitiveSymbolsBin,
+      NestedSet<Artifact> transitiveStaticLib,
+      NestedSet<Artifact> transitiveRTxt,
+      boolean isResourcesOnly) {
     return new AutoValue_AndroidResourcesProvider(
-        label, transitiveAndroidResources, directAndroidResources);
+        label,
+        transitiveAndroidResources,
+        directAndroidResources,
+        transitiveResourceRoots,
+        transitiveManifests,
+        transitiveAapt2RTxt,
+        transitiveSymbolsBin,
+        transitiveStaticLib,
+        transitiveRTxt,
+        isResourcesOnly);
   }
 
-  /**
-   * Returns the label that is associated with this piece of information.
-   */
+  /** Returns the label that is associated with this piece of information. */
   public abstract Label getLabel();
 
   /** Returns the transitive ResourceContainers for the label. */
@@ -42,6 +57,26 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
 
   /** Returns the immediate ResourceContainers for the label. */
   public abstract NestedSet<ResourceContainer> getDirectAndroidResources();
+
+  public abstract NestedSet<Artifact> getTransitiveResourceRoots();
+
+  public abstract NestedSet<Artifact> getTransitiveManifests();
+
+  public abstract NestedSet<Artifact> getTransitiveAapt2RTxt();
+
+  public abstract NestedSet<Artifact> getTransitiveSymbolsBin();
+
+  public abstract NestedSet<Artifact> getTransitiveStaticLib();
+
+  public abstract NestedSet<Artifact> getTransitiveRTxt();
+
+  /**
+   * Returns whether the targets contained within this provider only represent android resources or
+   * also contain other information.
+   *
+   * TODO(b/30307842): Remove this once android_resources is fully removed.
+   */
+  public abstract boolean getIsResourcesOnly();
 
   AndroidResourcesProvider() {}
 }

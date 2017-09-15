@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import java.io.IOException;
+import java.util.Set;
 
 /**
  * Bazel's BES module.
@@ -31,10 +35,14 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected BuildEventServiceClient createBesClient(BuildEventServiceOptions besOptions,
-      AuthAndTLSOptions authAndTLSOptions) {
+      AuthAndTLSOptions authAndTLSOptions) throws IOException {
     return new BuildEventServiceGrpcClient(
-        besOptions.besBackend, authAndTLSOptions.tlsEnabled, authAndTLSOptions.tlsCertificate,
-        authAndTLSOptions.tlsAuthorityOverride, authAndTLSOptions.authCredentials,
-        authAndTLSOptions.authScope);
+        GrpcUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
+        GrpcUtils.newCallCredentials(authAndTLSOptions));
+  }
+
+  @Override
+  protected Set<String> whitelistedCommands() {
+    return ImmutableSet.of("fetch", "build", "test", "run", "query", "coverage", "mobile-install");
   }
 }

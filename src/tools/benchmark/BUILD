@@ -1,3 +1,5 @@
+package(default_visibility = ["//src:__subpackages__"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -7,5 +9,4 @@ filegroup(
         "//src/tools/benchmark/javatests/com/google/devtools/build/benchmark/codegenerator:srcs",
         "//src/tools/benchmark/webapp:srcs",
     ],
-    visibility = ["//src:__pkg__"],
 )

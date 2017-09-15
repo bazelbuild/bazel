@@ -26,13 +26,16 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -42,8 +45,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.rules.MakeVariableProvider;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -121,7 +122,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         return null;
       }
 
+      // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
+      String cpu = cppConfiguration.getTargetCpu();
+      if (!"k8".equals(cpu)) {
+        rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
+      }
       rawProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "fdo", rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
@@ -145,12 +151,16 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               .addOutput(rawProfileArtifact)
               .useDefaultShellEnvironment()
               .setExecutable(zipperBinaryArtifact)
-              .addArguments("xf", zipProfileArtifact.getExecPathString())
-              .addArguments(
-                  "-d", rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
               .setProgressMessage(
-                  "LLVMUnzipProfileAction: Generating " + rawProfileArtifact.prettyPrint())
+                  "LLVMUnzipProfileAction: Generating %s", rawProfileArtifact.prettyPrint())
               .setMnemonic("LLVMUnzipProfileAction")
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("xf", zipProfileArtifact)
+                      .add(
+                          "-d",
+                          rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
+                      .build())
               .build(ruleContext));
     } else {
       rawProfileArtifact =
@@ -180,10 +190,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(cppConfiguration.getLLVMProfDataExecutable())
-            .addArguments("merge", "-o", profileArtifact.getExecPathString())
-            .addArgument(rawProfileArtifact.getExecPathString())
-            .setProgressMessage("LLVMProfDataAction: Generating " + profileArtifact.prettyPrint())
+            .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .add("merge")
+                    .add("-o")
+                    .addExecPath(profileArtifact)
+                    .addExecPath(rawProfileArtifact)
+                    .build())
             .build(ruleContext));
 
     return profileArtifact;
@@ -381,15 +396,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             builtInIncludeDirectories,
             sysroot);
 
-    MakeVariableProvider makeVariableProvider =
+    MakeVariableInfo makeVariableInfo =
         createMakeVariableProvider(cppConfiguration, sysroot);
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addProvider(ccProvider)
             .addNativeDeclaredProvider(ccProvider)
-            .addProvider(makeVariableProvider)
-            .addNativeDeclaredProvider(makeVariableProvider)
+            .addNativeDeclaredProvider(makeVariableInfo)
             .addProvider(
                 fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
@@ -510,7 +523,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
   }
 
-  private MakeVariableProvider createMakeVariableProvider(
+  private MakeVariableInfo createMakeVariableProvider(
       CppConfiguration cppConfiguration, PathFragment sysroot) {
 
     HashMap<String, String> makeVariables =
@@ -523,7 +536,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
       makeVariables.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, ccFlags);
     }
-    return new MakeVariableProvider(ImmutableMap.copyOf(makeVariables));
+    return new MakeVariableInfo(ImmutableMap.copyOf(makeVariables));
   }
 
   /**

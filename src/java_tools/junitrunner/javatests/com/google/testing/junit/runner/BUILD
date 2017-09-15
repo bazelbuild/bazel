@@ -1,6 +1,4 @@
-DEFAULT_VISIBILITY = [
-    "//src/java_tools/junitrunner:__subpackages__",
-]
+package(default_visibility = ["//src:__subpackages__"])
 
 # Libraries
 # =========================================================
@@ -12,7 +10,6 @@ java_library(
         exclude = ["testbed/*.java"],
     ),
     deps = [
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
@@ -22,7 +19,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//third_party:dagger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
@@ -53,24 +49,28 @@ java_test(
     runtime_deps = [":tests"],
 )
 
-# BazelTestRunner integration tests
-sh_library(
-    name = "testenv",
-    srcs = ["testenv.sh"],
-    deps = ["//src/test/shell:bashunit"],
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
+    ],
 )
 
+# BazelTestRunner integration tests
 sh_test(
     name = "junit4_testbridge_integration_test",
     size = "medium",
     srcs = ["junit4_testbridge_integration_tests.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
     ],
-    data = [":TestbedBinary"],
-    shard_count = 0,
-    deps = [":testenv"],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
 )
 
 sh_test(
@@ -78,12 +78,15 @@ sh_test(
     size = "medium",
     srcs = ["utf8_test_log_test.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
     ],
-    data = [":TestbedBinary"],
-    shard_count = 0,
-    deps = [":testenv"],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
 )
 
 sh_test(
@@ -91,16 +94,16 @@ sh_test(
     size = "medium",
     srcs = ["antxmlresultwriter_integration_test.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml)",
-        "bazel.test_suite",
     ],
     data = [
         ":TestbedBinary",
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
     ],
-    shard_count = 0,
-    deps = [":testenv"],
 )
 
 sh_test(
@@ -108,21 +111,17 @@ sh_test(
     size = "medium",
     srcs = ["deploy_jar_integration_tests.sh"],
     args = [
+        "$(location //src/test/shell:unittest.bash)",
         "$(JAVABASE)",
         "$(location :TestbedBinary_deploy.jar)",
     ],
     data = [
         ":TestbedBinary_deploy.jar",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
         "//tools/defaults:jdk",
     ],
-    shard_count = 0,
-    deps = [":testenv"],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    toolchains = ["//tools/jdk:current_java_runtime"],
 )
 
 exports_files([

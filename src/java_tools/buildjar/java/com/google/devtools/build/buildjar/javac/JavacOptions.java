@@ -80,6 +80,7 @@ public final class JavacOptions {
   private static boolean isBazelSpecificFlag(String opt) {
     return opt.startsWith("-Werror:")
         || opt.startsWith("-Xep")
+        // TODO(b/36228287): delete this once the migration to -XepDisableAllChecks is complete
         || opt.equals("-extra_checks")
         || opt.startsWith("-extra_checks:");
   }

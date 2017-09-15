@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.UrlEscapers;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.ProxyHelper;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -146,6 +148,7 @@ public class GitCloner {
       }
     }
 
+    BuildEvent fetchEvent = null;
     Git git = null;
     Exception suppressedException = null;
     try {
@@ -180,6 +183,7 @@ public class GitCloner {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
 
+      fetchEvent = new FetchEvent(descriptor.remote.toString(), false);
       git =
           Git.cloneRepository()
               .setURI(descriptor.remote)
@@ -210,6 +214,7 @@ public class GitCloner {
                     descriptor.remote, "Cloning submodules for " + descriptor.remote, eventHandler))
             .call();
       }
+      fetchEvent = new FetchEvent(descriptor.remote.toString(), true);
     } catch (InvalidRemoteException e) {
       if (suppressedException != null) {
         e.addSuppressed(suppressedException);
@@ -250,6 +255,9 @@ public class GitCloner {
     } finally {
       if (git != null) {
         git.close();
+      }
+      if (fetchEvent != null) {
+        eventHandler.post(fetchEvent);
       }
     }
     return new HttpDownloadValue(descriptor.directory);

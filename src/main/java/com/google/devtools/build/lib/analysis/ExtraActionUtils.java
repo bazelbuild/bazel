@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.extra.ExtraActionMapProvider;
+import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.extra.ExtraActionMapProvider;
-import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
 import java.util.List;
 import java.util.Set;
 

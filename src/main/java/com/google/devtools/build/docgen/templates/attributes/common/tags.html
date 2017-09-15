@@ -1,4 +1,3 @@
-
 <p>
   <code>List of arbitrary text tags.  Tags may be any valid string; default is
   the empty list.</code>
@@ -24,7 +23,7 @@
 <ul>
   <li><code>local</code> keyword results in the action or test never being
     run remotely or inside the
-    <a href="../bazel-user-manual.html#sandboxing">sandbox</a>.
+    <a href="../user-manual.html#sandboxing">sandbox</a>.
     For genrules and tests, marking the rule with the <code>local = 1</code>
     attribute has the same effect.
   </li>
@@ -32,6 +31,11 @@
   <li><code>block-network</code> keyword blocks access to the external
     network from inside the sandbox. In this case, only communication
     with localhost is allowed.
+  </li>
+
+  <li><code>requires-fakeroot</code> runs the test or action as uid and gid 0 (i.e., the root
+    user). This is only supported on Linux. This tag takes precedence over the
+    <code class='flag'>--sandbox_fake_username</code> command-line option.
   </li>
 </ul>
 

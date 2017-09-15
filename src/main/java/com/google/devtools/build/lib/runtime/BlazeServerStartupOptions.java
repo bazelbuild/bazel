@@ -19,10 +19,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.Map;
 
 /**
@@ -81,9 +80,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "install_base",
     defaultValue = "", // NOTE: purely decorative!  See class docstring.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "This launcher option is intended for use only by tests."
   )
@@ -96,12 +95,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "install_md5",
     defaultValue = "", // NOTE: purely decorative!  See class docstring.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      OptionEffectTag.BAZEL_MONITORING
-    },
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "This launcher option is intended for use only by tests."
   )
   public String installMD5;
@@ -154,9 +150,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "workspace_directory",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
         "The root of the workspace, that is, the directory that Blaze uses as the root of the "
@@ -213,7 +209,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     help =
         "If set, attempt to detect Java heap OOM conditions and exit before thrashing. Only "
             + "honored when --batch is also passed. In some cases, builds that previously "
-            + "succeeded may OOM if they were close to OOMing before."
+            + "succeeded may OOM if they were close to OOMing before. Deprecated: "
+            + "Use the command argument --experimental_oom_more_eagerly_threshold instead."
   )
   public boolean oomMoreEagerly;
 
@@ -224,8 +221,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
-        "If this flag is set, Blaze will OOM if, after two full GC's, more than this "
-            + "percentage of the (old gen) heap is still occupied."
+        "If this flag is set, Blaze will OOM if, after two full GC's, more than this percentage of "
+            + "the (old gen) heap is still occupied. Deprecated: Use the command argument "
+            + "--experimental_oom_more_eagerly_threshold instead."
   )
   public int oomMoreEagerlyThreshold;
 
@@ -298,8 +296,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "fatal_event_bus_exceptions",
     defaultValue = "false", // NOTE: purely decorative!
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Whether or not to exit if an exception is thrown by an internal EventBus handler."
   )
@@ -309,9 +306,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "option_sources",
     converter = OptionSourcesConverter.class,
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = ""
   )
   public Map<String, String> optionSources;
@@ -334,9 +331,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "invocation_policy",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "A base64-encoded-binary-serialized or text-formated "
             + "invocation_policy.InvocationPolicy proto. Unlike other options, it is an error to "
@@ -347,12 +343,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "command_port",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
       OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
     },
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Port to start up the gRPC command server on. If 0, let the kernel choose."
   )
   public int commandPort;
@@ -360,13 +355,13 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "product_name",
     defaultValue = "bazel", // NOTE: purely decorative!
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
       OptionEffectTag.AFFECTS_OUTPUTS,
       OptionEffectTag.BAZEL_MONITORING
     },
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help =
         "The name of the build system. It is used as part of the name of the generated "
             + "directories (e.g. productName-bin for binaries) as well as for printing error "
@@ -388,9 +383,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "write_command_log",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether or not to write the command.log file"
   )
   public boolean writeCommandLog;

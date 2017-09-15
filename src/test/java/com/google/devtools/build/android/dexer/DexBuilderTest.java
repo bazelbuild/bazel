@@ -43,7 +43,7 @@ public class DexBuilderTest {
     options.outputZip =
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), "dex_builder_test.zip");
     options.maxThreads = 1;
-    DexBuilder.buildDexArchive(options, new Dexing.DexingOptions());
+    DexBuilder.buildDexArchive(options, new Dexing(new Dexing.DexingOptions()));
     assertThat(options.outputZip.toFile().exists()).isTrue();
 
     HashSet<String> files = new HashSet<>();

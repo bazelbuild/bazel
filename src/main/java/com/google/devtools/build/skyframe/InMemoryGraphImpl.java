@@ -58,7 +58,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> getBatch(
+      SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
     HashMap<SkyKey, NodeEntry> result = new HashMap<>();

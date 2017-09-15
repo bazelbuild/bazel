@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import com.google.protobuf.UninitializedMessageException;
@@ -327,7 +328,13 @@ public class CrosstoolConfigurationLoader {
     // We use fake CPU values to allow cross-platform builds for other languages that use the
     // C++ toolchain. Translate to the actual target architecture.
     String desiredCpu = cpuTransformer.apply(config.getCpu());
+    CppOptions cppOptions = options.get(CppOptions.class);
+    boolean needsLipo =
+        cppOptions.getLipoMode() != LipoMode.OFF && !cppOptions.convertLipoToThinLto;
     for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
+      if (needsLipo && !selector.getSupportsLipo()) {
+        continue;
+      }
       if (selector.getCpu().equals(desiredCpu)) {
         selectedIdentifier = selector.getToolchainIdentifier();
         break;

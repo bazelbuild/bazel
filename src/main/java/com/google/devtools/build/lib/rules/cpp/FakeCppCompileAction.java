@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -47,7 +46,7 @@ import java.util.logging.Logger;
 @ThreadCompatible
 public class FakeCppCompileAction extends CppCompileAction {
 
-  private static final Logger log = Logger.getLogger(FakeCppCompileAction.class.getName());
+  private static final Logger logger = Logger.getLogger(FakeCppCompileAction.class.getName());
 
   public static final UUID GUID = UUID.fromString("8ab63589-be01-4a39-b770-b98ae8b03493");
 
@@ -56,7 +55,6 @@ public class FakeCppCompileAction extends CppCompileAction {
   FakeCppCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
-      ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
@@ -64,7 +62,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
-      Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
@@ -74,7 +71,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
-      ImmutableList<String> copts,
       Predicate<String> nocopts,
       Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
@@ -83,7 +79,6 @@ public class FakeCppCompileAction extends CppCompileAction {
     super(
         owner,
         allInputs,
-        features,
         featureConfiguration,
         variables,
         sourceFile,
@@ -91,7 +86,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         shouldPruneModules,
         usePic,
         useHeaderModules,
-        sourceLabel,
         mandatoryInputs,
         prunableInputs,
         outputFile,
@@ -111,7 +105,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         // time, so they can't depend on the contents of the ".d" file.)
         CppCompilationContext.disallowUndeclaredHeaders(context),
         actionContext,
-        copts,
         nocopts,
         VOID_SPECIAL_INPUTS_HANDLER,
         lipoScannables,
@@ -132,7 +125,7 @@ public class FakeCppCompileAction extends CppCompileAction {
     setModuleFileFlags();
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
-    log.info("Generating " + getDotdFile());
+    logger.info("Generating " + getDotdFile());
     CppCompileActionContext context = actionExecutionContext.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
@@ -195,7 +188,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.
-    log.info("Generating " + outputFile);
+    logger.info("Generating " + outputFile);
 
     // A cc_fake_binary rule generates fake .o files and a fake target file,
     // which merely contain instructions on building the real target. We need to
@@ -206,14 +199,12 @@ public class FakeCppCompileAction extends CppCompileAction {
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
     String argv =
-        getArgv(outputFile.getExecPath())
+        getArguments()
             .stream()
             .map(
                 input -> {
                   String result = ShellEscaper.escapeString(input);
-                  // Once -c and -o options are added into action_config, the argument of
-                  // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
-                  // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
+                  // Replace -c <tempOutputFile> so it's -c <outputFile>.
                   if (input.equals(tempOutputFile.getPathString())) {
                     result =
                         outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());

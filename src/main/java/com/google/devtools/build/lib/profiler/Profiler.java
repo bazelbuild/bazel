@@ -18,9 +18,11 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
 import java.io.BufferedOutputStream;
@@ -45,28 +47,27 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
 /**
- * Blaze internal profiler. Provides facility to report various Blaze tasks and
- * store them (asynchronously) in the file for future analysis.
+ * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
+ * (asynchronously) in the file for future analysis.
+ *
+ * <p>Implemented as singleton so any caller should use Profiler.instance() to obtain reference.
+ *
+ * <p>Internally, profiler uses two data structures - ThreadLocal task stack to track nested tasks
+ * and single ConcurrentLinkedQueue to gather all completed tasks.
+ *
+ * <p>Also, due to the nature of the provided functionality (instrumentation of all Blaze
+ * components), build.lib.profiler package will be used by almost every other Blaze package, so
+ * special attention should be paid to avoid any dependencies on the rest of the Blaze code,
+ * including build.lib.util and build.lib.vfs. This is important because build.lib.util and
+ * build.lib.vfs contain Profiler invocations and any dependency on those two packages would create
+ * circular relationship.
+ *
+ * <p>All gathered instrumentation data will be stored in the file. Please, note, that while file
+ * format is described here it is considered internal and can change at any time. For scripting,
+ * using blaze analyze-profile --dump=raw would be more robust and stable solution.
+ *
  * <p>
- * Implemented as singleton so any caller should use Profiler.instance() to
- * obtain reference.
- * <p>
- * Internally, profiler uses two data structures - ThreadLocal task stack to track
- * nested tasks and single ConcurrentLinkedQueue to gather all completed tasks.
- * <p>
- * Also, due to the nature of the provided functionality (instrumentation of all
- * Blaze components), build.lib.profiler package will be used by almost every
- * other Blaze package, so special attention should be paid to avoid any
- * dependencies on the rest of the Blaze code, including build.lib.util and
- * build.lib.vfs. This is important because build.lib.util and build.lib.vfs
- * contain Profiler invocations and any dependency on those two packages would
- * create circular relationship.
- * <p>
- * All gathered instrumentation data will be stored in the file. Please, note,
- * that while file format is described here it is considered internal and can
- * change at any time. For scripting, using blaze analyze-profile --dump=raw
- * would be more robust and stable solution.
- * <p>
+ *
  * <pre>
  * Profiler file consists of the deflated stream with following overall structure:
  *   HEADER
@@ -115,19 +116,19 @@ import java.util.zip.DeflaterOutputStream;
  *
  * @see ProfilerTask enum for recognized task types.
  */
-//@ThreadSafe - commented out to avoid cyclic dependency with lib.util package
+@ThreadSafe
 public final class Profiler {
-  private static final Logger LOG = Logger.getLogger(Profiler.class.getName());
+  private static final Logger logger = Logger.getLogger(Profiler.class.getName());
 
-  static final int MAGIC = 0x11223344;
+  public static final int MAGIC = 0x11223344;
 
   // File version number. Note that merely adding new record types in
   // the ProfilerTask does not require bumping version number as long as original
   // enum values are not renamed or deleted.
-  static final int VERSION = 0x03;
+  public static final int VERSION = 0x03;
 
   // EOF marker. Must be < 0.
-  static final int EOF_MARKER = -1;
+  public static final int EOF_MARKER = -1;
 
   // Profiler will check for gathered data and persist all of it in the
   // separate thread every SAVE_DELAY ms.
@@ -140,11 +141,8 @@ public final class Profiler {
 
   private static final int HISTOGRAM_BUCKETS = 20;
 
-  /**
-   *
-   * A task that was very slow.
-   */
-  public final class SlowTask implements Comparable<SlowTask> {
+  /** A task that was very slow. */
+  public static final class SlowTask implements Comparable<SlowTask> {
     final long durationNanos;
     final Object object;
     ProfilerTask type;
@@ -187,7 +185,7 @@ public final class Profiler {
    * Class itself is not thread safe, but all access to it from Profiler
    * methods is.
    */
-  //@ThreadCompatible - commented out to avoid cyclic dependency with lib.util.
+  @ThreadCompatible
   private final class TaskData {
     final long threadId;
     final long startTime;
@@ -240,7 +238,7 @@ public final class Profiler {
    * However, ArrayDeque is 1.6 only. For 1.5 best approach would be to utilize
    * ArrayList and emulate stack using it.
    */
-  //@ThreadSafe - commented out to avoid cyclic dependency with lib.util.
+  @ThreadSafe
   private final class TaskStack extends ThreadLocal<List<TaskData>> {
 
     @Override
@@ -293,11 +291,11 @@ public final class Profiler {
   }
 
   /**
-   * Implements datastore for object description indices. Intended to be used
-   * only by the Profiler.save() method.
+   * Implements datastore for object description indices. Intended to be used only by the
+   * Profiler.save() method.
    */
-  //@ThreadCompatible - commented out to avoid cyclic dependency with lib.util.
-  private final class ObjectDescriber {
+  @ThreadCompatible
+  private static final class ObjectDescriber {
     private Map<Object, Integer> descMap = new IdentityHashMap<>(2000);
     private int indexCounter = 0;
 
@@ -337,7 +335,7 @@ public final class Profiler {
    * lock if they do the same operation at the same time. Access to the individual queues is
    * synchronized on the queue objects themselves.
    */
-  private final class SlowestTaskAggregator {
+  private static final class SlowestTaskAggregator {
     private static final int SHARDS = 16;
     private final int size;
 
@@ -741,7 +739,7 @@ public final class Profiler {
     if (localStack == null || localQueue == null) {
       // Variables have been nulled out by #clear in between the check the caller made and this
       // point in the code. Probably due to an asynchronous crash.
-      LOG.severe("Variables null in profiler for " + type + ", probably due to async crash");
+      logger.severe("Variables null in profiler for " + type + ", probably due to async crash");
       return;
     }
     TaskData parent = localStack.peek();

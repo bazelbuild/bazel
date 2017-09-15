@@ -28,6 +28,7 @@ import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -496,7 +497,8 @@ public class IosExtensionTest extends ObjcRuleTestCase {
     }
   }
 
-  private String generatingArgumentsToString(CommandAction generatingAction) {
+  private String generatingArgumentsToString(CommandAction generatingAction)
+      throws CommandLineExpansionException {
     return Joiner.on(' ').join(generatingAction.getArguments());
   }
 

@@ -1,13 +1,13 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
-
-java_proto_library(
-    name = "build_data_java_proto",
-    deps = [":build_data_proto"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 proto_library(
     name = "build_data_proto",
     srcs = ["build_data.proto"],
+)
+
+java_proto_library(
+    name = "build_data_java_proto",
+    deps = [":build_data_proto"],
 )
 
 java_binary(
@@ -16,10 +16,9 @@ java_binary(
     main_class = "com.google.devtools.build.benchmark.Main",
     deps = [
         ":build_data_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:shell",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -34,10 +33,9 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         ":build_data_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:shell",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -48,5 +46,5 @@ java_library(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["*"]),
 )

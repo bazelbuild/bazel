@@ -16,15 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
@@ -33,20 +31,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Information about a C++ compiler used by the <code>cc_*</code> rules.
- */
-@SkylarkModule(
-    name = "CcToolchainInfo",
-    doc = "Information about the C++ compiler being used."
-)
+/** Information about a C++ compiler used by the <code>cc_*</code> rules. */
+@SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
 @Immutable
-public final class CcToolchainProvider
-    extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class CcToolchainProvider extends ToolchainInfo {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
-
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
@@ -132,7 +121,7 @@ public final class CcToolchainProvider
       ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(ImmutableMap.<String, Object>of(), Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
@@ -365,8 +354,12 @@ public final class CcToolchainProvider
         "Returns the default list of options which cannot be filtered by BUILD "
             + "rules. These should be appended to the command line after filtering."
   )
+  public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(Iterable<String> features) {
+    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, sysroot);
+  }
+
   public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptions(features, sysroot);
+    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, /* sysroot= */ null);
   }
 
   @SkylarkCallable(
@@ -376,7 +369,25 @@ public final class CcToolchainProvider
         "Returns the set of command-line linker options, including any flags "
             + "inferred from the command-line options."
   )
+  public ImmutableList<String> getLinkOptionsWithSysroot() {
+    return cppConfiguration.getLinkOptionsDoNotUse(sysroot);
+  }
+
   public ImmutableList<String> getLinkOptions() {
-    return cppConfiguration.getLinkOptions(sysroot);
+    return cppConfiguration.getLinkOptionsDoNotUse(/* sysroot= */ null);
+  }
+
+
+  // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // are not, the behavior is surprising in Java. Thus, object identity it is.
+  @Override
+  public boolean equals(Object other) {
+    return other == this;
+  }
+
+  @Override
+  public int hashCode() {
+    return System.identityHashCode(this);
   }
 }

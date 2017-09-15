@@ -2,6 +2,7 @@
 layout: documentation
 title: Variable x is read only
 ---
+
 # Error: Variable x is read only
 
 A global variable cannot be reassigned. It will always point to the same object.

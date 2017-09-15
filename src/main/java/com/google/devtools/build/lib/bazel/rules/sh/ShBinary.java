@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -27,11 +28,12 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
+import com.google.devtools.build.lib.bazel.rules.NativeLauncherUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.OS;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * Implementation for the sh_binary rule.
@@ -68,8 +70,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             ruleContext.getConfiguration().legacyExternalRunfiles());
 
     Artifact mainExecutable =
-        (OS.getCurrent() == OS.WINDOWS) ? wrapperForWindows(ruleContext, symlink, src) : symlink;
-    if (symlink != mainExecutable) {
+        (OS.getCurrent() == OS.WINDOWS) ? launcherForWindows(ruleContext, symlink, src) : symlink;
+    if (!symlink.equals(mainExecutable)) {
       filesToBuildBuilder.add(mainExecutable);
       runfilesBuilder.addArtifact(symlink);
     }
@@ -80,11 +82,11 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
             .build();
 
-    // Create the RunfilesSupport with the symlink's name, even on Windows. This way the runfiles
-    // directory's name is derived from the symlink (yielding "%{name}.runfiles) and not from the
-    // wrapper script (yielding "%{name}.cmd.runfiles").
+    // Create the RunfilesSupport with the mainExecutable's name. On Windows, this way the runfiles
+    // directory's name is derived from the launcher (yielding "%{name}.cmd.runfiles" or
+    // "%{name}.exe.runfiles").
     RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(ruleContext, runfiles, symlink);
+        RunfilesSupport.withExecutable(ruleContext, runfiles, mainExecutable);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(runfilesSupport, mainExecutable)
@@ -92,16 +94,54 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private static Artifact wrapperForWindows(
-      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile) {
-    if (primaryOutput.getFilename().endsWith(".exe")
-        || primaryOutput.getFilename().endsWith(".bat")
-        || primaryOutput.getFilename().endsWith(".cmd")) {
-      String suffix =
-          primaryOutput.getFilename().substring(primaryOutput.getFilename().length() - 4);
-      if (mainFile.getFilename().endsWith(suffix)) {
+  private static boolean isWindowsExecutable(Artifact artifact) {
+    return artifact.getExtension().equals("exe")
+        || artifact.getExtension().equals("cmd")
+        || artifact.getExtension().equals("bat");
+  }
+
+  private static Artifact createWindowsExeLauncher(RuleContext ruleContext)
+      throws RuleErrorException {
+    Artifact bashLauncher =
+        ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
+
+    ByteArrayOutputStream launchInfo = new ByteArrayOutputStream();
+    try {
+      NativeLauncherUtil.writeLaunchInfo(launchInfo, "binary_type", "Bash");
+      NativeLauncherUtil.writeLaunchInfo(
+          launchInfo, "workspace_name", ruleContext.getWorkspaceName());
+      NativeLauncherUtil.writeLaunchInfo(
+          launchInfo,
+          "bash_bin_path",
+          ruleContext.getFragment(BazelConfiguration.class).getShellExecutable().getPathString());
+      NativeLauncherUtil.writeDataSize(launchInfo);
+    } catch (IOException e) {
+      ruleContext.ruleError(e.getMessage());
+      throw new RuleErrorException();
+    }
+
+    NativeLauncherUtil.createNativeLauncherActions(ruleContext, bashLauncher, launchInfo);
+
+    return bashLauncher;
+  }
+
+  private static Artifact launcherForWindows(
+      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile)
+      throws RuleErrorException {
+    if (isWindowsExecutable(mainFile)) {
+      if (mainFile.getExtension().equals(primaryOutput.getExtension())) {
         return primaryOutput;
+      } else {
+        // If the extensions don't match, we should always respect mainFile's extension.
+        ruleContext.ruleError(
+            "Source file is a Windows executable file,"
+                + " target name extension should match source file extension");
+        throw new RuleErrorException();
       }
+    }
+
+    if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      return createWindowsExeLauncher(ruleContext);
     }
 
     Artifact wrapper =

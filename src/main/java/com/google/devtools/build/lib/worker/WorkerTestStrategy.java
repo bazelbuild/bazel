@@ -26,11 +26,11 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
-import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,6 +44,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 
 /**
  * Runs TestRunnerAction actions in a worker. This is still experimental WIP.
@@ -100,6 +101,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
 
     return execInWorker(
         action,
+        spawn,
         actionExecutionContext,
         addPersistentRunnerVars(spawn.getEnvironment()),
         startupArgs,
@@ -108,6 +110,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
 
   private TestResultData execInWorker(
       TestRunnerAction action,
+      Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
       List<String> startupArgs,
@@ -127,18 +130,24 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     WorkerKey key = null;
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
     try {
-      HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
-          action.getTools(), actionExecutionContext);
+      SortedMap<PathFragment, HashCode> workerFiles =
+          WorkerFilesHash.getWorkerFilesWithHashes(
+              spawn,
+              actionExecutionContext.getArtifactExpander(),
+              actionExecutionContext.getActionInputFileCache());
+
+      HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
       key =
           new WorkerKey(
               startupArgs,
               environment,
               execRoot,
               action.getMnemonic(),
-              workerFilesHash,
+              workerFilesCombinedHash,
+              workerFiles,
               ImmutableMap.<PathFragment, Path>of(),
               ImmutableSet.<PathFragment>of(),
-              /*mustBeSandboxed=*/false);
+              /*mustBeSandboxed=*/ false);
       worker = workerPool.borrowObject(key);
 
       WorkRequest request = WorkRequest.getDefaultInstance();
@@ -192,7 +201,6 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         builder
             .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
-            .setCachable(true)
             .setPassedLog(testLogPath.getPathString());
       } else {
         builder

@@ -35,7 +35,7 @@ import org.objectweb.asm.tree.TypeInsnNode;
  * Visitor intended to fix up lambda classes to match assumptions made in {@link LambdaDesugaring}.
  * Specifically this includes fixing visibilities and generating any missing factory methods.
  *
- * <p>Each instance can only visit one class.  This is because the signature of the needed factory
+ * <p>Each instance can only visit one class. This is because the signature of the needed factory
  * method is passed into the constructor.
  */
 class LambdaClassFixer extends ClassVisitor {
@@ -50,6 +50,7 @@ class LambdaClassFixer extends ClassVisitor {
   private final ImmutableSet<String> interfaceLambdaMethods;
   private final boolean allowDefaultMethods;
   private final boolean copyBridgeMethods;
+  private final ClassLoader classLoader;
   private final HashSet<String> implementedMethods = new HashSet<>();
   private final LinkedHashSet<String> methodsToMoveIn = new LinkedHashSet<>();
 
@@ -62,14 +63,20 @@ class LambdaClassFixer extends ClassVisitor {
   private String desc;
   private String signature;
 
-  public LambdaClassFixer(ClassVisitor dest, LambdaInfo lambdaInfo, ClassReaderFactory factory,
-      ImmutableSet<String> interfaceLambdaMethods, boolean allowDefaultMethods,
+  public LambdaClassFixer(
+      ClassVisitor dest,
+      LambdaInfo lambdaInfo,
+      ClassReaderFactory factory,
+      ClassLoader classLoader,
+      ImmutableSet<String> interfaceLambdaMethods,
+      boolean allowDefaultMethods,
       boolean copyBridgeMethods) {
     super(Opcodes.ASM5, dest);
     checkArgument(!allowDefaultMethods || interfaceLambdaMethods.isEmpty());
     checkArgument(allowDefaultMethods || copyBridgeMethods);
     this.lambdaInfo = lambdaInfo;
     this.factory = factory;
+    this.classLoader = classLoader;
     this.interfaceLambdaMethods = interfaceLambdaMethods;
     this.allowDefaultMethods = allowDefaultMethods;
     this.copyBridgeMethods = copyBridgeMethods;
@@ -105,7 +112,8 @@ class LambdaClassFixer extends ClassVisitor {
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
-    if (name.equals("writeReplace") && BitFlags.noneSet(access, Opcodes.ACC_STATIC)
+    if (name.equals("writeReplace")
+        && BitFlags.noneSet(access, Opcodes.ACC_STATIC)
         && desc.equals("()Ljava/lang/Object;")) {
       // Lambda serialization hooks use java/lang/invoke/SerializedLambda, which isn't available on
       // Android. Since Jack doesn't do anything special for serializable lambdas we just drop these
@@ -137,7 +145,8 @@ class LambdaClassFixer extends ClassVisitor {
     if (!lambdaInfo.bridgeMethod().equals(lambdaInfo.methodReference())) {
       // Skip UseBridgeMethod unless we actually need it
       methodVisitor =
-          new UseBridgeMethod(methodVisitor, lambdaInfo, access, name, desc, signature, exceptions);
+          new UseBridgeMethod(
+              methodVisitor, lambdaInfo, classLoader, access, name, desc, signature, exceptions);
     }
     if (!FACTORY_METHOD_NAME.equals(name) && !"<init>".equals(name)) {
       methodVisitor = new LambdaClassInvokeSpecialRewriter(methodVisitor);
@@ -147,36 +156,42 @@ class LambdaClassFixer extends ClassVisitor {
 
   @Override
   public void visitEnd() {
-    checkState(!hasState || hasFactory,
-        "Expected factory method for capturing lambda %s", getInternalName());
+    checkState(
+        !hasState || hasFactory,
+        "Expected factory method for capturing lambda %s",
+        getInternalName());
     if (!hasState) {
-      checkState(signature == null,
-          "Didn't expect generic constructor signature %s %s", getInternalName(), signature);
-      checkState(lambdaInfo.factoryMethodDesc().startsWith("()"),
-          "Expected 0-arg factory method for %s but found %s", getInternalName(),
+      checkState(
+          signature == null,
+          "Didn't expect generic constructor signature %s %s",
+          getInternalName(),
+          signature);
+      checkState(
+          lambdaInfo.factoryMethodDesc().startsWith("()"),
+          "Expected 0-arg factory method for %s but found %s",
+          getInternalName(),
           lambdaInfo.factoryMethodDesc());
       // Since this is a stateless class we populate and use a static singleton field "$instance".
       // Field is package-private so we can read it from the class that had the invokedynamic.
       String singletonFieldDesc = lambdaInfo.factoryMethodDesc().substring("()".length());
       super.visitField(
-          Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
-          SINGLETON_FIELD_NAME,
-          singletonFieldDesc,
-          (String) null,
-          (Object) null)
+              Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+              SINGLETON_FIELD_NAME,
+              singletonFieldDesc,
+              (String) null,
+              (Object) null)
           .visitEnd();
 
       MethodVisitor codeBuilder =
-          super.visitMethod(
-              Opcodes.ACC_STATIC,
-              "<clinit>",
-              "()V",
-              (String) null,
-              new String[0]);
+          super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", (String) null, new String[0]);
       codeBuilder.visitTypeInsn(Opcodes.NEW, getInternalName());
       codeBuilder.visitInsn(Opcodes.DUP);
-      codeBuilder.visitMethodInsn(Opcodes.INVOKESPECIAL, getInternalName(), "<init>",
-          checkNotNull(desc, "didn't see a constructor for %s", getInternalName()), /*itf*/ false);
+      codeBuilder.visitMethodInsn(
+          Opcodes.INVOKESPECIAL,
+          getInternalName(),
+          "<init>",
+          checkNotNull(desc, "didn't see a constructor for %s", getInternalName()),
+          /*itf=*/ false);
       codeBuilder.visitFieldInsn(
           Opcodes.PUTSTATIC, getInternalName(), SINGLETON_FIELD_NAME, singletonFieldDesc);
       codeBuilder.visitInsn(Opcodes.RETURN);
@@ -199,8 +214,11 @@ class LambdaClassFixer extends ClassVisitor {
     for (String rewritten : methodsToMoveIn) {
       String interfaceInternalName = rewritten.substring(0, rewritten.indexOf('#'));
       String methodName = rewritten.substring(interfaceInternalName.length() + 1);
-      ClassReader bytecode = checkNotNull(factory.readIfKnown(interfaceInternalName),
-          "Couldn't load interface with lambda method %s", rewritten);
+      ClassReader bytecode =
+          checkNotNull(
+              factory.readIfKnown(interfaceInternalName),
+              "Couldn't load interface with lambda method %s",
+              rewritten);
       CopyOneMethod copier = new CopyOneMethod(methodName);
       // TODO(kmb): Set source file attribute for lambda classes so lambda debug info makes sense
       bytecode.accept(copier, ClassReader.SKIP_DEBUG);
@@ -219,9 +237,7 @@ class LambdaClassFixer extends ClassVisitor {
     }
   }
 
-  /**
-   * Rewriter for methods in generated lambda classes.
-   */
+  /** Rewriter for methods in generated lambda classes. */
   private class LambdaClassMethodRewriter extends MethodVisitor {
     public LambdaClassMethodRewriter(MethodVisitor dest) {
       super(Opcodes.ASM5, dest);
@@ -304,7 +320,8 @@ class LambdaClassFixer extends ClassVisitor {
    */
   private class CopyBridgeMethods extends ClassVisitor {
 
-    @SuppressWarnings("hiding") private ImmutableList<String> interfaces;
+    @SuppressWarnings("hiding")
+    private ImmutableList<String> interfaces;
 
     public CopyBridgeMethods() {
       // No delegate visitor; instead we'll add methods to the outer class's delegate where needed
@@ -393,8 +410,8 @@ class LambdaClassFixer extends ClassVisitor {
    *
    * <p>This class should only be used to visit interface methods and assumes that the code in
    * {@code $jacocoInit()} is always executed in the interface's static initializer, which is the
-   * case in the absence of hand-written static or default interface methods (which
-   * {@link Java7Compatibility} makes sure of).
+   * case in the absence of hand-written static or default interface methods (which {@link
+   * Java7Compatibility} makes sure of).
    */
   private static class AvoidJacocoInit extends MethodVisitor {
     public AvoidJacocoInit(MethodVisitor dest) {
@@ -416,32 +433,61 @@ class LambdaClassFixer extends ClassVisitor {
 
     private final MethodVisitor dest;
     private final LambdaInfo lambdaInfo;
+    private final ClassLoader classLoader;
 
-    public UseBridgeMethod(MethodVisitor dest, LambdaInfo lambdaInfo,
-        int access, String name, String desc, String signature, String[] exceptions) {
+    public UseBridgeMethod(
+        MethodVisitor dest,
+        LambdaInfo lambdaInfo,
+        ClassLoader classLoader,
+        int access,
+        String name,
+        String desc,
+        String signature,
+        String[] exceptions) {
       super(Opcodes.ASM5, access, name, desc, signature, exceptions);
       this.dest = dest;
       this.lambdaInfo = lambdaInfo;
+      this.classLoader = classLoader;
+      checkArgument(
+          !lambdaInfo.methodReference().equals(lambdaInfo.bridgeMethod()),
+          "This class only works for a lambda that has a bridge method. lambdaInfo=%s, bridge=%s",
+          lambdaInfo.methodReference(),
+          lambdaInfo.bridgeMethod());
     }
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      if (owner.equals(lambdaInfo.methodReference().getOwner())
-          && name.equals(lambdaInfo.methodReference().getName())
-          && desc.equals(lambdaInfo.methodReference().getDesc())) {
+      if (!name.equals(lambdaInfo.methodReference().getName())
+          || !desc.equals(lambdaInfo.methodReference().getDesc())) {
+        super.visitMethodInsn(opcode, owner, name, desc, itf);
+        return;
+      }
+
+      boolean useBridgeMethod = false;
+      if (owner.equals(lambdaInfo.methodReference().getOwner())) {
         if (lambdaInfo.methodReference().getTag() == Opcodes.H_NEWINVOKESPECIAL
             && lambdaInfo.bridgeMethod().getTag() != Opcodes.H_NEWINVOKESPECIAL) {
           // We're changing a constructor call to a factory method call, so we unfortunately need
           // to go find the NEW/DUP pair preceding the constructor call and remove it
           removeLastAllocation();
         }
+        useBridgeMethod = true;
+      } else if ((lambdaInfo.methodReference().getTag() == Opcodes.H_INVOKEVIRTUAL
+              || lambdaInfo.methodReference().getTag() == Opcodes.H_INVOKESPECIAL)
+          && hasAssignableRelation(owner, lambdaInfo.methodReference().getOwner())) {
+        // For rewriting instance methods calls, we consider the class hierarchy.
+        // This is for JDK 9: (b/62218600).
+        // TODO(cnsun): revisit this to make sure Desugar is fully compatible with this change
+        // in JDK: http://hg.openjdk.java.net/jdk9/dev/jdk/rev/a3b3c7b6464d
+        useBridgeMethod = true;
+      }
+      if (useBridgeMethod) {
         super.visitMethodInsn(
             LambdaDesugaring.invokeOpcode(lambdaInfo.bridgeMethod()),
             lambdaInfo.bridgeMethod().getOwner(),
             lambdaInfo.bridgeMethod().getName(),
             lambdaInfo.bridgeMethod().getDesc(),
             lambdaInfo.bridgeMethod().isInterface());
-
       } else {
         super.visitMethodInsn(opcode, owner, name, desc, itf);
       }
@@ -451,7 +497,8 @@ class LambdaClassFixer extends ClassVisitor {
       AbstractInsnNode insn = instructions.getLast();
       while (insn != null && insn.getPrevious() != null) {
         AbstractInsnNode prev = insn.getPrevious();
-        if (prev.getOpcode() == Opcodes.NEW && insn.getOpcode() == Opcodes.DUP
+        if (prev.getOpcode() == Opcodes.NEW
+            && insn.getOpcode() == Opcodes.DUP
             && ((TypeInsnNode) prev).desc.equals(lambdaInfo.methodReference().getOwner())) {
           instructions.remove(prev);
           instructions.remove(insn);
@@ -461,6 +508,19 @@ class LambdaClassFixer extends ClassVisitor {
       }
       throw new IllegalStateException(
           "Couldn't find allocation to rewrite ::new reference " + lambdaInfo.methodReference());
+    }
+
+    private boolean hasAssignableRelation(String ownerOfMethodInsn, String ownerOfMethodReference) {
+      try {
+        Class<?> methodInsnOwnerClass = classLoader.loadClass(ownerOfMethodInsn.replace('/', '.'));
+        Class<?> methodReferenceOwnerClass =
+            classLoader.loadClass(ownerOfMethodReference.replace('/', '.'));
+        return methodInsnOwnerClass.isAssignableFrom(methodReferenceOwnerClass)
+            || methodReferenceOwnerClass.isAssignableFrom(methodInsnOwnerClass);
+      } catch (ClassNotFoundException e) {
+        throw new IllegalStateException(
+            "Failed to load method owners for inserting bridge method: " + lambdaInfo, e);
+      }
     }
 
     @Override

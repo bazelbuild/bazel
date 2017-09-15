@@ -17,6 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -30,7 +32,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
@@ -43,7 +44,6 @@ import java.io.IOException;
 @Command(name = FetchCommand.NAME,
     options = {
         PackageCacheOptions.class,
-        SkylarkSemanticsOptions.class,
         FetchOptions.class,
     },
     help = "resource:fetch.txt",
@@ -109,6 +109,15 @@ public final class FetchCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
+    env.getReporter()
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                true,
+                true,
+                env.getCommandId().toString()));
+
     // 2. Evaluate expression:
     try {
       queryEnv.evaluateQuery(expr, new ThreadSafeOutputFormatterCallback<Target>() {
@@ -118,10 +127,18 @@ public final class FetchCommand implements BlazeCommand {
         }
       });
     } catch (InterruptedException e) {
+      env.getReporter()
+          .post(
+              new NoBuildRequestFinishedEvent(
+                  ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
       return ExitCode.COMMAND_LINE_ERROR;
     } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));
+      env.getReporter()
+          .post(
+              new NoBuildRequestFinishedEvent(
+                  ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
       return ExitCode.COMMAND_LINE_ERROR;
     } catch (IOException e) {
       // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
@@ -130,6 +147,10 @@ public final class FetchCommand implements BlazeCommand {
 
     env.getReporter().handle(
         Event.progress("All external dependencies fetched successfully."));
+    env.getReporter()
+        .post(
+            new NoBuildRequestFinishedEvent(
+                ExitCode.SUCCESS, env.getRuntime().getClock().currentTimeMillis()));
     return ExitCode.SUCCESS;
   }
 }

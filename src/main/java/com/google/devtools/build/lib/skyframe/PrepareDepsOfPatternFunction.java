@@ -84,15 +84,22 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     if (blacklist == null) {
       return null;
     }
-    ImmutableSet<PathFragment> subdirectoriesToExclude =
+    // This SkyFunction is used to load the universe, so we want both the blacklisted directories
+    // from the global blacklist and the excluded directories from the TargetPatternKey itself to be
+    // embedded in the SkyKeys created and used by the DepsOfPatternPreparer. The
+    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds blacklistedSubdirectories in
+    // the SkyKeys it creates and uses.
+    ImmutableSet<PathFragment> blacklistedSubdirectories =
         patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
+    ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
     DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
 
     try {
       parsedPattern.eval(
           preparer,
-          subdirectoriesToExclude,
+          blacklistedSubdirectories,
+          excludedSubdirectories,
           NullCallback.<Void>instance(),
           RuntimeException.class);
     } catch (TargetParsingException e) {
@@ -227,10 +234,12 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
+      Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
@@ -257,9 +266,9 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         env.getValues(
             ImmutableList.of(
                 PrepareDepsOfTargetsUnderDirectoryValue.key(
-                    repository, rootedPath, excludedSubdirectories, policy),
+                    repository, rootedPath, blacklistedSubdirectories, policy),
                 CollectPackagesUnderDirectoryValue.key(
-                    repository, rootedPath, excludedSubdirectories)));
+                    repository, rootedPath, blacklistedSubdirectories)));
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }

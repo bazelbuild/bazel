@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -102,8 +103,9 @@ public class FilesystemValueCheckerTest {
 
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         fs.getPath("/output_base"), ImmutableList.of(pkgRoot)));
-    BlazeDirectories directories = new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot,
-        TestConstants.PRODUCT_NAME);
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            new ServerDirectories(pkgRoot, pkgRoot), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(

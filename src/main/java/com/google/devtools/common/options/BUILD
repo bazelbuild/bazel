@@ -4,19 +4,45 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
-    name = "options",
-    srcs = glob(["*.java"]),
+    name = "invocation_policy",
+    srcs = [
+        "InvocationPolicyEnforcer.java",
+        "InvocationPolicyParser.java",
+    ],
     deps = [
+        ":options",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
 )
 
+java_library(
+    name = "options",
+    exported_plugins = ["//src/main/java/com/google/devtools/common/options/processor:options_preprocessor"],
+    exports = [":options_internal"],
+)
+
+java_library(
+    name = "options_internal",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "InvocationPolicyEnforcer.java",
+            "InvocationPolicyParser.java",
+        ],
+    ),
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/common/options/testing:srcs",
+        "//src/main/java/com/google/devtools/common/options/processor:srcs",
+    ],
 )

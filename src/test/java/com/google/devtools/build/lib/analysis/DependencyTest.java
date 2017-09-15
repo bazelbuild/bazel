@@ -42,7 +42,7 @@ public class DependencyTest extends AnalysisTestCase {
     Dependency nullDep = Dependency.withNullConfiguration(Label.parseAbsolute("//a"));
 
     assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
-    assertThat(nullDep.hasStaticConfiguration()).isTrue();
+    assertThat(nullDep.hasExplicitConfiguration()).isTrue();
     assertThat(nullDep.getConfiguration()).isNull();
     assertThat(nullDep.getAspects().getAllAspects()).isEmpty();
 
@@ -61,7 +61,7 @@ public class DependencyTest extends AnalysisTestCase {
         Dependency.withConfiguration(Label.parseAbsolute("//a"), getTargetConfiguration());
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
-    assertThat(targetDep.hasStaticConfiguration()).isTrue();
+    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects()).isEmpty();
 
@@ -85,7 +85,7 @@ public class DependencyTest extends AnalysisTestCase {
             Label.parseAbsolute("//a"), getTargetConfiguration(), twoAspects);
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
-    assertThat(targetDep.hasStaticConfiguration()).isTrue();
+    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
     assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
@@ -142,7 +142,7 @@ public class DependencyTest extends AnalysisTestCase {
             Label.parseAbsolute("//a"), getTargetConfiguration(), aspects, twoAspectMap);
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
-    assertThat(targetDep.hasStaticConfiguration()).isTrue();
+    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects())
         .containsExactly(simpleAspect, attributeAspect);
@@ -182,7 +182,7 @@ public class DependencyTest extends AnalysisTestCase {
             Label.parseAbsolute("//a"), ConfigurationTransition.HOST, twoAspects);
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
-    assertThat(hostDep.hasStaticConfiguration()).isFalse();
+    assertThat(hostDep.hasExplicitConfiguration()).isFalse();
     assertThat(hostDep.getAspects().getAllAspects())
         .containsExactlyElementsIn(twoAspects.getAllAspects());
     assertThat(hostDep.getTransition()).isEqualTo(ConfigurationTransition.HOST);

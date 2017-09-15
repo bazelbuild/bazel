@@ -122,7 +122,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
             env.getToolsLabel("//tools/android/emulator:unified_launcher")))
         .add(attr("$android_runtest", LABEL).cfg(HOST).exec().value(
             env.getToolsLabel("//tools/android:android_runtest")))
-        .add(attr("$testing_shbase", LABEL).cfg(HOST).exec().value(
+        .add(attr("$testing_shbase", LABEL).cfg(HOST).value(
             env.getToolsLabel("//tools/android/emulator:shbase")))
         .add(attr("$sdk_path", LABEL).cfg(HOST).exec().value(
             env.getToolsLabel("//tools/android/emulator:sdk_path")))

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -43,7 +44,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
@@ -78,8 +79,8 @@ public class ObjcCompileAction extends SpawnAction {
    */
   public class ObjcCompileActionSpawn extends ActionSpawn {
 
-    public ObjcCompileActionSpawn(Map<String, String> clientEnv) {
-      super(clientEnv);
+    public ObjcCompileActionSpawn(ImmutableList<String> arguments, Map<String, String> clientEnv) {
+      super(arguments, clientEnv);
     }
 
     @Override
@@ -116,7 +117,7 @@ public class ObjcCompileAction extends SpawnAction {
       boolean isShellCommand,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      String progressMessage,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
@@ -172,7 +173,12 @@ public class ObjcCompileAction extends SpawnAction {
 
   @Override
   public final Spawn getSpawn(Map<String, String> clientEnv) {
-    return new ObjcCompileActionSpawn(clientEnv);
+    try {
+      return new ObjcCompileActionSpawn(
+          ImmutableList.copyOf(getCommandLine().arguments()), clientEnv);
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
   }
 
   @Override
@@ -296,7 +302,12 @@ public class ObjcCompileAction extends SpawnAction {
 
   @Override
   protected SpawnInfo getExtraActionSpawnInfo() {
-    SpawnInfo.Builder info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
+    SpawnInfo.Builder info = null;
+    try {
+      info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
     if (!inputsDiscovered()) {
       for (Artifact headerArtifact : filterHeaderFiles()) {
         // As in SpawnAction#getExtraActionSpawnInfo explicitly ignore middleman artifacts here.
@@ -312,7 +323,11 @@ public class ObjcCompileAction extends SpawnAction {
   public String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addString(super.computeKey());
+    try {
+      f.addString(super.computeKey());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("ObjcCompileAction command line expansion cannot fail");
+    }
     f.addBoolean(dotdFile == null || dotdFile.artifact() == null);
     f.addBoolean(dotdPruningPlan == HeaderDiscovery.DotdPruningMode.USE);
     f.addBoolean(headersListFile == null);
@@ -337,7 +352,7 @@ public class ObjcCompileAction extends SpawnAction {
      * needed by the apple toolchain.
      */
     public static ObjcCompileAction.Builder createObjcCompileActionBuilderWithAppleEnv(
-        AppleConfiguration appleConfiguration, Platform targetPlatform) {
+        AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
       return (Builder)
           new ObjcCompileAction.Builder()
               .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())
@@ -442,7 +457,7 @@ public class ObjcCompileAction extends SpawnAction {
         boolean isShellCommand,
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
-        String progressMessage,
+        CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new ObjcCompileAction(
@@ -454,7 +469,7 @@ public class ObjcCompileAction extends SpawnAction {
           actualCommandLine,
           isShellCommand,
           // TODO(#3320): This is missing the inherited action env from --action_env.
-          new ActionEnvironment(env.getFixedEnv()),
+          ActionEnvironment.create(env.getFixedEnv()),
           executionInfo,
           progressMessage,
           runfilesSupplier,

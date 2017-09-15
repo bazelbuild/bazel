@@ -20,6 +20,9 @@ package blaze;
 
 option java_multiple_files = true;
 option java_package = "com.google.devtools.build.lib.actions.extra";
+// option cc_api_version = 2;
+// option py_api_version = 2;
+// option java_api_version = 2;
 
 // A list of extra actions and metadata for the print_action command.
 message ExtraActionSummary {

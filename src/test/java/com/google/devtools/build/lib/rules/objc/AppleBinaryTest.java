@@ -27,11 +27,14 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
@@ -73,6 +76,27 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
       ImmutableSet.of(FOUNDATION_FRAMEWORK_FLAG);
   private static final ImmutableSet<String> COCOA_FEATURE_FLAGS =
       ImmutableSet.of(COCOA_FRAMEWORK_FLAG);
+
+  @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "minimum_os_version", "'8.0'",
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
 
   @Test
   public void testLipoActionEnv() throws Exception {
@@ -472,7 +496,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    srcs = ['a.m'],",
         "    deps = ['//protos:objc_protos_low_level',]",
         ")");
-    
+
     if (depBinaryType == BinaryType.DYLIB) {
       scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
       scratch.file(
@@ -544,7 +568,9 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataB.pbobjc.o")).isNull();
     Action dataAObjectAction =
         getGeneratingAction(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o"));
-    assertThat(getFirstArtifactEndingWith(dataAObjectAction.getInputs(), "DataB.pbobjc.h"))
+    assertThat(
+            getFirstArtifactEndingWith(
+                getExpandedActionInputs(dataAObjectAction), "DataB.pbobjc.h"))
         .isNotNull();
   }
 
@@ -856,6 +882,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testAliasedLinkoptsThroughObjcLibrary() throws Exception {
     checkAliasedLinkoptsThroughObjcLibrary(RULE_TYPE);
+  }
+
+  @Test
+  public void testObjcProviderLinkInputsInLinkAction() throws Exception {
+    checkObjcProviderLinkInputsInLinkAction(RULE_TYPE);
   }
 
   @Test
@@ -1358,8 +1389,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//bin:bin");
     AppleExecutableBinaryProvider executableBinaryProvider =
-        (AppleExecutableBinaryProvider) binTarget.get(
-            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+        binTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");
@@ -1406,5 +1436,38 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     CommandAction testLinkAction = linkAction("//test:test");
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
         .contains("@loader_path/Frameworks");
+  }
+
+  @Test
+  public void testCustomModuleMap() throws Exception {
+    checkCustomModuleMap(RULE_TYPE);
+  }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipobin", "_bin");
+  }
+
+  @Test
+  public void testMacosFrameworkDirectories() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "    name = 'test',",
+        "    srcs = ['test.m'],",
+        "    platform_type = 'macos',",
+        ")");
+
+    CommandAction linkAction = linkAction("//test:test");
+    ImmutableList<String> expectedCommandLineFragments =
+        ImmutableList.<String>builder()
+            .add(AppleToolchain.sdkDir() + AppleToolchain.SYSTEM_FRAMEWORK_PATH)
+            .add(frameworkDir(ApplePlatform.forTarget(PlatformType.MACOS, "x86_64")))
+            .build();
+
+    String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
+    for (String expectedCommandLineFragment : expectedCommandLineFragments) {
+      assertThat(linkArgs).contains(expectedCommandLineFragment);
+    }
   }
 }

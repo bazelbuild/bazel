@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import android.databinding.AndroidDataBinding;
 import android.databinding.cli.ProcessXmlOptions;
 import com.android.annotations.NonNull;
@@ -42,13 +40,16 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
+import com.google.devtools.build.android.junctions.JunctionCreator;
+import com.google.devtools.build.android.junctions.NoopJunctionCreator;
+import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -284,6 +285,7 @@ public class AndroidResourceProcessor {
   // TODO(bazel-team): Clean up this method call -- 13 params is too many.
   /** Processes resources for generated sources, configs and packaging resources. */
   public void processResources(
+      Path tempRoot,
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
@@ -303,14 +305,23 @@ public class AndroidResourceProcessor {
       @Nullable Path dataBindingInfoOut)
       throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
     Path androidManifest = primaryData.getManifest();
-    final Path resourceDir = processDataBindings(primaryData.getResourceDir(), dataBindingInfoOut,
-        variantType, customPackageForR, androidManifest);
+    final Path resourceDir =
+        processDataBindings(
+            primaryData.getResourceDir().resolveSibling("res_no_binding"),
+            primaryData.getResourceDir(),
+            dataBindingInfoOut,
+            variantType,
+            customPackageForR,
+            androidManifest,
+            true /* shouldZipDataBindingInfo */);
 
     final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
       prepareOutputPath(publicResourcesOut.getParent());
     }
-    runAapt(aapt,
+    runAapt(
+        tempRoot,
+        aapt,
         androidJar,
         buildToolsVersion,
         variantType,
@@ -355,6 +366,7 @@ public class AndroidResourceProcessor {
   }
 
   public void runAapt(
+      Path tempRoot,
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
@@ -373,59 +385,75 @@ public class AndroidResourceProcessor {
       @Nullable Path mainDexProguardOut,
       @Nullable Path publicResourcesOut)
       throws InterruptedException, LoggedErrorException, IOException {
-    AaptCommandBuilder commandBuilder =
-        new AaptCommandBuilder(aapt)
-        .forBuildToolsVersion(buildToolsVersion)
-        .forVariantType(variantType)
-        // first argument is the command to be executed, "package"
-        .add("package")
-        // If the logger is verbose, set aapt to be verbose
-        .when(stdLogger.getLevel() == StdLogger.Level.VERBOSE).thenAdd("-v")
-        // Overwrite existing files, if they exist.
-        .add("-f")
-        // Resources are precrunched in the merge process.
-        .add("--no-crunch")
-        // Do not automatically generate versioned copies of vector XML resources.
-        .whenVersionIsAtLeast(new Revision(23)).thenAdd("--no-version-vectors")
-        // Add the android.jar as a base input.
-        .add("-I", androidJar)
-        // Add the manifest for validation.
-        .add("-M", androidManifest.toAbsolutePath())
-        // Maybe add the resources if they exist
-        .when(Files.isDirectory(resourceDir)).thenAdd("-S", resourceDir)
-        // Maybe add the assets if they exist
-        .when(Files.isDirectory(assetsDir)).thenAdd("-A", assetsDir)
-        // Outputs
-        .when(sourceOut != null).thenAdd("-m")
-        .add("-J", prepareOutputPath(sourceOut))
-        .add("--output-text-symbols", prepareOutputPath(sourceOut))
-        .add("-F", packageOut)
-        .add("-G", proguardOut)
-        .whenVersionIsAtLeast(new Revision(24)).thenAdd("-D", mainDexProguardOut)
-        .add("-P", publicResourcesOut)
-        .when(debug).thenAdd("--debug-mode")
-        .add("--custom-package", customPackageForR)
-        // If it is a library, do not generate final java ids.
-        .whenVariantIs(VariantType.LIBRARY).thenAdd("--non-constant-id")
-        .add("--ignore-assets", aaptOptions.getIgnoreAssets())
-        .when(aaptOptions.getFailOnMissingConfigEntry()).thenAdd("--error-on-missing-config-entry")
-        // Never compress apks.
-        .add("-0", "apk")
-        // Add custom no-compress extensions.
-        .addRepeated("-0", aaptOptions.getNoCompress())
-        // Filter by resource configuration type.
-        .add("-c", Joiner.on(',').join(resourceConfigs))
-        // Split APKs if any splits were specified.
-        .whenVersionIsAtLeast(new Revision(23)).thenAddRepeated("--split", splits);
-    for (String additional : aaptOptions.getAdditionalParameters()) {
-      commandBuilder.add(additional);
-    }
-    try {
-      new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
-    } catch (LoggedErrorException e) {
-      // Add context and throw the error to resume processing.
-      throw new LoggedErrorException(
-          e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
+    try (JunctionCreator junctions =
+        System.getProperty("os.name").toLowerCase().startsWith("windows")
+            ? new WindowsJunctionCreator(Files.createDirectories(tempRoot.resolve("juncts")))
+            : new NoopJunctionCreator()) {
+      sourceOut = junctions.create(sourceOut);
+      AaptCommandBuilder commandBuilder =
+          new AaptCommandBuilder(junctions.create(aapt))
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(variantType)
+              // first argument is the command to be executed, "package"
+              .add("package")
+              // If the logger is verbose, set aapt to be verbose
+              .when(stdLogger.getLevel() == StdLogger.Level.VERBOSE)
+              .thenAdd("-v")
+              // Overwrite existing files, if they exist.
+              .add("-f")
+              // Resources are precrunched in the merge process.
+              .add("--no-crunch")
+              // Do not automatically generate versioned copies of vector XML resources.
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAdd("--no-version-vectors")
+              // Add the android.jar as a base input.
+              .add("-I", junctions.create(androidJar))
+              // Add the manifest for validation.
+              .add("-M", junctions.create(androidManifest.toAbsolutePath()))
+              // Maybe add the resources if they exist
+              .when(Files.isDirectory(resourceDir))
+              .thenAdd("-S", junctions.create(resourceDir))
+              // Maybe add the assets if they exist
+              .when(Files.isDirectory(assetsDir))
+              .thenAdd("-A", junctions.create(assetsDir))
+              // Outputs
+              .when(sourceOut != null)
+              .thenAdd("-m")
+              .add("-J", prepareOutputPath(sourceOut))
+              .add("--output-text-symbols", prepareOutputPath(sourceOut))
+              .add("-F", junctions.create(packageOut))
+              .add("-G", junctions.create(proguardOut))
+              .whenVersionIsAtLeast(new Revision(24))
+              .thenAdd("-D", junctions.create(mainDexProguardOut))
+              .add("-P", junctions.create(publicResourcesOut))
+              .when(debug)
+              .thenAdd("--debug-mode")
+              .add("--custom-package", customPackageForR)
+              // If it is a library, do not generate final java ids.
+              .whenVariantIs(VariantType.LIBRARY)
+              .thenAdd("--non-constant-id")
+              .add("--ignore-assets", aaptOptions.getIgnoreAssets())
+              .when(aaptOptions.getFailOnMissingConfigEntry())
+              .thenAdd("--error-on-missing-config-entry")
+              // Never compress apks.
+              .add("-0", "apk")
+              // Add custom no-compress extensions.
+              .addRepeated("-0", aaptOptions.getNoCompress())
+              // Filter by resource configuration type.
+              .add("-c", Joiner.on(',').join(resourceConfigs))
+              // Split APKs if any splits were specified.
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAddRepeated("--split", splits);
+      for (String additional : aaptOptions.getAdditionalParameters()) {
+        commandBuilder.add(additional);
+      }
+      try {
+        new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
+      } catch (LoggedErrorException e) {
+        // Add context and throw the error to resume processing.
+        throw new LoggedErrorException(
+            e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
+      }
     }
   }
 
@@ -472,13 +500,19 @@ public class AndroidResourceProcessor {
   /**
    * If resources exist and a data binding layout info file is requested: processes data binding
    * declarations over those resources, populates the output file, and creates a new resources
-   * directory with data binding expressions stripped out (so aapt, which doesn't understand
-   * data binding, can properly read them).
+   * directory with data binding expressions stripped out (so aapt, which doesn't understand data
+   * binding, can properly read them).
    *
    * <p>Returns the resources directory that aapt should read.
    */
-  static Path processDataBindings(Path resourceDir, Path dataBindingInfoOut,
-      VariantType variantType, String packagePath, Path androidManifest)
+  static Path processDataBindings(
+      Path workingDirectory,
+      Path resourceDir,
+      Path dataBindingInfoOut,
+      VariantType variantType,
+      String packagePath,
+      Path androidManifest,
+      boolean shouldZipDataBindingInfo)
       throws IOException {
 
     if (dataBindingInfoOut == null) {
@@ -491,15 +525,20 @@ public class AndroidResourceProcessor {
 
     // Strip the file name (the data binding library automatically adds it back in).
     // ** The data binding library assumes this file is called "layout-info.zip". **
-    dataBindingInfoOut = dataBindingInfoOut.getParent();
-    if (Files.notExists(dataBindingInfoOut)) {
-      Files.createDirectory(dataBindingInfoOut);
+    if (shouldZipDataBindingInfo) {
+      dataBindingInfoOut = dataBindingInfoOut.getParent();
+      if (Files.notExists(dataBindingInfoOut)) {
+        Files.createDirectory(dataBindingInfoOut);
+      }
     }
 
-    Path processedResourceDir = resourceDir.resolveSibling("res_without_databindings");
-    if (Files.notExists(processedResourceDir)) {
-      Files.createDirectory(processedResourceDir);
-    }
+    // Create a directory for the resources, namespaced with the old resource path
+    Path processedResourceDir =
+        Files.createDirectories(
+            workingDirectory.resolve(
+                resourceDir.isAbsolute()
+                    ? resourceDir.getRoot().relativize(resourceDir)
+                    : resourceDir));
 
     ProcessXmlOptions options = new ProcessXmlOptions();
     options.setAppId(packagePath);
@@ -507,7 +546,8 @@ public class AndroidResourceProcessor {
     options.setResInput(resourceDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
-    options.setZipLayoutInfo(true); // Aggregate data-bound .xml files into a single .zip.
+    // Whether or not to aggregate data-bound .xml files into a single .zip.
+    options.setZipLayoutInfo(shouldZipDataBindingInfo);
 
     try {
       Object minSdk = AndroidManifest.getMinSdkVersion(new FileWrapper(androidManifest.toFile()));
@@ -531,7 +571,7 @@ public class AndroidResourceProcessor {
   }
 
   public ResourceSymbols loadResourceSymbolTable(
-      List<SymbolFileProvider> libraries,
+      Iterable<SymbolFileProvider> libraries,
       String appPackageName,
       Path primaryRTxt,
       Multimap<String, ResourceSymbols> libMap)
@@ -647,13 +687,8 @@ public class AndroidResourceProcessor {
     }
   }
 
-  public void writeDummyManifestForAapt(Path dummyManifest, String packageForR) throws IOException {
-    Files.createDirectories(dummyManifest.getParent());
-    Files.write(dummyManifest, String.format(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-            + " package=\"%s\">"
-            + "</manifest>", packageForR).getBytes(UTF_8));
+  public static void writeDummyManifestForAapt(Path dummyManifest, String packageForR) {
+    AndroidManifestProcessor.writeDummyManifestForAapt(dummyManifest, packageForR);
   }
 
   /**

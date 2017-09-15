@@ -19,7 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -112,6 +111,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
+  public void close() {
+    // BlazeQueryEnvironment has no resources that need to be cleaned up.
+  }
+
+  @Override
   public DigraphQueryEvalResult<Target> evaluateQuery(
       QueryExpression expr,
       ThreadSafeOutputFormatterCallback<Target> callback)
@@ -120,6 +124,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(
         queryEvalResult.getSuccess(), queryEvalResult.isEmpty(), graph);
+  }
+
+  @Override
+  public Collection<Target> getSiblingTargetsInPackage(Target target) {
+    Collection<Target> siblings = target.getPackage().getTargets().values();
+    // Ensure that the sibling targets are in the graph being built-up.
+    siblings.forEach(this::getNode);
+    return siblings;
   }
 
   @Override
@@ -398,15 +410,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
           // Also add the BUILD file of the subinclude.
           if (buildFiles) {
-            try {
-              addIfUniqueLabel(
-                  getSubincludeTarget(subinclude.getLocalTargetLabel("BUILD"), pkg),
-                  seenLabels,
-                  dependentFiles);
-
-            } catch (LabelSyntaxException e) {
-              throw new AssertionError("BUILD should always parse as a target name", e);
-            }
+            addIfUniqueLabel(
+                getSubincludeTarget(
+                    Label.createUnvalidated(subinclude.getPackageIdentifier(), "BUILD"), pkg),
+                seenLabels,
+                dependentFiles);
           }
         }
       }

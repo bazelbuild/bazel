@@ -21,11 +21,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -92,9 +90,7 @@ public class IosTestRule implements RuleDefinition {
                       }
                     })
                 .allowedFileTypes()
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        XcTestAppProvider.class)))
+                .mandatoryProviders(XcTestAppProvider.SKYLARK_CONSTRUCTOR.id()))
         .override(
             attr(BundlingRule.INFOPLIST_ATTR, LABEL)
                 .value(

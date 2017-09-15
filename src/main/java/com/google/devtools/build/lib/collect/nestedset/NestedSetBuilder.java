@@ -18,7 +18,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
@@ -148,7 +148,7 @@ public final class NestedSetBuilder<E> {
         return candidate;
       }
     }
-    return new NestedSet<E>(order, items, transitiveSetsCast);
+    return new NestedSet<>(order, items, transitiveSetsCast);
   }
 
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
@@ -234,9 +234,7 @@ public final class NestedSetBuilder<E> {
       return stableOrder();
     }
     NestedSetBuilder<E> result = new NestedSetBuilder<>(firstSet.getOrder());
-    for (NestedSet<E> set : sets) {
-      result.addTransitive(set);
-    }
+    sets.forEach(result::addTransitive);
     return result;
   }
 }

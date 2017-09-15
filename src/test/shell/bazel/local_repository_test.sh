@@ -95,7 +95,7 @@ sh_binary(
 EOF
 
   cat > zoo/dumper.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../pandas/red/baby-panda
 cat red/day-keeper
 EOF

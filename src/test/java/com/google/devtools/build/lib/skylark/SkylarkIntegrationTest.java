@@ -28,15 +28,15 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -337,9 +337,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "method string.index(sub: string, start: int, end: int or NoneType) is not "
-            + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "
-            + "but should be 'string'");
+            + "argument 'sub' has type 'int', but should be 'string'\n"
+            + "in call to builtin method string.index(sub, start, end)");
   }
 
   @Test
@@ -683,7 +682,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test",
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
-            + "'//test:a' does not have mandatory provider 'some_provider'",
+            + "'//test:a' does not have mandatory providers: 'some_provider'",
         "load('/test/skylark/extension', 'dependent_rule')",
         "load('/test/skylark/extension', 'main_rule')",
         "",
@@ -712,7 +711,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "main_rule = rule(implementation = rule_impl, attrs = {",
         "    'deps': attr.label_list(providers = [",
         "        'files', 'data_runfiles', 'default_runfiles',",
-        "        'files_to_run', 'label', 'output_groups',",
+        "        'files_to_run', 'output_groups',",
         "    ])",
         "})");
     scratch.file(
@@ -933,7 +932,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
     assertThat(target.get("o1")).isEqualTo(Runtime.NONE);
-    assertThat(target.get("o2")).isEqualTo(MutableList.EMPTY);
+    assertThat(target.get("o2")).isEqualTo(MutableList.empty());
   }
 
   @Test
@@ -1010,12 +1009,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
-    ClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
-        Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
-        "my_provider");
-    SkylarkClassObject declaredProvider = configuredTarget.get(key);
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    Info declaredProvider = configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
-    assertThat(declaredProvider.getConstructor().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
     assertThat(declaredProvider.getValue("x")).isEqualTo(1);
   }
 
@@ -1035,12 +1035,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
-    ClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
-        Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
-        "my_provider");
-    SkylarkClassObject declaredProvider = configuredTarget.get(key);
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    Info declaredProvider = configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
-    assertThat(declaredProvider.getConstructor().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
     assertThat(declaredProvider.getValue("x")).isEqualTo(1);
   }
 
@@ -1313,16 +1314,17 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/macro.bzl",
         "x = 5");
 
-    scratch.file("test/skylark/BUILD",
+    scratch.file(
+        "test/skylark/BUILD",
         "load('//test/skylark:macro.bzl', 'x')",
-        "if 0: pass", // syntax error
+        "pass", // syntax error
         "print(1 / (5 - x)"); // division by 0
 
     // Make sure that evaluation continues and load() succeeds, despite a syntax
     // error in the file.
     // We can get the division by 0 only if x was correctly loaded.
     getConfiguredTarget("//test/skylark:a");
-    assertContainsEvent("syntax error at 'if'");
+    assertContainsEvent("syntax error");
     assertContainsEvent("integer division by zero");
   }
 

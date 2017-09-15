@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -46,7 +47,7 @@ public class GenRuleAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
-      String progressMessage) {
+      CharSequence progressMessage) {
     super(
         owner,
         tools,
@@ -65,11 +66,15 @@ public class GenRuleAction extends SpawnAction {
   }
 
   @Override
-  protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
+  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
-    checkInputsForDirectories(reporter, actionExecutionContext.getMetadataHandler());
-    super.internalExecute(actionExecutionContext);
+    checkInputsForDirectories(reporter, actionExecutionContext.getActionInputFileCache());
+    try {
+      super.internalExecute(actionExecutionContext);
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("GenRuleAction command line expansion cannot fail");
+    }
     checkOutputsForDirectories(reporter);
   }
 }

@@ -22,10 +22,8 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -37,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @SkylarkModule(
@@ -45,7 +44,7 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
-public class PlatformInfo extends SkylarkClassObject {
+public class PlatformInfo extends NativeInfo {
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
@@ -67,8 +66,8 @@ public class PlatformInfo extends SkylarkClassObject {
                   SkylarkType.LIST, SkylarkType.of(ConstraintValueInfo.class))));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME, SIGNATURE) {
+  public static final NativeProvider<PlatformInfo> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected PlatformInfo createInstanceFromSkylark(Object[] args, Location loc)
             throws EvalException {
@@ -91,12 +90,8 @@ public class PlatformInfo extends SkylarkClassObject {
         }
       };
 
-  /** Identifier used to retrieve this provider from rules which export it. */
-  public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
-      SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
-
   private final Label label;
-  private final ImmutableList<ConstraintValueInfo> constraints;
+  private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
   private final ImmutableMap<String, String> remoteExecutionProperties;
 
   private PlatformInfo(
@@ -112,8 +107,14 @@ public class PlatformInfo extends SkylarkClassObject {
         location);
 
     this.label = label;
-    this.constraints = constraints;
     this.remoteExecutionProperties = remoteExecutionProperties;
+
+    ImmutableMap.Builder<ConstraintSettingInfo, ConstraintValueInfo> constraintsBuilder =
+        new ImmutableMap.Builder<>();
+    for (ConstraintValueInfo constraint : constraints) {
+      constraintsBuilder.put(constraint.constraint(), constraint);
+    }
+    this.constraints = constraintsBuilder.build();
   }
 
   @SkylarkCallable(
@@ -132,8 +133,17 @@ public class PlatformInfo extends SkylarkClassObject {
             + "this platform.",
     structField = true
   )
-  public ImmutableList<ConstraintValueInfo> constraints() {
-    return constraints;
+  public Iterable<ConstraintValueInfo> constraints() {
+    return constraints.values();
+  }
+
+  /**
+   * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
+   * null} if none exists.
+   */
+  @Nullable
+  public ConstraintValueInfo getConstraint(ConstraintSettingInfo constraint) {
+    return constraints.get(constraint);
   }
 
   @SkylarkCallable(

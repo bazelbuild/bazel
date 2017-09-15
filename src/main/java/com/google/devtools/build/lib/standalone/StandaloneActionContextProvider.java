@@ -13,28 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
-import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -67,23 +69,14 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
   }
 
   private final CommandEnvironment env;
-  private ActionInputPrefetcher actionInputPrefetcher;
 
   public StandaloneActionContextProvider(CommandEnvironment env) {
     this.env = env;
   }
 
   @Override
-  public void init(
-      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
-  }
-
-  @Override
   public Iterable<? extends ActionContext> getActionContexts() {
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
 
@@ -96,17 +89,26 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     return ImmutableList.of(
-        new StandaloneSpawnStrategy(
-            env.getExecRoot(),
-            actionInputPrefetcher,
-            localExecutionOptions,
-            executionOptions.verboseFailures,
-            env.getRuntime().getProductName(),
-            ResourceManager.instance()),
+        new StandaloneSpawnStrategy(createLocalRunner(env)),
         new DummyIncludeScanningContext(),
         new SpawnGccStrategy(),
         testStrategy,
         new ExclusiveTestStrategy(testStrategy),
         new FileWriteStrategy());
+  }
+
+  private static SpawnRunner createLocalRunner(CommandEnvironment env) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
+        ? new XCodeLocalEnvProvider()
+        : LocalEnvProvider.UNMODIFIED;
+    return
+        new LocalSpawnRunner(
+            env.getExecRoot(),
+            localExecutionOptions,
+            ResourceManager.instance(),
+            env.getRuntime().getProductName(),
+            localEnvProvider);
   }
 }

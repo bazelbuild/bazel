@@ -79,11 +79,12 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public PackageManagerStatistics getStatistics() {
+  public PackageManagerStatistics getAndClearStatistics() {
+    int packagesLoaded = numPackagesLoaded.getAndSet(0);
     return new PackageManagerStatistics() {
       @Override
       public int getPackagesLoaded() {
-        return numPackagesLoaded.get();
+        return packagesLoaded;
       }
     };
   }

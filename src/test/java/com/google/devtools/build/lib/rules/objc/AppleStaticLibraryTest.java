@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
@@ -56,6 +56,26 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     }
   };
 
+  @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "minimum_os_version", "'8.0'",
+        "srcs", "['a.m']",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
 
   @Test
   public void testUnknownPlatformType() throws Exception {
@@ -69,9 +89,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCanUseCrosstool() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all");
+    useConfiguration(ObjcCrosstoolMode.ALL);
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If the target is indeed using the c++ backend, then its archive action should be a
@@ -84,10 +102,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCanUseCrosstool_multiArch() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all",
-        "--ios_multi_cpus=i386,x86_64");
+    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
     // If the target is indeed using the c++ backend, then its archive action should be a
@@ -135,11 +150,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider provider = providerForTarget("//package:test");
-    // Do not remove SDK_FRAMEWORK or GENERAL_RESOURCE_FILE values in avoid_deps.
+    // Do not remove SDK_FRAMEWORK values in avoid_deps.
     assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
         .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.GENERAL_RESOURCE_FILE)))
-        .containsExactly("package/base.png");
   }
 
   @Test
@@ -229,7 +242,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     useConfiguration(
         "--ios_multi_cpus=i386,x86_64",
-        "--experimental_disable_go",
         "--experimental_disable_jvm",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
@@ -532,13 +544,83 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//lib:applelib");
     AppleStaticLibraryProvider provider =
-        (AppleStaticLibraryProvider) binTarget.get(
-            AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR.getKey());
+        binTarget.get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();
     assertThat(provider.getMultiArchArchive()).isEqualTo(
         Iterables.getOnlyElement(
             provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+  }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipo.a", "-fl.a");
+  }
+
+  @Test
+  public void testAvoidDepsObjects() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidLib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
+        "objc_library(name = 'baseLib', srcs = [ 'base.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
+        "package/libobjcLib.a", "package/libbaseLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, all of its dependencies are
+  // transitively avoided, even if it is not present in deps.
+  public void testAvoidDepsObjects_avoidViaCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, and it is present in deps, it will
+  // be avoided, as well as its transitive dependencies.
+  public void testAvoidDepsObjects_avoidCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib', ':avoidCclib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
   }
 }

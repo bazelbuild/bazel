@@ -20,15 +20,17 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
-import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -38,14 +40,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.AliasProvider;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -162,10 +163,16 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     command = resolveCommand(command, ruleContext, resolvedSrcs, filesToBuild);
 
-    String message = ruleContext.attributes().get("message", Type.STRING);
-    if (message.isEmpty()) {
-      message = "Executing genrule";
-    }
+    String messageAttr = ruleContext.attributes().get("message", Type.STRING);
+    String message = messageAttr.isEmpty() ? "Executing genrule" : messageAttr;
+    Label label = ruleContext.getLabel();
+    LazyString progressMessage =
+        new LazyString() {
+          @Override
+          public String toString() {
+            return message + " " + label;
+          }
+        };
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
@@ -217,7 +224,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             ruleContext.getConfiguration().getActionEnvironment(),
             ImmutableMap.copyOf(executionInfo),
             new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
-            message + ' ' + ruleContext.getLabel()));
+            progressMessage));
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         // No runfiles provided if not a data dependency.
@@ -266,19 +273,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     return ruleContext.expandMakeVariables(
         "cmd",
         command,
-        createCommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
-  }
-
-  /**
-   * Creates a new {@link CommandResolverContext} instance to use in {@link #resolveCommand}.
-   */
-  protected CommandResolverContext createCommandResolverContext(RuleContext ruleContext,
-      NestedSet<Artifact> resolvedSrcs, NestedSet<Artifact> filesToBuild) {
-    return new CommandResolverContext(
-        ruleContext,
-        resolvedSrcs,
-        filesToBuild,
-        ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+        new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
   }
 
   /**
@@ -290,40 +285,58 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
-
-    private static final ImmutableList<String> makeVariableAttributes =
-        ImmutableList.of(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, "toolchains");
+    private final Iterable<MakeVariableInfo> toolchains;
 
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
-        NestedSet<Artifact> filesToBuild,
-        Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+        NestedSet<Artifact> filesToBuild) {
       super(
-          ruleContext.getMakeVariables(makeVariableAttributes),
+          ruleContext.getMakeVariables(ImmutableList.of(":cc_toolchain")),
           ruleContext.getRule().getPackage(),
           ruleContext.getConfiguration(),
-          makeVariableSuppliers);
+          ImmutableList.of(new CcFlagsSupplier(ruleContext)));
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
+      this.toolchains = ruleContext.getPrerequisites(
+          "toolchains", Mode.TARGET, MakeVariableInfo.PROVIDER);
     }
 
     public RuleContext getRuleContext() {
       return ruleContext;
     }
 
+    private String resolveVariableFromToolchains(String variableName) {
+      for (MakeVariableInfo info : toolchains) {
+        String result = info.getMakeVariables().get(variableName);
+        if (result != null) {
+          return result;
+        }
+      }
+
+      return null;
+    }
+
     @Override
     public String lookupMakeVariable(String variableName) throws ExpansionException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs);
-      } else if (variableName.equals("<")) {
+      }
+
+      if (variableName.equals("<")) {
         return expandSingletonArtifact(resolvedSrcs, "$<", "input file");
-      } else if (variableName.equals("OUTS")) {
+      }
+
+      if (variableName.equals("OUTS")) {
         return Artifact.joinExecPaths(" ", filesToBuild);
-      } else if (variableName.equals("@")) {
+      }
+
+      if (variableName.equals("@")) {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
-      } else if (variableName.equals("@D")) {
+      }
+
+      if (variableName.equals("@D")) {
         // The output directory. If there is only one filename in outs,
         // this expands to the directory containing that file. If there are
         // multiple filenames, this variable instead expands to the
@@ -350,15 +363,25 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
               ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
           return dir.getRelative(relPath).getPathString();
         }
-      } else if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
+      }
+
+      String valueFromToolchains = resolveVariableFromToolchains(variableName);
+      if (valueFromToolchains != null) {
+        return valueFromToolchains;
+      }
+
+      if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()) {
+        List<String> attributes = new ArrayList<>();
+        attributes.addAll(ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES);
+        attributes.add(":host_jdk");
         return new ConfigurationMakeVariableContext(
-                ruleContext.getMakeVariables(makeVariableAttributes),
+                ruleContext.getMakeVariables(attributes),
                 ruleContext.getTarget().getPackage(),
                 ruleContext.getHostConfiguration())
             .lookupMakeVariable(variableName);
-      } else {
-        return super.lookupMakeVariable(variableName);
       }
+
+      return super.lookupMakeVariable(variableName);
     }
 
     /**

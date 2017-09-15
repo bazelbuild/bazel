@@ -1,12 +1,23 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+TESTUTIL_SRCS = ["ToolchainTestCase.java"]
+
 java_test(
     name = "PlatformRulesTests",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = TESTUTIL_SRCS,
+    ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -22,6 +33,19 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "testutil",
+    srcs = TESTUTIL_SRCS,
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

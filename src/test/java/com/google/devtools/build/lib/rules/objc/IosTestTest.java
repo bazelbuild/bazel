@@ -29,14 +29,14 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import java.util.List;
@@ -56,7 +56,7 @@ public class IosTestTest extends ObjcRuleTestCase {
     MockObjcSupport.setupIosTest(mockToolsConfig);
     MockObjcSupport.setupIosSimDevice(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
 
     invalidatePackages();
   }
@@ -646,11 +646,6 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLinkIncludeOrder_frameworksAndSystemLibsFirst() throws Exception {
-    checkLinkIncludeOrderFrameworksAndSystemLibsFirst(RULE_TYPE);
-  }
-
-  @Test
   public void testMergesActoolPartialInfoplist() throws Exception {
     checkMergesPartialInfoplists(RULE_TYPE);
   }
@@ -1097,7 +1092,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
     ObjcProvider appProvider =
         getConfiguredTarget("//test:protos_app")
-            .getProvider(XcTestAppProvider.class)
+            .get(XcTestAppProvider.SKYLARK_CONSTRUCTOR)
             .getObjcProvider();
     ConfiguredTarget binTarget = getConfiguredTarget("//test:protos_bin");
     Artifact protoHeader =
@@ -1227,5 +1222,51 @@ public class IosTestTest extends ObjcRuleTestCase {
     for (String linkerCoverageFlag : CompilationSupport.LINKER_LLVM_COVERAGE_FLAGS) {
       assertThat(Joiner.on(" ").join(action.getArguments())).contains(linkerCoverageFlag);
     }
+  }
+
+  @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(RULE_TYPE);
+  }
+
+  @Test
+  public void testGetsHeadersFromTestRig() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.m'],",
+        "    hdrs = ['lib.h'],",
+        ")",
+        "objc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.m'],",
+        "    hdrs = ['bin.h'],",
+        "    deps = [':lib'],",
+        ")",
+        "ios_application(",
+        "    name = 'testApp',",
+        "    binary = ':bin',",
+        ")",
+        "ios_test(",
+        "    name = 'test',",
+        "    srcs = ['test.m'],",
+        "    hdrs = ['test.h'],",
+        "    xctest = 1,",
+        "    xctest_app = ':testApp',",
+        ")");
+    Iterable<Artifact> compileInputs =
+        compileAction("//x:test", "test.o").getPossibleInputsForTesting();
+    assertThat(Artifact.toExecPaths(compileInputs)).containsAllOf("x/lib.h", "x/bin.h", "x/test.h");
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 }

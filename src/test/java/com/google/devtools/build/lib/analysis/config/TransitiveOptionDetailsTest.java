@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -109,19 +109,19 @@ public class TransitiveOptionDetailsTest {
 
     @Option(
       name = "internal option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "secret",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String internalOption;
 
     @Option(
       name = "internal multi option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "n/a",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      metadataTags = {OptionMetadataTag.INTERNAL},
       allowMultiple = true
     )
     public List<String> internalMultiOption;

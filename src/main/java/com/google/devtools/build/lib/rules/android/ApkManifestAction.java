@@ -113,7 +113,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
     ApkManifestCreator manifestCreator = new ApkManifestCreator(new ArtifactDigester() {
         @Override
         public byte[] getDigest(Artifact artifact) throws IOException {
-          return ctx.getMetadataHandler().getMetadata(artifact).getDigest();
+          return ctx.getActionInputFileCache().getMetadata(artifact).getDigest();
         }
     });
 

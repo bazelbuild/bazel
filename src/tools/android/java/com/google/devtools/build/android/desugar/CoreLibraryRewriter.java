@@ -19,10 +19,8 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.ClassRemapper;
-import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 /** Utility class to prefix or unprefix class names of core library classes */
@@ -38,10 +36,10 @@ class CoreLibraryRewriter {
    * with a ClassRemapper that prefixes class names of core library classes if prefix is not empty.
    */
   public ClassReader reader(InputStream content) throws IOException {
-    if (prefix.length() != 0) {
-      return new PrefixingClassReader(content);
-    } else {
+    if (prefix.isEmpty()) {
       return new ClassReader(content);
+    } else {
+      return new PrefixingClassReader(content, prefix);
     }
   }
 
@@ -53,7 +51,7 @@ class CoreLibraryRewriter {
     return new UnprefixingClassWriter(flags);
   }
 
-  private static boolean shouldPrefix(String typeName) {
+  static boolean shouldPrefix(String typeName) {
     return (typeName.startsWith("java/") || typeName.startsWith("sun/")) && !except(typeName);
   }
 
@@ -87,32 +85,27 @@ class CoreLibraryRewriter {
     return false;
   }
 
-  /** Prefixes core library class names with prefix */
-  public String prefix(String typeName) {
-    if (prefix.length() > 0 && shouldPrefix(typeName)) {
-      return prefix + typeName;
-    }
-    return typeName;
-  }
-
   /** Removes prefix from class names */
   public String unprefix(String typeName) {
-    if (prefix.length() == 0 || !typeName.startsWith(prefix)) {
+    if (prefix.isEmpty() || !typeName.startsWith(prefix)) {
       return typeName;
     }
     return typeName.substring(prefix.length());
   }
 
   /** ClassReader that prefixes core library class names as they are read */
-  private class PrefixingClassReader extends ClassReader {
-    PrefixingClassReader(InputStream content) throws IOException {
+  private static class PrefixingClassReader extends ClassReader {
+    private final String prefix;
+
+    PrefixingClassReader(InputStream content, String prefix) throws IOException {
       super(content);
+      this.prefix = prefix;
     }
 
     @Override
     public void accept(ClassVisitor cv, Attribute[] attrs, int flags) {
       cv =
-          new ClassRemapperWithBugFix(
+          new ClassRemapper(
               cv,
               new Remapper() {
                 @Override
@@ -121,6 +114,14 @@ class CoreLibraryRewriter {
                 }
               });
       super.accept(cv, attrs, flags);
+    }
+
+    /** Prefixes core library class names with prefix. */
+    private String prefix(String typeName) {
+      if (shouldPrefix(typeName)) {
+        return prefix + typeName;
+      }
+      return typeName;
     }
   }
 
@@ -135,9 +136,9 @@ class CoreLibraryRewriter {
       super(Opcodes.ASM5);
       this.writer = new ClassWriter(flags);
       this.cv = this.writer;
-      if (prefix.length() != 0) {
+      if (!prefix.isEmpty()) {
         this.cv =
-            new ClassRemapperWithBugFix(
+            new ClassRemapper(
                 this.cv,
                 new Remapper() {
                   @Override
@@ -150,58 +151,6 @@ class CoreLibraryRewriter {
 
     byte[] toByteArray() {
       return writer.toByteArray();
-    }
-  }
-
-  /** ClassRemapper subclass to work around b/36654936 (caused by ASM bug 317785) */
-  private static class ClassRemapperWithBugFix extends ClassRemapper {
-
-    public ClassRemapperWithBugFix(ClassVisitor cv, Remapper remapper) {
-      super(cv, remapper);
-    }
-
-    @Override
-    protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-      return new MethodRemapper(mv, this.remapper) {
-
-        @Override
-        public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
-          if (this.mv != null) {
-            mv.visitFrame(
-                type,
-                nLocal,
-                remapEntriesWithBugfix(nLocal, local),
-                nStack,
-                remapEntriesWithBugfix(nStack, stack));
-          }
-        }
-
-        /**
-         * In {@code FrameNode.accept(MethodVisitor)}, when the frame is Opcodes.F_CHOP, it is
-         * possible that nLocal is greater than 0, and local is null, which causes MethodRemapper to
-         * throw a NPE. So the patch is to make sure that the {@code nLocal<=local.length} and
-         * {@code nStack<=stack.length}
-         */
-        private Object[] remapEntriesWithBugfix(int n, Object[] entries) {
-          if (entries == null || entries.length == 0) {
-            return entries;
-          }
-          for (int i = 0; i < n; i++) {
-            if (entries[i] instanceof String) {
-              Object[] newEntries = new Object[n];
-              if (i > 0) {
-                System.arraycopy(entries, 0, newEntries, 0, i);
-              }
-              do {
-                Object t = entries[i];
-                newEntries[i++] = t instanceof String ? remapper.mapType((String) t) : t;
-              } while (i < n);
-              return newEntries;
-            }
-          }
-          return entries;
-        }
-      };
     }
   }
 }

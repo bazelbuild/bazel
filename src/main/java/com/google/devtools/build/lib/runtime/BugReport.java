@@ -39,7 +39,7 @@ public abstract class BugReport {
 
   private BugReport() {}
 
-  private static Logger LOG = Logger.getLogger(BugReport.class.getName());
+  private static final Logger logger = Logger.getLogger(BugReport.class.getName());
 
   private static BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
 
@@ -66,7 +66,7 @@ public abstract class BugReport {
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
     if (!versionInfo.isReleasedBlaze()) {
-      LOG.info("(Not a released binary; not logged.)");
+      logger.info("(Not a released binary; not logged.)");
       return;
     }
 
@@ -74,7 +74,7 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, String... args) {
-    LOG.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
+    logger.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
     System.err.println("ERROR: " + getProductName() + " crash in async thread:");
@@ -141,7 +141,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    LOG.log(Level.SEVERE, getProductName() + " crashed", e);
+    logger.log(Level.SEVERE, getProductName() + " crashed", e);
   }
 
   /**
@@ -182,7 +182,7 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
-    LOG.severe("Exception: " + Throwables.getStackTraceAsString(exception));
+    logger.severe("Exception: " + Throwables.getStackTraceAsString(exception));
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
     String preamble = getProductName()

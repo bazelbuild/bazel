@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.Map;
@@ -60,7 +59,7 @@ final class OptionsData extends IsolatedOptionsData {
         if (result == null) {
           String valueString =
               context.getUnparsedValue() != null ? context.getUnparsedValue() : "(null)";
-          String name = context.getField().getAnnotation(Option.class).name();
+          String name = context.getOptionDefinition().getOptionName();
           throw new OptionsParsingException(
               "Error expanding option '"
                   + name
@@ -83,10 +82,11 @@ final class OptionsData extends IsolatedOptionsData {
    * Mapping from each Option-annotated field with expansion information to the {@link
    * ExpansionData} needed to caclulate it.
    */
-  private final ImmutableMap<Field, ExpansionData> expansionDataForFields;
+  private final ImmutableMap<OptionDefinition, ExpansionData> expansionDataForFields;
 
   /** Construct {@link OptionsData} by extending an {@link IsolatedOptionsData} with new info. */
-  private OptionsData(IsolatedOptionsData base, Map<Field, ExpansionData> expansionDataForFields) {
+  private OptionsData(
+      IsolatedOptionsData base, Map<OptionDefinition, ExpansionData> expansionDataForFields) {
     super(base);
     this.expansionDataForFields = ImmutableMap.copyOf(expansionDataForFields);
   }
@@ -99,18 +99,19 @@ final class OptionsData extends IsolatedOptionsData {
    * Option#expansion} or {@link Option#expansionFunction}. If the field is not an expansion option,
    * returns an empty array.
    */
-  public ImmutableList<String> getEvaluatedExpansion(Field field, @Nullable String unparsedValue)
+  public ImmutableList<String> getEvaluatedExpansion(
+      OptionDefinition optionDefinition, @Nullable String unparsedValue)
       throws OptionsParsingException {
-    ExpansionData expansionData = expansionDataForFields.get(field);
+    ExpansionData expansionData = expansionDataForFields.get(optionDefinition);
     if (expansionData == null) {
       return EMPTY_EXPANSION;
     }
 
-    return expansionData.getExpansion(new ExpansionContext(this, field, unparsedValue));
+    return expansionData.getExpansion(new ExpansionContext(this, optionDefinition, unparsedValue));
   }
 
-  ExpansionData getExpansionDataForField(Field field) {
-    ExpansionData result = expansionDataForFields.get(field);
+  ExpansionData getExpansionDataForField(OptionDefinition optionDefinition) {
+    ExpansionData result = expansionDataForFields.get(optionDefinition);
     return result != null ? result : EMPTY_EXPANSION_DATA;
   }
 
@@ -125,20 +126,19 @@ final class OptionsData extends IsolatedOptionsData {
     IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
 
     // All that's left is to compute expansions.
-    ImmutableMap.Builder<Field, ExpansionData> expansionDataBuilder =
-        ImmutableMap.<Field, ExpansionData>builder();
-    for (Map.Entry<String, Field> entry : isolatedData.getAllNamedFields()) {
-      Field field = entry.getValue();
-      Option annotation = field.getAnnotation(Option.class);
-      // Determine either the hard-coded expansion, or the ExpansionFunction class.
-      String[] constExpansion = annotation.expansion();
-      Class<? extends ExpansionFunction> expansionFunctionClass = annotation.expansionFunction();
-      if (constExpansion.length > 0 && usesExpansionFunction(annotation)) {
-        throw new AssertionError(
-            "Cannot set both expansion and expansionFunction for option --" + annotation.name());
-      } else if (constExpansion.length > 0) {
-        expansionDataBuilder.put(field, new ExpansionData(ImmutableList.copyOf(constExpansion)));
-      } else if (usesExpansionFunction(annotation)) {
+    ImmutableMap.Builder<OptionDefinition, ExpansionData> expansionDataBuilder =
+        ImmutableMap.<OptionDefinition, ExpansionData>builder();
+    for (Map.Entry<String, OptionDefinition> entry : isolatedData.getAllOptionDefinitions()) {
+      OptionDefinition optionDefinition = entry.getValue();
+      // Determine either the hard-coded expansion, or the ExpansionFunction class. The
+      // OptionProcessor checks at compile time that these aren't used together.
+      String[] constExpansion = optionDefinition.getOptionExpansion();
+      Class<? extends ExpansionFunction> expansionFunctionClass =
+          optionDefinition.getExpansionFunction();
+      if (constExpansion.length > 0) {
+        expansionDataBuilder.put(
+            optionDefinition, new ExpansionData(ImmutableList.copyOf(constExpansion)));
+      } else if (optionDefinition.usesExpansionFunction()) {
         if (Modifier.isAbstract(expansionFunctionClass.getModifiers())) {
           throw new AssertionError(
               "The expansionFunction type " + expansionFunctionClass + " must be a concrete type");
@@ -154,24 +154,24 @@ final class OptionsData extends IsolatedOptionsData {
           throw new AssertionError(e);
         }
 
-        ImmutableList<String> staticExpansion = null;
+        ImmutableList<String> staticExpansion;
         try {
-          staticExpansion = instance.getExpansion(new ExpansionContext(isolatedData, field, null));
+          staticExpansion =
+              instance.getExpansion(new ExpansionContext(isolatedData, optionDefinition, null));
           Preconditions.checkState(
               staticExpansion != null,
               "Error calling expansion function for option: %s",
-              annotation.name());
-          expansionDataBuilder.put(field, new ExpansionData(staticExpansion));
+              optionDefinition.getOptionName());
+          expansionDataBuilder.put(optionDefinition, new ExpansionData(staticExpansion));
         } catch (ExpansionNeedsValueException e) {
           // This expansion function needs data that isn't available yet. Save the instance and call
           // it later.
-          expansionDataBuilder.put(field, new ExpansionData(instance));
+          expansionDataBuilder.put(optionDefinition, new ExpansionData(instance));
         } catch (OptionsParsingException e) {
           throw new IllegalStateException("Error expanding void expansion function: ", e);
         }
       }
     }
-
     return new OptionsData(isolatedData, expansionDataBuilder.build());
   }
 }

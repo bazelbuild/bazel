@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
@@ -41,7 +41,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Provides access to information about Android rules. Every Android-related target provides "
-          + "this struct, accessible as a 'android' field on a Target struct."
+          + "this struct, accessible as a <code>android</code> field on a "
+          + "<a href=\"Target.html\">target</a>."
 )
 @Immutable
 public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
@@ -98,9 +99,9 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     name = "native_libs",
     structField = true,
     doc =
-        "Returns the native libraries as a map of the libraries' architecture as a String to a "
-            + "set of the native library artifacts, or the empty map if there are no native "
-            + "libraries."
+        "Returns the native libraries as a dictionary of the libraries' architecture as a string "
+            + "to a set of the native library files, or the empty dictionary if there are no "
+            + "native libraries."
   )
   public ImmutableMap<String, NestedSet<Artifact>> getNativeLibs() {
     return getIdeInfoProvider().getNativeLibs();
@@ -128,7 +129,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   @SkylarkCallable(
     name = "defines_resources",
     structField = true,
-    doc = "Returns true if the target defines any Android resources directly."
+    doc = "Returns <code>True</code> if the target defines any Android resources directly."
   )
   public boolean definesAndroidResources() {
     return getIdeInfoProvider().definesAndroidResources();

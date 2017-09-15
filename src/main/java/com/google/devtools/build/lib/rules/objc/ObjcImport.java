@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
@@ -42,7 +42,8 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             .addExtraImportLibraries(
                 ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
             .addDepObjcProviders(
-                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+                ruleContext.getPrerequisites(
+                    "bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
             .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
@@ -64,7 +65,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     new ResourceSupport(ruleContext).validateAttributes();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .build();
   }
 }

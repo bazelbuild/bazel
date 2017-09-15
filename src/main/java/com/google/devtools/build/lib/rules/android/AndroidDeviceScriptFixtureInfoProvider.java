@@ -15,23 +15,22 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 
 /**
  * Information about an {@code android_device_script_fixture} to run as part of an {@code
  * android_instrumentation_test}.
  */
 @Immutable
-public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class AndroidDeviceScriptFixtureInfoProvider extends NativeInfo {
 
   private static final String SKYLARK_NAME = "DeviceScriptFixtureInfo";
-  public static final NativeClassObjectConstructor ANDROID_DEVICE_SCRIPT_FIXTURE_INFO =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  public static final NativeProvider<AndroidDeviceScriptFixtureInfoProvider> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AndroidDeviceScriptFixtureInfoProvider>(
+          AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact fixtureScript;
   private final NestedSet<Artifact> supportApks;
@@ -40,7 +39,7 @@ public class AndroidDeviceScriptFixtureInfoProvider extends SkylarkClassObject
 
   public AndroidDeviceScriptFixtureInfoProvider(
       Artifact fixtureScript, NestedSet<Artifact> supportApks, boolean daemon, boolean strictExit) {
-    super(ANDROID_DEVICE_SCRIPT_FIXTURE_INFO, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.fixtureScript = fixtureScript;
     this.supportApks = supportApks;
     this.daemon = daemon;

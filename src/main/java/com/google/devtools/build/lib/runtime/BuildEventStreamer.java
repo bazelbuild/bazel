@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
+import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -43,7 +42,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Abo
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -56,7 +57,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.rules.extra.ExtraAction;
+import com.google.devtools.build.lib.runtime.commands.NoTestsFound;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -97,7 +98,7 @@ public class BuildEventStreamer implements EventHandler {
   // Will be set to true if the build was invoked through "bazel test".
   private boolean isTestCommand;
 
-  private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildEventStreamer.class.getName());
 
   /**
    * Provider for stdout and stderr output.
@@ -172,14 +173,22 @@ public class BuildEventStreamer implements EventHandler {
     BuildEvent linkEvent = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
+    boolean lastEvent = false;
 
     synchronized (this) {
       if (announcedEvents == null) {
         announcedEvents = new HashSet<>();
+        // The very first event of a stream is implicitly announced by the convention that
+        // a complete stream has to have at least one entry. In this way we keep the invariant
+        // that the set of posted events is always a subset of the set of announced events.
+        announcedEvents.add(id);
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
           linkEvent = ProgressEvent.progressChainIn(progressCount, event.getEventId());
           progressCount++;
           announcedEvents.addAll(linkEvent.getChildrenEvents());
+          // the new first event in the stream, implicitly announced by the fact that complete
+          // stream may not be empty.
+          announcedEvents.add(linkEvent.getEventId());
           postedEvents.add(linkEvent.getEventId());
         }
 
@@ -219,13 +228,23 @@ public class BuildEventStreamer implements EventHandler {
 
       postedEvents.add(id);
       announcedEvents.addAll(event.getChildrenEvents());
+      // We keep as an invariant that postedEvents is a subset of announced events, so this is a
+      // cheaper test for equality
+      if (announcedEvents.size() == postedEvents.size()) {
+        lastEvent = true;
+      }
+    }
+
+    BuildEvent mainEvent = event;
+    if (lastEvent) {
+      mainEvent = new LastBuildEvent(event);
     }
 
     for (BuildEventTransport transport : transports) {
       if (linkEvent != null) {
         transport.sendBuildEvent(linkEvent, artifactGroupNamer);
       }
-      transport.sendBuildEvent(event, artifactGroupNamer);
+      transport.sendBuildEvent(mainEvent, artifactGroupNamer);
     }
 
     if (flushEvents != null) {
@@ -308,7 +327,7 @@ public class BuildEventStreamer implements EventHandler {
         Futures.allAsList(closeFutures).get();
         f.cancel(true);
       } catch (Exception e) {
-        log.severe("Failed to close a build event transport: " + e);
+        logger.severe("Failed to close a build event transport: " + e);
       }
     } finally {
       if (executor != null) {
@@ -332,7 +351,7 @@ public class BuildEventStreamer implements EventHandler {
     maybeReportArtifactSet(new NestedSetView<Artifact>(set));
   }
 
-  private void maybeReportConfiguration(BuildConfiguration configuration) {
+  private void maybeReportConfiguration(BuildEvent configuration) {
     BuildEvent event = configuration;
     if (configuration == null) {
       event = new NullConfiguration();
@@ -357,7 +376,9 @@ public class BuildEventStreamer implements EventHandler {
 
   @Subscribe
   public void buildEvent(BuildEvent event) {
-    if (isActionWithoutError(event) || bufferUntilPrerequisitesReceived(event)) {
+    if (isActionWithoutError(event)
+        || bufferUntilPrerequisitesReceived(event)
+        || isVacuousTestSummary(event)) {
       return;
     }
 
@@ -373,8 +394,7 @@ public class BuildEventStreamer implements EventHandler {
     }
 
     if (event instanceof BuildEventWithConfiguration) {
-      for (BuildConfiguration configuration :
-          ((BuildEventWithConfiguration) event).getConfigurations()) {
+      for (BuildEvent configuration : ((BuildEventWithConfiguration) event).getConfigurations()) {
         maybeReportConfiguration(configuration);
       }
     }
@@ -396,7 +416,8 @@ public class BuildEventStreamer implements EventHandler {
 
     if (event instanceof BuildCompleteEvent
         || event instanceof TestingCompleteEvent
-        || event instanceof NoBuildRequestFinishedEvent) {
+        || event instanceof NoBuildRequestFinishedEvent
+        || event instanceof NoTestsFound) {
       buildComplete();
     }
 
@@ -477,5 +498,10 @@ public class BuildEventStreamer implements EventHandler {
       }
     }
     return false;
+  }
+
+  /** Return true if the test summary contains no actual test runs. */
+  private boolean isVacuousTestSummary(BuildEvent event) {
+    return event instanceof TestSummary && (((TestSummary) event).totalRuns() == 0);
   }
 }

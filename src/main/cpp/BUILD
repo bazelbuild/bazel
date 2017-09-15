@@ -82,7 +82,11 @@ cc_binary(
         "global_variables.cc",
         "global_variables.h",
         "main.cc",
-    ],
+    ] + select({
+        "//src:windows": ["//src/main/native/windows:resources.o"],
+        "//src:windows_msvc": ["//src/main/native/windows:resources.o"],
+        "//conditions:default": [],
+    }),
     copts = select({
         "//src:windows": ["/wd4018"],
         "//src:windows_msvc": ["/wd4018"],

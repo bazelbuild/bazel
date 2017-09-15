@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -31,7 +34,7 @@ public final class ParamFileInfo {
   private final String flag;
   private final boolean always;
 
-  public ParamFileInfo(ParameterFileType fileType, Charset charset, String flag, boolean always) {
+  private ParamFileInfo(ParameterFileType fileType, Charset charset, String flag, boolean always) {
     this.fileType = Preconditions.checkNotNull(fileType);
     this.charset = Preconditions.checkNotNull(charset);
     this.flag = Preconditions.checkNotNull(flag);
@@ -82,5 +85,43 @@ public final class ParamFileInfo {
         && charset.equals(other.charset)
         && flag.equals(other.flag)
         && always == other.always;
+  }
+
+  public static Builder builder(ParameterFileType parameterFileType) {
+    return new Builder(parameterFileType);
+  }
+
+  /** Builder for a ParamFileInfo. */
+  public static class Builder {
+    private final ParameterFileType fileType;
+    private Charset charset = ISO_8859_1;
+    private String flag = "@";
+    private boolean always;
+
+    private Builder(ParameterFileType fileType) {
+      this.fileType = fileType;
+    }
+
+    /** Sets the encoding to write the parameter file with. */
+    public Builder setCharset(Charset charset) {
+      this.charset = charset;
+      return this;
+    }
+
+    /** Sets a prefix to use for the flag that is passed to original command. */
+    public Builder setFlag(@CompileTimeConstant String flag) {
+      this.flag = flag;
+      return this;
+    }
+
+    /** Set whether the parameter file is always used, regardless of parameter file length. */
+    public Builder setUseAlways(boolean always) {
+      this.always = always;
+      return this;
+    }
+
+    public ParamFileInfo build() {
+      return new ParamFileInfo(fileType, charset, flag, always);
+    }
   }
 }

@@ -232,6 +232,36 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
+  public void testSetValueWithExpansionFlagOnExpansionFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_recursive_expansion_top_level")
+        .getSetValueBuilder();
+
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--test_string=throwaway value");
+
+    // The flags that --test_expansion expands into should still be their default values
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+
+    enforcer.enforce(parser, BUILD_COMMAND);
+
+    // After policy enforcement, the flags should be the values from the expansion flag
+    testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
+  }
+
+  @Test
   public void testSetValueWithExpansionFunctionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder

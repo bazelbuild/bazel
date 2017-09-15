@@ -19,15 +19,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import javax.annotation.Nullable;
 
 /**
@@ -79,14 +80,15 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-            .addProvider(XcTestAppProvider.class, releaseBundlingSupport.xcTestAppProvider())
+            .addNativeDeclaredProvider(releaseBundlingSupport.xcTestAppProvider())
             .addProvider(
                 InstrumentedFilesProvider.class,
                 InstrumentedFilesCollector.forward(ruleContext, "binary"));
 
     ObjcProvider exposedObjcProvider = exposedObjcProvider(ruleContext, releaseBundlingSupport);
     if (exposedObjcProvider != null) {
-      targetBuilder.addProvider(ObjcProvider.class, exposedObjcProvider);
+      targetBuilder
+          .addNativeDeclaredProvider(exposedObjcProvider);
     }
 
     configureTarget(targetBuilder, ruleContext, releaseBundlingSupport);
@@ -105,8 +107,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
    * configuration).
    */
   protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
-    return ruleContext.getFragment(AppleConfiguration.class)
-        .getMinimumOsForPlatformType(PlatformType.IOS);
+    return XcodeConfig.getMinimumOsForPlatformType(ruleContext, PlatformType.IOS);
   }
 
   /**
@@ -141,7 +142,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     for (Attribute attribute : dependencyAttributes) {
       builder.addDepObjcProviders(
           ruleContext.getPrerequisites(
-              attribute.getName(), attribute.getAccessMode(), ObjcProvider.class));
+              attribute.getName(), attribute.getAccessMode(), ObjcProvider.SKYLARK_CONSTRUCTOR));
     }
     return builder.build();
   }

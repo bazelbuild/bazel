@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
+
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
@@ -26,17 +28,18 @@ public class AnalysisPhaseCompleteEvent {
   private final Collection<ConfiguredTarget> topLevelTargets;
   private final long timeInMs;
   private int targetsVisited;
+  private final PackageManagerStatistics pkgManagerStats;
 
   /**
    * Construct the event.
    * @param topLevelTargets The set of active topLevelTargets that remain.
    */
   public AnalysisPhaseCompleteEvent(Collection<? extends ConfiguredTarget> topLevelTargets,
-      int targetsVisited, long timeInMs) {
+      int targetsVisited, long timeInMs, PackageManagerStatistics pkgManagerStats) {
     this.timeInMs = timeInMs;
-    // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
-    this.topLevelTargets = ImmutableList.<ConfiguredTarget>copyOf(topLevelTargets);
+    this.topLevelTargets = ImmutableList.copyOf(topLevelTargets);
     this.targetsVisited = targetsVisited;
+    this.pkgManagerStats = pkgManagerStats;
   }
 
   /**
@@ -56,5 +59,12 @@ public class AnalysisPhaseCompleteEvent {
 
   public long getTimeInMs() {
     return timeInMs;
+  }
+
+  /**
+   * Returns package manager statistics.
+   */
+  public PackageManagerStatistics getPkgManagerStats() {
+    return pkgManagerStats;
   }
 }

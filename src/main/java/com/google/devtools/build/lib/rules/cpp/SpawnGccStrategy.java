@@ -53,26 +53,22 @@ public class SpawnGccStrategy implements CppCompileActionContext {
           + action.getPrimaryInput().getExecPathString());
     }
     Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
-    Spawn spawn = new SimpleSpawn(
-        action,
-        ImmutableList.copyOf(action.getArgv()),
-        ImmutableMap.copyOf(action.getEnvironment()),
-        ImmutableMap.copyOf(action.getExecutionInfo()),
-        EmptyRunfilesSupplier.INSTANCE,
-        ImmutableList.<Artifact>copyOf(inputs),
-        /*tools=*/ImmutableList.<Artifact>of(),
-        /*filesetManifests=*/ImmutableList.<Artifact>of(),
-        action.getOutputs().asList(),
-        action.estimateResourceConsumptionLocal());
+    Spawn spawn =
+        new SimpleSpawn(
+            action,
+            ImmutableList.copyOf(action.getArguments()),
+            ImmutableMap.copyOf(action.getEnvironment()),
+            ImmutableMap.copyOf(action.getExecutionInfo()),
+            EmptyRunfilesSupplier.INSTANCE,
+            ImmutableList.copyOf(inputs),
+            /* tools= */ ImmutableList.of(),
+            /* filesetManifests= */ ImmutableList.of(),
+            action.getOutputs().asList(),
+            action.estimateResourceConsumptionLocal());
 
     actionExecutionContext
         .getSpawnActionContext(action.getMnemonic())
         .exec(spawn, actionExecutionContext);
-    return null;
-  }
-
-  @Override
-  public Reply getReplyFromException(ExecException e, CppCompileAction action) {
     return null;
   }
 }

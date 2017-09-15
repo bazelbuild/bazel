@@ -71,7 +71,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   @Before
   public final void initializeToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
   }
 
   @Test
@@ -115,8 +115,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
    * Tests that bitcode is disabled for simulator builds even if enabled by flag.
    */
   public void testLinkActionsWithBitcode_simulator() throws Exception {
-    useConfiguration("--xcode_version=7.1", "--apple_bitcode=embedded",
-        "--ios_multi_cpus=x86_64");
+    useConfiguration("--apple_bitcode=embedded", "--ios_multi_cpus=x86_64");
     createBinaryTargetWriter("//objc:bin").setAndCreateFiles("srcs", "a.m").write();
 
     CommandAction linkAction = linkAction("//objc:bin");
@@ -128,8 +127,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testLinkActionsWithNoBitcode() throws Exception {
-    useConfiguration("--xcode_version=7.1", "--apple_bitcode=none",
-        "--ios_multi_cpus=arm64");
+    useConfiguration("--apple_bitcode=none", "--ios_multi_cpus=arm64");
     createBinaryTargetWriter("//objc:bin").setAndCreateFiles("srcs", "a.m").write();
 
     CommandAction linkAction = linkAction("//objc:bin");
@@ -355,7 +353,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",
@@ -396,7 +394,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkCcDependenciesAreForceLoaded() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",
@@ -554,11 +552,6 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
     checkLinkIncludeOrderStaticLibsFirst(RULE_TYPE);
   }
 
-  @Test
-  public void testLinkIncludeOrder_frameworksAndSystemLibsFirst() throws Exception {
-    checkLinkIncludeOrderFrameworksAndSystemLibsFirst(RULE_TYPE);
-  }
-  
   @Test
   public void testLinksDylibsTransitively() throws Exception {
     checkLinksDylibsTransitively(RULE_TYPE);
@@ -815,7 +808,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testLinkActionsWithEmbeddedBitcode() throws Exception {
-    useConfiguration("--xcode_version=7.1", "--apple_bitcode=embedded", "--ios_multi_cpus=arm64");
+    useConfiguration("--apple_bitcode=embedded", "--ios_multi_cpus=arm64");
     createBinaryTargetWriter("//objc:bin").setAndCreateFiles("srcs", "a.m").write();
 
     CommandAction linkAction = linkAction("//objc:bin");
@@ -828,8 +821,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testLinkActionsWithEmbeddedBitcodeMarkers() throws Exception {
-    useConfiguration(
-        "--xcode_version=7.1", "--apple_bitcode=embedded_markers", "--ios_multi_cpus=arm64");
+    useConfiguration("--apple_bitcode=embedded_markers", "--ios_multi_cpus=arm64");
     createBinaryTargetWriter("//objc:bin").setAndCreateFiles("srcs", "a.m").write();
 
     CommandAction linkAction = linkAction("//objc:bin");
@@ -869,6 +861,46 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
     CommandAction action = linkAction("//bin:bin");
 
     assertXcodeVersionEnv(action, "5.8");
+  }
+
+  @Test
+  public void testCompileWithTextualHeaders() throws Exception {
+    checkCompileWithTextualHeaders(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesSources() throws Exception {
+    checkCompilesSources(RULE_TYPE);
+  }
+
+  @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
+  }
+
+  @Test
+  public void testForceLoadsAlwayslinkTargets() throws Exception {
+    checkForceLoadsAlwayslinkTargets(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
   @Test
@@ -914,5 +946,15 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testFilesToCompileOutputGroup() throws Exception {
     checkFilesToCompileOutputGroup(RULE_TYPE);
+  }
+
+  @Test
+  public void testCustomModuleMap() throws Exception {
+    checkCustomModuleMap(RULE_TYPE);
+  }
+
+  @Test
+  public void testGenruleDependency() throws Exception {
+    checkGenruleDependency(RULE_TYPE);
   }
 }

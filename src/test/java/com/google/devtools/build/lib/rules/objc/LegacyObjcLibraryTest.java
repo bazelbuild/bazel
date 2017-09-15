@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -35,8 +34,8 @@ import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -60,6 +59,24 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     useConfiguration(ObjcCrosstoolMode.OFF, args);
   }
 
+  @Override
+  @Test
+  public void testObjcSourcesFeatureCC() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
+  @Override
+  @Test
+  public void testObjcSourcesFeatureObjc() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
+  @Override
+  @Test
+  public void testObjcSourcesFeatureObjcPlusPlus() throws Exception {
+    // Features are not exported by legacy actions.
+  }
+
   @Test
   public void testLibFileIsCorrectForSlashInTargetName() throws Exception {
     ConfiguredTarget target =
@@ -68,36 +85,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .write();
     Iterable<Artifact> outputArtifacts = getFilesToBuild(target);
     assertThat(Artifact.toRootRelativePaths(outputArtifacts)).containsExactly("objc/libTarget.a");
-  }
-
-  @Test
-  public void testNonPropagatedDepsDiamond() throws Exception {
-    // Non-propagated.
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-    // Conflicts with non-propagated.
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h")
-        .write();
-
-    createLibraryTargetWriter("//objc3:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "b.h")
-        .setList("non_propagated_deps", "//objc:lib")
-        .write();
-
-    createLibraryTargetWriter("//objc4:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .setList("deps", "//objc2:lib", "//objc3:lib")
-        .write();
-
-    Action action = compileAction("//objc4:lib", "a.o");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
-        .containsAllOf("objc2/a.h", "objc3/b.h", "objc4/c.h", "objc4/a.m", "objc4/private.h");
   }
 
   static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {
@@ -111,7 +98,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActions_simulator() throws Exception {
     useConfiguration("--cpu=ios_i386", "--ios_minimum_os=1.0");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -139,7 +126,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 iquoteArgs(
-                    getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                    getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                     getTargetConfiguration()))
             .build();
 
@@ -176,7 +163,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActions_device() throws Exception {
     useConfiguration("--cpu=ios_armv7", "--ios_minimum_os=1.0");
-    Platform platform = Platform.IOS_DEVICE;
+    ApplePlatform platform = ApplePlatform.IOS_DEVICE;
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -201,7 +188,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 iquoteArgs(
-                    getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                    getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                     getTargetConfiguration()))
             .build();
 
@@ -251,7 +238,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -280,7 +267,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     iquoteArgs(
-                        getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                        getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                         getAppleCrosstoolConfiguration()))
                 .add("-include", "objc/some.pch")
                 .add("-fobjc-arc")
@@ -298,7 +285,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
     useConfiguration("--cpu=ios_i386");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -326,7 +313,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     iquoteArgs(
-                        getConfiguredTarget("//objc:lib").getProvider(ObjcProvider.class),
+                        getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
                         getTargetConfiguration()))
                 .add("-fobjc-arc")
                 .add("-Ifoo")
@@ -714,28 +701,11 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     BuildConfiguration config = getAppleCrosstoolConfiguration();
     assertContainsSublist(compileAction.getArguments(), ImmutableList.of(
         "-iquote", config.getGenfilesFragment().getSafePathString()));
-    assertThat(compileAction.getArguments()).doesNotContain(
-        config.getBinFragment().getSafePathString());
   }
 
   @Test
   public void testProvidesHdrsAndIncludes() throws Exception {
     checkProvidesHdrsAndIncludes(RULE_TYPE);
-  }
-
-  @Test
-  public void testCompilesWithHdrs() throws Exception {
-    checkCompilesWithHdrs(RULE_TYPE);
-  }
-
-  @Test
-  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
-    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
-  }
-
-  @Test
-  public void testSdkIncludesUsedInCompileAction() throws Exception {
-    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
   @Test
@@ -773,24 +743,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
     assertThat(baseArtifactNames(compileAction.getInputs()))
         .containsExactly("c.h", "b.asm", XCRUNWRAPPER);
-  }
-
-  @Test
-  public void testCompilesAssemblyWithPreprocessing() throws Exception {
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.S")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileAction = compileAction("//objc:lib", "b.o");
-
-    // Clang automatically preprocesses .S files, so the assembler-with-cpp flag is unnecessary.
-    // Regression test for b/22636858.
-    assertThat(compileAction.getArguments()).doesNotContain("-x");
-    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
-    assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
-    assertThat(baseArtifactNames(compileAction.getInputs()))
-        .containsExactly("c.h", "b.S", XCRUNWRAPPER);
   }
 
   // Converts output artifacts into expected command-line arguments.

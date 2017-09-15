@@ -325,4 +325,20 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     Variables fissionVariables = getLinkBuildVariables(fissionTarget, LinkTargetType.EXECUTABLE);
     assertThat(fissionVariables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isTrue();
   }
+
+  @Test
+  public void testSysrootVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/usr/local/custom-sysroot'");
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
+    Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    assertThat(testVariables.isAvailable(CppModel.SYSROOT_VARIABLE_NAME)).isTrue();
+  }
 }

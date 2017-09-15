@@ -129,9 +129,9 @@ def _foo_binary_impl(ctx):
   srcs_list = trans_srcs.to_list()
   cmd_string = (foocc.path + " " + out.path + " " +
                 " ".join([src.path for src in srcs_list]))
-  ctx.action(command=cmd_string,
-             inputs=srcs_list + [foocc],
-             outputs=[out])
+  ctx.actions.run_shell(command=cmd_string,
+                        inputs=srcs_list + [foocc],
+                        outputs=[out])
 
 foo_binary = rule(
     implementation = _foo_binary_impl,

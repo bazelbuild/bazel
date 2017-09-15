@@ -21,13 +21,14 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -81,12 +82,11 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   /**
-   * Returns the list of options written to the parameter file. Don't use this
-   * method outside tests - the list is often huge, resulting in significant
-   * garbage collection overhead.
+   * Returns the list of options written to the parameter file. Don't use this method outside tests
+   * - the list is often huge, resulting in significant garbage collection overhead.
    */
   @VisibleForTesting
-  public Iterable<String> getContents() {
+  public Iterable<String> getContents() throws CommandLineExpansionException {
     Preconditions.checkState(
         !hasInputArtifactToExpand,
         "This action contains a CommandLine with TreeArtifacts: %s, which must be expanded using "
@@ -96,34 +96,41 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public Iterable<String> getContents(ArtifactExpander artifactExpander) {
+  public Iterable<String> getContents(ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException {
     return commandLine.arguments(artifactExpander);
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new ParamFileWriter(Preconditions.checkNotNull(ctx.getArtifactExpander()));
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
+      throws ExecException {
+    final Iterable<String> arguments;
+    try {
+      ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
+      arguments = commandLine.arguments(artifactExpander);
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
+    return new ParamFileWriter(arguments);
   }
 
   private class ParamFileWriter implements DeterministicWriter {
-    private final ArtifactExpander artifactExpander;
+    private final Iterable<String> arguments;
 
-    ParamFileWriter(ArtifactExpander artifactExpander) {
-      this.artifactExpander = artifactExpander;
+    ParamFileWriter(Iterable<String> arguments) {
+      this.arguments = arguments;
     }
 
     @Override
     public void writeOutputFile(OutputStream out) throws IOException {
-      Iterable<String> arguments = commandLine.arguments(artifactExpander);
-
       switch (type) {
-        case SHELL_QUOTED :
+        case SHELL_QUOTED:
           writeContentQuoted(out, arguments);
           break;
-        case UNQUOTED :
+        case UNQUOTED:
           writeContentUnquoted(out, arguments);
           break;
-        default :
+        default:
           throw new AssertionError();
       }
     }
@@ -157,7 +164,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey() throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addString(String.valueOf(makeExecutable));

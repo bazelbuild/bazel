@@ -19,14 +19,14 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,6 +84,7 @@ public class TestResultAnalyzer {
    */
   public boolean differentialAnalyzeAndReport(
       Collection<ConfiguredTarget> testTargets,
+      Collection<ConfiguredTarget> skippedTargets,
       AggregatingTestListener listener,
       TestResultNotifier notifier) {
 
@@ -113,11 +115,14 @@ public class TestResultAnalyzer {
     Preconditions.checkState(summaries.size() == testTargets.size());
 
     notifier.notify(summaries, totalRun);
-    return passCount == testTargets.size();
+    // skipped targets are not in passCount since they have NO_STATUS
+    Set<ConfiguredTarget> testTargetsSet = new HashSet<>(testTargets);
+    Set<ConfiguredTarget> skippedTargetsSet = new HashSet<>(skippedTargets);
+    return passCount == Sets.difference(testTargetsSet, skippedTargetsSet).size();
   }
 
   private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
-    return status.ordinal() > other.ordinal() ? status : other;
+    return status.getNumber() > other.getNumber() ? status : other;
   }
 
   /**

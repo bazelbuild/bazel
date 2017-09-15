@@ -18,17 +18,16 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -73,12 +72,13 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     Iterable<ObjcProvider> jreDeps =
-        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.class);
+        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder()
             .addTransitiveAndPropagate(jreDeps)
             .addTransitiveAndPropagate(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
+                ruleContext.getPrerequisites(
+                    "deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
     for (ObjcProvider prereq : jreDeps) {
       objcProviderBuilder.addTransitiveAndPropagate(JRE_LIBRARY, prereq.get(LIBRARY));
     }
@@ -92,12 +92,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-            .setPchFile(Optional.<Artifact>absent())
             .build();
 
     new CompilationSupport.Builder()
         .setRuleContext(ruleContext)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .doNotUsePch()
         .build()
         .registerFullyLinkAction(
             common.getObjcProvider(),
@@ -110,7 +110,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .addProvider(ObjcProvider.class, objcProvider)
+        .addNativeDeclaredProvider(objcProvider)
         .build();
   }
 

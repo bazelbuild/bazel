@@ -84,6 +84,13 @@ for i in $*; do
   fi
 done
 
+# Copy jni headers to src/main/native folder
+# Mimic genrule //src/main/native:copy_link_jni_md_header and //src/main/native:copy_link_jni_header
+JNI_HEADERS_DIR="${VSTEMP}/src/main/native"
+mkdir -p "$JNI_HEADERS_DIR"
+cp -f "$JAVAINCLUDES/jni.h" "$JNI_HEADERS_DIR/"
+cp -f "$JAVAINCLUDES/win32/jni_md.h" "$JNI_HEADERS_DIR/"
+
 # CL.EXE needs a bunch of environment variables whose official location is a
 # batch file. We can't make that have an effect on a bash instance, so
 # generate a batch file that invokes it.
@@ -92,7 +99,7 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @call "${VSVARS}" amd64
 @cd $(cygpath -a -w "${PWD}")
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${VSTEMP}" /I . ${WINDOWS_SOURCES[*]}
 EOF
 
 # Invoke the file and hopefully generate the .DLL .

@@ -17,13 +17,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -39,7 +39,6 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
     ],
 )
 
@@ -61,6 +60,5 @@ filegroup(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
     srcs = glob(["**"]),
 )

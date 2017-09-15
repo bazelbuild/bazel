@@ -1,12 +1,18 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )
 
 java_test(
     name = "IdlClassTest",
-    size = "medium",
+    size = "small",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/protobuf:java_compilation_java_proto",

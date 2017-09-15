@@ -18,7 +18,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -30,8 +32,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -40,6 +45,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -78,6 +86,11 @@ public class CppHelper {
 
   private static final ImmutableList<String> LINKOPTS_PREREQUISITE_LABEL_KINDS =
       ImmutableList.of("deps", "srcs");
+
+  /** Returns label used to select resolved cc_toolchain instances based on platform. */
+  public static Label getCcToolchainType(String toolsRepository) {
+    return Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:toolchain_type");
+  }
 
   private CppHelper() {
     // prevents construction
@@ -313,11 +326,11 @@ public class CppHelper {
   public static CcToolchainProvider getToolchain(RuleContext ruleContext,
       TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
-    if ((dep == null) || (dep.getProvider(CcToolchainProvider.class) == null)) {
+    if ((dep == null) || (dep.get(ToolchainInfo.PROVIDER) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
       return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
     }
-    return dep.getProvider(CcToolchainProvider.class);
+    return (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
   }
 
   /**
@@ -601,31 +614,59 @@ public class CppHelper {
         .getChild(configuration.getGenfilesFragment().getBaseName());
   }
 
-  /**
-   * Creates an action to strip an executable.
-   */
-  public static void createStripAction(RuleContext context, CcToolchainProvider toolchain,
-      CppConfiguration cppConfiguration, Artifact input, Artifact output) {
-    context.registerAction(new SpawnAction.Builder()
-        .addInput(input)
-        .addTransitiveInputs(toolchain.getStrip())
-        .addOutput(output)
-        .useDefaultShellEnvironment()
-        .setExecutable(cppConfiguration.getStripExecutable())
-        .addArguments("-S", "-p", "-o", output.getExecPathString())
-        .addArguments("-R", ".gnu.switches.text.quote_paths")
-        .addArguments("-R", ".gnu.switches.text.bracket_paths")
-        .addArguments("-R", ".gnu.switches.text.system_paths")
-        .addArguments("-R", ".gnu.switches.text.cpp_defines")
-        .addArguments("-R", ".gnu.switches.text.cpp_includes")
-        .addArguments("-R", ".gnu.switches.text.cl_args")
-        .addArguments("-R", ".gnu.switches.text.lipo_info")
-        .addArguments("-R", ".gnu.switches.text.annotation")
-        .addArguments(cppConfiguration.getStripOpts())
-        .addArgument(input.getExecPathString())
-        .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
-        .setMnemonic("CcStrip")
-        .build(context));
+  /** Creates an action to strip an executable. */
+  public static void createStripAction(
+      RuleContext context,
+      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
+      Artifact input,
+      Artifact output,
+      FeatureConfiguration featureConfiguration) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
+      context.registerAction(
+          new SymlinkAction(
+              context.getActionOwner(),
+              input,
+              output,
+              "Symlinking original binary as stripped binary"));
+      return;
+    }
+
+    if (!featureConfiguration.actionIsConfigured(CppCompileAction.STRIP_ACTION_NAME)) {
+      context.ruleError("Expected action_config for 'strip' to be configured.");
+      return;
+    }
+
+    Tool stripTool =
+        Preconditions.checkNotNull(
+            featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
+    Variables variables =
+        new Variables.Builder()
+            .addStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
+            .addStringSequenceVariable(
+                CppModel.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
+            .addStringVariable(CppModel.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
+            .build();
+    ImmutableList<String> commandLine =
+        ImmutableList.copyOf(
+            featureConfiguration.getCommandLine(CppCompileAction.STRIP_ACTION_NAME, variables));
+    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+    for (String executionRequirement : stripTool.getExecutionRequirements()) {
+      executionInfoBuilder.put(executionRequirement, "");
+    }
+    Action[] stripAction =
+        new SpawnAction.Builder()
+            .addInput(input)
+            .addTransitiveInputs(toolchain.getStrip())
+            .addOutput(output)
+            .useDefaultShellEnvironment()
+            .setExecutable(stripTool.getToolPath(cppConfiguration.getCrosstoolTopPathFragment()))
+            .setExecutionInfo(executionInfoBuilder.build())
+            .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
+            .setMnemonic("CcStrip")
+            .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
+            .build(context);
+    context.registerAction(stripAction);
   }
 
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,

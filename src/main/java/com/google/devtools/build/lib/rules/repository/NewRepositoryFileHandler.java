@@ -157,8 +157,11 @@ public class NewRepositoryFileHandler {
           // TODO(pcloudy): Don't add absolute path into markerData once it's not supported
           fileKey = fileValue.realRootedPath().asPath().getPathString();
         }
-        markerData.put(
-            "FILE:" + fileKey, Integer.toString(fileValue.realFileStateValue().hashCode()));
+        try {
+          markerData.put("FILE:" + fileKey, RepositoryFunction.fileValueToMarkerValue(fileValue));
+        } catch (IOException e) {
+          throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+        }
       } else if (fileContent != null) {
         RepositoryFunction.writeFile(outputDirectory, filename, fileContent);
       } else {
@@ -263,6 +266,13 @@ public class NewRepositoryFileHandler {
         throw new RepositoryFunctionException(
             new IOException("Cannot lookup " + fileAttribute + ": " + e.getMessage()),
             Transience.TRANSIENT);
+      }
+
+      if (!fileValue.isFile() || fileValue.isSpecialFile()) {
+        throw new RepositoryFunctionException(
+            new EvalException(
+                rule.getLocation(), String.format("%s is not a regular file", rootedFile.asPath())),
+            Transience.PERSISTENT);
       }
 
       return fileValue;

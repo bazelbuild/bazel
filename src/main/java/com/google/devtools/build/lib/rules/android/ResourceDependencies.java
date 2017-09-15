@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,9 +48,20 @@ public final class ResourceDependencies {
    * properly maintain ordering and ease of merging.
    */
   private final NestedSet<ResourceContainer> directResources;
-  /**
-   * Whether the resources of the current rule should be treated as neverlink.
-   */
+
+  private final NestedSet<Artifact> transitiveResourceRoots;
+
+  private final NestedSet<Artifact> transitiveManifests;
+
+  private final NestedSet<Artifact> transitiveAapt2RTxt;
+
+  private final NestedSet<Artifact> transitiveSymbolsBin;
+
+  private final NestedSet<Artifact> transitiveStaticLib;
+
+  private final NestedSet<Artifact> transitiveRTxt;
+
+  /** Whether the resources of the current rule should be treated as neverlink. */
   private final boolean neverlink;
 
   public static ResourceDependencies fromRuleResources(RuleContext ruleContext, boolean neverlink) {
@@ -59,48 +71,143 @@ public final class ResourceDependencies {
 
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveResourceRoots = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveAapt2RTxt = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveSymbolsBin = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveStaticLib = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveRTxt = NestedSetBuilder.naiveLinkOrder();
     extractFromAttributes(
-        ImmutableList.of("resources"), ruleContext, transitiveDependencies, directDependencies);
-    return new ResourceDependencies(neverlink,
-        transitiveDependencies.build(), directDependencies.build());
+        ImmutableList.of("resources"),
+        ruleContext,
+        transitiveDependencies,
+        directDependencies,
+        transitiveResourceRoots,
+        transitiveManifests,
+        transitiveAapt2RTxt,
+        transitiveSymbolsBin,
+        transitiveStaticLib,
+        transitiveRTxt);
+    return new ResourceDependencies(
+        neverlink,
+        transitiveDependencies.build(),
+        directDependencies.build(),
+        transitiveResourceRoots.build(),
+        transitiveManifests.build(),
+        transitiveAapt2RTxt.build(),
+        transitiveSymbolsBin.build(),
+        transitiveStaticLib.build(),
+        transitiveRTxt.build());
   }
 
   public static ResourceDependencies fromRuleDeps(RuleContext ruleContext, boolean neverlink) {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
-    extractFromAttributes(AndroidCommon.TRANSITIVE_ATTRIBUTES, ruleContext, transitiveDependencies,
-        directDependencies);
-    return new ResourceDependencies(neverlink,
-        transitiveDependencies.build(), directDependencies.build());
+    NestedSetBuilder<Artifact> transitiveResourceRoots = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveAapt2RTxt = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveSymbolsBin = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveStaticLib = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveRTxt = NestedSetBuilder.naiveLinkOrder();
+    extractFromAttributes(
+        AndroidCommon.TRANSITIVE_ATTRIBUTES,
+        ruleContext,
+        transitiveDependencies,
+        directDependencies,
+        transitiveResourceRoots,
+        transitiveManifests,
+        transitiveAapt2RTxt,
+        transitiveSymbolsBin,
+        transitiveStaticLib,
+        transitiveRTxt);
+    return new ResourceDependencies(
+        neverlink,
+        transitiveDependencies.build(),
+        directDependencies.build(),
+        transitiveResourceRoots.build(),
+        transitiveManifests.build(),
+        transitiveAapt2RTxt.build(),
+        transitiveSymbolsBin.build(),
+        transitiveStaticLib.build(),
+        transitiveRTxt.build());
   }
 
   public static ResourceDependencies fromRuleResourceAndDeps(RuleContext ruleContext,
       boolean neverlink) {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveResourceRoots = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveAapt2RTxt = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveSymbolsBin = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveStaticLib = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<Artifact> transitiveRTxt = NestedSetBuilder.naiveLinkOrder();
     if (hasResourceAttribute(ruleContext)) {
       extractFromAttributes(
-          ImmutableList.of("resources"), ruleContext, transitiveDependencies, directDependencies);
+          ImmutableList.of("resources"),
+          ruleContext,
+          transitiveDependencies,
+          directDependencies,
+          transitiveResourceRoots,
+          transitiveManifests,
+          transitiveAapt2RTxt,
+          transitiveSymbolsBin,
+          transitiveStaticLib,
+          transitiveRTxt);
     }
     if (directDependencies.isEmpty()) {
       // There are no resources, so this library will forward the direct and transitive dependencies
       // without changes.
-      extractFromAttributes(AndroidCommon.TRANSITIVE_ATTRIBUTES, ruleContext,
-          transitiveDependencies, directDependencies);
+      extractFromAttributes(
+          AndroidCommon.TRANSITIVE_ATTRIBUTES,
+          ruleContext,
+          transitiveDependencies,
+          directDependencies,
+          transitiveResourceRoots,
+          transitiveManifests,
+          transitiveAapt2RTxt,
+          transitiveSymbolsBin,
+          transitiveStaticLib,
+          transitiveRTxt);
     } else {
       // There are resources, so the direct dependencies and the transitive will be merged into
       // the transitive dependencies. This maintains the relationship of the resources being
       // directly on the rule.
-      extractFromAttributes(AndroidCommon.TRANSITIVE_ATTRIBUTES, ruleContext,
-          transitiveDependencies, transitiveDependencies);
+      extractFromAttributes(
+          AndroidCommon.TRANSITIVE_ATTRIBUTES,
+          ruleContext,
+          transitiveDependencies,
+          transitiveDependencies,
+          transitiveResourceRoots,
+          transitiveManifests,
+          transitiveAapt2RTxt,
+          transitiveSymbolsBin,
+          transitiveStaticLib,
+          transitiveRTxt);
     }
-    return new ResourceDependencies(neverlink,
-        transitiveDependencies.build(), directDependencies.build());
+    return new ResourceDependencies(
+        neverlink,
+        transitiveDependencies.build(),
+        directDependencies.build(),
+        transitiveResourceRoots.build(),
+        transitiveManifests.build(),
+        transitiveAapt2RTxt.build(),
+        transitiveSymbolsBin.build(),
+        transitiveStaticLib.build(),
+        transitiveRTxt.build());
   }
 
-  private static void extractFromAttributes(Iterable<String> attributeNames,
-      RuleContext ruleContext, NestedSetBuilder<ResourceContainer> builderForTransitive,
-      NestedSetBuilder<ResourceContainer> builderForDirect) {
+  private static void extractFromAttributes(
+      Iterable<String> attributeNames,
+      RuleContext ruleContext,
+      NestedSetBuilder<ResourceContainer> builderForTransitive,
+      NestedSetBuilder<ResourceContainer> builderForDirect,
+      NestedSetBuilder<Artifact> transitiveResourceRoots,
+      NestedSetBuilder<Artifact> transitiveManifests,
+      NestedSetBuilder<Artifact> transitiveAapt2RTxt,
+      NestedSetBuilder<Artifact> transitiveSymbolsBin,
+      NestedSetBuilder<Artifact> transitiveStaticLib,
+      NestedSetBuilder<Artifact> transitiveRTxt) {
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : attributeNames) {
       if (!attributes.has(attr, BuildType.LABEL_LIST) && !attributes.has(attr, BuildType.LABEL)) {
@@ -110,6 +217,12 @@ public final class ResourceDependencies {
           ruleContext.getPrerequisites(attr, Mode.TARGET, AndroidResourcesProvider.class)) {
         builderForTransitive.addTransitive(resources.getTransitiveAndroidResources());
         builderForDirect.addTransitive(resources.getDirectAndroidResources());
+        transitiveResourceRoots.addTransitive(resources.getTransitiveResourceRoots());
+        transitiveManifests.addTransitive(resources.getTransitiveManifests());
+        transitiveAapt2RTxt.addTransitive(resources.getTransitiveAapt2RTxt());
+        transitiveSymbolsBin.addTransitive(resources.getTransitiveSymbolsBin());
+        transitiveStaticLib.addTransitive(resources.getTransitiveStaticLib());
+        transitiveRTxt.addTransitive(resources.getTransitiveRTxt());
       }
     }
   }
@@ -138,43 +251,103 @@ public final class ResourceDependencies {
    * is the only resource dependency. The most common case is the AndroidTest rule.
    */
   public static ResourceDependencies empty() {
-    return new ResourceDependencies(false,
-        NestedSetBuilder.<ResourceContainer>emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.<ResourceContainer>emptySet(Order.NAIVE_LINK_ORDER));
+    return new ResourceDependencies(
+        false,
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
   }
 
   private ResourceDependencies(
       boolean neverlink,
       NestedSet<ResourceContainer> transitiveResources,
-      NestedSet<ResourceContainer> directResources) {
+      NestedSet<ResourceContainer> directResources,
+      NestedSet<Artifact> transitiveResourceRoots,
+      NestedSet<Artifact> transitiveManifests,
+      NestedSet<Artifact> transitiveAapt2RTxt,
+      NestedSet<Artifact> transitiveSymbolsBin,
+      NestedSet<Artifact> transitiveStaticLib,
+      NestedSet<Artifact> transitiveRTxt) {
     this.neverlink = neverlink;
     this.transitiveResources = transitiveResources;
     this.directResources = directResources;
+    this.transitiveResourceRoots = transitiveResourceRoots;
+    this.transitiveManifests = transitiveManifests;
+    this.transitiveAapt2RTxt = transitiveAapt2RTxt;
+    this.transitiveSymbolsBin = transitiveSymbolsBin;
+    this.transitiveStaticLib = transitiveStaticLib;
+    this.transitiveRTxt = transitiveRTxt;
   }
 
   /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
   public ResourceDependencies filter(RuleContext ruleContext, ResourceFilter filter) {
+    // Note that this doesn't filter any of the dependent artifacts. This
+    // means that if any resource changes, the corresponding actions will get
+    // re-executed
     return new ResourceDependencies(
         neverlink,
         filter.filterDependencies(ruleContext, transitiveResources),
-        filter.filterDependencies(ruleContext, directResources));
+        filter.filterDependencies(ruleContext, directResources),
+        transitiveResourceRoots,
+        transitiveManifests,
+        transitiveAapt2RTxt,
+        transitiveSymbolsBin,
+        transitiveStaticLib,
+        transitiveRTxt);
   }
 
   /**
    * Creates a new AndroidResourcesProvider with the supplied ResourceContainer as the direct dep.
    *
    * <p>When a library produces a new resource container the AndroidResourcesProvider should use
-   * that container as a the direct dependency for that library. This makes the consuming rule
-   * to identify the new container and merge appropriately. The  previous direct dependencies are
-   * then added to the transitive dependencies.
+   * that container as a the direct dependency for that library. This makes the consuming rule to
+   * identify the new container and merge appropriately. The previous direct dependencies are then
+   * added to the transitive dependencies.
    *
    * @param label The label of the library exporting this provider.
    * @param newDirectResource The new direct dependency for AndroidResourcesProvider
+   * @param isResourcesOnly if the direct dependency is either an android_resources
+   *     target or an android_library target with no fields that android_resources targets do not
+   *     provide.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(Label label, ResourceContainer newDirectResource) {
+  public AndroidResourcesProvider toProvider(
+      Label label, ResourceContainer newDirectResource, boolean isResourcesOnly) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toProvider(label, isResourcesOnly);
+    }
+    NestedSetBuilder<Artifact> transitiveResourceRoots = NestedSetBuilder.naiveLinkOrder();
+    transitiveResourceRoots.addTransitive(this.transitiveResourceRoots);
+    transitiveResourceRoots.addAll(newDirectResource.getArtifacts());
+    NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
+    transitiveManifests.addTransitive(this.transitiveManifests);
+    if (newDirectResource.getManifest() != null) {
+      transitiveManifests.add(newDirectResource.getManifest());
+    }
+    NestedSetBuilder<Artifact> transitiveAapt2RTxt = NestedSetBuilder.naiveLinkOrder();
+    transitiveAapt2RTxt.addTransitive(this.transitiveAapt2RTxt);
+    if (newDirectResource.getAapt2RTxt() != null) {
+      transitiveAapt2RTxt.add(newDirectResource.getAapt2RTxt());
+    }
+    NestedSetBuilder<Artifact> transitiveSymbolsBin = NestedSetBuilder.naiveLinkOrder();
+    transitiveSymbolsBin.addTransitive(this.transitiveSymbolsBin);
+    if (newDirectResource.getSymbols() != null) {
+      transitiveSymbolsBin.add(newDirectResource.getSymbols());
+    }
+    NestedSetBuilder<Artifact> transitiveStaticLib = NestedSetBuilder.naiveLinkOrder();
+    transitiveStaticLib.addTransitive(this.transitiveStaticLib);
+    if (newDirectResource.getStaticLibrary() != null) {
+      transitiveStaticLib.add(newDirectResource.getStaticLibrary());
+    }
+    NestedSetBuilder<Artifact> transitiveRTxt = NestedSetBuilder.naiveLinkOrder();
+    transitiveRTxt.addTransitive(this.transitiveRTxt);
+    if (newDirectResource.getRTxt() != null) {
+      transitiveRTxt.add(newDirectResource.getRTxt());
     }
     return AndroidResourcesProvider.create(
         label,
@@ -182,7 +355,14 @@ public final class ResourceDependencies {
             .addTransitive(transitiveResources)
             .addTransitive(directResources)
             .build(),
-        NestedSetBuilder.<ResourceContainer>naiveLinkOrder().add(newDirectResource).build());
+        NestedSetBuilder.<ResourceContainer>naiveLinkOrder().add(newDirectResource).build(),
+        transitiveResourceRoots.build(),
+        transitiveManifests.build(),
+        transitiveAapt2RTxt.build(),
+        transitiveSymbolsBin.build(),
+        transitiveStaticLib.build(),
+        transitiveRTxt.build(),
+        isResourcesOnly);
   }
 
   /**
@@ -193,19 +373,30 @@ public final class ResourceDependencies {
    * the resource merging as if this library didn't exist.
    *
    * @param label The label of the library exporting this provider.
+   * @param isResourcesOnly if the direct dependency is either an android_resources
+   *     target or an android_library target with no fields that android_resources targets do not
+   *     provide.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(Label label) {
+  public AndroidResourcesProvider toProvider(Label label, boolean isResourcesOnly) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toProvider(label, isResourcesOnly);
     }
-    return AndroidResourcesProvider.create(label, transitiveResources, directResources);
+    return AndroidResourcesProvider.create(
+        label,
+        transitiveResources,
+        directResources,
+        transitiveResourceRoots,
+        transitiveManifests,
+        transitiveAapt2RTxt,
+        transitiveSymbolsBin,
+        transitiveStaticLib,
+        transitiveRTxt,
+        isResourcesOnly);
   }
 
-  /**
-   * Provides an NestedSet of the direct and transitive resources.
-   */
-  public Iterable<ResourceContainer> getResources() {
+  /** Provides an NestedSet of the direct and transitive resources. */
+  public NestedSet<ResourceContainer> getResources() {
     return NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
         .addTransitive(directResources)
         .addTransitive(transitiveResources)
@@ -218,5 +409,29 @@ public final class ResourceDependencies {
 
   public NestedSet<ResourceContainer> getDirectResources() {
     return directResources;
+  }
+
+  public NestedSet<Artifact> getTransitiveResourceRoots() {
+    return transitiveResourceRoots;
+  }
+
+  public NestedSet<Artifact> getTransitiveManifests() {
+    return transitiveManifests;
+  }
+
+  public NestedSet<Artifact> getTransitiveAapt2RTxt() {
+    return transitiveAapt2RTxt;
+  }
+
+  public NestedSet<Artifact> getTransitiveSymbolsBin() {
+    return transitiveSymbolsBin;
+  }
+
+  public NestedSet<Artifact> getTransitiveStaticLib() {
+    return transitiveStaticLib;
+  }
+
+  public NestedSet<Artifact> getTransitiveRTxt() {
+    return transitiveRTxt;
   }
 }

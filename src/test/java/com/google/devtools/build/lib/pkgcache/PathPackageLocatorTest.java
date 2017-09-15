@@ -235,9 +235,14 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
   private Path setLocator(String root) {
     Path nonExistentRoot = scratch.resolve(root);
-    this.locator = PathPackageLocator.create(null, Arrays.asList(root), reporter,
+    this.locator =
+        PathPackageLocator.create(
+            null,
+            Arrays.asList(root),
+            reporter,
             /*workspace=*/ FileSystemUtils.getWorkingDirectory(scratch.getFileSystem()),
-            /*workingDir=*/ FileSystemUtils.getWorkingDirectory(scratch.getFileSystem()));
+            /* clientWorkingDirectory= */ FileSystemUtils.getWorkingDirectory(
+                scratch.getFileSystem()));
     return nonExistentRoot;
   }
 

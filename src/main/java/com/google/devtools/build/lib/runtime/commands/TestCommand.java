@@ -97,8 +97,8 @@ public class TestCommand implements BlazeCommand {
         options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
 
     // Initialize test handler.
-    AggregatingTestListener testListener = new AggregatingTestListener(
-        resultAnalyzer, env.getEventBus(), env.getReporter());
+    AggregatingTestListener testListener =
+        new AggregatingTestListener(resultAnalyzer, env.getEventBus());
 
     env.getEventBus().register(testListener);
     return doTest(env, options, testListener);
@@ -137,11 +137,17 @@ public class TestCommand implements BlazeCommand {
     if (testTargets.isEmpty()) {
       env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
-      return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+      env.getEventBus()
+          .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
+      return exitCode;
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(testTargets, testListener, options);
+    boolean testSuccess = analyzeTestResults(
+        testTargets, buildResult.getSkippedTargets(), testListener, options);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
@@ -163,10 +169,11 @@ public class TestCommand implements BlazeCommand {
    * Returns true if and only if all tests were successful.
    */
   private boolean analyzeTestResults(Collection<ConfiguredTarget> testTargets,
+                                     Collection<ConfiguredTarget> skippedTargets,
                                      AggregatingTestListener listener,
                                      OptionsProvider options) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(printer, options);
     return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, listener, notifier);
+        testTargets, skippedTargets, listener, notifier);
   }
 }

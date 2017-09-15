@@ -22,13 +22,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -45,7 +47,7 @@ public abstract class AbstractConfiguredTarget
   private final NestedSet<PackageSpecification> visibility;
 
   // Cached on-demand default provider
-  private final AtomicReference<DefaultProvider> defaultProvider = new AtomicReference<>();
+  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -102,12 +104,6 @@ public abstract class AbstractConfiguredTarget
   @Override
   public Object getValue(String name) {
     switch (name) {
-      case FILES_FIELD:
-      case DEFAULT_RUNFILES_FIELD:
-      case DATA_RUNFILES_FIELD:
-      case FilesToRunProvider.SKYLARK_NAME:
-        // Standard fields should be proxied to their default provider object
-        return getDefaultProvider().getValue(name);
       case LABEL_FIELD:
         return getLabel();
       default:
@@ -117,29 +113,32 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public final Object getIndex(Object key, Location loc) throws EvalException {
-    if (!(key instanceof ClassObjectConstructor)) {
+    if (!(key instanceof Provider)) {
       throw new EvalException(loc, String.format(
           "Type Target only supports indexing by object constructors, got %s instead",
           EvalUtils.getDataTypeName(key)));
     }
-    ClassObjectConstructor constructor = (ClassObjectConstructor) key;
+    Provider constructor = (Provider) key;
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
-    throw new EvalException(loc, String.format(
-        "Object of type Target doesn't contain declared provider %s",
+    throw new EvalException(loc, Printer.format(
+        "%r%s doesn't contain declared provider '%s'",
+        this,
+        getTarget().getAssociatedRule() == null ? ""
+            : " (rule '" + getTarget().getAssociatedRule().getRuleClass() + "')",
         constructor.getPrintableName()));
   }
 
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
-    if (!(key instanceof ClassObjectConstructor)) {
+    if (!(key instanceof Provider)) {
       throw new EvalException(loc, String.format(
           "Type Target only supports querying by object constructors, got %s instead",
           EvalUtils.getDataTypeName(key)));
     }
-    return get(((ClassObjectConstructor) key).getKey()) != null;
+    return get(((Provider) key).getKey()) != null;
   }
 
   @Override
@@ -156,7 +155,7 @@ public abstract class AbstractConfiguredTarget
         LABEL_FIELD,
         FILES_FIELD,
         FilesToRunProvider.SKYLARK_NAME));
-    if (getProvider(OutputGroupProvider.class) != null) {
+    if (get(OutputGroupProvider.SKYLARK_CONSTRUCTOR) != null) {
       result.add(OutputGroupProvider.SKYLARK_NAME);
     }
     addExtraSkylarkKeys(result::add);
@@ -166,11 +165,11 @@ public abstract class AbstractConfiguredTarget
   protected void addExtraSkylarkKeys(Consumer<String> result) {
   }
 
-  private DefaultProvider getDefaultProvider() {
+  private DefaultInfo getDefaultProvider() {
     if (defaultProvider.get() == null) {
       defaultProvider.compareAndSet(
           null,
-          DefaultProvider.build(
+          DefaultInfo.build(
               getProvider(RunfilesProvider.class),
               getProvider(FileProvider.class),
               getProvider(FilesToRunProvider.class)));
@@ -181,20 +180,16 @@ public abstract class AbstractConfiguredTarget
   /** Returns a declared provider provided by this target. Only meant to use from Skylark. */
   @Nullable
   @Override
-  public final SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    if (providerKey.equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+  public final Info get(Provider.Key providerKey) {
+    if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
       return getDefaultProvider();
-    }
-    if (providerKey.equals(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
-      return OutputGroupProvider.get(this);
     }
     return rawGetSkylarkProvider(providerKey);
   }
 
   /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
   @Nullable
-  protected abstract SkylarkClassObject rawGetSkylarkProvider(
-      ClassObjectConstructor.Key providerKey);
+  protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
 
   /**
    * Returns a value provided by this target. Only meant to use from Skylark.
@@ -202,12 +197,29 @@ public abstract class AbstractConfiguredTarget
   @Override
   public final Object get(String providerKey) {
     if (OutputGroupProvider.SKYLARK_NAME.equals(providerKey)) {
-      return getProvider(OutputGroupProvider.class);
+      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
     }
-    return rawGetSkylarkProvider(providerKey);
+    switch (providerKey) {
+      case FILES_FIELD:
+      case DEFAULT_RUNFILES_FIELD:
+      case DATA_RUNFILES_FIELD:
+      case FilesToRunProvider.SKYLARK_NAME:
+        // Standard fields should be proxied to their default provider object
+        return getDefaultProvider().getValue(providerKey);
+      case OutputGroupProvider.SKYLARK_NAME:
+        return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+      default:
+        return rawGetSkylarkProvider(providerKey);
+    }
   }
 
   /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
   protected abstract Object rawGetSkylarkProvider(String providerKey);
 
+  // All main target classes must override this method to provide more descriptive strings.
+  // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<unknown target " + getTarget().getLabel() + ">");
+  }
 }

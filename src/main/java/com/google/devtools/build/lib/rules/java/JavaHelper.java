@@ -149,6 +149,24 @@ public abstract class JavaHelper {
         ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
   }
 
+  public static JavaRuntimeInfo getJavaRuntime(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has(":jvm", BuildType.LABEL)) {
+      return null;
+    }
+
+    TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
+  }
+
+  public static JavaRuntimeInfo getHostJavaRuntime(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has(":host_jdk", BuildType.LABEL)) {
+      return null;
+    }
+
+    TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
+  }
+
   /**
    * Returns true if the given Label is of the pseudo-cc_binary that tells Bazel a Java target's
    * JAVABIN is never to be replaced by the contents of --java_launcher; only the JDK's launcher

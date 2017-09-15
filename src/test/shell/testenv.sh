@@ -47,6 +47,10 @@ if is_windows; then
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
   export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
   if [ ! -d "$BAZEL_VC" ]; then
+    # Maybe Visual C++ Build Tools 2017 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
+  fi
+  if [ ! -d "$BAZEL_VC" ]; then
     # OK, well, maybe Visual C++ 2015 then?
     export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
   fi
@@ -162,12 +166,21 @@ fi
 
 
 function use_bazel_workspace_file() {
-  mkdir -p src/test/docker
+  mkdir -p src/test/{shell/bazel,docker}
   cat >src/test/docker/docker_repository.bzl <<EOF
 def docker_repository():
   pass
 EOF
+  cat >src/test/docker/flavours.bzl <<EOF
+def pull_images_for_docker_tests():
+  pass
+EOF
   touch src/test/docker/BUILD
+  cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
+def list_source_repository(name):
+  pass
+EOF
+  touch src/test/shell/bazel/BUILD
   rm -f WORKSPACE
   ln -sf ${workspace_file} WORKSPACE
 }
@@ -260,7 +273,7 @@ exit 1;
 # A uniform SHA-256 commands that works accross platform
 #
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function sha256sum() {
       cat "$1" | shasum -a 256 | cut -f 1 -d " "
     }
@@ -395,8 +408,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar
 
   touch WORKSPACE
 }

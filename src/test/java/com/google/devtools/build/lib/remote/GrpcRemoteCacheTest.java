@@ -28,6 +28,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -46,6 +47,7 @@ import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
+import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -107,17 +109,17 @@ public class GrpcRemoteCacheTest {
     fakeServer.shutdownNow();
   }
 
-  private static class ChannelOptionsInterceptor implements ClientInterceptor {
-    private final ChannelOptions channelOptions;
+  private static class CallCredentialsInterceptor implements ClientInterceptor {
+    private final CallCredentials credentials;
 
-    public ChannelOptionsInterceptor(ChannelOptions channelOptions) {
-      this.channelOptions = channelOptions;
+    public CallCredentialsInterceptor(CallCredentials credentials) {
+      this.credentials = credentials;
     }
 
     @Override
     public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> interceptCall(
         MethodDescriptor<RequestT, ResponseT> method, CallOptions callOptions, Channel next) {
-      assertThat(callOptions.getCredentials()).isEqualTo(channelOptions.getCallCredentials());
+      assertThat(callOptions.getCredentials()).isEqualTo(credentials);
       // Remove the call credentials to allow testing with dummy ones.
       return next.newCall(method, callOptions.withCallCredentials(null));
     }
@@ -137,15 +139,18 @@ public class GrpcRemoteCacheTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.authCredentials, new JacksonFactory().toString(json));
 
-    ChannelOptions channelOptions =
-        ChannelOptions.create(
-            authTlsOptions, scratch.resolve(authTlsOptions.authCredentials).getInputStream());
+    CallCredentials creds = GrpcUtils.newCallCredentials(
+        scratch.resolve(authTlsOptions.authCredentials).getInputStream(),
+        authTlsOptions.authScope);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    Retrier retrier = new Retrier(remoteOptions);
     return new GrpcRemoteCache(
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-            ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
-        channelOptions,
-        Options.getDefaults(RemoteOptions.class));
+            ImmutableList.of(new CallCredentialsInterceptor(creds))),
+        creds,
+        remoteOptions,
+        retrier);
   }
 
   @Test
@@ -291,11 +296,7 @@ public class GrpcRemoteCacheTest {
       this.responseObserver = responseObserver;
       this.contents = contents;
       try {
-        chunker =
-            new Chunker.Builder()
-                .chunkSize(chunkSizeBytes)
-                .addInput(contents.getBytes(UTF_8))
-                .build();
+        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes);
       } catch (IOException e) {
         fail("An error occurred:" + e);
       }
@@ -308,15 +309,15 @@ public class GrpcRemoteCacheTest {
         Chunker.Chunk chunk = chunker.next();
         Digest digest = chunk.getDigest();
         long offset = chunk.getOffset();
-        byte[] data = chunk.getData();
+        ByteString data = chunk.getData();
         if (offset == 0) {
           assertThat(request.getResourceName()).contains(digest.getHash());
         } else {
           assertThat(request.getResourceName()).isEmpty();
         }
         assertThat(request.getFinishWrite())
-            .isEqualTo(offset + data.length == digest.getSizeBytes());
-        assertThat(request.getData().toByteArray()).isEqualTo(data);
+            .isEqualTo(offset + data.size() == digest.getSizeBytes());
+        assertThat(request.getData()).isEqualTo(data);
       } catch (IOException e) {
         fail("An error occurred:" + e);
       }
@@ -348,30 +349,6 @@ public class GrpcRemoteCacheTest {
     };
   }
 
-  private Answer<StreamObserver<WriteRequest>> blobChunkedWriteAnswerError() {
-    return new Answer<StreamObserver<WriteRequest>>() {
-      @Override
-      @SuppressWarnings("unchecked")
-      public StreamObserver<WriteRequest> answer(final InvocationOnMock invocation) {
-        return new StreamObserver<WriteRequest>() {
-          @Override
-          public void onNext(WriteRequest request) {
-            ((StreamObserver<WriteResponse>) invocation.getArguments()[0])
-                .onError(Status.UNAVAILABLE.asRuntimeException());
-          }
-
-          @Override
-          public void onCompleted() {}
-
-          @Override
-          public void onError(Throwable t) {
-            fail("An unexpected client-side error occurred: " + t);
-          }
-        };
-      }
-    };
-  }
-
   @Test
   public void testUploadBlobMultipleChunks() throws Exception {
     final Digest digest = Digests.computeDigestUtf8("abcdef");
@@ -396,6 +373,8 @@ public class GrpcRemoteCacheTest {
           .thenAnswer(blobChunkedWriteAnswer("abcdef", chunkSize));
       assertThat(client.uploadBlob("abcdef".getBytes(UTF_8))).isEqualTo(digest);
     }
+    Mockito.verify(mockByteStreamImpl, Mockito.times(6))
+        .write(Mockito.<StreamObserver<WriteResponse>>anyObject());
   }
 
   @Test
@@ -414,12 +393,7 @@ public class GrpcRemoteCacheTest {
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            assertThat(request)
-                .isEqualTo(
-                    FindMissingBlobsRequest.newBuilder()
-                        .addBlobDigests(fooDigest)
-                        .addBlobDigests(barDigest)
-                        .build());
+            assertThat(request.getBlobDigestsList()).containsExactly(fooDigest, barDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
@@ -461,7 +435,13 @@ public class GrpcRemoteCacheTest {
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
             if (numErrors-- <= 0) {
-              responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+              // Everything is missing.
+              responseObserver.onNext(
+                  FindMissingBlobsResponse.newBuilder()
+                      .addMissingBlobDigests(fooDigest)
+                      .addMissingBlobDigests(barDigest)
+                      .addMissingBlobDigests(bazDigest)
+                      .build());
               responseObserver.onCompleted();
             } else {
               responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
@@ -497,14 +477,59 @@ public class GrpcRemoteCacheTest {
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     serviceRegistry.addService(mockByteStreamImpl);
     when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
-        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for foo.
-        .thenAnswer(blobChunkedWriteAnswer("x", 1))    // Upload bar successfully.
-        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for baz.
-        .thenAnswer(blobChunkedWriteAnswer("xyz", 3))  // Retry foo successfully.
-        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for baz again.
-        .thenAnswer(blobChunkedWriteAnswer("z", 1));   // Retry baz successfully.
+        .thenAnswer(
+            new Answer<StreamObserver<WriteRequest>>() {
+              private int numErrors = 4;
 
+              @Override
+              @SuppressWarnings("unchecked")
+              public StreamObserver<WriteRequest> answer(InvocationOnMock invocation) {
+                StreamObserver<WriteResponse> responseObserver =
+                    (StreamObserver<WriteResponse>) invocation.getArguments()[0];
+                return new StreamObserver<WriteRequest>() {
+                  @Override
+                  public void onNext(WriteRequest request) {
+                    numErrors--;
+                    if (numErrors >= 0) {
+                      responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+                      return;
+                    }
+                    assertThat(request.getFinishWrite()).isTrue();
+                    String resourceName = request.getResourceName();
+                    String dataStr = request.getData().toStringUtf8();
+                    int size = 0;
+                    if (resourceName.contains(fooDigest.getHash())) {
+                      assertThat(dataStr).isEqualTo("xyz");
+                      size = 3;
+                    } else if (resourceName.contains(barDigest.getHash())) {
+                      assertThat(dataStr).isEqualTo("x");
+                      size = 1;
+                    } else if (resourceName.contains(bazDigest.getHash())) {
+                      assertThat(dataStr).isEqualTo("z");
+                      size = 1;
+                    } else {
+                      fail("Unexpected resource name in upload: " + resourceName);
+                    }
+                    responseObserver.onNext(
+                        WriteResponse.newBuilder().setCommittedSize(size).build());
+                  }
+
+                  @Override
+                  public void onCompleted() {
+                    responseObserver.onCompleted();
+                  }
+
+                  @Override
+                  public void onError(Throwable t) {
+                    fail("An error occurred: " + t);
+                  }
+                };
+              }
+            });
     client.upload(actionKey, execRoot, ImmutableList.<Path>of(fooFile, barFile, bazFile), outErr);
+    // 4 times for the errors, 3 times for the successful uploads.
+    Mockito.verify(mockByteStreamImpl, Mockito.times(7))
+        .write(Mockito.<StreamObserver<WriteResponse>>anyObject());
   }
 
   @Test

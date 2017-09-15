@@ -16,8 +16,10 @@
 
 syntax = "proto2";
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
+// option py_api_version = 2;
 
 package com.google.devtools.build.lib.view.config.crosstool;
 
@@ -187,7 +189,7 @@ message CToolchain {
     optional string name = 1;
 
     // If 'true', this feature is enabled unless a rule type explicitly marks it
-    // as unssupported. Such features cannot be turned of from with in a BUILD
+    // as unsupported. Such features cannot be turned off from within a BUILD
     // file or the command line.
     optional bool enabled = 7;
 
@@ -515,6 +517,7 @@ message MakeVariable {
 message DefaultCpuToolchain {
   required string cpu = 1;
   required string toolchain_identifier = 2;
+  optional bool supports_lipo = 3 [default = true];
 }
 
 // An entire crosstool release, containing the version number, a default target
@@ -530,7 +533,9 @@ message CrosstoolRelease {
   required string major_version = 1;
   required string minor_version = 2;
 
-  // The default cpu to use if none was specified.
+  // Deprecated. Used to be the default CPU if not otherwise specified, but it's
+  // not used for that purpose (or anything else) anymore. Please also don't add
+  // new uses of this field.
   required string default_target_cpu = 3;
   // The default toolchain to use for each given cpu.
   repeated DefaultCpuToolchain default_toolchain = 4;

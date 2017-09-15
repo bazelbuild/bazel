@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
  * Implementation for {@code objc_bundle}.
@@ -45,7 +45,7 @@ public class ObjcBundle implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(STABLE_ORDER);
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild)
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .build();
   }
 }

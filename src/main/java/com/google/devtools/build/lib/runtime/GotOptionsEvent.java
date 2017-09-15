@@ -97,6 +97,9 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
 
     optionsBuilder.setInvocationPolicy(getInvocationPolicy());
 
+    CommonCommandOptions commonOptions = getOptions().getOptions(CommonCommandOptions.class);
+    optionsBuilder.setToolTag(commonOptions.toolTag);
+
     return GenericBuildEvent.protoChaining(this).setOptionsParsed(optionsBuilder.build()).build();
   }
 

@@ -19,15 +19,16 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -66,7 +67,7 @@ public class AarGeneratorAction {
   private static final Logger logger = Logger.getLogger(AarGeneratorAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  public static final class AarGeneratorOptions extends OptionsBase {
     @Option(
       name = "mainData",
       defaultValue = "null",
@@ -124,13 +125,21 @@ public class AarGeneratorAction {
       help = "Path to write the archive."
     )
     public Path aarOutput;
+
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   public static void main(String[] args) {
     Stopwatch timer = Stopwatch.createStarted();
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    AarGeneratorOptions options =
+        Options.parseAndExitUponError(AarGeneratorOptions.class, /*allowResidue=*/ true, args)
+            .getOptions();
 
     checkFlags(options);
 
@@ -153,12 +162,17 @@ public class AarGeneratorAction {
               null,
               VariantType.LIBRARY,
               null,
-              /* filteredResources= */ ImmutableList.<String>of());
+              /* filteredResources= */ ImmutableList.<String>of(),
+              options.throwOnResourceConflict
+          );
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
       logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    } catch (MergeConflictException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      System.exit(1);
     } catch (IOException | MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       System.exit(1);
@@ -167,7 +181,7 @@ public class AarGeneratorAction {
   }
 
   @VisibleForTesting
-  static void checkFlags(Options options) throws IllegalArgumentException {
+  static void checkFlags(AarGeneratorOptions options) {
     List<String> nullFlags = new LinkedList<>();
     if (options.manifest == null) {
       nullFlags.add("manifest");

@@ -65,6 +65,13 @@ message BuildEventId {
   message OptionsParsedId {
   }
 
+  // Identifier of an event reporting that an external resource was fetched
+  // from.
+  message FetchId {
+    // The external resource that was fetched from.
+    string url = 1;
+  }
+
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
   // Messages of this shape are also used to describe parts of a pattern that
@@ -79,6 +86,10 @@ message BuildEventId {
   // identifying for which configurations it should be build.
   message TargetConfiguredId {
     string label = 1;
+
+    // If not empty, the id refers to the expansion of the target for a given
+    // aspect.
+    string aspect = 2;
   }
 
   // Identifier of an event introducing a named set of files (usually artifacts)
@@ -115,6 +126,10 @@ message BuildEventId {
   // this includes all failed actions).
   message ActionCompletedId {
     string primary_output = 1;
+    // Optional, the label of the owner of the action, for reference.
+    string label = 2;
+    // Optional, the id of the configuration of the action owner.
+    ConfigurationId configuration = 3;
   }
 
   // Identifier of an event reporting on an individual test run. The label
@@ -147,6 +162,7 @@ message BuildEventId {
     CommandLineId command_line = 11;
     WorkspaceStatusId workspace_status = 14;
     OptionsParsedId options_parsed = 12;
+    FetchId fetch = 17;
     ConfigurationId configuration = 15;
     TargetConfiguredId target_configured = 16;
     PatternExpandedId pattern = 4;
@@ -192,25 +208,21 @@ message Aborted {
     // Failure due to reasons entirely internal to the build tool, e.g.,
     // running out of memory.
     INTERNAL = 4;
+
+    // A Failure occurred in the loading phase of a target.
+    LOADING_FAILURE = 5;
+
+    // A Failure occurred in the analysis phase of a target.
+    ANALYSIS_FAILURE = 6;
+
+    // Target build was skipped (e.g. due to incompatible CPU constraints).
+    SKIPPED = 7;
   }
   AbortReason reason = 1;
 
   // A human readable description with more details about there reason, where
   // available and useful.
   string description = 2;
-}
-
-// Payload of an event indicating that an expected event will not come, as
-// something went wrong when attempting to load the corresponding package.
-message LoadingFailure {
-  string details = 1;
-}
-
-// Payload of an event indicating that an expected event will not come, as
-// something went wrong during analysis. If the analysis of a target failed,
-// the id of the event will be the corresponding TargetCompletedId.
-message AnalysisFailure {
-  string details = 1;
 }
 
 // Payload of an event indicating the beginning of a new build. Usually, events
@@ -259,6 +271,14 @@ message OptionsParsed {
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
   blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
+  string tool_tag = 6;
+}
+
+// Payload of an event indicating that an external resource was fetched. This
+// event will only occur in streams where an actual fetch happened, not in ones
+// where a cached copy of the entity to be fetched was used.
+message Fetch {
+  bool success = 1;
 }
 
 // Payload of an event reporting the workspace status. Key-value pairs can be
@@ -288,11 +308,31 @@ message Configuration {
 message PatternExpanded {
 }
 
+// Enumeration type characterizing the size of a test, as specified by the
+// test rule.
+enum TestSize {
+  UNKNOWN = 0;
+  SMALL = 1;
+  MEDIUM = 2;
+  LARGE = 3;
+  ENORMOUS = 4;
+}
+
 // Payload of the event indicating that the configurations for a target have
 // been identified. As with pattern expansion the main information is in the
 // chaining part: the id will contain the target that was configured and the
 // children id will ctontain the configured targets it was configured to.
 message TargetConfigured {
+  // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
+  // "generated file") where the completion is reported.
+  string target_kind = 1;
+
+  // The size of the test, if the target is a test target. Unset otherwise.
+  TestSize test_size = 2;
+
+  // List of all tags associated with this target (for all possible
+  // configurations).
+  repeated string tag = 3;
 }
 
 message File {
@@ -300,9 +340,10 @@ message File {
   string name = 1;
 
   oneof file {
-    // A location where the contents of the file can be found.
+    // A location where the contents of the file can be found. The string is
+    // encoded according to RFC2396.
     string uri = 2;
-    // The conents of the file, if they are guaranteed to be short.
+    // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
   }
 }
@@ -336,11 +377,11 @@ message ActionExecuted {
   // (e.g., a file path).
   File stderr = 4;
 
-  // Optionally, the label of the owner of the action, for reference.
-  string label = 5;
+  // Deprecated. This field is now present on ActionCompletedId.
+  string label = 5 [deprecated = true];
 
-  // Optinally, the id of the configuration of the action owner.
-  BuildEventId.ConfigurationId configuration = 7;
+  // Deprecated. This field is now present on ActionCompletedId.
+  BuildEventId.ConfigurationId configuration = 7 [deprecated = true];
 
   // Primary output; only provided for successful actions.
   File primary_output = 6;
@@ -358,16 +399,6 @@ message OutputGroup {
   repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
 }
 
-// Enumeration type characterizing the size of a test, as specified by the
-// test rule.
-enum TestSize {
-  UNKNOWN = 0;
-  SMALL = 1;
-  MEDIUM = 2;
-  LARGE = 3;
-  ENORMOUS = 4;
-}
-
 // Payload of the event indicating the completion of a target. The target is
 // specified in the id. If the target failed the root causes are provided as
 // children events.
@@ -376,10 +407,12 @@ message TargetComplete {
 
   // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
   // "generated file") where the completion is reported.
-  string target_kind = 5;
+  // Deprecated: use the target_kind field in TargetConfigured instead.
+  string target_kind = 5 [deprecated = true];
 
   // The size of the test, if the target is a test target. Unset otherwise.
-  TestSize test_size = 6;
+  // Deprecated: use the test_size field in TargetConfigured instead.
+  TestSize test_size = 6 [deprecated = true];
 
   // The output files are arranged by their output group. If an output file
   // is part of multiple output groups, it appears once in each output
@@ -391,7 +424,7 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
-  // List of tags associated with this target.
+  // List of tags associated with this configured target.
   repeated string tag = 3;
 }
 
@@ -404,7 +437,7 @@ enum TestStatus {
   INCOMPLETE = 5;
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
-  BLAZE_HALTED_BEFORE_TESTING = 8;
+  TOOL_HALTED_BEFORE_TESTING = 8;
 };
 
 // Payload on events reporting about individual test action.
@@ -429,6 +462,9 @@ message TestResult {
   // Files (logs, test.xml, undeclared outputs, etc) generated by that test
   // action.
   repeated File test_action_output = 2;
+
+  // Warnings generated by that test action.
+  repeated string warning = 7;
 }
 
 // Payload of the event summarizing a test.
@@ -447,6 +483,9 @@ message TestSummary {
 
   // Path to logs of failed runs;
   repeated File failed = 4;
+
+  // Total number of cached test actions
+  int32 total_num_cached = 6;
 }
 
 // Event indicating the end of a build.
@@ -484,17 +523,18 @@ message BuildFinished {
 // that is observed, is provided in the payload. More options for the payload
 // might be added in the future.
 message BuildEvent {
+  reserved 11, 19;
   BuildEventId id = 1;
   repeated BuildEventId children = 2;
+  bool last_message = 20;
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;
-    LoadingFailure loading_failed = 11;
-    AnalysisFailure analysis_failed = 19;
     BuildStarted started = 5;
     CommandLine command_line = 12;
     OptionsParsed options_parsed = 13;
     WorkspaceStatus workspace_status = 16;
+    Fetch fetch = 21;
     Configuration configuration = 17;
     PatternExpanded expanded = 6;
     TargetConfigured configured = 18;

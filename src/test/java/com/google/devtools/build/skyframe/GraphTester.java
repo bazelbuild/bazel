@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -103,6 +104,9 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.postable != null) {
+          env.getListener().post(builder.postable);
+        }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
         for (Pair<SkyKey, SkyValue> dep : builder.deps) {
@@ -160,10 +164,8 @@ public class GraphTester {
     return LegacySkyKey.create(NODE_TYPE, key);
   }
 
-  /**
-   * A value in the testing graph that is constructed in the tester.
-   */
-  public class TestFunction {
+  /** A value in the testing graph that is constructed in the tester. */
+  public static class TestFunction {
     // TODO(bazel-team): We could use a multiset here to simulate multi-pass dependency discovery.
     private final Set<Pair<SkyKey, SkyValue>> deps = new LinkedHashSet<>();
     private SkyValue value;
@@ -175,6 +177,7 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private Postable postable;
 
     private String tag;
 
@@ -208,6 +211,11 @@ public class GraphTester {
     public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
+      return this;
+    }
+
+    public TestFunction unsetConstantValue() {
+      this.value = null;
       return this;
     }
 
@@ -260,6 +268,10 @@ public class GraphTester {
       return this;
     }
 
+    public TestFunction setPostable(Postable postable) {
+      this.postable = postable;
+      return this;
+    }
   }
 
   public static ImmutableList<SkyKey> toSkyKeys(String... names) {

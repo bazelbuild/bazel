@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.MakeEnvironment;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -113,11 +114,10 @@ public class PackageFactoryApparatus {
     return BuildFileAST.parseBuildFile(inputSource, eventHandler);
   }
 
-  /**
-   * Evaluates the {@code buildFileAST} into a {@link Package}.
-   */
-  public Pair<Package, GlobCache> evalAndReturnGlobCache(String packageName, Path buildFile,
-      BuildFileAST buildFileAST) throws InterruptedException {
+  /** Evaluates the {@code buildFileAST} into a {@link Package}. */
+  public Pair<Package, GlobCache> evalAndReturnGlobCache(
+      String packageName, Path buildFile, BuildFileAST buildFileAST)
+      throws InterruptedException, NoSuchPackageException {
     PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
     GlobCache globCache =
         new GlobCache(
@@ -147,21 +147,26 @@ public class PackageFactoryApparatus {
             new MakeEnvironment.Builder(),
             ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of());
-    Package result = resultBuilder.build();
+    Package result;
+    try {
+      result = resultBuilder.build();
+    } catch (NoSuchPackageException e) {
+      // Make sure not to lose events if we fail to construct the package.
+      Event.replayEventsOn(eventHandler, resultBuilder.getEvents());
+      throw e;
+    }
     Event.replayEventsOn(eventHandler, result.getEvents());
     return Pair.of(result, globCache);
   }
 
   public Package eval(String packageName, Path buildFile, BuildFileAST buildFileAST)
-      throws InterruptedException {
+      throws InterruptedException, NoSuchPackageException {
     return evalAndReturnGlobCache(packageName, buildFile, buildFileAST).first;
   }
 
-  /**
-   * Evaluates the {@code buildFileAST} into a {@link Package}.
-   */
+  /** Evaluates the {@code buildFileAST} into a {@link Package}. */
   public Package eval(String packageName, Path buildFile)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, NoSuchPackageException {
     return eval(packageName, buildFile, ast(buildFile));
   }
 

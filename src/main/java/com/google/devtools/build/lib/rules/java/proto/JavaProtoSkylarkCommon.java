@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -85,7 +85,7 @@ public class JavaProtoSkylarkCommon {
         supportData.getDirectProtoSources(),
         supportData.getTransitiveImports(),
         supportData.getProtosInDirectDeps(),
-        skylarkRuleContext.getLabel().getCanonicalForm(),
+        skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
         true /* allowServices */);
@@ -113,12 +113,12 @@ public class JavaProtoSkylarkCommon {
       @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
     }
   )
-  public static JavaProvider getRuntimeToolchainProvider(
+  public static JavaInfo getRuntimeToolchainProvider(
       SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
     TransitiveInfoCollection runtime =
         getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr).runtime();
     return
-        JavaProvider.Builder.create()
+        JavaInfo.Builder.create()
             .addProvider(
                 JavaCompilationArgsProvider.class,
                 runtime.getProvider(JavaCompilationArgsProvider.class))

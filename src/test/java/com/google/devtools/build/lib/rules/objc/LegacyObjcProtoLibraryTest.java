@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +41,7 @@ public class LegacyObjcProtoLibraryTest extends ObjcProtoLibraryTest {
   @Test
   public void testCompilationAction() throws Exception {
     useConfiguration("--cpu=ios_i386");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     ConfiguredTarget target = getConfiguredTarget("//package:opl");
     CommandAction linkAction =
@@ -79,7 +79,7 @@ public class LegacyObjcProtoLibraryTest extends ObjcProtoLibraryTest {
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
                     LegacyObjcLibraryTest.iquoteArgs(
-                        target.getProvider(ObjcProvider.class), getTargetConfiguration()))
+                        target.get(ObjcProvider.SKYLARK_CONSTRUCTOR), getTargetConfiguration()))
                 .add("-I")
                 .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
                 .add("-fno-objc-arc")

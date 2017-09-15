@@ -115,9 +115,10 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
       } else {
         Map<String, String> env = Strings.isNullOrEmpty(developerDir)
             ? ImmutableMap.<String, String>of() : ImmutableMap.of("DEVELOPER_DIR", developerDir);
-        CommandResult xcrunResult = new Command(
-            new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"},
-            env, null).execute();
+        CommandResult xcrunResult =
+            new Command(
+                new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"}, env, null)
+            .execute();
 
         // calling xcrun via Command returns a value with a newline on the end.
         String sdkRoot = new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
@@ -178,8 +179,9 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
       if (cacheResult != null) {
         return cacheResult;
       } else {
-        CommandResult xcodeLocatorResult = new Command(new String[] {
-            execRoot.getRelative("_bin/xcode-locator").getPathString(), version.toString()})
+        CommandResult xcodeLocatorResult = new Command(
+            new String[] {
+                execRoot.getRelative("_bin/xcode-locator").getPathString(), version.toString()})
             .execute();
 
         String developerDir =

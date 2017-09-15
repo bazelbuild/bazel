@@ -71,7 +71,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private static final int ENTRY_MAGIC = 0xfe;
   private static final int MIN_MAPFILE_SIZE = 16;
   private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-  private static final Logger LOG = Logger.getLogger(PersistentMap.class.getName());
+  private static final Logger logger = Logger.getLogger(PersistentMap.class.getName());
 
   private final int version;
   private final Path mapFile;
@@ -251,7 +251,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @throws IOException
    */
   public void load() throws IOException {
-    load(/*throwOnLoadFailure=*/ false);
+    load(/* failFast= */ false);
   }
 
   @Override
@@ -388,7 +388,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
       in.close();
     }
 
-    LOG.info(String.format("Loaded cache '%s' [%s bytes]", mapFile, fileSize));
+    logger.info(String.format("Loaded cache '%s' [%s bytes]", mapFile, fileSize));
   }
 
   /**

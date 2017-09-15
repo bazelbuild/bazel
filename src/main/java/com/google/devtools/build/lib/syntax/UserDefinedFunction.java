@@ -15,8 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
 /**
  * The actual function registered in the environment. This function is defined in the
@@ -29,23 +32,24 @@ public class UserDefinedFunction extends BaseFunction {
   // we close over the globals at the time of definition
   private final Environment.Frame definitionGlobals;
 
-  protected UserDefinedFunction(
-      Identifier function,
+  public UserDefinedFunction(
+      String name,
+      Location loc,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements,
       Environment.Frame definitionGlobals)
       throws EvalException {
-    super(function.getName(), signature, function.getLocation());
+    super(name, signature, loc);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
   }
 
-  public FunctionSignature.WithValues<Object, SkylarkType> getFunctionSignature() {
-    return signature;
+  public ImmutableList<Statement> getStatements() {
+    return statements;
   }
 
-  ImmutableList<Statement> getStatements() {
-    return statements;
+  public Environment.Frame getDefinitionGlobals() {
+    return definitionGlobals;
   }
 
   @Override
@@ -71,14 +75,19 @@ public class UserDefinedFunction extends BaseFunction {
         env.update(name, arguments[i++]);
       }
 
+      Eval eval = new Eval(env);
       try {
         for (Statement stmt : statements) {
           if (stmt instanceof ReturnStatement) {
             // Performance optimization.
             // Executing the statement would throw an exception, which is slow.
-            return ((ReturnStatement) stmt).getReturnExpression().eval(env);
+            Expression returnExpr = ((ReturnStatement) stmt).getReturnExpression();
+            if (returnExpr == null) {
+              return Runtime.NONE;
+            }
+            return returnExpr.eval(env);
           } else {
-            stmt.exec(env);
+            eval.exec(stmt);
           }
         }
       } catch (ReturnStatement.ReturnException e) {
@@ -89,5 +98,16 @@ public class UserDefinedFunction extends BaseFunction {
       Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
       env.exitScope();
     }
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    Label label = this.definitionGlobals.getTransitiveLabel();
+
+    printer.append("<function " + getName());
+    if (label != null) {
+      printer.append(" from " + label);
+    }
+    printer.append(">");
   }
 }

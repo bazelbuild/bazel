@@ -30,11 +30,9 @@ title: Build Encyclopedia
     <a href="$expander.expandRef("make-variables")">"Make" variables</a>
     <ul class="be-toc">
       <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
-      <li><a href="$expander.expandRef("make-variables#predefined_variables")">Predefined variables</a></li>
 
     </ul>
   </li>
-  <li><a href="$expander.expandRef("predefined-python-variables")">Predefined Python Variables</a></li>
 </ul>
 
 <h3>Functions</h3>

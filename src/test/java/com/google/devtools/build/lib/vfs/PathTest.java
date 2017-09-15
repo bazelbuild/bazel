@@ -19,13 +19,14 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.GcFinalization;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.ref.WeakReference;
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
@@ -299,6 +300,13 @@ public class PathTest {
     Path segment = new Path(null, "bar.txt",
       new Path(null, "foo", new Path(null)));
     assertThat(segment.toString()).isEqualTo("/foo/bar.txt");
+  }
+
+  @Test
+  public void testToURI() throws Exception {
+    Path p = root.getRelative("/tmp/foo bar.txt");
+    URI uri = p.toURI();
+    assertThat(uri.toString()).isEqualTo("file:///tmp/foo%20bar.txt");
   }
 
   private void assertAsFragmentWorks(String expected) {

@@ -24,9 +24,9 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -106,6 +106,18 @@ public class AndroidResourceValidatorAction {
       help = "Path to where the R.txt should be written."
     )
     public Path rOutput;
+
+    @Option(
+        name = "packagePath",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the write the archive."
+    )
+    // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
+    public Path packagePath;
   }
 
   public static void main(String[] args) throws Exception {
@@ -138,6 +150,7 @@ public class AndroidResourceValidatorAction {
       resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
 
       resourceProcessor.runAapt(
+          tmp,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -151,7 +164,7 @@ public class AndroidResourceValidatorAction {
           resources,
           assets,
           generatedSources,
-          null, /* packageOut */
+          options.packagePath,
           null, /* proguardOut */
           null, /* mainDexProguardOut */
           null /* publicResourcesOut */);

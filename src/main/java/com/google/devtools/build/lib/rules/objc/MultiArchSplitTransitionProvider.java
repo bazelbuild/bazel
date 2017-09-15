@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import java.util.List;
 
@@ -83,17 +83,22 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
    */
   public static void validateMinimumOs(RuleContext ruleContext) throws RuleErrorException {
     String attributeValue = ruleContext.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
-    // TODO(b/37096178): This should be a mandatory attribute.
-    if (!Strings.isNullOrEmpty(attributeValue)) {
+    // TODO(b/37096178): This attribute should always be a version.
+    if (Strings.isNullOrEmpty(attributeValue)) {
+      if (ruleContext.getFragment(AppleConfiguration.class).isMandatoryMinimumVersion()) {
+        ruleContext.throwWithAttributeError(PlatformRule.MINIMUM_OS_VERSION,
+            "This attribute must be explicitly specified");
+      }
+    } else {
       try {
         DottedVersion minimumOsVersion = DottedVersion.fromString(attributeValue);
         if (minimumOsVersion.hasAlphabeticCharacters() || minimumOsVersion.numComponents() > 2) {
-          throw ruleContext.throwWithAttributeError(
+          ruleContext.throwWithAttributeError(
               PlatformRule.MINIMUM_OS_VERSION,
               String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
         }
       } catch (IllegalArgumentException exception) {
-        throw ruleContext.throwWithAttributeError(
+        ruleContext.throwWithAttributeError(
             PlatformRule.MINIMUM_OS_VERSION,
             String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
       }
@@ -229,7 +234,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values
           // require additional flags to work (e.g. a custom crosstool) which now only need to be
           // set if this feature is explicitly requested.
-          String platformCpu = Platform.cpuStringForTarget(platformType, cpu);
+          String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
           AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(buildOptions,
               splitOptions, platformCpu);
         }
@@ -252,11 +257,6 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
         splitBuildOptions.add(splitOptions);
       }
       return splitBuildOptions.build();
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
     }
   }
 }

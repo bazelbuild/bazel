@@ -17,8 +17,8 @@
 # Script for building bazel from scratch without bazel
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-2.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
-GRPC_JAVA_VERSION=1.3.0
+LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-3.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
+GRPC_JAVA_VERSION=1.6.1
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
 # Guava jars are different for JDK 7 build and JDK 8 build, we select the good
 # one based on the name (21.0-{date} for JDK7).
@@ -345,6 +345,7 @@ function run_bazel_jar() {
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
+      --build_python_zip \
       "${client_env[@]}" \
       --client_cwd="$(get_cwd)" \
       "${@}"

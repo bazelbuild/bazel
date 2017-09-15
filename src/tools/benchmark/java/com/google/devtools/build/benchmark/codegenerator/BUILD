@@ -1,4 +1,9 @@
-package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+)
 
 java_binary(
     name = "codegenerator",
@@ -6,7 +11,6 @@ java_binary(
     main_class = "com.google.devtools.build.benchmark.codegenerator.Main",
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party/java/javapoet",
     ],
@@ -17,13 +21,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party/java/javapoet",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

@@ -62,7 +62,7 @@ sh_test(
 
 sh_test(
     name = "java_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["java_integration_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -163,30 +163,10 @@ sh_test(
 )
 
 sh_test(
-    name = "ide_info_generation_skylark",
-    size = "large",
-    srcs = ["ide_info_generation.sh"],
-    args = [
-        "@bazel_tools//tools/ide:intellij_info.bzl%intellij_info_aspect",
-        "intellij-info-text",
-        "intellij-info.txt",
-        "intellij-info-text",
-        "intellij-info.txt",
-        "intellij-resolve",
-    ],
-    data = [
-        ":test-deps",
-        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
-    ],
-)
-
-sh_test(
     name = "skylark_flag_test",
-    size = "small",
+    size = "medium",
     srcs = ["skylark_flag_test.sh"],
     data = [":test-deps"],
-    # TODO(brandjon): Fix GitHub issue #3072 and remove the "manual" tag.
-    tags = ["manual"],
 )
 
 sh_test(

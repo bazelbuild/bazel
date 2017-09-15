@@ -524,14 +524,6 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
   }
 
   /**
-   * Returns the last segment in this path, or null if this PathFragment represents the root of the
-   * filesystem.
-   */
-  public PathFragment getLastSegment() {
-    return segments.length == 0 ? null : relativeTo(getParentDirectory());
-  }
-
-  /**
    * Returns a new PathFragment formed by appending {@code newName} to the
    * parent directory. Null is returned iff this method is called on a
    * PathFragment with zero segments.  If {@code newName} designates an absolute path,

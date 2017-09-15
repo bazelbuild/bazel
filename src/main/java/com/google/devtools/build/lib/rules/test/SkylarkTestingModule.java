@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -28,11 +30,11 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 public class SkylarkTestingModule {
 
   // TODO(bazel-team): Change this BuiltinFunction to be the actual
-  // ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.
+  // ExecutionInfo.PROVIDER.
   @SkylarkSignature(
     name = "ExecutionInfo",
     objectType = SkylarkTestingModule.class,
-    returnType = ExecutionInfoProvider.class,
+    returnType = ExecutionInfo.class,
     doc =
         "Creates a new execution info provider. Use this provider to specify special"
             + "environments requirements needed to run tests.",
@@ -54,17 +56,17 @@ public class SkylarkTestingModule {
       new BuiltinFunction("ExecutionInfo") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
-        public ExecutionInfoProvider invoke(SkylarkTestingModule self, SkylarkDict requirements) {
-          return new ExecutionInfoProvider(requirements);
+        public ExecutionInfo invoke(SkylarkTestingModule self, SkylarkDict requirements) {
+          return new ExecutionInfo(requirements);
         }
       };
 
   // TODO(bazel-team): Change this BuiltinFunction to be the actual
-  // TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.
+  // TestEnvironmentInfo.PROVIDER.
   @SkylarkSignature(
     name = "TestEnvironment",
     objectType = SkylarkTestingModule.class,
-    returnType = TestEnvironmentProvider.class,
+    returnType = TestEnvironmentInfo.class,
     doc =
         "Creates a new test environment provider. Use this provider to specify extra"
             + "environment variables to be made available during test execution.",
@@ -85,8 +87,8 @@ public class SkylarkTestingModule {
       new BuiltinFunction("TestEnvironment") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
-        public TestEnvironmentProvider invoke(SkylarkTestingModule self, SkylarkDict environment) {
-          return new TestEnvironmentProvider(environment);
+        public TestEnvironmentInfo invoke(SkylarkTestingModule self, SkylarkDict environment) {
+          return new TestEnvironmentInfo(environment);
         }
       };
 

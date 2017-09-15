@@ -1,0 +1,38 @@
+[
+    {
+        "node": "docker",
+        "configurations": [
+            {
+                "shard": 1,
+                "parameters": {"test_tag_filters": ["shard-1"]}
+            },
+            {
+                "shard": 2,
+                "parameters": {"test_tag_filters": ["shard-2"]}
+            },
+            {
+                "shard": 3,
+                "parameters": {"test_tag_filters": ["shard-3"]}
+            }
+        ],
+        "parameters": {
+            "targets": [],
+            "tests": ["//src/test/docker/..."]
+        }
+    },
+    {
+        "configurations": [
+            {"node": "linux-x86_64"},
+            {"node": "ubuntu_16.04-x86_64"},
+            {"node": "darwin-x86_64"}
+            // TODO(aehlig): {"node": "freebsd-11"},
+            // TODO(aehlig): {"node": "freebsd-12"},
+            // TODO(pcloudy): {"node": "windows-x86_64"},
+        ],
+        "parameters": {
+            "targets": [],
+            "tests": ["//src/test/..."],
+            "test_tag_filters": ["-docker", "+slow"]
+        }
+    }
+]

@@ -30,6 +30,7 @@ add_to_bazelrc "test --test_strategy=standalone"
 
 function set_up() {
   mkdir -p pkg
+  touch remote_file
   cat > pkg/true.sh <<EOF
 #!/bin/sh
 exit 0
@@ -213,6 +214,13 @@ function test_help_color_nobuild {
 
 function test_version_nobuild {
   bazel version --experimental_ui --curses=yes 2>$TEST_log \
+   || fail "bazel version failed"
+  expect_not_log "action"
+  expect_not_log "Building"
+}
+
+function test_version_nobuild_announce_rc {
+  bazel version --experimental_ui --curses=yes --announce_rc 2>$TEST_log \
    || fail "bazel version failed"
   expect_not_log "action"
   expect_not_log "Building"

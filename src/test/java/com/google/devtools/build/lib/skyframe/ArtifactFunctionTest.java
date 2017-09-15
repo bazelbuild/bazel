@@ -448,7 +448,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private SkyValue evaluateArtifactValue(Artifact artifact) throws Throwable {
-    return evaluateArtifactValue(artifact, /*isMandatory=*/ true);
+    return evaluateArtifactValue(artifact, /* mandatory= */ true);
   }
 
   private SkyValue evaluateArtifactValue(Artifact artifact, boolean mandatory) throws Throwable {

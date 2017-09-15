@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.ExternalPackageUtil;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
@@ -222,11 +224,11 @@ public abstract class RepositoryFunction {
                   FileSymlinkException.class,
                   InconsistentFilesystemException.class);
 
-      if (fileValue == null || !fileValue.isFile()) {
+      if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
         return false;
       }
 
-      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
+      return Objects.equals(value, fileValueToMarkerValue(fileValue));
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(
           "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
@@ -237,6 +239,22 @@ public abstract class RepositoryFunction {
       // Consider those exception to be a cause for invalidation
       return false;
     }
+  }
+
+  /**
+   * Convert to a @{link com.google.devtools.build.lib.skyframe.FileValue} to a String appropriate
+   * for placing in a repository marker file.
+   *
+   * @param fileValue The value to convert. It must correspond to a regular file.
+   */
+  public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+    Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
+    // Return the file content digest in hex. fileValue may or may not have the digest available.
+    byte[] digest = ((RegularFileStateValue) fileValue.realFileStateValue()).getDigest();
+    if (digest == null) {
+      digest = fileValue.realRootedPath().asPath().getDigest();
+    }
+    return BaseEncoding.base16().lowerCase().encode(digest);
   }
 
   static boolean verifyMarkerDataForFiles(

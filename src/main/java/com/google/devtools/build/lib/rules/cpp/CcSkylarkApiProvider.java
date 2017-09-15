@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Provides access to information about C++ rules.  "
-          + "Every C++-related target provides this struct, accessible as a 'cc' field on "
-          + "a Target struct."
+          + "Every C++-related target provides this struct, accessible as a <code>cc</code> field "
+          + "on <a href=\"Target.html\">target</a>."
 )
 public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
@@ -44,8 +44,9 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "transitive_headers",
       structField = true,
       doc =
-          "Returns the immutable set of headers that have been declared in the <code>src</code> "
-              + "or <code>headers</code> attribute (possibly empty but never None).")
+          "Returns a <a href=\"depset.html\">depset</a> of headers that have been declared in the "
+              + " <code>src</code> or <code>headers</code> attribute"
+              + "(possibly empty but never <code>None</code>).")
   public NestedSet<Artifact> getTransitiveHeaders() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     return ccContext.getDeclaredIncludeSrcs();
@@ -55,12 +56,13 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "libs",
       structField = true,
       doc =
-          "Returns the immutable set of libraries for either "
-              + "FULLY STATIC mode (linkopts=[\"-static\"]) or MOSTLY STATIC mode (linkstatic=1) "
-              + "(possibly empty but never None)")
+          "Returns the <a href=\"depset.html\">depset</a> of libraries for either "
+              + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
+              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
+              + "(possibly empty but never <code>None</code>)")
   public NestedSet<Artifact> getLibraries() {
     NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
-    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    CcLinkParamsInfo ccLinkParams = getInfo().get(CcLinkParamsInfo.PROVIDER);
     if (ccLinkParams == null) {
       return libs.build();
     }
@@ -74,11 +76,12 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "link_flags",
       structField = true,
       doc =
-          "Returns the immutable list of flags given to the C++ linker command for either "
-              + "FULLY STATIC mode (linkopts=[\"-static\"]) or MOSTLY STATIC mode (linkstatic=1) "
-              + "(possibly empty but never None)")
+          "Returns the list of flags given to the C++ linker command for either "
+              + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
+              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
+              + "(possibly empty but never <code>None</code>)")
   public ImmutableList<String> getLinkopts() {
-    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    CcLinkParamsInfo ccLinkParams = getInfo().get(CcLinkParamsInfo.PROVIDER);
     if (ccLinkParams == null) {
       return ImmutableList.of();
     }
@@ -89,8 +92,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "defines",
       structField = true,
       doc =
-          "Returns the immutable set of defines used to compile this target "
-              + "(possibly empty but never None).")
+          "Returns the list of defines used to compile this target "
+              + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getDefines() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     return ccContext == null ? ImmutableList.<String>of() : ccContext.getDefines();
@@ -100,8 +103,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "system_include_directories",
       structField = true,
       doc =
-          "Returns the immutable set of system include directories used to compile this target "
-              + "(possibly empty but never None).")
+          "Returns the list of system include directories used to compile this target "
+              + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getSystemIncludeDirs() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     if (ccContext == null) {
@@ -118,8 +121,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "include_directories",
       structField = true,
       doc =
-          "Returns the immutable set of include directories used to compile this target "
-              + "(possibly empty but never None).")
+          "Returns the list of include directories used to compile this target "
+              + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getIncludeDirs() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     if (ccContext == null) {
@@ -136,8 +139,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "quote_include_directories",
       structField = true,
       doc =
-          "Returns the immutable set of quote include directories used to compile this target "
-              + "(possibly empty but never None).")
+          "Returns the list of quote include directories used to compile this target "
+              + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getQuoteIncludeDirs() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     if (ccContext == null) {
@@ -154,8 +157,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       name = "compile_flags",
       structField = true,
       doc =
-          "Returns the immutable set of flags used to compile this target "
-              + "(possibly empty but never None).")
+          "Returns the list of flags used to compile this target "
+              + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getCcFlags() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
 

@@ -15,24 +15,21 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.remoteexecution.v1test.Digest;
+import java.io.IOException;
 
 /**
  * An exception to indicate cache misses.
  * TODO(olaola): have a class of checked RemoteCacheExceptions.
  */
-public final class CacheNotFoundException extends Exception {
+public final class CacheNotFoundException extends IOException {
   private final Digest missingDigest;
 
   CacheNotFoundException(Digest missingDigest) {
+    super("Missing digest: " + missingDigest);
     this.missingDigest = missingDigest;
   }
 
   public Digest getMissingDigest() {
     return missingDigest;
-  }
-
-  @Override
-  public String toString() {
-    return "Missing digest: " + missingDigest;
   }
 }

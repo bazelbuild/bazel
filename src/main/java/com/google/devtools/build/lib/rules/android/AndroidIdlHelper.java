@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -325,25 +326,28 @@ public class AndroidIdlHelper {
         .getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_idl"))
         .getRelative(basename + "_temp");
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(manifestProtoOutput)
-        .addInput(classJar)
-        .addInputs(generatedIdlJavaFiles)
-        .addOutput(idlClassJar)
-        .addOutput(idlSourceJar)
-        .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
-        .setCommandLine(CustomCommandLine.builder()
-            .addExecPath("--manifest_proto", manifestProtoOutput)
-            .addExecPath("--class_jar", classJar)
-            .addExecPath("--output_class_jar", idlClassJar)
-            .addExecPath("--output_source_jar", idlSourceJar)
-            .add("--temp_dir").addPath(idlTempDir)
-            .addExecPaths(generatedIdlJavaFiles)
-            .build())
-        .useParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building idl jars " + idlClassJar.prettyPrint())
-        .setMnemonic("AndroidIdlJars")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(manifestProtoOutput)
+            .addInput(classJar)
+            .addInputs(generatedIdlJavaFiles)
+            .addOutput(idlClassJar)
+            .addOutput(idlSourceJar)
+            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--manifest_proto", manifestProtoOutput)
+                    .addExecPath("--class_jar", classJar)
+                    .addExecPath("--output_class_jar", idlClassJar)
+                    .addExecPath("--output_source_jar", idlSourceJar)
+                    .add("--temp_dir")
+                    .addPath(idlTempDir)
+                    .addExecPaths(ImmutableList.copyOf(generatedIdlJavaFiles))
+                    .build(),
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
+            .setProgressMessage("Building idl jars %s", idlClassJar.prettyPrint())
+            .setMnemonic("AndroidIdlJars")
+            .build(ruleContext));
   }
 
   /**
@@ -367,12 +371,15 @@ public class AndroidIdlHelper {
             .addInput(sdk.getFrameworkAidl())
             .addInputs(getIdlPreprocessed(ruleContext))
             .addOutput(output)
-            .addArgument("-b") // Fail if trying to compile a parcelable.
-            .addArguments(importArgs)
-            .addArgument(idl.getExecPathString())
-            .addArgument(output.getExecPathString())
             .setProgressMessage("Android IDL generation")
-            .setMnemonic("AndroidIDLGnerate")
+            .setMnemonic("AndroidIDLGenerate")
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .add("-b") // Fail if trying to compile a parcelable.
+                    .addAll(importArgs)
+                    .addExecPath(idl)
+                    .addExecPath(output)
+                    .build())
             .build(ruleContext));
   }
 
@@ -483,7 +490,10 @@ public class AndroidIdlHelper {
   /** Returns the idl_preprocessed defined on the given rule. */
   private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
     return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
-        ? ruleContext.getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET).list()
+        ? ruleContext
+            .getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET)
+            .filter(AndroidRuleClasses.ANDROID_IDL)
+            .list()
         : ImmutableList.<Artifact>of();
   }
 }

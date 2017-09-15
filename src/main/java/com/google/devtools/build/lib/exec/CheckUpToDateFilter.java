@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 
 /**
  * Class implements --check_???_up_to_date execution filter predicate

@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -35,21 +34,20 @@ import java.util.logging.Logger;
 /**
  * Non-blocking file transport.
  *
- * <p>Implementors of this class need to implement {@link #sendBuildEvent(BuildEvent)} which
+ * <p>Implementors of this class need to implement {@code #sendBuildEvent(BuildEvent)} which
  * serializes the build event and writes it to file using {@link #writeData(byte[])}.
  */
 abstract class FileTransport implements BuildEventTransport {
 
   /**
    * We use an {@link AsynchronousFileChannel} to perform non-blocking writes to a file. It get's
-   * tricky when it comes to {@link #close()}, as we may only complete the returned future when
-   * all writes have completed (succeeded or failed). Thus, we use a field
-   * {@link #outstandingWrites} to keep track of the number of writes that have not completed yet.
-   * It's simply incremented before a new write and decremented after a write has completed. When
-   * it's {@code 0} it's safe to complete the close future.
+   * tricky when it comes to {@link #close()}, as we may only complete the returned future when all
+   * writes have completed (succeeded or failed). Thus, we use a field {@link #outstandingWrites} to
+   * keep track of the number of writes that have not completed yet. It's simply incremented before
+   * a new write and decremented after a write has completed. When it's {@code 0} it's safe to
+   * complete the close future.
    */
-
-  private static final Logger log = Logger.getLogger(FileTransport.class.getName());
+  private static final Logger logger = Logger.getLogger(FileTransport.class.getName());
 
   @VisibleForTesting
   final AsynchronousFileChannel ch;
@@ -107,10 +105,16 @@ abstract class FileTransport implements BuildEventTransport {
       ch.force(true);
       ch.close();
     } catch (IOException e) {
-      log.log(Level.SEVERE, e.getMessage(), e);
+      logger.log(Level.SEVERE, e.getMessage(), e);
     } finally {
       closeFuture.set(null);
     }
+  }
+
+  @Override
+  @SuppressWarnings("FutureReturnValueIgnored")
+  public void closeNow() {
+    close();
   }
 
   private boolean closing() {
@@ -133,7 +137,7 @@ abstract class FileTransport implements BuildEventTransport {
 
     @Override
     public void failed(Throwable exc, Void attachment) {
-      log.log(Level.SEVERE, exc.getMessage(), exc);
+      logger.log(Level.SEVERE, exc.getMessage(), exc);
       countWriteAndTryClose();
       // There is no point in trying to continue. Close the transport.
       @SuppressWarnings({"unused", "nullness"})

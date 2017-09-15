@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.PlatformOptions.ToolchainResolutionOverride;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -34,11 +36,29 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
 
   private final Label executionPlatform;
   private final ImmutableList<Label> targetPlatforms;
+  private final ImmutableList<Label> extraToolchains;
+  private final ImmutableMap<Label, Label> toolchainResolutionOverrides;
 
-  public PlatformConfiguration(Label executionPlatform, List<Label> targetPlatforms) {
+  public PlatformConfiguration(
+      Label executionPlatform,
+      List<Label> targetPlatforms,
+      List<Label> extraToolchains,
+      List<ToolchainResolutionOverride> overrides) {
 
     this.executionPlatform = executionPlatform;
     this.targetPlatforms = ImmutableList.copyOf(targetPlatforms);
+    this.extraToolchains = ImmutableList.copyOf(extraToolchains);
+    this.toolchainResolutionOverrides = convertOverrides(overrides);
+  }
+
+  private static ImmutableMap<Label, Label> convertOverrides(
+      List<ToolchainResolutionOverride> overrides) {
+    ImmutableMap.Builder<Label, Label> builder = new ImmutableMap.Builder<>();
+    for (ToolchainResolutionOverride override : overrides) {
+      builder.put(override.toolchainType(), override.toolchainLabel());
+    }
+
+    return builder.build();
   }
 
   @SkylarkCallable(
@@ -53,5 +73,20 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")
   public ImmutableList<Label> getTargetPlatforms() {
     return targetPlatforms;
+  }
+
+  /** Additional toolchains that should be considered during toolchain resolution. */
+  public ImmutableList<Label> getExtraToolchains() {
+    return extraToolchains;
+  }
+
+  /** Returns {@code true} if the given toolchain type has a manual override set. */
+  public boolean hasToolchainOverride(Label toolchainType) {
+    return toolchainResolutionOverrides.containsKey(toolchainType);
+  }
+
+  /** Returns the {@link Label} of the toolchain to use for the given toolchain type. */
+  public Label getToolchainOverride(Label toolchainType) {
+    return toolchainResolutionOverrides.get(toolchainType);
   }
 }

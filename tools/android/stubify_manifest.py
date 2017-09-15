@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -137,24 +138,24 @@ def _ParseManifest(manifest_string):
 
 def main():
   if FLAGS.mode == "mobile_install":
-    with file(FLAGS.input_manifest) as input_manifest:
+    with open(FLAGS.input_manifest, "rb") as input_manifest:
       new_manifest, old_application, app_package = (
           StubifyMobileInstall(input_manifest.read()))
 
     if FLAGS.override_package:
       app_package = FLAGS.override_package
 
-    with file(FLAGS.output_manifest, "w") as output_xml:
+    with open(FLAGS.output_manifest, "wb") as output_xml:
       output_xml.write(new_manifest)
 
-    with file(FLAGS.output_datafile, "w") as output_file:
+    with open(FLAGS.output_datafile, "wb") as output_file:
       output_file.write("\n".join([old_application, app_package]))
 
   elif FLAGS.mode == "instant_run":
-    with file(FLAGS.input_manifest) as input_manifest:
+    with open(FLAGS.input_manifest, "rb") as input_manifest:
       new_manifest = StubifyInstantRun(input_manifest.read())
 
-    with file(FLAGS.output_manifest, "w") as output_xml:
+    with open(FLAGS.output_manifest, "wb") as output_xml:
       output_xml.write(new_manifest)
 
 

@@ -15,10 +15,8 @@
 
 package com.google.devtools.build.lib.graph;
 
-/**
- *  <p> An interface for specifying a user-defined serialization of graph node
- *  labels as strings. </p>
- */
+/** An interface for specifying a user-defined serialization of graph node labels as strings. */
+@FunctionalInterface
 public interface LabelSerializer<T> {
 
   /**

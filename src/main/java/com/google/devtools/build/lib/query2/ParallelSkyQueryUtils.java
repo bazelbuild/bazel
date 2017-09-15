@@ -26,7 +26,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -94,7 +94,7 @@ class ParallelSkyQueryUtils {
   }
 
   /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
-  private static class RBuildFilesVisitor extends ParallelVisitor<SkyKey> {
+  private static class RBuildFilesVisitor extends ParallelVisitor<SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
@@ -130,9 +130,9 @@ class ParallelSkyQueryUtils {
     }
 
     @Override
-    protected void processResultantTargets(
+    protected void processPartialResults(
         Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
-            throws QueryException, InterruptedException {
+        throws QueryException, InterruptedException {
       Set<PackageIdentifier> pkgIdsNeededForResult =
           Streams.stream(keysToUseForResult)
               .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
@@ -164,7 +164,8 @@ class ParallelSkyQueryUtils {
    * even with 10M edges, the memory overhead is around 160M, and the memory can be reclaimed by
    * regular GC.
    */
-  private static class AllRdepsUnboundedVisitor extends ParallelVisitor<Pair<SkyKey, SkyKey>> {
+  private static class AllRdepsUnboundedVisitor
+      extends ParallelVisitor<Pair<SkyKey, SkyKey>, Target> {
     private final SkyQueryEnvironment env;
     private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
@@ -201,7 +202,7 @@ class ParallelSkyQueryUtils {
       }
 
       @Override
-      public ParallelVisitor<Pair<SkyKey, SkyKey>> create() {
+      public ParallelVisitor<Pair<SkyKey, SkyKey>, Target> create() {
         return new AllRdepsUnboundedVisitor(env, uniquifier, callback, packageSemaphore);
       }
     }
@@ -270,9 +271,9 @@ class ParallelSkyQueryUtils {
     }
 
     @Override
-    protected void processResultantTargets(
+    protected void processPartialResults(
         Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
-            throws QueryException, InterruptedException {
+        throws QueryException, InterruptedException {
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
           env.makePackageKeyToTargetKeyMap(keysToUseForResult);
       Set<PackageIdentifier> pkgIdsNeededForResult =

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,7 +29,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
   public void testSmoke() throws Exception {
     ConfiguredTarget cc = getConfiguredTarget(getRuleClassProvider().getToolsRepository()
         + "//tools/cpp:toolchain_type");
-    assertThat(cc.getProvider(MakeVariableProvider.class).getMakeVariables())
+    assertThat(cc.get(MakeVariableInfo.PROVIDER).getMakeVariables())
         .containsKey("TARGET_CPU");
   }
 }

@@ -17,6 +17,7 @@ import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -142,6 +143,12 @@ public class RClassGenerator {
     }
     for (Entry<String, FieldInitializer> entry : initializers.entrySet()) {
       FieldInitializer init = entry.getValue();
+      Preconditions.checkArgument(
+          !entry.getKey().contains(":"),
+          "%s in %s, %s is invalid java id",
+          entry.getKey(),
+          packageDir,
+          fullyQualifiedInnerClass);
       if (init.writeFieldDefinition(
           entry.getKey(), innerClassWriter, fieldAccessLevel, finalFields)) {
         deferredInitializers.put(entry.getKey(), init);

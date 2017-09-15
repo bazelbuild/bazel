@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
-
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;

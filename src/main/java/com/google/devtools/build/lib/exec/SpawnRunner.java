@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.SortedMap;
 
 /**
@@ -119,8 +121,46 @@ public interface SpawnRunner {
    * be used by different threads, so they MUST not call any shared non-thread-safe objects.
    */
   public interface SpawnExecutionPolicy {
-    /** The input file cache for this specific spawn. */
+    /**
+     * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
+     * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
+     * contain the identity of the spawn runner implementation.
+     */
+    int getId();
+
+    /**
+     * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
+     * network file system, and prefetching the files in parallel is a significant performance win.
+     * This should only be called by local strategies when local execution is imminent.
+     *
+     * <p>Should be called with the equivalent of:
+     * <code>
+     * policy.prefetchInputs(
+     *      Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
+     * </code>
+     *
+     * <p>Note in particular that {@link #getInputMapping} may return {@code null} values, but
+     * this method does not accept {@code null} values.
+     *
+     * <p>The reason why this method requires passing in the inputs is that getInputMapping may be
+     * slow to compute, so if the implementation already called it, we don't want to compute it
+     * again. I suppose we could require implementations to memoize getInputMapping (but not compute
+     * it eagerly), and that may change in the future.
+     */
+    void prefetchInputs() throws IOException;
+
+    /**
+     * The input file metadata cache for this specific spawn, which can be used to efficiently
+     * obtain file digests and sizes.
+     */
     ActionInputFileCache getActionInputFileCache();
+
+    /** An artifact expander. */
+    // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty
+    // directories. We shouldn't have this and the getInputMapping method; maybe there's a way to
+    // unify the two? Alternatively, maybe the input mapping should (optionally?) contain
+    // directories? Or maybe we need a separate method to return the set of directories?
+    ArtifactExpander getArtifactExpander();
 
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or
@@ -129,8 +169,14 @@ public interface SpawnRunner {
      */
     void lockOutputFiles() throws InterruptedException;
 
+    /**
+     * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
+     * {@link #lockOutputFiles} may raise {@link InterruptedException}.
+     */
+    boolean speculating();
+
     /** Returns the timeout that should be applied for the given {@link Spawn} instance. */
-    long getTimeoutMillis();
+    Duration getTimeout();
 
     /** The files to which to write stdout and stderr. */
     FileOutErr getFileOutErr();
@@ -138,7 +184,7 @@ public interface SpawnRunner {
     SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException;
 
     /** Reports a progress update to the Spawn strategy. */
-    void report(ProgressStatus state);
+    void report(ProgressStatus state, String name);
   }
 
   /**

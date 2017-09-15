@@ -32,10 +32,9 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.desugar.CoreLibraryRewriter.UnprefixingClassWriter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOError;
 import java.io.IOException;
@@ -66,7 +65,7 @@ import org.objectweb.asm.tree.ClassNode;
 class Desugar {
 
   /** Commandline options for {@link Desugar}. */
-  public static class Options extends OptionsBase {
+  public static class DesugarOptions extends OptionsBase {
     @Option(
       name = "input",
       allowMultiple = true,
@@ -113,20 +112,18 @@ class Desugar {
     @Option(
       name = "allow_empty_bootclasspath",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN}
     )
     public boolean allowEmptyBootclasspath;
 
     @Option(
       name = "only_desugar_javac9_for_lint",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+          "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)"
     )
     public boolean onlyDesugarJavac9ForLint;
 
@@ -226,16 +223,28 @@ class Desugar {
     @Option(
       name = "core_library",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       implicitRequirements = "--allow_empty_bootclasspath",
       help = "Enables rewriting to desugar java.* classes."
     )
     public boolean coreLibrary;
+
+    /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
+    // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
+    @Option(
+      name = "legacy_jacoco_fix",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Consider setting this flag if you're using JaCoCo versions prior to 0.7.9 to work "
+          + "around issues with coverage instrumentation in default and static interface methods. "
+          + "This flag may be removed when no longer needed."
+    )
+    public boolean legacyJacocoFix;
   }
 
-  private final Options options;
+  private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store;
@@ -245,12 +254,13 @@ class Desugar {
 
   private final boolean outputJava7;
   private final boolean allowDefaultMethods;
+  private final boolean allowTryWithResources;
   private final boolean allowCallsToObjectsNonNull;
   private final boolean allowCallsToLongCompare;
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
-  private Desugar(Options options, Path dumpDirectory) {
+  private Desugar(DesugarOptions options, Path dumpDirectory) {
     this.options = options;
     this.rewriter = new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
     this.lambdas = new LambdaClassMaker(dumpDirectory);
@@ -258,6 +268,8 @@ class Desugar {
     this.outputJava7 = options.minSdkVersion < 24;
     this.allowDefaultMethods =
         options.desugarInterfaceMethodBodiesIfNeeded || options.minSdkVersion >= 24;
+    this.allowTryWithResources =
+        !options.desugarTryWithResourcesIfNeeded || options.minSdkVersion >= 19;
     this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     this.allowCallsToLongCompare = options.minSdkVersion >= 19 && !options.alwaysRewriteLongCompare;
     this.used = false;
@@ -354,9 +366,7 @@ class Desugar {
   }
 
   private void copyThrowableExtensionClass(OutputFileProvider outputFileProvider) {
-    if (!outputJava7
-        || !options.desugarTryWithResourcesIfNeeded
-        || options.desugarTryWithResourcesOmitRuntimeClasses) {
+    if (allowTryWithResources || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
     }
@@ -390,9 +400,6 @@ class Desugar {
         // any danger of accidentally uncompressed resources ending up in an .apk.
         if (filename.endsWith(".class")) {
           ClassReader reader = rewriter.reader(content);
-          InvokeDynamicLambdaMethodCollector lambdaMethodCollector =
-              new InvokeDynamicLambdaMethodCollector();
-          reader.accept(lambdaMethodCollector, ClassReader.SKIP_DEBUG);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
               createClassVisitorsForClassesInInputs(
@@ -401,10 +408,14 @@ class Desugar {
                   bootclasspathReader,
                   interfaceLambdaMethodCollector,
                   writer,
-                  lambdaMethodCollector.getLambdaMethodsUsedInInvokeDyanmic());
-          reader.accept(visitor, 0);
-
-          outputFileProvider.write(filename, writer.toByteArray());
+                  reader);
+          if (writer == visitor) {
+            // Just copy the input if there are no rewritings
+            outputFileProvider.write(filename, reader.b);
+          } else {
+            reader.accept(visitor, 0);
+            outputFileProvider.write(filename, writer.toByteArray());
+          }
         } else {
           outputFileProvider.copyFrom(filename, inputFiles);
         }
@@ -438,6 +449,11 @@ class Desugar {
     for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
       try (InputStream bytecode = Files.newInputStream(lambdaClass.getKey())) {
         ClassReader reader = rewriter.reader(bytecode);
+        InvokeDynamicLambdaMethodCollector collector = new InvokeDynamicLambdaMethodCollector();
+        reader.accept(collector, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        ImmutableSet<MethodInfo> lambdaMethods = collector.getLambdaMethodsUsedInInvokeDynamics();
+        checkState(lambdaMethods.isEmpty(),
+            "Didn't expect to find lambda methods but found %s", lambdaMethods);
         UnprefixingClassWriter writer =
             rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
         ClassVisitor visitor =
@@ -489,34 +505,11 @@ class Desugar {
       LambdaInfo lambdaClass,
       UnprefixingClassWriter writer) {
     ClassVisitor visitor = checkNotNull(writer);
-
-    if (outputJava7) {
-      // null ClassReaderFactory b/c we don't expect to need it for lambda classes
-      visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
-      if (options.desugarTryWithResourcesIfNeeded) {
-        visitor =
-            new TryWithResourcesRewriter(
-                visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
-      }
-      if (options.desugarInterfaceMethodBodiesIfNeeded) {
-        visitor =
-            new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
-        visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
-      }
+    if (!allowTryWithResources) {
+      visitor =
+          new TryWithResourcesRewriter(
+              visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
     }
-    visitor =
-        new LambdaClassFixer(
-            visitor,
-            lambdaClass,
-            bridgeMethodReader,
-            interfaceLambdaMethods,
-            allowDefaultMethods,
-            outputJava7);
-    // Send lambda classes through desugaring to make sure there's no invokedynamic
-    // instructions in generated lambda classes (checkState below will fail)
-    visitor =
-        new LambdaDesugaring(
-            visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
     if (!allowCallsToObjectsNonNull) {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
       // the inliner again
@@ -525,6 +518,30 @@ class Desugar {
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor);
     }
+    if (outputJava7) {
+      // null ClassReaderFactory b/c we don't expect to need it for lambda classes
+      visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
+      if (options.desugarInterfaceMethodBodiesIfNeeded) {
+        visitor =
+            new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
+        visitor =
+            new InterfaceDesugaring(visitor, bootclasspathReader, store, options.legacyJacocoFix);
+      }
+    }
+    visitor =
+        new LambdaClassFixer(
+            visitor,
+            lambdaClass,
+            bridgeMethodReader,
+            loader,
+            interfaceLambdaMethods,
+            allowDefaultMethods,
+            outputJava7);
+    // Send lambda classes through desugaring to make sure there's no invokedynamic
+    // instructions in generated lambda classes (checkState below will fail)
+    visitor =
+        new LambdaDesugaring(
+            visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
     return visitor;
   }
 
@@ -539,38 +556,46 @@ class Desugar {
       ClassReaderFactory bootclasspathReader,
       Builder<String> interfaceLambdaMethodCollector,
       UnprefixingClassWriter writer,
-      ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDynamic) {
+      ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
-
-    if (!options.onlyDesugarJavac9ForLint) {
-      if (outputJava7) {
-        visitor = new Java7Compatibility(visitor, classpathReader);
-        if (options.desugarTryWithResourcesIfNeeded) {
-          visitor =
-              new TryWithResourcesRewriter(
-                  visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
-        }
-        if (options.desugarInterfaceMethodBodiesIfNeeded) {
-          visitor =
-              new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
-          visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
-        }
-      }
+    if (!allowTryWithResources) {
       visitor =
-          new LambdaDesugaring(
-              visitor,
-              loader,
-              lambdas,
-              interfaceLambdaMethodCollector,
-              lambdaMethodsUsedInInvokeDynamic,
-              allowDefaultMethods);
+          new TryWithResourcesRewriter(
+              visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
     }
-
     if (!allowCallsToObjectsNonNull) {
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor);
+    }
+    if (!options.onlyDesugarJavac9ForLint) {
+      if (outputJava7) {
+        visitor = new Java7Compatibility(visitor, classpathReader);
+        if (options.desugarInterfaceMethodBodiesIfNeeded) {
+          visitor =
+              new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader, loader);
+          visitor =
+              new InterfaceDesugaring(visitor, bootclasspathReader, store, options.legacyJacocoFix);
+        }
+      }
+      // LambdaDesugaring is relatively expensive, so check first whether we need it.  Additionally,
+      // we need to collect lambda methods referenced by invokedynamic instructions up-front anyway.
+      // TODO(kmb): Scan constant pool instead of visiting the class to find bootstrap methods etc.
+      InvokeDynamicLambdaMethodCollector collector = new InvokeDynamicLambdaMethodCollector();
+      input.accept(collector, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+      ImmutableSet<MethodInfo> methodsUsedInInvokeDynamics =
+          collector.getLambdaMethodsUsedInInvokeDynamics();
+      if (!methodsUsedInInvokeDynamics.isEmpty() || collector.needOuterClassRewrite()) {
+        visitor =
+            new LambdaDesugaring(
+                visitor,
+                loader,
+                lambdas,
+                interfaceLambdaMethodCollector,
+                methodsUsedInInvokeDynamics,
+                allowDefaultMethods);
+      }
     }
     return visitor;
   }
@@ -580,7 +605,7 @@ class Desugar {
     Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
     verifyLambdaDumpDirectoryRegistered(dumpDirectory);
 
-    Options options = parseCommandLineOptions(args);
+    DesugarOptions options = parseCommandLineOptions(args);
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
@@ -636,16 +661,13 @@ class Desugar {
     return dumpDirectory;
   }
 
-  private static Options parseCommandLineOptions(String[] args) throws IOException {
+  private static DesugarOptions parseCommandLineOptions(String[] args) throws IOException {
     if (args.length == 1 && args[0].startsWith("@")) {
       args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
     }
-
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.setAllowResidue(false);
-    optionsParser.parseAndExitUponError(args);
-
-    Options options = optionsParser.getOptions(Options.class);
+    DesugarOptions options =
+        Options.parseAndExitUponError(DesugarOptions.class, /*allowResidue=*/ false, args)
+            .getOptions();
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
@@ -662,7 +684,7 @@ class Desugar {
     return options;
   }
 
-  private static ImmutableList<InputOutputPair> toInputOutputPairs(Options options) {
+  private static ImmutableList<InputOutputPair> toInputOutputPairs(DesugarOptions options) {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
             outputIt = options.outputJars.iterator();

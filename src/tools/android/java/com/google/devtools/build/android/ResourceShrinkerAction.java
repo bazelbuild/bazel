@@ -31,9 +31,10 @@ import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -63,7 +64,7 @@ import org.xml.sax.SAXException;
  *       --resources path to processed resources zip
  *       --rTxt path to processed resources R.txt
  *       --primaryManifest path to processed resources AndroidManifest.xml
- *       --dependencyManifests paths to dependency library manifests
+ *       --dependencyManifest path to dependency library manifest (repeated flag)
  *       --shrunkResourceApk path to write shrunk ap_
  *       --shrunkResources path to write shrunk resources zip
  * </pre>
@@ -130,15 +131,32 @@ public class ResourceShrinkerAction {
     public Path primaryManifest;
 
     @Option(
+      name = "dependencyManifest",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "input",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Paths to the manifests of the dependencies. Specify one path per flag."
+    )
+    public List<Path> dependencyManifests;
+
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
+    @Option(
       name = "dependencyManifests",
       defaultValue = "",
       category = "input",
       converter = PathListConverter.class,
+      deprecationWarning = "Deprecated in favour of \"--dependencyManifest\"",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of paths to the manifests of the dependencies."
+      help = "A list of paths to the manifests of the dependencies.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
     )
-    public List<Path> dependencyManifests;
+    public List<Path> deprecatedDependencyManifests;
 
     @Option(
       name = "resourcePackages",
@@ -236,6 +254,8 @@ public class ResourceShrinkerAction {
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
+    options.dependencyManifests =
+        Converters.concatLists(options.dependencyManifests, options.deprecatedDependencyManifests);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.
@@ -287,6 +307,7 @@ public class ResourceShrinkerAction {
 
       // Build ap_ with shrunk resources.
       resourceProcessor.processResources(
+          working,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -303,8 +324,8 @@ public class ResourceShrinkerAction {
           options.shrunkApk,
           null /* proguardOutput */,
           null /* mainDexProguardOutput */,
-         null /* publicResourcesOut */,
-         null /* dataBindingInfoOut */);
+          null /* publicResourcesOut */,
+          null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
         AndroidResourceOutputs.createResourcesZip(
             shrunkResources,

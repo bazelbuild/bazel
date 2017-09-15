@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -55,10 +56,15 @@ interface RemoteActionCache {
   /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
+   *
+   * <p>In case of failure, this method must delete any output files it might have already created.
+   *
+   * @throws CacheNotFoundException in case of a cache miss.
+   * @throws ExecException in case clean up after a failed download failed.
    */
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   void download(ActionResult result, Path execRoot, FileOutErr outErr)
-      throws IOException, InterruptedException, CacheNotFoundException;
+      throws ExecException, IOException, InterruptedException;
   /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
    * Returns {@code null} if there is no such entry. Note that a successful result from this method

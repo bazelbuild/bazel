@@ -328,7 +328,7 @@ public final class PackageFactory {
     }
   }
 
-  private static final Logger LOG = Logger.getLogger(PackageFactory.class.getName());
+  private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
 
   private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
@@ -381,6 +381,11 @@ public final class PackageFactory {
   @VisibleForTesting
   public abstract static class BuilderFactoryForTesting {
     public abstract BuilderForTesting builder();
+  }
+
+  @VisibleForTesting
+  public Package.Builder.Helper getPackageBuilderHelperForTesting() {
+    return packageBuilderHelper;
   }
 
   /**
@@ -573,11 +578,12 @@ public final class PackageFactory {
     try {
       Globber.Token globToken = context.globber.runAsync(includes, excludes, excludeDirs);
       matches = context.globber.fetch(globToken);
-    } catch (IOException expected) {
-      context.eventHandler.handle(Event.error(ast.getLocation(),
-              "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage()));
-      context.pkgBuilder.setContainsErrors();
-      matches = ImmutableList.<String>of();
+    } catch (IOException e) {
+      String errorMessage =
+          "error globbing [" + Joiner.on(", ").join(includes) + "]: " + e.getMessage();
+      context.eventHandler.handle(Event.error(ast.getLocation(), errorMessage));
+      context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
+      matches = ImmutableList.of();
     } catch (BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -776,7 +782,7 @@ public final class PackageFactory {
               String.format("licenses for exported file '%s' declared twice",
                   inputFile.getName()));
         }
-        if (license == null && pkgBuilder.getDefaultLicense() == License.NO_LICENSE
+        if (license == null && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
           throw new EvalException(ast.getLocation(),
               "third-party file '" + inputFile.getName() + "' lacks a license declaration "
@@ -1265,10 +1271,12 @@ public final class PackageFactory {
    */
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClass) {
-    return new BuiltinFunction(ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
+    return new BuiltinFunction(
+        ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV, /*isRule=*/ true) {
+
       @SuppressWarnings({"unchecked", "unused"})
-      public Runtime.NoneType invoke(Map<String, Object> kwargs,
-          FuncallExpression ast, Environment env)
+      public Runtime.NoneType invoke(
+          Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         env.checkLoadingOrWorkspacePhase(ruleClass, ast.getLocation());
         try {
@@ -1337,9 +1345,9 @@ public final class PackageFactory {
       List<Statement> preludeStatements,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
-    LOG.fine("Starting to parse " + packageId);
+    logger.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
-    LOG.fine("Finished parsing of " + packageId);
+    logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
 
@@ -1584,8 +1592,7 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return NativeClassObjectConstructor.STRUCT.create(
-        builder.build(), "no native function or rule '%s'");
+    return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
   /** @param fakeEnv specify if we declare no-op functions, or real functions. */

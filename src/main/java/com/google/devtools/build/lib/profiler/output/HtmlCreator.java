@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.profiler.output;
 
 import com.google.common.base.Optional;
-import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
 import com.google.devtools.build.lib.profiler.chart.AggregatingChartCreator;
 import com.google.devtools.build.lib.profiler.chart.Chart;
 import com.google.devtools.build.lib.profiler.chart.ChartCreator;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.profiler.statistics.SkylarkStatistics;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;

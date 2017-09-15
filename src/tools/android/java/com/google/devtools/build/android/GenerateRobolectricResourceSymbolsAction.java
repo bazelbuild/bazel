@@ -27,9 +27,9 @@ import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -177,7 +177,6 @@ public class GenerateRobolectricResourceSymbolsAction {
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
-      System.out.println(options.classJarOutput);
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

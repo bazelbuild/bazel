@@ -1,8 +1,4 @@
-DEFAULT_VISIBILITY = [
-    "//src/java_tools/junitrunner:__subpackages__",
-]
-
-package(default_visibility = DEFAULT_VISIBILITY)
+package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
     name = "testbed",
@@ -22,8 +18,7 @@ exports_files([
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + [
-        "XmlOutputExercises.ant.xml",
         "BUILD",
+        "XmlOutputExercises.ant.xml",
     ],
-    visibility = ["//src:__pkg__"],
 )

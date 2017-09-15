@@ -11,67 +11,81 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
+import com.google.devtools.build.lib.util.OS;
+import javax.annotation.Nullable;
 
 /**
  * Provide a remote execution context.
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private RemoteSpawnStrategy spawnStrategy;
+  private final RemoteActionCache cache;
+  private final GrpcRemoteExecutor executor;
 
-  RemoteActionContextProvider(CommandEnvironment env) {
+  RemoteActionContextProvider(CommandEnvironment env, @Nullable RemoteActionCache cache,
+      @Nullable GrpcRemoteExecutor executor) {
     this.env = env;
-  }
-
-  @Override
-  public void init(
-      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    SpawnActionContext fallbackStrategy =
-        new StandaloneSpawnStrategy(
-            env.getExecRoot(),
-            actionInputPrefetcher,
-            localExecutionOptions,
-            executionOptions.verboseFailures,
-            env.getRuntime().getProductName(),
-            ResourceManager.instance());
-    spawnStrategy =
-        new RemoteSpawnStrategy(
-            env.getExecRoot(),
-            env.getOptions().getOptions(RemoteOptions.class),
-            env.getOptions().getOptions(AuthAndTLSOptions.class),
-            executionOptions.verboseFailures,
-            fallbackStrategy);
+    this.executor = executor;
+    this.cache = cache;
   }
 
   @Override
   public Iterable<? extends ActionContext> getActionContexts() {
-    return ImmutableList.of(Preconditions.checkNotNull(spawnStrategy));
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+
+    if (remoteOptions.experimentalRemoteSpawnCache) {
+      RemoteSpawnCache spawnCache = new RemoteSpawnCache(env.getExecRoot(), remoteOptions, cache,
+          executionOptions.verboseFailures, env.getReporter());
+      return ImmutableList.of(spawnCache);
+    } else {
+      RemoteSpawnRunner spawnRunner = new RemoteSpawnRunner(
+          env.getExecRoot(),
+          remoteOptions,
+          createFallbackRunner(env),
+          executionOptions.verboseFailures,
+          env.getReporter(),
+          cache,
+          executor);
+      return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
+    }
+  }
+
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
+        ? new XCodeLocalEnvProvider()
+        : LocalEnvProvider.UNMODIFIED;
+    return
+        new LocalSpawnRunner(
+            env.getExecRoot(),
+            localExecutionOptions,
+            ResourceManager.instance(),
+            env.getRuntime().getProductName(),
+            localEnvProvider);
   }
 
   @Override
   public void executionPhaseEnding() {
-    if (spawnStrategy != null) {
-      spawnStrategy.close();
-      spawnStrategy = null;
+    if (cache != null) {
+      cache.close();
     }
   }
 }

@@ -24,6 +24,17 @@ import javax.annotation.Nullable;
  * other than that all methods with side effects must belong to the former.
  */
 public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
+
+  /**
+   * Return this key to signify a failed key computation.
+   *
+   * <p>Actions that return this value should fail to execute.
+   *
+   * <p>Consumers must either gracefully handle multiple failed actions having the same key,
+   * (recommended), or check against this value explicitly.
+   */
+  String KEY_ERROR = "1ea50e01-0349-4552-80cf-76cf520e8592";
+
   /**
    * If this executable can supply verbose information, returns a string that can be used as a
    * progress message while this executable is running. A return value of {@code null} indicates no

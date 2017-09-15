@@ -85,7 +85,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
@@ -171,7 +171,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
@@ -246,7 +246,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../outer_planets/neptune/info
 cat ../outer_planets/pluto/info
 EOF
@@ -351,7 +351,7 @@ function setup_error_test() {
   cd $WORKSPACE_DIR
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat external/pluto/info
 EOF
 

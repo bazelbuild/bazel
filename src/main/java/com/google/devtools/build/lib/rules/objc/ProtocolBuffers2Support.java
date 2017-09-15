@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -76,7 +75,7 @@ final class ProtocolBuffers2Support {
             .addOutputs(getGeneratedProtoOutputs(getHeaderExtension()))
             .addOutputs(getGeneratedProtoOutputs(getSourceExtension()))
             .setExecutable(PathFragment.create("/usr/bin/python"))
-            .setCommandLine(getGenerationCommandLine())
+            .addCommandLine(getGenerationCommandLine())
             .build(ruleContext));
     return this;
   }
@@ -87,7 +86,11 @@ final class ProtocolBuffers2Support {
   public ProtocolBuffers2Support registerCompilationActions()
       throws RuleErrorException, InterruptedException {
     CompilationSupport compilationSupport =
-        new CompilationSupport.Builder().setRuleContext(ruleContext).doNotUseDeps().build();
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .doNotUseDeps()
+            .doNotUsePch()
+            .build();
 
     compilationSupport.registerCompileAndArchiveActions(getCommon());
     return this;
@@ -124,7 +127,7 @@ final class ProtocolBuffers2Support {
         .addIncludes(getIncludes())
         .addDepObjcProviders(
             ruleContext.getPrerequisites(
-                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
+                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .build();
   }
 
@@ -132,7 +135,6 @@ final class ProtocolBuffers2Support {
     Iterable<Artifact> generatedSources = getGeneratedProtoOutputs(getSourceExtension());
     return new CompilationArtifacts.Builder()
         .setIntermediateArtifacts(new IntermediateArtifacts(ruleContext, ""))
-        .setPchFile(Optional.<Artifact>absent())
         .addAdditionalHdrs(getGeneratedProtoOutputs(getHeaderExtension()))
         .addAdditionalHdrs(generatedSources)
         .addNonArcSrcs(generatedSources)
@@ -154,18 +156,18 @@ final class ProtocolBuffers2Support {
   private CustomCommandLine getGenerationCommandLine() {
     CustomCommandLine.Builder commandLineBuilder =
         new CustomCommandLine.Builder()
-            .add(attributes.getProtoCompiler().getExecPathString())
+            .addExecPath(attributes.getProtoCompiler())
             .add("--input-file-list")
-            .add(getProtoInputsFile().getExecPathString())
+            .addExecPath(getProtoInputsFile())
             .add("--output-dir")
-            .add(getWorkspaceRelativeOutputDir().getSafePathString())
+            .addDynamicString(getWorkspaceRelativeOutputDir().getSafePathString())
             .add("--working-dir")
             .add(".");
 
     if (attributes.getOptionsFile().isPresent()) {
       commandLineBuilder
           .add("--compiler-options-path")
-          .add(attributes.getOptionsFile().get().getExecPathString());
+          .addExecPath(attributes.getOptionsFile().get());
     }
 
     if (attributes.usesObjcHeaderNames()) {

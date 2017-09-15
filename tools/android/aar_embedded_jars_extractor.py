@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +48,7 @@ def ExtractEmbeddedJars(aar, singlejar_param_file, output_dir):
 
 def main():
   with zipfile.ZipFile(FLAGS.input_aar, "r") as aar:
-    with open(FLAGS.output_singlejar_param_file, "w") as singlejar_param_file:
+    with open(FLAGS.output_singlejar_param_file, "wb") as singlejar_param_file:
       ExtractEmbeddedJars(aar, singlejar_param_file, FLAGS.output_dir)
 
 if __name__ == "__main__":

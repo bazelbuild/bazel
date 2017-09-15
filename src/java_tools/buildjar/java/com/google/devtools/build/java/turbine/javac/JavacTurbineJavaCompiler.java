@@ -36,13 +36,16 @@ import javax.tools.JavaFileObject;
 class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
 
   @Nullable private final StrictJavaDepsPlugin strictJavaDeps;
+  private final JavacTransitive transitive;
 
-  public JavacTurbineJavaCompiler(Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps) {
+  public JavacTurbineJavaCompiler(
+      Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps, JavacTransitive transitive) {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
     if (strictJavaDeps != null) {
       strictJavaDeps.init(context, Log.instance(context), this);
     }
+    this.transitive = transitive;
   }
 
   @Override
@@ -61,6 +64,7 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     if (strictJavaDeps != null) {
       strictJavaDeps.postAttribute(result);
     }
+    transitive.postAttribute(result);
     return result;
   }
 
@@ -78,19 +82,21 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     if (strictJavaDeps != null) {
       strictJavaDeps.finish();
     }
+    transitive.finish();
   }
 
   /**
    * Override the default {@link JavaCompiler} implementation with {@link JavacTurbineJavaCompiler}
    * for the given compilation context.
    */
-  public static void preRegister(Context context, @Nullable final StrictJavaDepsPlugin sjd) {
+  public static void preRegister(
+      Context context, @Nullable final StrictJavaDepsPlugin sjd, JavacTransitive transitive) {
     context.put(
         compilerKey,
         new Context.Factory<JavaCompiler>() {
           @Override
           public JavaCompiler make(Context c) {
-            return new JavacTurbineJavaCompiler(c, sjd);
+            return new JavacTurbineJavaCompiler(c, sjd, transitive);
           }
         });
   }

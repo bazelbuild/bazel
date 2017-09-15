@@ -37,6 +37,8 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param eventHandler any errors emitted during package lookup and loading for {@code directory}
    *     and non-excluded directories beneath it will be reported here
    * @param directory a {@link RootedPath} specifying the directory to search
+   * @param blacklistedSubdirectories a set of {@link PathFragment}s, all of which are beneath
+   *     {@code directory}, specifying transitive subdirectories to that have been blacklisted
    * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath {@code
    *     directory}, specifying transitive subdirectories to exclude
    */
@@ -44,6 +46,7 @@ public interface RecursivePackageProvider extends PackageProvider {
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException;
 

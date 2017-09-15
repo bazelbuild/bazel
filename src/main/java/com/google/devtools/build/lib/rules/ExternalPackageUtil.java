@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -169,6 +170,24 @@ public class ExternalPackageUtil {
         rule,
         ruleClassName);
     return rule;
+  }
+
+  /**
+   * Loads the external package and then returns the registered toolchain labels.
+   *
+   * @param env the environment to use for lookups
+   */
+  @Nullable
+  public static List<Label> getRegisteredToolchainLabels(Environment env)
+      throws ExternalPackageException, InterruptedException {
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER));
+    if (externalPackageValue == null) {
+      return null;
+    }
+
+    Package externalPackage = externalPackageValue.getPackage();
+    return externalPackage.getRegisteredToolchainLabels();
   }
 
   /** Exception thrown when something goes wrong accessing a rule. */

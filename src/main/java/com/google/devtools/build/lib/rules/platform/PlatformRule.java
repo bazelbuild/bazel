@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -41,18 +40,13 @@ public class PlatformRule implements RuleDefinition {
     /* <!-- #BLAZE_RULE(platform).NAME -->
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .override(
-            attr("tags", Type.STRING_LIST)
-                // No need to show up in ":all", etc. target patterns.
-                .value(ImmutableList.of("manual"))
-                .nonconfigurable("low-level attribute, used in platform configuration"))
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
         The constraint_values that define this platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER)))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id())))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
         A key/value dict of values that will be sent to a remote execution platform.
@@ -76,18 +70,15 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
                 .undocumented("Should only be used by internal packages."))
         // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
         // mapping.
         .add(
             attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
                 .undocumented("Should only be used by internal packages."))
-        .removeAttribute("deps")
-        .removeAttribute("data")
-        .exemptFromConstraintChecking("this rule is part of constraint definition")
         .build();
   }
 
@@ -95,7 +86,7 @@ public class PlatformRule implements RuleDefinition {
   public Metadata getMetadata() {
     return Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(PlatformBaseRule.class)
         .factoryClass(Platform.class)
         .build();
   }

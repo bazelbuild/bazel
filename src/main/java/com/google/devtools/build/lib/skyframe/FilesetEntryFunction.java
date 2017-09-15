@@ -170,7 +170,9 @@ public final class FilesetEntryFunction implements SkyFunction {
 
         // Check whether the symlink is excluded before attempting to resolve it.
         // It may be dangling, but excluding it is still fine.
-        if (exclusions.contains(linkName.getPathString())) {
+        // TODO(b/64754128): Investigate if we could have made the exclude earlier before
+        //                   unnecessarily iterating over all the files in an excluded directory.
+        if (linkName.segmentCount() > 0 && exclusions.contains(linkName.getSegment(0))) {
           continue;
         }
 

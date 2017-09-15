@@ -18,9 +18,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
+import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Encapsulates the directories related to a workspace.
@@ -64,13 +70,12 @@ public final class BlazeDirectories {
   public BlazeDirectories(
       ServerDirectories serverDirectories,
       Path workspace,
-      boolean deepExecRoot,
       String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
-    Path execRootBase = deepExecRoot ? outputBase.getChild("execroot") : outputBase;
+    Path execRootBase = outputBase.getChild("execroot");
     boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
@@ -82,16 +87,6 @@ public final class BlazeDirectories {
     String relativeOutputPath = getRelativeOutputPath(productName);
     this.outputPath = execRoot.getRelative(getRelativeOutputPath());
     this.localOutputPath = outputBase.getRelative(relativeOutputPath);
-  }
-
-  @VisibleForTesting
-  public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
-    this(serverDirectories, workspace, false, productName);
-  }
-
-  @VisibleForTesting
-  public BlazeDirectories(Path installBase, Path outputBase, Path workspace, String productName) {
-    this(new ServerDirectories(installBase, outputBase), workspace, false, productName);
   }
 
   /**
@@ -220,5 +215,41 @@ public final class BlazeDirectories {
    */
   public static String getRelativeOutputPath(String productName) {
     return StringCanonicalizer.intern(productName + "-out");
+  }
+
+  @Override
+  public int hashCode() {
+    // execRoot is derivable from other fields, but better safe than sorry.
+    return Objects.hash(serverDirectories, workspace, productName, execRoot);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof BlazeDirectories)) {
+      return false;
+    }
+    BlazeDirectories that = (BlazeDirectories) obj;
+    return this.serverDirectories.equals(that.serverDirectories)
+        && this.workspace.equals(that.workspace)
+        && this.productName.equals(that.productName)
+        // execRoot is derivable from other fields, but better safe than sorry.
+        && this.execRoot.equals(that.execRoot);
+  }
+
+  void serialize(CodedOutputStream codedOut, PathCodec pathCodec) throws IOException {
+    serverDirectories.serialize(codedOut, pathCodec);
+    pathCodec.serialize(workspace, codedOut);
+    FastStringCodec.INSTANCE.serialize(productName, codedOut);
+  }
+
+  static BlazeDirectories deserialize(CodedInputStream codedIn, PathCodec pathCodec)
+      throws IOException {
+    return new BlazeDirectories(
+        ServerDirectories.deserialize(codedIn, pathCodec),
+        pathCodec.deserialize(codedIn),
+        FastStringCodec.INSTANCE.deserialize(codedIn));
   }
 }

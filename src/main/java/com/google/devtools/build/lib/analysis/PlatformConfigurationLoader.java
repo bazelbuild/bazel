@@ -47,6 +47,10 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
     // TODO(katre): This will change with remote execution.
     Label executionPlatform = options.hostPlatform;
 
-    return new PlatformConfiguration(executionPlatform, options.platforms);
+    return new PlatformConfiguration(
+        executionPlatform,
+        options.platforms,
+        options.extraToolchains,
+        options.toolchainResolutionOverrides);
   }
 }

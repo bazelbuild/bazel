@@ -1,0 +1,13 @@
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "launcher",
+    srcs = select({
+      "//src:host_windows": ["launcher.exe"],
+      "//src:host_windows_msvc": ["launcher.exe"],
+      "//src:host_windows_msys": ["launcher.exe"],
+      "//conditions:default": [
+        "//src/tools/launcher:launcher",
+      ],
+    }),
+)

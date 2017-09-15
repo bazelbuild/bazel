@@ -50,14 +50,18 @@ public class SwiftConfiguration extends BuildConfiguration.Fragment {
   /** Returns whether to enable Whole Module Optimization. */
   @SkylarkCallable(
     name = "enable_whole_module_optimization",
-    doc = "Whether to enable Whole Module Optimization."
+    doc = "<code>True</code> if <em>whole module optimization</em> should be enabled when "
+        + "compiling Swift code; otherwise, <code>False</code>."
   )
   public boolean enableWholeModuleOptimization() {
     return enableWholeModuleOptimization;
   }
 
   /** Returns a list of options to use for compiling Swift. */
-  @SkylarkCallable(name = "copts", doc = "Returns a list of options to use for compiling Swift.")
+  @SkylarkCallable(
+    name = "copts",
+    doc = "A list of compiler options that should be passed to <code>swiftc</code> when compiling "
+        + "Swift code.")
   public ImmutableList<String> getCopts() {
     return copts;
   }

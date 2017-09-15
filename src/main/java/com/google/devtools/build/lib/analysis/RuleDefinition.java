@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;

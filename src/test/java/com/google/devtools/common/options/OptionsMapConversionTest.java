@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,8 +32,8 @@ public class OptionsMapConversionTest {
   private static Map<String, Object> keysToStrings(Map<Field, Object> map) {
     Map<String, Object> result = new LinkedHashMap<>();
     for (Map.Entry<Field, Object> entry : map.entrySet()) {
-      String name = entry.getKey().getAnnotation(Option.class).name();
-      result.put(name, entry.getValue());
+      OptionDefinition optionDefinition = OptionDefinition.extractOptionDefinition(entry.getKey());
+      result.put(optionDefinition.getOptionName(), entry.getValue());
     }
     return result;
   }
@@ -44,8 +43,8 @@ public class OptionsMapConversionTest {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     Map<Field, Object> result = new LinkedHashMap<>();
     for (Map.Entry<String, Object> entry : map.entrySet()) {
-      Field field = data.getFieldFromName(entry.getKey());
-      result.put(field, entry.getValue());
+      OptionDefinition optionDefinition = data.getOptionDefinitionFromName(entry.getKey());
+      result.put(optionDefinition.getField(), entry.getValue());
     }
     return result;
   }

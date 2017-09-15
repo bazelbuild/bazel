@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +21,9 @@ import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPath
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -59,7 +61,10 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-  protected DependencyResolver() {
+  private final ConfigurationResolver configResolver;
+
+  protected DependencyResolver(DynamicTransitionMapper transitionMapper) {
+    this.configResolver = new ConfigurationResolver(transitionMapper);
   }
 
   /**
@@ -85,20 +90,26 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
+   * @param toolchainContext {@link ToolchainContext} for this target
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+          InconsistentAspectOrderException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
-    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = dependentNodeMap(
-        node, hostConfig,
-        aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
-        configConditions, rootCauses);
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges =
+        dependentNodeMap(
+            node,
+            hostConfig,
+            aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
+            configConditions,
+            toolchainContext,
+            rootCauses);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().iterator().next().toString());
     }
@@ -113,14 +124,13 @@ public abstract class DependencyResolver {
    * <p>If {@code aspects} is empty, returns the dependent nodes of the configured target node
    * representing the given target and configuration.
    *
-   * Otherwise {@code aspects} represents an aspect path. The function returns dependent nodes
-   * of the entire path applied to given target and configuration. These are the depenent nodes
-   * of the last aspect in the path.
+   * <p>Otherwise {@code aspects} represents an aspect path. The function returns dependent nodes of
+   * the entire path applied to given target and configuration. These are the depenent nodes of the
+   * last aspect in the path.
    *
-   * <p>This also implements the first step of applying
-   * configuration transitions, namely, split transitions. This needs to be done before the labels
-   * are resolved because late bound attributes depend on the configuration. A good example for this
-   * is @{code :cc_toolchain}.
+   * <p>This also implements the first step of applying configuration transitions, namely, split
+   * transitions. This needs to be done before the labels are resolved because late bound attributes
+   * depend on the configuration. A good example for this is @{code :cc_toolchain}.
    *
    * <p>The long-term goal is that most configuration transitions be applied here. However, in order
    * to do that, we first have to eliminate transitions that depend on the rule class of the
@@ -131,17 +141,19 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param rootCauses collector for dep labels that can't be (loading phase) loaded
-   * @return a mapping of each attribute in this rule or aspects to its dependent nodes
+   * @param toolchainContext context information for required toolchains
+   * @param rootCauses collector for dep labels that can't be (loading phase) loaded @return a
+   *     mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
       NestedSetBuilder<Label> rootCauses)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-      InconsistentAspectOrderException {
+          InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
@@ -155,7 +167,8 @@ public abstract class DependencyResolver {
     } else if (target instanceof EnvironmentGroup) {
       visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
-      visitRule(node, hostConfig, aspects, configConditions, rootCauses, outgoingEdges);
+      visitRule(
+          node, hostConfig, aspects, configConditions, toolchainContext, rootCauses, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, rootCauses, outgoingEdges.get(null));
     } else {
@@ -170,10 +183,11 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
       NestedSetBuilder<Label> rootCauses,
       OrderedSetMultimap<Attribute, Dependency> outgoingEdges)
       throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
-             InterruptedException{
+          InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration());
     Rule rule = (Rule) node.getTarget();
@@ -186,6 +200,12 @@ public abstract class DependencyResolver {
     visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
     resolveEarlyBoundAttributes(depResolver);
     resolveLateBoundAttributes(depResolver, ruleConfig, hostConfig);
+
+    if (toolchainContext != null) {
+      Attribute toolchainsAttribute =
+          attributeMap.getAttributeDefinition(PlatformSemantics.TOOLCHAINS_ATTR);
+      resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainContext);
+    }
   }
 
   /**
@@ -355,25 +375,16 @@ public abstract class DependencyResolver {
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
       if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
-        // Since we want to get the same results as BuildConfiguration.evaluateTransition (but
+        // Since we want to get the same results as ConfigurationResolver.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
-        // doesn't do anything differently. evaluateTransition has additional logic
-        // for host configs and attributes with configurators. To keep the fork as simple as
-        // possible, we don't support the configurator case. And when we're in the host
-        // configuration, we fall back to the non-split branch, which calls
-        // BuildConfiguration.evaluateTransition, which returns its "host mode" result without
-        // ever looking at the split.
-        Verify.verify(attribute.getConfigurator() == null);
-
-        Iterable<BuildConfiguration> splitConfigs;
-        if (!ruleConfig.useDynamicConfigurations()) {
-          splitConfigs = ruleConfig
-              .getSplitConfigurations(attribute.getSplitTransition(depResolver.rule));
-        } else {
-          splitConfigs = getConfigurations(ruleConfig.fragmentClasses(), splitOptions);
-          if (splitConfigs == null) {
-            continue; // Need Skyframe deps.
-          }
+        // doesn't do anything differently. ConfigurationResolver.evaluateTransition has additional
+        // logic for host configs. So when we're in the host configuration we fall back to the
+        // non-split branch, which calls ConfigurationResolver.evaluateTransition, which returns its
+        // "host mode" result without ever looking at the split.
+        Iterable<BuildConfiguration> splitConfigs =
+            getConfigurations(ruleConfig.fragmentClasses(), splitOptions);
+        if (splitConfigs == null) {
+          continue; // Need Skyframe deps.
         }
         for (BuildConfiguration splitConfig : splitConfigs) {
           for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
@@ -393,6 +404,16 @@ public abstract class DependencyResolver {
           depResolver.resolveDep(attributeAndOwner, dep);
         }
       }
+    }
+  }
+
+  private void resolveToolchainDependencies(
+      Set<Dependency> dependencies, ToolchainContext toolchainContext) {
+    for (Label label : toolchainContext.getResolvedToolchainLabels()) {
+      Dependency dependency =
+          Dependency.withTransitionAndAspects(
+              label, HostTransition.INSTANCE, AspectCollection.EMPTY);
+      dependencies.add(dependency);
     }
   }
 
@@ -543,38 +564,6 @@ public abstract class DependencyResolver {
     }
   }
 
-
-  private AspectCollection requiredAspects(
-      Iterable<Aspect> aspectPath,
-      AttributeAndOwner attributeAndOwner,
-      final Target target,
-      Rule originalRule) throws InconsistentAspectOrderException {
-    if (!(target instanceof Rule)) {
-      return AspectCollection.EMPTY;
-    }
-
-    if (attributeAndOwner.ownerAspect != null) {
-      // Do not propagate aspects along aspect attributes.
-      return AspectCollection.EMPTY;
-    }
-
-    ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
-    ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
-
-    Attribute attribute = attributeAndOwner.attribute;
-    collectOriginatingAspects(originalRule, attribute, (Rule) target,
-        filteredAspectPath, visibleAspects);
-
-    collectPropagatingAspects(aspectPath,
-        attribute,
-        (Rule) target, filteredAspectPath, visibleAspects);
-    try {
-      return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
-    } catch (AspectCycleOnPathException e) {
-      throw  new InconsistentAspectOrderException(originalRule, attribute, target, e);
-    }
-  }
-
   /**
    * Collects into {@code filteredAspectPath}
    * aspects from {@code aspectPath} that propagate along {@code attribute}
@@ -715,22 +704,22 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
-      BuildConfiguration.TransitionApplier resolver = ruleConfig.getTransitionApplier();
-      ruleConfig.evaluateTransition(rule, attributeAndOwner.attribute, toTarget, resolver);
-      // An <Attribute, Label> pair can resolve to multiple deps because of split transitions.
-      for (Dependency dependency :
-          resolver.getDependencies(depLabel,
-              requiredAspects(aspects, attributeAndOwner, toTarget, rule))) {
-        outgoingEdges.put(attributeAndOwner.attribute, dependency);
-      }
+      Attribute.Transition transition = configResolver.evaluateTransition(
+          ruleConfig, rule, attributeAndOwner.attribute, toTarget);
+      outgoingEdges.put(
+          attributeAndOwner.attribute,
+          transition == Attribute.ConfigurationTransition.NULL
+              ? Dependency.withNullConfiguration(depLabel)
+              : Dependency.withTransitionAndAspects(depLabel, transition,
+                    requiredAspects(attributeAndOwner, toTarget)));
     }
 
     /**
      * Resolves the given dep for the given attribute using a pre-prepared configuration.
      *
      * <p>Use this method with care: it skips Bazel's standard config transition semantics ({@link
-     * BuildConfiguration#evaluateTransition}). That means attributes passed through here won't obey
-     * standard rules on which configurations apply to their deps. This should only be done for
+     * ConfigurationResolver#evaluateTransition}). That means attributes passed through here won't
+     * obey standard rules on which configurations apply to their deps. This should only be done for
      * special circumstances that really justify the difference. When in doubt, use {@link
      * #resolveDep(AttributeAndOwner, Label)}.
      */
@@ -740,25 +729,40 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: this is either a loading error or unevaluated Skyframe dep.
       }
-      BuildConfiguration.TransitionApplier transitionApplier = config.getTransitionApplier();
-      boolean applyNullTransition = false;
-      if (BuildConfiguration.usesNullConfiguration(toTarget)) {
-        transitionApplier.applyTransition(Attribute.ConfigurationTransition.NULL);
-        applyNullTransition = true;
+      outgoingEdges.put(
+          attributeAndOwner.attribute,
+          configResolver.usesNullConfiguration(toTarget)
+              ? Dependency.withNullConfiguration(depLabel)
+              : Dependency.withTransitionAndAspects(depLabel, new FixedTransition(
+                    config.getOptions()), requiredAspects(attributeAndOwner, toTarget)));
+    }
+
+    private AspectCollection requiredAspects(AttributeAndOwner attributeAndOwner,
+        final Target target) throws InconsistentAspectOrderException {
+      if (!(target instanceof Rule)) {
+        return AspectCollection.EMPTY;
       }
 
-      AspectCollection aspects =
-          requiredAspects(this.aspects, attributeAndOwner, toTarget, rule);
-      Dependency dep;
-      if (config.useDynamicConfigurations() && !applyNullTransition) {
-        // Pass a transition rather than directly feeding the configuration so deps get trimmed.
-        dep = Dependency.withTransitionAndAspects(
-            depLabel, new FixedTransition(config.getOptions()), aspects);
-      } else {
-        dep = Iterables.getOnlyElement(transitionApplier.getDependencies(depLabel, aspects));
+      if (attributeAndOwner.ownerAspect != null) {
+        // Do not propagate aspects along aspect attributes.
+        return AspectCollection.EMPTY;
       }
 
-      outgoingEdges.put(attributeAndOwner.attribute, dep);
+      ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
+      ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
+
+      Attribute attribute = attributeAndOwner.attribute;
+      collectOriginatingAspects(rule, attribute, (Rule) target,
+          filteredAspectPath, visibleAspects);
+
+      collectPropagatingAspects(aspects,
+          attribute,
+          (Rule) target, filteredAspectPath, visibleAspects);
+      try {
+        return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
+      } catch (AspectCycleOnPathException e) {
+        throw new InconsistentAspectOrderException(rule, attribute, target, e);
+      }
     }
   }
 
@@ -775,11 +779,6 @@ public abstract class DependencyResolver {
     @Override
     public BuildOptions apply(BuildOptions options) {
       return toOptions;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return false;
     }
   }
 

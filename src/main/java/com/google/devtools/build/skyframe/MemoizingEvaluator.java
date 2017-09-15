@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -45,7 +46,7 @@ public interface MemoizingEvaluator {
    * missing.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots,
+      Iterable<? extends SkyKey> roots,
       Version version,
       boolean keepGoing,
       int numThreads,
@@ -165,5 +166,15 @@ public interface MemoizingEvaluator {
    * {@code EmittedEventState} first and pass it to the graph during creation. This allows them to
    * determine whether or not to replay events.
    */
-  class EmittedEventState extends NestedSetVisitor.VisitedState<TaggedEvents> {}
+  class EmittedEventState {
+    final NestedSetVisitor.VisitedState<TaggedEvents> eventState =
+        new NestedSetVisitor.VisitedState<>();
+    final NestedSetVisitor.VisitedState<Postable> postableState =
+        new NestedSetVisitor.VisitedState<>();
+
+    public void clear() {
+      eventState.clear();
+      postableState.clear();
+    }
+  }
 }

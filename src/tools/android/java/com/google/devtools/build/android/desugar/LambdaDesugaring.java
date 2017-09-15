@@ -49,6 +49,9 @@ import org.objectweb.asm.tree.TypeInsnNode;
  * Visitor that desugars classes with uses of lambdas into Java 7-looking code. This includes
  * rewriting lambda-related invokedynamic instructions as well as fixing accessibility of methods
  * that javac emits for lambda bodies.
+ *
+ * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class
+ * that this visitor may rewrite, as we conditionally apply this visitor based on it.
  */
 class LambdaDesugaring extends ClassVisitor {
 
@@ -150,6 +153,7 @@ class LambdaDesugaring extends ClassVisitor {
     super.visitEnd();
   }
 
+  // If this method changes then InvokeDynamicLambdaMethodCollector may need changes well
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
@@ -192,6 +196,7 @@ class LambdaDesugaring extends ClassVisitor {
         : null;
   }
 
+  // If this method changes then InvokeDynamicLambdaMethodCollector may need changes well
   @Override
   public void visitOuterClass(String owner, String name, String desc) {
     if (name != null && name.startsWith("lambda$")) {
@@ -200,6 +205,8 @@ class LambdaDesugaring extends ClassVisitor {
     }
     super.visitOuterClass(owner, name, desc);
   }
+
+  // When adding visitXxx methods here then InvokeDynamicLambdaMethodCollector may need changes well
 
   static String uniqueInPackage(String owner, String name) {
     String suffix = "$" + owner.substring(owner.lastIndexOf('/') + 1);

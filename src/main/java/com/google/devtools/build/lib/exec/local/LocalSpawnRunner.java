@@ -18,8 +18,6 @@ import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -43,11 +40,11 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -63,15 +60,12 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
-  private final Logger logger;
+  private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
 
   private final String hostName;
-  private final AtomicInteger execCount;
-
-  private final ActionInputPrefetcher actionInputPrefetcher;
 
   private final LocalExecutionOptions localExecutionOptions;
 
@@ -86,23 +80,17 @@ public final class LocalSpawnRunner implements SpawnRunner {
   }
 
   public LocalSpawnRunner(
-      Logger logger,
-      AtomicInteger execCount,
       Path execRoot,
-      ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       boolean useProcessWrapper,
       OS localOs,
       String productName,
       LocalEnvProvider localEnvProvider) {
-    this.logger = logger;
     this.execRoot = execRoot;
-    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
-    this.hostName = NetUtil.findShortHostName();
-    this.execCount = execCount;
+    this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
     this.productName = productName;
@@ -111,16 +99,12 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
   public LocalSpawnRunner(
       Path execRoot,
-      ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       String productName,
       LocalEnvProvider localEnvProvider) {
     this(
-        Logger.getLogger(LocalSpawnRunner.class.getName()),
-        new AtomicInteger(),
         execRoot,
-        actionInputPrefetcher,
         localExecutionOptions,
         resourceManager,
         OS.getCurrent() != OS.WINDOWS && getProcessWrapper(execRoot, OS.getCurrent()).exists(),
@@ -134,10 +118,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy) throws IOException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    policy.report(ProgressStatus.SCHEDULING);
+    policy.report(ProgressStatus.SCHEDULING, "local");
     try (ResourceHandle handle =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING);
+      policy.report(ProgressStatus.EXECUTING, "local");
       policy.lockOutputFiles();
       return new SubprocessHandler(spawn, policy).run();
     }
@@ -152,7 +136,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
     private State currentState = State.INITIALIZING;
     private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
 
-    private final int id = execCount.getAndIncrement();
+    private final int id;
 
     public SubprocessHandler(
         Spawn spawn,
@@ -160,6 +144,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
       Preconditions.checkArgument(!spawn.getArguments().isEmpty());
       this.spawn = spawn;
       this.policy = policy;
+      this.id = policy.getId();
       setState(State.PARSING);
     }
 
@@ -243,21 +228,24 @@ public final class LocalSpawnRunner implements SpawnRunner {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
-        actionInputPrefetcher.prefetchFiles(
-            Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
+        policy.prefetchInputs();
       }
 
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
 
-      int timeoutSeconds = (int) (policy.getTimeoutMillis() / 1000);
       Command cmd;
       OutputStream stdOut = ByteStreams.nullOutputStream();
       OutputStream stdErr = ByteStreams.nullOutputStream();
       if (useProcessWrapper) {
+        // If the process wrapper is enabled, we use its timeout feature, which first interrupts the
+        // subprocess and only kills it after a grace period so that the subprocess can output a
+        // stack trace, test log or similar, which is incredibly helpful for debugging. The process
+        // wrapper also supports output file redirection, so we don't need to stream the output
+        // through this process.
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(processWrapper);
-        cmdLine.add("--timeout=" + timeoutSeconds);
+        cmdLine.add("--timeout=" + policy.getTimeout().getSeconds());
         cmdLine.add("--kill_delay=" + localExecutionOptions.localSigkillGraceSeconds);
         cmdLine.add("--stdout=" + getPathOrDevNull(outErr.getOutputPath()));
         cmdLine.add("--stderr=" + getPathOrDevNull(outErr.getErrorPath()));
@@ -273,13 +261,13 @@ public final class LocalSpawnRunner implements SpawnRunner {
             spawn.getArguments().toArray(new String[0]),
             localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName),
             execRoot.getPathFile(),
-            policy.getTimeoutMillis());
+            policy.getTimeout());
       }
 
       long startTime = System.currentTimeMillis();
       CommandResult result;
       try {
-        result = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdOut, stdErr, true);
+        result = cmd.execute(stdOut, stdErr);
         if (Thread.currentThread().isInterrupted()) {
           throw new InterruptedException();
         }
@@ -303,9 +291,9 @@ public final class LocalSpawnRunner implements SpawnRunner {
       }
       setState(State.SUCCESS);
 
-      long wallTime = System.currentTimeMillis() - startTime;
+      long wallTimeMillis = System.currentTimeMillis() - startTime;
       boolean wasTimeout = result.getTerminationStatus().timedout()
-          || (useProcessWrapper && wasTimeout(timeoutSeconds, wallTime));
+          || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTimeMillis));
       Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
       int exitCode = status == Status.TIMEOUT
           ? POSIX_TIMEOUT_EXIT_CODE
@@ -314,7 +302,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
           .setStatus(status)
           .setExitCode(exitCode)
           .setExecutorHostname(hostName)
-          .setWallTimeMillis(wallTime)
+          .setWallTimeMillis(wallTimeMillis)
           .build();
     }
 
@@ -322,8 +310,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       return path == null ? "/dev/null" : path.getPathString();
     }
 
-    private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
-      return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
+    private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
+      return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
     }
   }
 

@@ -22,7 +22,9 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
@@ -178,61 +180,90 @@ TEST_F(FileWindowsTest, TestAsWindowsPath) {
   ResetMsysRootForTesting();
   wstring actual;
 
+  // Null and empty input produces empty result.
   ASSERT_TRUE(AsWindowsPath("", &actual));
   ASSERT_EQ(wstring(L""), actual);
 
-  ASSERT_TRUE(AsWindowsPath("", &actual));
-  ASSERT_EQ(wstring(L""), actual);
+  // If the path has a "\\?\" prefix, AsWindowsPath assumes it's a correct
+  // Windows path. If it's not, the Windows API function that we pass the path
+  // to will fail anyway.
+  ASSERT_TRUE(AsWindowsPath("\\\\?\\anything/..", &actual));
+  ASSERT_EQ(wstring(L"\\\\?\\anything/.."), actual);
 
+  // Trailing slash or backslash is removed.
+  ASSERT_TRUE(AsWindowsPath("foo/", &actual));
+  ASSERT_EQ(wstring(L"foo"), actual);
+  ASSERT_TRUE(AsWindowsPath("foo\\", &actual));
+  ASSERT_EQ(wstring(L"foo"), actual);
+
+  // Slashes are converted to backslash.
   ASSERT_TRUE(AsWindowsPath("foo/bar", &actual));
   ASSERT_EQ(wstring(L"foo\\bar"), actual);
-
-  ASSERT_TRUE(AsWindowsPath("c:", &actual));
-  ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("c:/", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("c:\\", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
 
-  ASSERT_TRUE(AsWindowsPath("\\\\?\\c:\\", &actual));
-  ASSERT_EQ(wstring(L"c:\\"), actual);
+  // Invalid paths
+  ASSERT_FALSE(AsWindowsPath("c:", &actual));
+  ASSERT_FALSE(AsWindowsPath("c:foo", &actual));
+  ASSERT_FALSE(AsWindowsPath("\\\\foo", &actual));
 
-  ASSERT_TRUE(AsWindowsPath("\\\\?\\c://../foo", &actual));
-  ASSERT_EQ(wstring(L"c:\\foo"), actual);
-
+  // /dev/null and NUL produce NUL.
   ASSERT_TRUE(AsWindowsPath("/dev/null", &actual));
   ASSERT_EQ(wstring(L"NUL"), actual);
-
   ASSERT_TRUE(AsWindowsPath("Nul", &actual));
   ASSERT_EQ(wstring(L"NUL"), actual);
 
+  // MSYS path with drive letter.
   ASSERT_TRUE(AsWindowsPath("/c", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/c/", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/c/blah", &actual));
   ASSERT_EQ(wstring(L"c:\\blah"), actual);
-
   ASSERT_TRUE(AsWindowsPath("/d/progra~1/micros~1", &actual));
   ASSERT_EQ(wstring(L"d:\\progra~1\\micros~1"), actual);
 
+  // Absolute MSYS path without drive letter is relative to MSYS root.
   ASSERT_TRUE(AsWindowsPath("/foo", &actual));
   ASSERT_EQ(wstring(L"c:\\some\\long\\path\\foo"), actual);
 
-  wstring wlongpath(L"\\dummy_long_path");
+  // Absolute-on-current-drive path gets a drive letter.
+  ASSERT_TRUE(AsWindowsPath("\\foo", &actual));
+  ASSERT_EQ(wstring(1, GetCwd()[0]) + L":\\foo", actual);
+
+  // Even for long paths, AsWindowsPath doesn't add a "\\?\" prefix (it's the
+  // caller's duty to do so).
+  wstring wlongpath(L"dummy_long_path\\");
   string longpath("dummy_long_path/");
   while (longpath.size() <= MAX_PATH) {
     wlongpath += wlongpath;
     longpath += longpath;
   }
-  wlongpath = wstring(L"c:") + wlongpath;
-  longpath = string("/c/") + longpath;
+  wlongpath.pop_back();  // remove trailing "\"
   ASSERT_TRUE(AsWindowsPath(longpath, &actual));
   ASSERT_EQ(wlongpath, actual);
+}
+
+TEST_F(FileWindowsTest, TestAsAbsoluteWindowsPath) {
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\some\\long/path\\bin\\bash.exe");
+  ResetMsysRootForTesting();
+  wstring actual;
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath("c:/", &actual));
+  ASSERT_EQ(L"\\\\?\\c:\\", actual);
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath("c:/..\\non-existent//", &actual));
+  ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
+
+  WCHAR cwd[MAX_PATH];
+  wstring cwdw(CstringToWstring(GetCwd().c_str()).get());
+  wstring expected =
+      wstring(L"\\\\?\\") + cwdw +
+      ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");
+  ASSERT_TRUE(AsAbsoluteWindowsPath("non-existent", &actual));
+  ASSERT_EQ(actual, expected);
 }
 
 TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
@@ -446,7 +477,10 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   ASSERT_TRUE(MakeDirectories(".", 0777));
   ASSERT_TRUE(MakeDirectories(tmpdir, 0777));
   ASSERT_TRUE(MakeDirectories(JoinPath(tmpdir, "dir1/dir2/dir3"), 0777));
-  ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + tmpdir + "/dir4/dir5", 0777));
+
+  string winpath = tmpdir + "\\dir4\\dir5";
+  std::replace(winpath.begin(), winpath.end(), '/', '\\');
+  ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + winpath, 0777));
 }
 
 TEST_F(FileWindowsTest, TestCanAccess) {
@@ -504,7 +538,7 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   // Create a dummy file: $TEST_TMPDIR/directory/subdirectory/foo.txt
   string foo(JoinPath(dir2, "foo.txt"));
   wstring wfoo;
-  EXPECT_TRUE(AsWindowsPathWithUncPrefix(foo, &wfoo));
+  EXPECT_TRUE(AsAbsoluteWindowsPath(foo, &wfoo));
   EXPECT_TRUE(CreateDummyFile(wfoo));
   EXPECT_TRUE(CanReadFile(foo));
   // Create junctions next to directory and subdirectory, pointing to them.
@@ -530,6 +564,20 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
   ASSERT_EQ(dircanon, symcanon);
+}
+
+TEST(FileTest, IsWindowsDevNullTest) {
+  ASSERT_TRUE(IsDevNull("nul"));
+  ASSERT_TRUE(IsDevNull("NUL"));
+  ASSERT_TRUE(IsDevNull("nuL"));
+  ASSERT_TRUE(IsDevNull("/dev/null"));
+  ASSERT_FALSE(IsDevNull("/Dev/Null"));
+  ASSERT_FALSE(IsDevNull("dev/null"));
+  ASSERT_FALSE(IsDevNull("/dev/nul"));
+  ASSERT_FALSE(IsDevNull("/dev/nulll"));
+  ASSERT_FALSE(IsDevNull("nu"));
+  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull(""));
 }
 
 }  // namespace blaze_util

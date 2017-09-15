@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -64,11 +65,11 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -86,6 +87,7 @@ import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -210,26 +212,28 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // over individual targets in scope immediately. However, creating a composite NestedSet first
     // saves us from iterating over the same sub-NestedSets multiple times.
     NestedSetBuilder<Label> validTargets = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<PackageIdentifier> successfulPackageNames = NestedSetBuilder.stableOrder();
+    Set<PackageIdentifier> successfulPackageNames = new LinkedHashSet<>();
     for (Target target : scope) {
       SkyKey key = TransitiveTargetValue.key(target.getLabel());
       TransitiveTargetValue transNode = (TransitiveTargetValue) env.getValue(key);
       if (transNode == null) {
         return null;
       }
-      if (!transNode.getTransitiveUnsuccessfulPackages().isEmpty()) {
+      if (transNode.getTransitiveRootCauses() != null) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
         // path, as otherwise this configured target would have failed earlier. See b/34132681.
         throw new BrokenQueryScopeException(
             "errors were encountered while computing transitive closure of the scope.");
       }
       validTargets.addTransitive(transNode.getTransitiveTargets());
-      successfulPackageNames.addTransitive(transNode.getTransitiveSuccessfulPackages());
+      for (Label transitiveLabel : transNode.getTransitiveTargets()) {
+        successfulPackageNames.add(transitiveLabel.getPackageIdentifier());
+      }
     }
 
     // Construct the package id to package map for all successful packages.
     ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
-    for (PackageIdentifier pkgId : successfulPackageNames.build()) {
+    for (PackageIdentifier pkgId : successfulPackageNames) {
       PackageValue pkg = (PackageValue) env.getValue(PackageValue.key(pkgId));
       Preconditions.checkNotNull(pkg, "package %s not preloaded", pkgId);
       Preconditions.checkState(
@@ -301,12 +305,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       // behavior of the query engine in these two use cases.
       settings.add(Setting.NO_NODEP_DEPS);
 
-      ImmutableList<OutputFormatter> outputFormatters = QUERY_OUTPUT_FORMATTERS.get(
-          ruleContext.getAnalysisEnvironment().getSkyframeEnv());
-      // This is a precomputed value so it should have been injected by the rules module by the
-      // time we get there.
-      formatter = OutputFormatter.getFormatter(
-          Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat);
+      formatter =
+          OutputFormatter.getFormatter(
+              OutputFormatter.getDefaultFormatters(), queryOptions.outputFormat);
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
       // cores.
@@ -409,7 +410,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       boolean ok = true;
       Map<String, ResolvedTargets<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
-      Map<SkyKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
+      Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
         patternKeys.put(TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, ""), pattern);

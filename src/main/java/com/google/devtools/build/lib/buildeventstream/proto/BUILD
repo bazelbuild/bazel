@@ -5,6 +5,7 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library_srcs(

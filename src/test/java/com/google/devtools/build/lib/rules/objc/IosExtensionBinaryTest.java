@@ -40,7 +40,7 @@ public class IosExtensionBinaryTest extends ObjcRuleTestCase {
   @Before
   public final void initializeToolsConfigMock() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
   }
 
   @Test
@@ -207,5 +207,45 @@ public class IosExtensionBinaryTest extends ObjcRuleTestCase {
   public void testCompilationActionsForOptimizedInLlvmCovCoverage() throws Exception {
     checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT,
         CodeCoverageMode.LLVMCOV);
+  }
+
+  @Test
+  public void testCompileWithTextualHeaders() throws Exception {
+    checkCompileWithTextualHeaders(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(RULE_TYPE);
+  }
+
+  @Test
+  public void testCompilesSources() throws Exception {
+    checkCompilesSources(RULE_TYPE);
+  }
+
+  @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, EXTRA_LINK_ARGS);
+  }
+
+  @Test
+  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
+  }
+
+  @Test
+  public void testForceLoadsAlwayslinkTargets() throws Exception {
+    checkForceLoadsAlwayslinkTargets(RULE_TYPE, EXTRA_LINK_ARGS);
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 }

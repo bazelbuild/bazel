@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -21,12 +23,11 @@ import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -48,16 +49,18 @@ public class JavaSkylarkCommon {
   @SkylarkCallable(
     name = "provider",
     structField = true,
-    doc = "Returns the Java declared provider."
+    doc = "Returns the Java declared provider. <br>"
+        + "The same value is accessible as <code>JavaInfo</code>. <br>"
+        + "Prefer using <code>JavaInfo</code> in new code."
   )
-  public ClassObjectConstructor getJavaProvider() {
-    return JavaProvider.JAVA_PROVIDER;
+  public Provider getJavaProvider() {
+    return JavaInfo.PROVIDER;
   }
 
   @SkylarkCallable(
     name = "create_provider",
     documented = false,
-    doc = "Create a java_common.provider from pre-built jars. Note that compile_time_jars and "
+    doc = "Create JavaInfo from pre-built jars. Note that compile_time_jars and "
         + "runtime_jars are not automatically merged into the recursive jars - if this is the "
         + "desired behaviour the user should merge the jars before creating the provider. "
         + "The recursive (compile/runtime) jars are the jars usually collected transitively from "
@@ -120,7 +123,7 @@ public class JavaSkylarkCommon {
       )
     }
   )
-  public JavaProvider create(
+  public JavaInfo create(
       Object compileTimeJars,
       Object runtimeJars,
       Object transitiveCompileTimeJars,
@@ -149,8 +152,8 @@ public class JavaSkylarkCommon {
           .addTransitiveRuntimeJars(transitiveRuntimeJarsNestedSet);
     }
 
-    JavaProvider javaProvider =
-        JavaProvider.Builder.create()
+    JavaInfo javaInfo =
+        JavaInfo.Builder.create()
             .addProvider(
                 JavaCompilationArgsProvider.class,
                 JavaCompilationArgsProvider.create(
@@ -161,7 +164,7 @@ public class JavaSkylarkCommon {
                     NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
                     asArtifactNestedSet(sourceJars)))
             .build();
-    return javaProvider;
+    return javaInfo;
   }
 
   /**
@@ -224,7 +227,7 @@ public class JavaSkylarkCommon {
         positional = false,
         named = true,
         type = SkylarkList.class,
-        generic1 = JavaProvider.class,
+        generic1 = JavaInfo.class,
         defaultValue = "[]",
         doc = "A list of dependencies. Optional."
       ),
@@ -233,7 +236,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of exports. Optional."
       ),
@@ -242,7 +245,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of plugins. Optional."
       ),
@@ -251,7 +254,7 @@ public class JavaSkylarkCommon {
           positional = false,
           named = true,
           type = SkylarkList.class,
-          generic1 = JavaProvider.class,
+          generic1 = JavaInfo.class,
           defaultValue = "[]",
           doc = "A list of exported plugins. Optional."
       ),
@@ -261,9 +264,10 @@ public class JavaSkylarkCommon {
         positional = false,
         named = true,
         type = String.class,
-        doc = "A string that specifies how to handle strict deps. Possible values: 'OFF' (silently"
-          + " allowing referencing transitive dependencies) and 'ERROR' (failing to build when"
-          + " transitive dependencies are used directly). By default 'OFF'."
+        doc = "A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR',"
+          + "'WARN' and 'DEFAULT'. For more details see "
+          + "https://docs.bazel.build/versions/master/bazel-user-manual.html#flag--strict_java_deps"
+          + ". By default 'ERROR'."
       ),
       @Param(
         name = "java_toolchain",
@@ -298,16 +302,16 @@ public class JavaSkylarkCommon {
       )
     }
   )
-  public JavaProvider createJavaCompileAction(
+  public JavaInfo createJavaCompileAction(
       SkylarkRuleContext skylarkRuleContext,
       SkylarkList<Artifact> sourceJars,
       SkylarkList<Artifact> sourceFiles,
       Artifact outputJar,
       SkylarkList<String> javacOpts,
-      SkylarkList<JavaProvider> deps,
-      SkylarkList<JavaProvider> exports,
-      SkylarkList<JavaProvider> plugins,
-      SkylarkList<JavaProvider> exportedPlugins,
+      SkylarkList<JavaInfo> deps,
+      SkylarkList<JavaInfo> exports,
+      SkylarkList<JavaInfo> plugins,
+      SkylarkList<JavaInfo> exportedPlugins,
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
@@ -324,27 +328,23 @@ public class JavaSkylarkCommon {
             .setJavacOpts(javacOpts);
 
     List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
-        JavaProvider.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
+        JavaInfo.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
     List<JavaCompilationArgsProvider> exportsCompilationArgsProviders =
-        JavaProvider.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
+        JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
     helper.addAllDeps(depsCompilationArgsProviders);
     helper.addAllExports(exportsCompilationArgsProviders);
-    helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
+    helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
     helper.addAllPlugins(
-        JavaProvider.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
-    helper.addAllPlugins(JavaProvider.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
+        JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
+    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
 
     NestedSet<Artifact> hostJavabaseArtifacts =
         hostJavabaseProvider == null
             ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
             : hostJavabaseProvider.getMiddlemanArtifact();
-    JavaToolchainProvider javaToolchainProvider =
-        javaToolchain.getProvider(JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      throw new EvalException(null, javaToolchain.getLabel() + " is not a java_toolchain rule.");
-    }
+    JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(javaToolchain);
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
@@ -362,19 +362,53 @@ public class JavaSkylarkCommon {
 
     JavaPluginInfoProvider transitivePluginsProvider =
         JavaPluginInfoProvider.merge(Iterables.concat(
-          JavaProvider.getProvidersFromListOfJavaProviders(
+          JavaInfo.getProvidersFromListOfJavaProviders(
               JavaPluginInfoProvider.class, exportedPlugins),
-          JavaProvider.getProvidersFromListOfJavaProviders(
+          JavaInfo.getProvidersFromListOfJavaProviders(
               JavaPluginInfoProvider.class, exports)
         ));
 
-    return JavaProvider.Builder.create()
+    return JavaInfo.Builder.create()
              .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
              .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
              .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
              .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
              .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
              .build();
+  }
+
+  @SkylarkCallable(
+      name = "build_ijar",
+      documented = true,
+      doc = "Builds and returns the ijar file for the given jar file.",
+      mandatoryPositionals = 1,
+      parameters = {
+        @Param(
+          name = "jar",
+          positional = true,
+          named = true,
+          type = Artifact.class,
+          doc = "The input .jar file for which an ijar will be built. Mandatory."
+        ),
+        @Param(
+          name = "java_toolchain",
+          positional = true,
+          named = true,
+          type = ConfiguredTarget.class,
+          doc = "A label pointing to a java_toolchain rule to be used for this compilation. "
+            + "Mandatory."
+        ),
+      }
+  )
+  public Artifact buildIjar(
+      SkylarkRuleContext skylarkRuleContext,
+      Artifact fullJar,
+      ConfiguredTarget javaToolchain) throws EvalException {
+    return JavaCompilationHelper.createIjarAction(
+        skylarkRuleContext.getRuleContext(),
+        getJavaToolchainProvider(javaToolchain),
+        fullJar,
+        /* addPrefix = */ true);
   }
 
   /**
@@ -402,40 +436,64 @@ public class JavaSkylarkCommon {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
-    JavaToolchainProvider toolchain =
-        javaToolchainConfigTarget.getProvider(JavaToolchainProvider.class);
-    if (toolchain == null) {
-      throw new EvalException(null, javaToolchainAttr + " is not a java_toolchain rule label");
-    }
+    JavaToolchainProvider toolchain = getJavaToolchainProvider(javaToolchainConfigTarget);
     return ImmutableList.copyOf(Iterables.concat(
         toolchain.getJavacOptions(), ruleContext.getTokenizedStringListAttr("javacopts")));
   }
 
   @SkylarkCallable(
     name = "merge",
-    doc = "Merges the given providers into a single java_common.provider.",
+    doc = "Merges the given providers into a single JavaInfo.",
     // We have one positional argument: the list of providers to merge.
     mandatoryPositionals = 1
   )
-  public static JavaProvider mergeJavaProviders(SkylarkList<JavaProvider> providers) {
-    return JavaProvider.merge(providers);
+  public static JavaInfo mergeJavaProviders(SkylarkList<JavaInfo> providers) {
+    return JavaInfo.merge(providers);
   }
 
+  // TODO(b/65113771): Remove this method because it's incorrect.
   @SkylarkCallable(
-      name = "make_non_strict",
-      doc = "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-          + " indirect jars of the given Java provider.",
-      // There's only one mandatory positional, the Java provider.
-      mandatoryPositionals = 1
+    name = "make_non_strict",
+    doc =
+        "Returns a new Java provider whose direct-jars part is the union of both the direct and"
+            + " indirect jars of the given Java provider.",
+    // There's only one mandatory positional, the Java provider.
+    mandatoryPositionals = 1
   )
-  public static JavaProvider makeNonStrict(JavaProvider javaProvider) {
+  public static JavaInfo makeNonStrict(JavaInfo javaInfo) {
     JavaCompilationArgsProvider directCompilationArgs =
-        StrictDepsUtils.makeNonStrict(javaProvider.getProvider(JavaCompilationArgsProvider.class));
+        makeNonStrict(javaInfo.getProvider(JavaCompilationArgsProvider.class));
 
-    return JavaProvider.Builder.copyOf(javaProvider)
+    return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
         .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
         .build();
+  }
+
+  private static JavaToolchainProvider getJavaToolchainProvider(ConfiguredTarget javaToolchain)
+      throws EvalException{
+    JavaToolchainProvider javaToolchainProvider =
+        javaToolchain.getProvider(JavaToolchainProvider.class);
+    if (javaToolchainProvider == null) {
+      throw new EvalException(null, javaToolchain.getLabel() + " is not a java_toolchain rule.");
+    }
+    return javaToolchainProvider;
+  }
+
+  /**
+   * Returns a new JavaCompilationArgsProvider whose direct-jars part is the union of both the
+   * direct and indirect jars of 'provider'.
+   */
+  private static JavaCompilationArgsProvider makeNonStrict(JavaCompilationArgsProvider provider) {
+    JavaCompilationArgs.Builder directCompilationArgs = JavaCompilationArgs.builder();
+    directCompilationArgs
+        .addTransitiveArgs(provider.getJavaCompilationArgs(), BOTH)
+        .addTransitiveArgs(provider.getRecursiveJavaCompilationArgs(), BOTH);
+    return JavaCompilationArgsProvider.create(
+        directCompilationArgs.build(),
+        provider.getRecursiveJavaCompilationArgs(),
+        provider.getCompileTimeJavaDependencyArtifacts(),
+        provider.getRunTimeJavaDependencyArtifacts());
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
@@ -443,7 +501,10 @@ public class JavaSkylarkCommon {
       case "OFF":
         return StrictDepsMode.OFF;
       case "ERROR":
+      case "DEFAULT":
         return StrictDepsMode.ERROR;
+      case "WARN":
+        return StrictDepsMode.WARN;
       default:
         throw new IllegalArgumentException(
             "StrictDepsMode "
@@ -451,5 +512,16 @@ public class JavaSkylarkCommon {
                 + " not allowed."
                 + " Only OFF and ERROR values are accepted.");
     }
+  }
+
+  @SkylarkCallable(
+    name = JavaRuntimeInfo.SKYLARK_NAME,
+    doc =
+        "The key used to retrieve the provider that contains information about the Java "
+            + "runtime being used.",
+    structField = true
+  )
+  public static Provider getJavaRuntimeProvider() {
+    return JavaRuntimeInfo.PROVIDER;
   }
 }

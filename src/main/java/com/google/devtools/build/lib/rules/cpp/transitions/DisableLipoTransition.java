@@ -48,9 +48,4 @@ public final class DisableLipoTransition implements PatchTransition {
         CppOptions.LipoConfigurationState.IGNORE_LIPO;
     return lipoDisabledOptions;
   }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
-  }
 }

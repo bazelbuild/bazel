@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -66,8 +68,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     substitutions.add(Substitution.of("%value%", "bar"));
     directories =
         new BlazeDirectories(
-            scratch.resolve("/install"),
-            scratch.resolve("/base"),
+            new ServerDirectories(scratch.resolve("/install"), scratch.resolve("/base")),
             scratch.resolve("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);
@@ -170,8 +171,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private ActionExecutionContext createContext(Executor executor) {
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(),
-        ImmutableMap.<String, String>of(), null);
+    return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        new FileOutErr(), ImmutableMap.<String, String>of(), null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

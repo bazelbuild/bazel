@@ -18,6 +18,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
@@ -60,6 +61,19 @@ class UnaryStartupFlag : public StartupFlag {
   const std::string name_;
 };
 
+// A startup flag tagged with its origin, either an rc file or the empty
+// string for the ones specified in the command line.
+// For instance, RcStartupFlag("somepath/.bazelrc", "--foo") is used to
+// represent that the line "startup --foo" was found when parsing
+// "somepath/.bazelrc".
+struct RcStartupFlag {
+  const std::string source;
+  const std::string value;
+  RcStartupFlag(const std::string& source_arg,
+                const std::string& value_arg)
+      : source(source_arg), value(value_arg) {}
+};
+
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
@@ -95,6 +109,11 @@ class StartupOptions {
                                        const std::string &rcfile,
                                        bool *is_space_separated,
                                        std::string *error);
+
+  // Process an ordered list of RcStartupFlags using ProcessArg.
+  blaze_exit_code::ExitCode ProcessArgs(
+      const std::vector<RcStartupFlag>& rcstartup_flags,
+      std::string *error);
 
   // Adds any other options needed to result.
   //
@@ -248,6 +267,10 @@ class StartupOptions {
 
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
+
+  // The startup options as received from the user and rc files, tagged with
+  // their origin. This is populated by ProcessArgs.
+  std::vector<RcStartupFlag> original_startup_options_;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

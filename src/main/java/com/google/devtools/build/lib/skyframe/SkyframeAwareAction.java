@@ -46,7 +46,7 @@ public interface SkyframeAwareAction {
     }
 
     public ExceptionBase(Throwable cause) {
-      super(cause);
+      super(cause.getMessage(), cause);
     }
   }
 

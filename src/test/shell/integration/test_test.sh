@@ -68,4 +68,37 @@ EOF
   expect_log "^Executed 1 out of 1 test: 1 fails"
 }
 
+function test_build_fail_terse_summary() {
+    mkdir -p tests
+    cat > tests/BUILD <<'EOF'
+genrule(
+  name = "testsrc",
+  outs = ["test.sh"],
+  cmd = "false",
+)
+sh_test(
+  name = "failstobuild1",
+  srcs = ["test.sh"],
+)
+sh_test(
+  name = "failstobuild2",
+  srcs = ["test.sh"],
+)
+genrule(
+  name = "slowtestsrc",
+  outs = ["slowtest.sh"],
+  cmd = "sleep 20 && echo '#!/bin/sh' > $@ && echo 'true' >> $@ && chmod 755 $@",
+)
+sh_test(
+  name = "willbeskipped",
+  srcs = ["slowtest.sh"],
+)
+EOF
+    bazel test --test_summary=terse //tests/... &>$TEST_log \
+      && fail "expected failure" || :
+    expect_not_log 'NO STATUS'
+    expect_log 'testsrc'
+    expect_log 'were skipped'
+}
+
 run_suite "test tests"

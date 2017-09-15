@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import javax.annotation.Nullable;
 
@@ -33,19 +34,29 @@ public interface SkylarkProviderCollection {
   Object get(String providerKey);
 
   /**
-   * Returns the declared provider requested, or null, if the information is not found. The
-   * transitive information has to have been added using the Skylark framework.
+   * Returns the declared provider requested, or null, if the information is not found.
+   *
+   * <p>Use {@link #get(NativeProvider)} for native providers.
    */
   @Nullable
-  SkylarkClassObject get(ClassObjectConstructor.Key providerKey);
+  Info get(Provider.Key providerKey);
+
+  /**
+   * Returns the native declared provider requested, or null, if the information is not found.
+   *
+   * <p>Type-safe version of {@link #get(Provider.Key)} for native providers.
+   */
+  @Nullable
+  default <T extends Info> T get(NativeProvider<T> provider) {
+    return provider.getValueClass().cast(get(provider.getKey()));
+  }
 
   /**
    * Returns the provider defined in Skylark, or null, if the information is not found. The
    * transitive information has to have been added using the Skylark framework.
    *
-   * <p>This method dispatches to either {@link #get(ClassObjectConstructor.Key)} or {@link
-   * #get(String)} depending on whether {@link SkylarkProviderIdentifier} is for legacy or for
-   * declared provider.
+   * <p>This method dispatches to either {@link #get(Provider.Key)} or {@link #get(String)}
+   * depending on whether {@link SkylarkProviderIdentifier} is for legacy or for declared provider.
    */
   @Nullable
   default Object get(SkylarkProviderIdentifier id) {

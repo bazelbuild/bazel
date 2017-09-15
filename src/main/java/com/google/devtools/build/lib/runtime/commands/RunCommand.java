@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -63,10 +65,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -236,7 +238,12 @@ public class RunCommand implements BlazeCommand  {
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
       CommandLine targetArgs = runfilesSupport.getArgs();
-      Iterables.addAll(args, targetArgs.arguments());
+      try {
+        Iterables.addAll(args, targetArgs.arguments());
+      } catch (CommandLineExpansionException e) {
+        env.getReporter().handle(Event.error("Could not expand target command line: " + e));
+        return ExitCode.ANALYSIS_FAILURE;
+      }
     }
     args.addAll(runTargetArgs);
 
@@ -253,7 +260,10 @@ public class RunCommand implements BlazeCommand  {
             options.getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
             productName);
     List<String> cmdLine = new ArrayList<>();
-    if (runOptions.scriptPath == null) {
+    // process-wrapper does not work on Windows (nor is it necessary), so don't use it
+    // on that platform. Also we skip it when writing the command-line to a file instead
+    // of executing it directly.
+    if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
       PathFragment processWrapperPath =
           env.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
       Preconditions.checkNotNull(
@@ -318,14 +328,13 @@ public class RunCommand implements BlazeCommand  {
       // actual output of the command being run even if --color=no is specified.
       env.getReporter().switchToAnsiAllowingHandler();
 
-      // The command API is a little strange in that the following statement
-      // will return normally only if the program exits with exit code 0.
-      // If it ends with any other code, we have to catch BadExitStatusException.
-      command.execute(com.google.devtools.build.lib.shell.Command.NO_INPUT,
-          com.google.devtools.build.lib.shell.Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
-          true /* interruptible */).getTerminationStatus().getExitCode();
+      // The command API is a little strange in that the following statement will return normally
+      // only if the program exits with exit code 0. If it ends with any other code, we have to
+      // catch BadExitStatusException.
+      command
+          .execute(outErr.getOutputStream(), outErr.getErrorStream())
+          .getTerminationStatus()
+          .getExitCode();
       return ExitCode.SUCCESS;
     } catch (BadExitStatusException e) {
       String message = "Non-zero return code '"

@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -78,7 +78,7 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         "--experimental_disable_go",
         "--cpu=ios_armv7",
         "--ios_cpu=armv7");
-    Platform platform = Platform.IOS_DEVICE;
+    ApplePlatform platform = ApplePlatform.IOS_DEVICE;
 
     addMockBinAndLibs(ImmutableList.of("a.m"));
     CommandAction action = linkAction("//bin:bin");
@@ -100,6 +100,13 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         .containsExactlyElementsIn(
             new ImmutableList.Builder<String>()
                 .add("tools/osx/crosstool/ios/" + WRAPPED_CLANG)
+                .add("-arch armv7")
+                .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
+                .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
+                .add("-fobjc-link-runtime")
+                .add("-ObjC")
+                .add("-filelist " + execPathEndingWith(action.getInputs(), "bin-linker.objlist"))
+                .add("-o " + Iterables.getOnlyElement(Artifact.toExecPaths(action.getOutputs())))
                 .add("-F" + AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
                 .add("-F" + frameworkDir(platform))
                 .add("-isysroot")
@@ -109,13 +116,6 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
                 .add("-target", "armv7-apple-ios")
                 .add("-miphoneos-version-min=" + DEFAULT_IOS_SDK_VERSION)
                 .addAll(automaticSdkFrameworks())
-                .add("-arch armv7")
-                .add("-Xlinker", "-objc_abi_version", "-Xlinker", "2")
-                .add("-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks")
-                .add("-fobjc-link-runtime")
-                .add("-ObjC")
-                .add("-filelist " + execPathEndingWith(action.getInputs(), "bin-linker.objlist"))
-                .add("-o " + Iterables.getOnlyElement(Artifact.toExecPaths(action.getOutputs())))
                 .build())
         .inOrder();
   }
@@ -128,7 +128,7 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         "--experimental_disable_go",
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     addMockBinAndLibs(ImmutableList.of("a.m"));
     CommandAction action = linkAction("//bin:bin");

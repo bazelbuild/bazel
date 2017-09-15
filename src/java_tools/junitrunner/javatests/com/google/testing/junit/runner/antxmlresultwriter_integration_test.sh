@@ -17,30 +17,37 @@
 # Integration testing of the AntXmlResultWriter.
 #
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 
-TESTBED="${PWD}/$1"
-XML_GOLDEN_OUTPUT_FILE="${PWD}/$2"
+# Load the unit-testing framework
+source "$1" || \
+  { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
+
+set +o errexit
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+TESTBED="${PWD}/$2"
+XML_GOLDEN_OUTPUT_FILE="${PWD}/$3"
 XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
-SUITE_PARAMETER="$3"
-SUITE="com.google.testing.junit.runner.testbed.XmlOutputExercises"
-SUITE_FLAG="-D${SUITE_PARAMETER}=${SUITE}"
+SUITE_FLAG="-Dbazel.test_suite=com.google.testing.junit.runner.testbed.XmlOutputExercises"
 
 shift 3
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function test_XmlOutputExercises() {
   cd $TEST_TMPDIR
+  EXT_REGEX_FLAG="-E"
+  # This test sometimes runs with an old version of sed that has -r but not -E.
+  sed "$EXT_REGEX_FLAG" "" /dev/null 2> /dev/null || EXT_REGEX_FLAG="-r"
 
   $TESTBED --jvm_flag=${SUITE_FLAG} || true  # Test failures
 
   # Remove timestamps and test runtime from the XML files as they will always differ and cause a
   # mismatch.
-  sed -i.bak -E "s/(time[^=]*)='[^']*/\1='/g" $XML_OUTPUT_FILE \
+  sed -i.bak "$EXT_REGEX_FLAG" "s/(time[^=]*)='[^']*/\1='/g" $XML_OUTPUT_FILE \
     || fail "sed to remove timestamps failed"
 
   # Removes the stacktrace from the XML files, it can vary between JDK versions.
-  sed -i.bak -E '/\w*at [a-zA-Z0-9\$\.]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
+  sed -i.bak "$EXT_REGEX_FLAG" '/\w*at [a-zA-Z0-9\$\.]+\([a-zA-Z0-9 \.]*(:[0-9]+)?\)$/d' \
       "${XML_OUTPUT_FILE}" || fail "sed to remove stacktraces failed"
 
   diff -wu $XML_GOLDEN_OUTPUT_FILE $XML_OUTPUT_FILE \

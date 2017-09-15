@@ -18,10 +18,12 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
@@ -46,6 +48,7 @@ public class ObjcCppSemantics implements CppSemantics {
   private final ObjcConfiguration config;
   private final boolean isHeaderThinningEnabled;
   private final IntermediateArtifacts intermediateArtifacts;
+  private final BuildConfiguration buildConfiguration;
 
   /**
    * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
@@ -69,18 +72,21 @@ public class ObjcCppSemantics implements CppSemantics {
    * @param isHeaderThinningEnabled true if headers_list artifacts should be generated and added as
    *     input to compiling actions
    * @param intermediateArtifacts used to create headers_list artifacts
+   * @param buildConfiguration the build configuration for this build
    */
   public ObjcCppSemantics(
       ObjcProvider objcProvider,
       IncludeProcessing includeProcessing,
       ObjcConfiguration config,
       boolean isHeaderThinningEnabled,
-      IntermediateArtifacts intermediateArtifacts) {
+      IntermediateArtifacts intermediateArtifacts,
+      BuildConfiguration buildConfiguration) {
     this.objcProvider = objcProvider;
     this.includeProcessing = includeProcessing;
     this.config = config;
     this.isHeaderThinningEnabled = isHeaderThinningEnabled;
     this.intermediateArtifacts = intermediateArtifacts;
+    this.buildConfiguration = buildConfiguration;
   }
 
   @Override
@@ -92,29 +98,19 @@ public class ObjcCppSemantics implements CppSemantics {
   public void finalizeCompileActionBuilder(
       RuleContext ruleContext,
       CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification) {
+      FeatureSpecification featureSpecification,
+      Predicate<String> coptsFilter,
+      ImmutableSet<String> features) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
     // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
     // including header files, as opposed to just the "compile" filegroup.
     actionBuilder.addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool());
     actionBuilder.setShouldScanIncludes(false);
+    actionBuilder.setCoptsFilter(coptsFilter);
 
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE));
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
-
-    ImmutableSet.Builder<Artifact> generatedHeaders = ImmutableSet.builder();
-
-    // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
-    // it here.
-    PathFragment genfilesSegment =
-        ruleContext.getConfiguration().getGenfilesDirectory().getExecPath().getLastSegment();
-    for (Artifact header : objcProvider.get(HEADER)) {
-      if (genfilesSegment.equals(header.getRoot().getExecPath().getLastSegment())) {
-        generatedHeaders.add(header);
-      }
-    }
-    actionBuilder.addMandatoryInputs(generatedHeaders.build());
 
     if (isHeaderThinningEnabled) {
       Artifact sourceFile = actionBuilder.getSourceFile();
@@ -123,6 +119,18 @@ public class ObjcCppSemantics implements CppSemantics {
         actionBuilder.addMandatoryInputs(
             ImmutableList.of(intermediateArtifacts.headersListFile(sourceFile)));
       }
+    } else {
+      // Header thinning feature will make all generated files mandatory inputs to the
+      // ObjcHeaderScanning action so this is only required when that is disabled
+      // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
+      // it here.
+      ImmutableSet.Builder<Artifact> generatedHeaders = ImmutableSet.builder();
+      for (Artifact header : objcProvider.get(HEADER)) {
+        if (!header.isSourceArtifact()) {
+          generatedHeaders.add(header);
+        }
+      }
+      actionBuilder.addMandatoryInputs(generatedHeaders.build());
     }
   }
 
@@ -134,6 +142,14 @@ public class ObjcCppSemantics implements CppSemantics {
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration())) {
       contextBuilder.addQuoteIncludeDir(iquotePath);
     }
+
+    // ProtoSupport creates multiple compilation contexts for a single rule, potentially multiple
+    // archives per build configuration. This covers that worst case.
+    contextBuilder.setPurpose(
+        "ObjcCppSemantics_build_arch_"
+            + buildConfiguration.getMnemonic()
+            + "_with_suffix_"
+            + intermediateArtifacts.archiveFileNameSuffix());
   }
 
   @Override

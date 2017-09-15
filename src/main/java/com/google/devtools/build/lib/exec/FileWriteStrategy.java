@@ -33,7 +33,7 @@ import java.util.logging.Logger;
  */
 @ExecutionStrategy(name = { "local" }, contextType = FileWriteActionContext.class)
 public final class FileWriteStrategy implements FileWriteActionContext {
-  private static final Logger LOG = Logger.getLogger(FileWriteStrategy.class.getName());
+  private static final Logger logger = Logger.getLogger(FileWriteStrategy.class.getName());
   public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
 
   public FileWriteStrategy() {
@@ -44,8 +44,8 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       throws ExecException, InterruptedException {
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
-            AutoProfiler.logged(
-                "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        AutoProfiler.logged(
+            "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {

@@ -4,10 +4,13 @@ genrule(
         "//src:darwin": ["//tools/jdk:jni_md_header-darwin"],
         "//src:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src:windows": ["//tools/jdk:jni_md_header-windows"],
+        "//src:windows_msvc": ["//tools/jdk:jni_md_header-windows"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 genrule(
@@ -15,6 +18,7 @@ genrule(
     srcs = ["//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 filegroup(

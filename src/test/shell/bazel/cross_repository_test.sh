@@ -72,9 +72,9 @@ EOF
   # These should fail, they is using the wrong label that crosses the
   # repository boundary.
   bazel build //:depend_directly >& $TEST_log && fail "build should fail"
-  expect_log "no such package 'bar': Package crosses into repository @bar"
+  expect_log "no such package 'bar': Invalid package reference bar crosses into repository @bar"
   bazel build //:depend_directly_subdir >& $TEST_log && fail "build should fail"
-  expect_log "no such package 'bar/subbar': Package crosses into repository @bar"
+  expect_log "no such package 'bar/subbar': Invalid package reference bar/subbar crosses into repository @bar"
 }
 
 function test_top_level_local_repository {
@@ -121,7 +121,7 @@ EOF
   # This should fail, it is using the wrong label that crosses the repository
   # boundary.
   bazel build //:depend_directly >& $TEST_log && fail "build should fail"
-  expect_log "no such package 'bar': Package crosses into repository @bar"
+  expect_log "no such package 'bar': Invalid package reference bar crosses into repository @bar"
 }
 
 # Load rules via an invalid label.
@@ -188,9 +188,9 @@ EOF
 
   # These should now fail, using the incorrect label.
   bazel query //bar:bar >& $TEST_log && fail "build should fail"
-  expect_log "no such package 'bar': Package crosses into repository @bar"
+  expect_log "no such package 'bar': Invalid package reference bar crosses into repository @bar"
   bazel query //bar/subbar:subbar >& $TEST_log && fail "build should fail"
-  expect_log "no such package 'bar/subbar': Package crosses into repository @bar"
+  expect_log "no such package 'bar/subbar': Invalid package reference bar/subbar crosses into repository @bar"
 
   # These should succeed.
   echo "about to test @bar//"

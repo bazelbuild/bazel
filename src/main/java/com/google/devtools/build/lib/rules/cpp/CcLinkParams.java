@@ -201,11 +201,11 @@ public final class CcLinkParams {
     /**
      * Includes link parameters from a dependency target.
      *
-     * <p>The target should implement {@link CcLinkParamsProvider}. If it does not,
+     * <p>The target should implement {@link CcLinkParamsInfo}. If it does not,
      * the method does not do anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
-      return addTransitiveProvider(target.getProvider(CcLinkParamsProvider.class));
+      return addTransitiveProvider(target.get(CcLinkParamsInfo.PROVIDER));
     }
 
     /**
@@ -230,9 +230,9 @@ public final class CcLinkParams {
     }
 
     /**
-     * Includes link parameters from a CcLinkParamsProvider provider.
+     * Includes link parameters from a CcLinkParamsInfo provider.
      */
-    public Builder addTransitiveProvider(CcLinkParamsProvider provider) {
+    public Builder addTransitiveProvider(CcLinkParamsInfo provider) {
       if (provider != null) {
         add(provider.getCcLinkParamsStore());
       }
@@ -329,7 +329,7 @@ public final class CcLinkParams {
         CcLinkingOutputs linkingOutputs) {
       addTransitiveTargets(
           context.getPrerequisites("deps", Mode.TARGET),
-          CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+          CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
 
       if (!neverlink) {
         addLibraries(linkingOutputs.getPreferredLibraries(linkingStatically,

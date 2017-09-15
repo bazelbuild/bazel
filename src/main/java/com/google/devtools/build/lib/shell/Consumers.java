@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Uninterruptibles;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -31,47 +32,39 @@ import java.util.logging.Logger;
 /**
  * This class provides convenience methods for consuming (actively reading)
  * output and error streams with different consumption policies:
- * discarding ({@link #createDiscardingConsumers()},
  * accumulating ({@link #createAccumulatingConsumers()},
  * and streaming ({@link #createStreamingConsumers(OutputStream, OutputStream)}).
  */
-class Consumers {
+final class Consumers {
 
-  private static final Logger log =
-    Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final Logger logger =
+      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
 
   private Consumers() {}
 
   private static final ExecutorService pool =
     Executors.newCachedThreadPool(new AccumulatorThreadFactory());
 
-  static OutErrConsumers createDiscardingConsumers() {
-    return new OutErrConsumers(new DiscardingConsumer(),
-                               new DiscardingConsumer());
-  }
-
   static OutErrConsumers createAccumulatingConsumers() {
-    return new OutErrConsumers(new AccumulatingConsumer(),
-                               new AccumulatingConsumer());
+    return new OutErrConsumers(new AccumulatingConsumer(), new AccumulatingConsumer());
   }
 
-  static OutErrConsumers createStreamingConsumers(OutputStream out,
-                                                  OutputStream err) {
-    return new OutErrConsumers(new StreamingConsumer(out),
-                               new StreamingConsumer(err));
+  static OutErrConsumers createStreamingConsumers(OutputStream out, OutputStream err) {
+    Preconditions.checkNotNull(out);
+    Preconditions.checkNotNull(err);
+    return new OutErrConsumers(new StreamingConsumer(out), new StreamingConsumer(err));
   }
 
   static class OutErrConsumers {
-
     private final OutputConsumer out;
     private final OutputConsumer err;
 
-    private OutErrConsumers(final OutputConsumer out, final OutputConsumer err){
+    private OutErrConsumers(final OutputConsumer out, final OutputConsumer err) {
       this.out = out;
       this.err = err;
     }
 
-    void registerInputs(InputStream outInput, InputStream errInput, boolean closeStreams){
+    void registerInputs(InputStream outInput, InputStream errInput, boolean closeStreams) {
       out.registerInput(outInput, closeStreams);
       err.registerInput(errInput, closeStreams);
     }
@@ -144,7 +137,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be sent to streams provided by client");
+      logger.finer("Output will be sent to streams provided by client");
     }
 
     @Override protected Runnable createConsumingAndClosingSink(InputStream in,
@@ -168,7 +161,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be accumulated (promptly read off) and returned");
+      logger.finer("Output will be accumulated (promptly read off) and returned");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -190,7 +183,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be ignored");
+      logger.finer("Output will be ignored");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -332,7 +325,7 @@ class Consumers {
       closeable.close();
     } catch (IOException ioe) {
       String message = "Unexpected exception while closing input stream";
-      log.log(Level.WARNING, message, ioe);
+      logger.log(Level.WARNING, message, ioe);
     }
   }
 

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -65,6 +64,55 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   /**
+   * Evaluates {@code code} in the loading phase in a BUILD file. {@code code} must return a string.
+   *
+   * @param code The code to execute
+   */
+  private Object skylarkLoadingEvalInBuildFile(String code) throws Exception {
+    scratch.overwriteFile("eval/BUILD",
+        "load(':eval.bzl', 'eval')",
+        String.format("eval(name='eval', param = %s)", code));
+    scratch.overwriteFile(
+        "eval/eval.bzl",
+        "def _impl(ctx):",
+        "  return struct(result = ctx.attr.param)",
+        "eval = rule(implementation = _impl, attrs = {'param': attr.string()})");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        new ModifiedFileSet.Builder()
+            .modify(PathFragment.create("eval/BUILD"))
+            .modify(PathFragment.create("eval/eval.bzl"))
+            .build(),
+        rootDirectory);
+
+    ConfiguredTarget target = getConfiguredTarget("//eval");
+    return target.get("result");
+  }
+
+  /**
+   * Asserts that all 5 different ways to convert an object to a string of {@code expression}
+   * ({@code str}, {@code repr}, {@code '%s'}, {@code '%r'}, {@code '{}'.format} return the correct
+   * {@code representation}. Not applicable for objects that have different {@code str} and {@code
+   * repr} representations.
+   *
+   * @param expression the expression to evaluate a string representation of
+   * @param representation desired string representation
+   */
+  private void assertStringRepresentationInBuildFile(
+      String expression, String representation) throws Exception {
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("str(%s)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("repr(%s)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%s' %% (%s,)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%r' %% (%s,)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'{}'.format(%s)", expression)))
+        .isEqualTo(representation);
+  }
+
+  /**
    * Asserts that all 5 different ways to convert an object to a string of {@code expression}
    * ({@code str}, {@code repr}, {@code '%s'}, {@code '%r'}, {@code '{}'.format} return the correct
    * {@code representation}. Not applicable for objects that have different {@code str} and {@code
@@ -99,11 +147,9 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
    * strings are available in the configured target for //test/skylark:check
    */
   private void generateFilesToTestStrings() throws Exception {
-    // Generate string representations of different Skylark types. Objects are generated in
-    // test/skylark/rules.bzl: the top-level objects dict contains objects
-    // available during the loading phase, and _check_impl(ctx) returns objects that are available
-    // during the analysis phase. prepare_params(objects) converts a list of objects to a list of
-    // their string representations.
+    // Generate string representations of Skylark rule contexts, targets, and files.
+    // Objects are gathered in the implementation of the `check` rule.
+    // prepare_params(objects) converts a dict of objects to a dict of their string representations.
 
     scratch.file(
         "test/skylark/rules.bzl",
@@ -119,7 +165,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "  return params",
         "",
         "def _impl_aspect(target, ctx):",
-        "  return [aspect_ctx_provider(ctx = ctx)]",
+        "  return [aspect_ctx_provider(ctx = ctx, rule = ctx.rule)]",
         "my_aspect = aspect(implementation = _impl_aspect)",
         "",
         "def _impl(ctx): pass",
@@ -129,12 +175,12 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "  ctx.file_action(output = ctx.outputs.my_output, content = 'foo')",
         "genfile = rule(",
         "  implementation = _genfile_impl,",
-        "  outputs = {",
-        "    'my_output': '%{name}.txt',",
-        "  },",
+        "  outputs = {'my_output': '%{name}.txt'},",
         ")",
         "",
         "def _check_impl(ctx):",
+        "  source_file = ctx.attr.srcs[0].files.to_list()[0]",
+        "  generated_file = ctx.attr.srcs[1].files.to_list()[0]",
         "  objects = {",
         "    'target': ctx.attr.deps[0],",
         "    'alias_target': ctx.attr.deps[1],",
@@ -143,6 +189,11 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "    'output_target': ctx.attr.srcs[1],",
         "    'rule_ctx': ctx,",
         "    'aspect_ctx': ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,",
+        "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule,",
+        "    'source_file': source_file,",
+        "    'generated_file': generated_file,",
+        "    'source_root': source_file.root,",
+        "    'generated_root': generated_file.root,",
         "  }",
         "  return struct(**prepare_params(objects))",
         "check = rule(",
@@ -215,6 +266,157 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_Functions() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("all", "<built-in function all>");
+    assertStringRepresentation("def f(): pass", "f", "<function f from //eval:eval.bzl>");
+  }
+
+  @Test
+  public void testStringRepresentations_Rules() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("native.cc_library", "<built-in rule cc_library>");
+    assertStringRepresentation("rule(implementation=str)", "<rule>");
+  }
+
+  @Test
+  public void testStringRepresentations_Aspects() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("aspect(implementation=str)", "<aspect>");
+  }
+
+  @Test
+  public void testStringRepresentations_Providers() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("provider()", "<provider>");
+    assertStringRepresentation(
+        "p = provider()", "p(b = 'foo', a = 1)", "struct(a = 1, b = \"foo\")");
+  }
+
+  @Test
+  public void testStringRepresentations_Select() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation(
+        "select({'//foo': ['//bar']}) + select({'//foo2': ['//bar2']})",
+        "select({\"//foo\": [\"//bar\"]}) + select({\"//foo2\": [\"//bar2\"]})");
+  }
+
+  @Test
+  public void testStringRepresentations_RuleContext() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("rule_ctx" + suffix))
+          .isEqualTo("<rule context for //test/skylark:check>");
+      assertThat(target.get("aspect_ctx" + suffix))
+          .isEqualTo("<aspect context for //test/skylark:bar>");
+      assertThat(target.get("aspect_ctx.rule" + suffix))
+          .isEqualTo("<rule collection for //test/skylark:bar>");
+    }
+  }
+
+  @Test
+  public void testStringRepresentations_Files() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("source_file" + suffix))
+          .isEqualTo("<source file test/skylark/input.txt>");
+      assertThat(target.get("generated_file" + suffix))
+          .isEqualTo("<generated file test/skylark/output.txt>");
+    }
+  }
+
+  @Test
+  public void testStringRepresentations_Root() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("source_root" + suffix)).isEqualTo("<source root>");
+      assertThat(target.get("generated_root" + suffix)).isEqualTo("<derived root>");
+    }
+  }
+
+  @Test
+  public void testStringRepresentations_Glob() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    scratch.file("eval/one.txt");
+    scratch.file("eval/two.txt");
+    scratch.file("eval/three.txt");
+
+    assertStringRepresentationInBuildFile(
+        "glob(['*.txt'])",
+        "[\"one.txt\", \"three.txt\", \"two.txt\"]");
+  }
+
+  @Test
+  public void testStringRepresentations_Attr() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("attr", "<attr>");
+    assertStringRepresentation("attr.int()", "<attr.int>");
+    assertStringRepresentation("attr.string()", "<attr.string>");
+    assertStringRepresentation("attr.label()", "<attr.label>");
+    assertStringRepresentation("attr.string_list()", "<attr.string_list>");
+    assertStringRepresentation("attr.int_list()", "<attr.int_list>");
+    assertStringRepresentation("attr.label_list()", "<attr.label_list>");
+    assertStringRepresentation("attr.label_keyed_string_dict()", "<attr.label_keyed_string_dict>");
+    assertStringRepresentation("attr.bool()", "<attr.bool>");
+    assertStringRepresentation("attr.output()", "<attr.output>");
+    assertStringRepresentation("attr.output_list()", "<attr.output_list>");
+    assertStringRepresentation("attr.string_dict()", "<attr.string_dict>");
+    assertStringRepresentation("attr.string_list_dict()", "<attr.string_list_dict>");
+    assertStringRepresentation("attr.license()", "<attr.license>");
+  }
+
+  @Test
+  public void testStringRepresentations_Targets() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("target" + suffix))
+          .isEqualTo("<target //test/skylark:foo>");
+      assertThat(target.get("input_target" + suffix))
+          .isEqualTo("<input file target //test/skylark:input.txt>");
+      assertThat(target.get("output_target" + suffix))
+          .isEqualTo("<output file target //test/skylark:output.txt>");
+      assertThat(target.get("alias_target" + suffix))
+          .isEqualTo("<alias target //test/skylark:foobar of //test/skylark:foo>");
+      assertThat(target.get("aspect_target" + suffix))
+          .isEqualTo("<merged target //test/skylark:bar>");
+    }
+  }
+
+  @Test
+  public void testStringRepresentationsOfUnknownObjects() throws Exception {
+    update("mock", new Object());
+
+    assertThat(eval("str(mock)")).isEqualTo("<unknown object java.lang.Object>");
+    assertThat(eval("repr(mock)")).isEqualTo("<unknown object java.lang.Object>");
+    assertThat(eval("'{}'.format(mock)")).isEqualTo("<unknown object java.lang.Object>");
+    assertThat(eval("'%s' % mock")).isEqualTo("<unknown object java.lang.Object>");
+    assertThat(eval("'%r' % mock")).isEqualTo("<unknown object java.lang.Object>");
+  }
+
+  @Test
   public void testLegacyStringRepresentations_Labels() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
@@ -246,6 +448,12 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
 
     assertStringRepresentation("native.cc_library", "<function cc_library>");
     assertStringRepresentation("rule(implementation=str)", "<function rule>");
+  }
+
+  @Test
+  public void testLegacyStringRepresentations_Aspects() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
+
     assertStringRepresentation("aspect(implementation=str)", "Aspect:<function str>");
   }
 
@@ -254,7 +462,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
     assertStringRepresentation("provider()", "<function <no name>>");
-    assertStringRepresentation("p = provider()", "p(b = 2, a = 1)", "p(a = 1, b = 2)");
+    assertStringRepresentation("p = provider()", "p(b = 'foo', a = 1)", "p(a = 1, b = \"foo\")");
   }
 
   @Test
@@ -267,37 +475,32 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLegacyStringRepresentations_Targets() throws Exception {
-    // alias targets in skylark used to leak their memory addresses in string representations,
-    // we don't try to preserve this behaviour as it's harmful.
-    // An example of their legacy representation:
-    // "<com.google.devtools.build.lib.rules.AliasConfiguredTarget@12da9140>"
-
+  public void testLegacyStringRepresentations_RuleContext() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
 
-
-    ImmutableList<Pair<String, String>> parameters = ImmutableList.of(
-        new Pair<>("rule_ctx", "//test/skylark:check"),
-        new Pair<>("aspect_ctx", "//test/skylark:bar"),
-        new Pair<>("input_target", "InputFileConfiguredTarget(//test/skylark:input.txt)"));
     for (String suffix : SUFFIXES) {
-      for (Pair<String, String > pair : parameters) {
-        assertThat(target.get(pair.getFirst() + suffix)).isEqualTo(pair.getSecond());
-      }
+      assertThat(target.get("rule_ctx" + suffix)).isEqualTo("//test/skylark:check");
+      assertThat(target.get("aspect_ctx" + suffix)).isEqualTo("//test/skylark:bar");
+      assertThat(target.get("aspect_ctx.rule" + suffix))
+          .isEqualTo("rule_collection://test/skylark:bar");
     }
+  }
 
-    // Legacy representation of several types of objects may contain nondeterministic chunks
-    parameters = ImmutableList.of(
-        new Pair<>("target", "ConfiguredTarget\\(//test/skylark:foo, [0-9a-f]+\\)"),
-        new Pair<>("aspect_target", "ConfiguredTarget\\(//test/skylark:bar, [0-9a-f]+\\)"),
-        new Pair<>("output_target", "ConfiguredTarget\\(//test/skylark:output.txt, [0-9a-f]+\\)"));
+  @Test
+  public void testLegacyStringRepresentations_Files() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
     for (String suffix : SUFFIXES) {
-      for (Pair<String, String > pair : parameters) {
-        assertThat((String) target.get(pair.getFirst() + suffix)).matches(pair.getSecond());
-      }
+      assertThat(target.get("source_file" + suffix))
+          .isEqualTo("File:[/workspace[source]]test/skylark/input.txt");
+      assertThat((String) target.get("generated_file" + suffix))
+          .endsWith("test/skylark/output.txt");
     }
   }
 }

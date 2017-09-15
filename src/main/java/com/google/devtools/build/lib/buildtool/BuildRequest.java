@@ -38,13 +38,12 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,7 +58,7 @@ import java.util.regex.Pattern;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsClassProvider {
-  private static final Logger log = Logger.getLogger(BuildRequest.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildRequest.class.getName());
 
   /**
    * Options interface--can be used to parse command-line arguments.
@@ -143,10 +142,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_makefile",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
     public boolean dumpMakefile;
@@ -155,10 +153,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
     public boolean dumpActionGraph;
@@ -168,10 +165,9 @@ public class BuildRequest implements OptionsClassProvider {
       name = "dump_action_graph_for_package",
       allowMultiple = true,
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
     public List<String> dumpActionGraphForPackage = new ArrayList<>();
@@ -180,10 +176,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph_with_middlemen",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
     public boolean dumpActionGraphWithMiddlemen;
@@ -192,10 +187,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_providers",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "This is a no-op."
     )
     public boolean dumpProviders;
@@ -204,10 +198,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_targets",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
     public String dumpTargets;
@@ -216,10 +209,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_host_deps",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Deprecated"
     )
     public boolean dumpHostDeps;
@@ -228,24 +220,30 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_to_stdout",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Deprecated"
     )
     public boolean dumpToStdout;
 
     @Option(
+      name = "experimental_post_build_query",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
+    public String queryExpression;
+
+    @Option(
       name = "analyze",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.EAGERNESS_TO_EXIT,
         OptionEffectTag.AFFECTS_OUTPUTS
       },
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
               + "the build to stop before starting the analysis phase, returning zero iff the "
@@ -306,9 +304,8 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "experimental_show_artifacts",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Output a list of all top level artifacts produced by this build."
               + "Use output format suitable for tool consumption. "
@@ -360,9 +357,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "output_tree_tracking",
       oldName = "experimental_output_tree_tracking",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "If set, tell the output service (if any) to track when files in the output "
               + "tree have been modified externally (not by the build system). "
@@ -391,15 +387,45 @@ public class BuildRequest implements OptionsClassProvider {
       return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
     }
 
+    // Transitional flag for safely rolling out new convenience symlink behavior.
+    // To be made a no-op and deleted once new symlink behavior is battle-tested.
+    @Option(
+      name = "use_top_level_targets_for_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, the symlinks are based on the configurations of the top-level targets "
+              + " rather than the top-level target configuration. If this would be ambiguous, "
+              + " the symlinks will be deleted to avoid confusion."
+    )
+    public boolean useTopLevelTargetsForSymlinks;
+
+    /**
+     * Returns whether to use the output directories used by the top-level targets for convenience
+     * symlinks.
+     *
+     * <p>If true, then symlinks use the actual output directories of the top-level targets.
+     * The symlinks will be created iff all top-level targets share the same output directory.
+     * Otherwise, any stale symlinks from previous invocations will be deleted to avoid ambiguity.
+     *
+     * <p>If false, then symlinks use the output directory implied by command-line flags, regardless
+     * of whether top-level targets have transitions which change them (or even have any output
+     * directories at all, as in the case of a build with no targets or one which only builds source
+     * files).
+     */
+    public boolean useTopLevelTargetsForSymlinks() {
+      return useTopLevelTargetsForSymlinks;
+    }
+
     @Option(
       name = "use_action_cache",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Whether to use the action cache"
     )
     public boolean useActionCache;
@@ -422,7 +448,7 @@ public class BuildRequest implements OptionsClassProvider {
         if (fixedAutoJobs == null) {
           jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
           if (jobs > MAX_JOBS) {
-            log.warning(
+            logger.warning(
                 "Detected "
                     + jobs
                     + " processors, which exceed the maximum allowed number of jobs of "
@@ -433,7 +459,7 @@ public class BuildRequest implements OptionsClassProvider {
         } else {
           jobs = fixedAutoJobs;
         }
-        log.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
+        logger.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
         return jobs;
       } else {
         return super.convert(input);

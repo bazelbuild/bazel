@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -46,6 +47,7 @@ class ParallelEvaluatorContext {
   private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions;
   private final ExtendedEventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
+  private final NestedSetVisitor<Postable> replayingNestedSetPostableVisitor;
   private final boolean keepGoing;
   private final DirtyTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
@@ -76,7 +78,10 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.replayingNestedSetEventVisitor =
-        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
+    this.replayingNestedSetPostableVisitor =
+        new NestedSetVisitor<>(
+            new NestedSetPostableReceiver(reporter), emittedEventState.postableState);
     this.keepGoing = keepGoing;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
@@ -109,7 +114,10 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.replayingNestedSetEventVisitor =
-        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
+    this.replayingNestedSetPostableVisitor =
+        new NestedSetVisitor<>(
+            new NestedSetPostableReceiver(reporter), emittedEventState.postableState);
     this.keepGoing = keepGoing;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
@@ -192,6 +200,10 @@ class ParallelEvaluatorContext {
     return replayingNestedSetEventVisitor;
   }
 
+  NestedSetVisitor<Postable> getReplayingNestedSetPostableVisitor() {
+    return replayingNestedSetPostableVisitor;
+  }
+
   ExtendedEventHandler getReporter() {
     return reporter;
   }
@@ -223,6 +235,21 @@ class ParallelEvaluatorContext {
       for (Event e : events.getEvents()) {
         reporter.handle(e.withTag(tag));
       }
+    }
+  }
+
+  /** Receives the postables from the NestedSet and delegates to the reporter. */
+  private static class NestedSetPostableReceiver implements NestedSetVisitor.Receiver<Postable> {
+
+    private final ExtendedEventHandler reporter;
+
+    public NestedSetPostableReceiver(ExtendedEventHandler reporter) {
+      this.reporter = reporter;
+    }
+
+    @Override
+    public void accept(Postable post) {
+      reporter.post(post);
     }
   }
 }

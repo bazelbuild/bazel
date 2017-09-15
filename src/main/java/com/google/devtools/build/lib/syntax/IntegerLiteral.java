@@ -18,15 +18,25 @@ import java.io.IOException;
 /**
  * Syntax node for an integer literal.
  */
-public final class IntegerLiteral extends Literal<Integer> {
+public final class IntegerLiteral extends Expression {
+  private final int value;
 
   public IntegerLiteral(Integer value) {
-    super(value);
+    this.value = value;
+  }
+
+  public int getValue() {
+    return value;
+  }
+
+  @Override
+  Object doEval(Environment env) {
+    return value;
   }
 
   @Override
   public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(value.toString());
+    buffer.append(String.valueOf(value));
   }
 
   @Override
@@ -35,6 +45,7 @@ public final class IntegerLiteral extends Literal<Integer> {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
+  public Kind kind() {
+    return Kind.INTEGER_LITERAL;
   }
 }

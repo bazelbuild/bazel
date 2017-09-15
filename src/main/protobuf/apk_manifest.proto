@@ -15,6 +15,7 @@
 syntax = "proto3";
 package blaze.apk_manifest;
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.rules.android.apkmanifest";
 
 message Artifact {

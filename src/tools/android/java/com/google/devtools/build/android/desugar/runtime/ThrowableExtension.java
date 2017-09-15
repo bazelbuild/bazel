@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
+import java.io.Closeable;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,10 +46,14 @@ public final class ThrowableExtension {
   public static final String SYSTEM_PROPERTY_TWR_DISABLE_MIMIC =
       "com.google.devtools.build.android.desugar.runtime.twr_disable_mimic";
 
+  // Visible for testing.
+  static final int API_LEVEL;
+
   static {
     AbstractDesugaringStrategy strategy;
+    Integer apiLevel = null;
     try {
-      Integer apiLevel = readApiLevelFromBuildVersion();
+      apiLevel = readApiLevelFromBuildVersion();
       if (apiLevel != null && apiLevel.intValue() >= 19) {
         strategy = new ReuseDesugaringStrategy();
       } else if (useMimicStrategy()) {
@@ -66,6 +73,7 @@ public final class ThrowableExtension {
       strategy = new NullDesugaringStrategy();
     }
     STRATEGY = strategy;
+    API_LEVEL = apiLevel == null ? 1 : apiLevel.intValue();
   }
 
   public static AbstractDesugaringStrategy getStrategy() {
@@ -90,6 +98,44 @@ public final class ThrowableExtension {
 
   public static void printStackTrace(Throwable receiver, PrintStream stream) {
     STRATEGY.printStackTrace(receiver, stream);
+  }
+
+  public static void closeResource(Throwable throwable, Object resource) throws Throwable {
+    if (resource == null) {
+      return;
+    }
+    try {
+      if (API_LEVEL >= 19) {
+        ((AutoCloseable) resource).close();
+      } else {
+        if (resource instanceof Closeable) {
+          ((Closeable) resource).close();
+        } else {
+          try {
+            Method method = resource.getClass().getMethod("close");
+            method.invoke(resource);
+          } catch (NoSuchMethodException | SecurityException e) {
+            throw new AssertionError(resource.getClass() + " does not have a close() method.", e);
+          } catch (IllegalAccessException
+              | IllegalArgumentException
+              | ExceptionInInitializerError e) {
+            throw new AssertionError("Fail to call close() on " + resource.getClass(), e);
+          } catch (InvocationTargetException e) {
+            // Exception occurs during the invocation to the close method. The cause is the real
+            // exception.
+            Throwable cause = e.getCause();
+            throw cause;
+          }
+        }
+      }
+    } catch (Throwable e) {
+      if (throwable != null) {
+        addSuppressed(throwable, e);
+        throw throwable;
+      } else {
+        throw e;
+      }
+    }
   }
 
   private static boolean useMimicStrategy() {

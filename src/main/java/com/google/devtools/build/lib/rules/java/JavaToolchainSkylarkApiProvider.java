@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 

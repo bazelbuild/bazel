@@ -65,7 +65,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
             out=xcodebuild_result.stdout)
   ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
   tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
-  macosx_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
+  macos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
   watchos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "watchos")
   build_contents += "xcode_version(\n  name = '%s'," % name
   build_contents += "\n  version = '%s'," % version
@@ -75,8 +75,8 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     build_contents += "\n  default_ios_sdk_version = '%s'," % ios_sdk_version
   if tvos_sdk_version:
     build_contents += "\n  default_tvos_sdk_version = '%s'," % tvos_sdk_version
-  if macosx_sdk_version:
-    build_contents += "\n  default_macosx_sdk_version = '%s'," % macosx_sdk_version
+  if macos_sdk_version:
+    build_contents += "\n  default_macos_sdk_version = '%s'," % macos_sdk_version
   if watchos_sdk_version:
     build_contents += "\n  default_watchos_sdk_version = '%s'," % watchos_sdk_version
   build_contents += "\n)\n"

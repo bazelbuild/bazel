@@ -52,7 +52,8 @@ public final class ProjectFileSupport {
         throw new OptionsParsingException("Cannot handle more than one +<file> argument yet");
       }
       if (!optionsParser.getOptions(CommonCommandOptions.class).allowProjectFiles) {
-        throw new OptionsParsingException("project file support is not enabled");
+        throw new OptionsParsingException("project file support is not enabled. "
+                                          + "Pass --experimental_allow_project_files to enable.");
       }
       // TODO(bazel-team): This is currently treated as a path relative to the workspace - if the
       // cwd is a subdirectory of the workspace, that will be surprising, and we should interpret it

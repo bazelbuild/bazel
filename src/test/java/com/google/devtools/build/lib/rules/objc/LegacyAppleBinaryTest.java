@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -28,4 +29,9 @@ public class LegacyAppleBinaryTest extends AppleBinaryTest {
     return ObjcCrosstoolMode.OFF;
   }
 
+  @Test
+  @Override
+  public void testMacosFrameworkDirectories() throws Exception {
+    // This AppleBinaryTest fails due to lack of support in legacy mode.
+  }
 }

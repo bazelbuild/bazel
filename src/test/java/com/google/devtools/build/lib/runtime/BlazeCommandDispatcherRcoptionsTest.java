@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -36,10 +35,10 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,7 +46,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests the handling of rc-options in {@link BlazeCommandDispatcher}. */
 @RunWith(JUnit4.class)
@@ -155,8 +153,6 @@ public class BlazeCommandDispatcherRcoptionsTest {
                     builder.addConfigurationOptions(MockFragmentOptions.class);
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
-                    builder.setConfigurationCollectionFactory(
-                        Mockito.mock(ConfigurationCollectionFactory.class));
                   }
                 })
             .build();

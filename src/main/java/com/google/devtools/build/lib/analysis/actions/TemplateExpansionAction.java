@@ -23,6 +23,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -30,12 +32,15 @@ import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Action to expand a template and write the expanded content to a file.
@@ -162,6 +167,81 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
     @Override
     public String getKey() {
       return key;
+    }
+  }
+
+  /**
+   * Expands a fragment value.
+   *
+   * <p>This is slighly more memory efficient since it defers the expansion of the path fragment's
+   * string until requested. Often a template action is never executed, meaning the string is never
+   * needed.
+   */
+  public static final class PathFragmentSubstitution extends ComputedSubstitution {
+    private final PathFragment pathFragment;
+
+    public PathFragmentSubstitution(String key, PathFragment pathFragment) {
+      super(key);
+      this.pathFragment = pathFragment;
+    }
+
+    @Override
+    public String getValue() {
+      return pathFragment.getPathString();
+    }
+  }
+
+  /**
+   * Expands a label value to its canonical string value.
+   *
+   * <p>This is more memory efficient than directly using the {@Label#toString}, since that method
+   * constructs a new string every time it's called.
+   */
+  public static final class LabelSubstitution extends ComputedSubstitution {
+    private final Label label;
+
+    public LabelSubstitution(String key, Label label) {
+      super(key);
+      this.label = label;
+    }
+
+    @Override
+    public String getValue() {
+      return label.getCanonicalForm();
+    }
+  }
+
+  /**
+   * Expands a collection of artifacts to their short (root relative paths).
+   *
+   * <p>This is much more memory efficient than eagerly joining them into a string.
+   */
+  public static final class JoinedArtifactShortPathSubstitution extends ComputedSubstitution {
+    private final Iterable<Artifact> artifacts;
+    private final String joinStr;
+
+    public JoinedArtifactShortPathSubstitution(
+        String key, ImmutableList<Artifact> artifacts, String joinStr) {
+      this(key, (Iterable<Artifact>) artifacts, joinStr);
+    }
+
+    public JoinedArtifactShortPathSubstitution(
+        String key, NestedSet<Artifact> artifacts, String joinStr) {
+      this(key, (Iterable<Artifact>) artifacts, joinStr);
+    }
+
+    private JoinedArtifactShortPathSubstitution(
+        String key, Iterable<Artifact> artifacts, String joinStr) {
+      super(key);
+      this.artifacts = artifacts;
+      this.joinStr = joinStr;
+    }
+
+    @Override
+    public String getValue() {
+      return StreamSupport.stream(artifacts.spliterator(), false)
+          .map(artifact -> artifact.getRootRelativePath().getPathString())
+          .collect(Collectors.joining(joinStr));
     }
   }
 

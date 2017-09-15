@@ -23,11 +23,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
+
+#include <cassert>
+#include <cinttypes>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -68,7 +73,9 @@ static void handler(int signum) {
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -506,6 +513,8 @@ void UnsetEnv(const string& name) {
   unsetenv(name.c_str());
 }
 
+bool WarnIfStartedFromDesktop() { return false; }
+
 void SetupStdStreams() {
   // Set non-buffered output mode for stderr/stdout. The server already
   // line-buffers messages where it makes sense, so there's no need to do set
@@ -570,15 +579,25 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
   lock.l_len = 4096;
 
-  uint64_t wait_time = 0;
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
+  // Take the exclusive server lock.  If we fail, we busy-wait until the lock
+  // becomes available.
+  //
+  // We used to rely on fcntl(F_SETLKW) to lazy-wait for the lock to become
+  // available, which is theoretically fine, but doing so prevents us from
+  // determining if the PID of the server holding the lock has changed under the
+  // hood.  There have been multiple bug reports where users (especially macOS
+  // ones) mention that the Blaze invocation hangs on a non-existent PID.  This
+  // should help troubleshoot those scenarios in case there really is a bug
+  // somewhere.
+  size_t attempts = 0;
+  pid_t other_pid = 0;
+  const uint64_t start_time = GetMillisecondsMonotonic();
+  while (fcntl(lockfd, F_SETLK, &lock) == -1) {
     if (errno != EACCES && errno != EAGAIN) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "unexpected result from F_SETLK");
     }
 
-    // We didn't get the lock.  Find out who has it.
     struct flock probe = lock;
     probe.l_pid = 0;
     if (fcntl(lockfd, F_GETLK, &probe) == -1) {
@@ -590,26 +609,29 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
           "Another command is running (pid=%d). Exiting immediately.",
           probe.l_pid);
     }
-    fprintf(stderr, "Another command is running (pid = %d).  "
-            "Waiting for it to complete...", probe.l_pid);
-    fflush(stderr);
-
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = GetMillisecondsMonotonic();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
+    if (other_pid != probe.l_pid) {
+      if (attempts > 0) {
+        fprintf(stderr, " lock taken by another command\n");
+      }
+      fprintf(stderr, "Another command (pid=%d) is running.  "
+              "Waiting for it to complete on the client...", probe.l_pid);
+      fflush(stderr);
+      other_pid = probe.l_pid;
     }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = GetMillisecondsMonotonic();
-    wait_time = et - st;
+
+    TrySleep(500);
+    attempts += 1;
   }
+  if (attempts > 0) {
+    fprintf(stderr, " done!\n");
+  }
+  const uint64_t end_time = GetMillisecondsMonotonic();
+
+  // If we took the lock on the first try, force the reported wait time to 0 to
+  // avoid unnecessary noise in the logs.  In this metric, we are only
+  // interested in knowing how long it took for other commands to complete, not
+  // how fast acquiring a lock is.
+  const uint64_t wait_time = attempts == 0 ? 0 : end_time - start_time;
 
   // Identify ourselves in the lockfile.
   (void) ftruncate(lockfd, 0);
@@ -624,6 +646,26 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
 
 void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
+}
+
+bool KillServerProcess(int pid, const string& output_base) {
+  // Kill the process and make sure it's dead before proceeding.
+  killpg(pid, SIGKILL);
+  if (!AwaitServerProcessTermination(pid, output_base,
+                                     kPostKillGracePeriodSeconds)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Attempted to kill stale server process (pid=%d) using "
+        "SIGKILL, but it did not die in a timely fashion.",
+        pid);
+  }
+  return true;
+}
+
+void TrySleep(unsigned int milliseconds) {
+  time_t seconds_part = (time_t)(milliseconds / 1000);
+  long nanoseconds_part = ((long)(milliseconds % 1000)) * 1000 * 1000;
+  struct timespec sleeptime = {seconds_part, nanoseconds_part};
+  nanosleep(&sleeptime, NULL);
 }
 
 string GetUserName() {
@@ -680,6 +722,68 @@ int GetTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
+}
+
+// Raises a resource limit to the maximum allowed value.
+//
+// This function raises the limit of the resource given in "resource" from its
+// soft limit to its hard limit. If the hard limit is unlimited, uses the
+// kernel-level limit fetched from the sysctl property given in "sysctl_name"
+// because setting the soft limit to unlimited may not work.
+//
+// Note that this is a best-effort operation. Any failure during this process
+// will result in a warning but execution will continue.
+static bool UnlimitResource(const int resource) {
+  struct rlimit rl;
+  if (getrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to get resource limit %d: %s\n", resource,
+            strerror(errno));
+    return false;
+  }
+
+  if (rl.rlim_cur == rl.rlim_max) {
+    // Nothing to do. Return early to prevent triggering any warnings caused by
+    // the code below. This way, we will only show warnings the first time the
+    // Blaze server is started and not on each command invocation.
+    return true;
+  }
+
+  rl.rlim_cur = rl.rlim_max;
+  if (rl.rlim_cur == RLIM_INFINITY) {
+    const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
+    if (explicit_limit <= 0) {
+      // If not implemented (-1) or on an error (0), do nothing and try to
+      // increase the soft limit to the hard one. This might fail, but it's good
+      // to try anyway.
+      assert(rl.rlim_cur == rl.rlim_max);
+    } else {
+      rl.rlim_cur = explicit_limit;
+    }
+  }
+
+  if (setrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to raise resource limit %d to %" PRIdMAX
+            ": %s\n", resource, static_cast<intmax_t>(rl.rlim_cur),
+            strerror(errno));
+    return false;
+  }
+
+  return true;
+}
+
+bool UnlimitResources() {
+  bool success = true;
+  success &= UnlimitResource(RLIMIT_NOFILE);
+  success &= UnlimitResource(RLIMIT_NPROC);
+  return success;
+}
+
+void DetectBashOrDie() {
+  // do nothing.
+}
+
+void EnsurePythonPathOption(vector<string>* options) {
+  // do nothing.
 }
 
 }   // namespace blaze.

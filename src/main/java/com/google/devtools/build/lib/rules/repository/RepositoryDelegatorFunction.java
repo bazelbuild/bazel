@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.ExternalPackageUtil;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +57,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 2;
+  private static final int MARKER_FILE_VERSION = 3;
 
   // A special repository delegate used to handle Skylark remote repositories if present.
   public static final String SKYLARK_DELEGATE_NAME = "$skylark";
@@ -123,6 +121,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (rule == null) {
       return null;
     }
+
     RepositoryFunction handler;
     if (rule.getRuleClassObject().isSkylark()) {
       handler = skylarkHandler;
@@ -130,11 +129,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       handler = handlers.get(rule.getRuleClass());
     }
     if (handler == null) {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
-              "Could not find handler for " + rule),
-          Transience.PERSISTENT);
+      // If we refer to a non repository rule then the repository does not exist.
+      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }
 
     handler.setClientEnvironment(clientEnvironment);

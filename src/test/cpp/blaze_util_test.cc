@@ -91,9 +91,7 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFrom(string input) {
-    AssertReadFrom2(std::move(input), "");
-  }
+  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
   static void AssertReadJvmVersion(string expected, const string& input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
@@ -204,6 +202,49 @@ TEST_F(BlazeUtilTest, TestSearchNullarySucceedsWithEqualsAndDashDash) {
       {"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
 }
 
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereEmptyCase) {
+  ASSERT_FALSE(SearchNullaryOptionEverywhere({}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereForEmpty) {
+  ASSERT_FALSE(SearchNullaryOptionEverywhere(
+      {"bazel", "build", ":target", "--"}, ""));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereForFlagNotPresent) {
+  ASSERT_FALSE(SearchNullaryOptionEverywhere(
+      {"bazel", "build", ":target", "--"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereStartupOption) {
+  ASSERT_TRUE(SearchNullaryOptionEverywhere(
+      {"bazel", "--flag", "build", ":target", "--"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereStartupOptionWithEquals) {
+  ASSERT_DEATH(SearchNullaryOptionEverywhere(
+      {"bazel", "--flag=value", "build", ":target", "--"}, "--flag"),
+               "In argument '--flag=value': option "
+                   "'--flag' does not take a value");
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereCommandOption) {
+  ASSERT_TRUE(SearchNullaryOptionEverywhere(
+      {"bazel", "build", ":target", "--flag"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereReadsAfterPositionalParams) {
+  ASSERT_TRUE(SearchNullaryOptionEverywhere(
+      {"bazel", "build", ":target", "--", "--flag"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryEverywhereFailsAfterPositionalParams) {
+  ASSERT_DEATH(SearchNullaryOptionEverywhere(
+      {"bazel", "build", ":target", "--", "--flag=value"}, "--flag"),
+               "In argument '--flag=value': option "
+                   "'--flag' does not take a value");
+}
+
 TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {
   ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, ""));
 }
@@ -264,6 +305,7 @@ TEST_F(BlazeUtilTest, MakeAbsolute) {
   EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "/foo");
 #endif
   EXPECT_EQ(MakeAbsolute(std::string()), blaze_util::GetCwd());
+  EXPECT_EQ(MakeAbsolute("/dev/null"), "/dev/null");
 }
 
 }  // namespace blaze

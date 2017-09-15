@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
 

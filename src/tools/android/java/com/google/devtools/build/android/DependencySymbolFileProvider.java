@@ -20,14 +20,11 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
 
 /**
  * Represents the R.txt symbol file and AndroidManifest (provides Java package) of libraries.
  */
 class DependencySymbolFileProvider implements SymbolFileProvider {
-
-  private static final Pattern VALID_REGEX = Pattern.compile(".*:.*");
 
   private final File symbolFile;
   private final File manifest;
@@ -57,12 +54,21 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
   }
 
   private static DependencySymbolFileProvider valueOf(String text, FileSystem fileSystem) {
-    if (!VALID_REGEX.matcher(text).find()) {
+    int separatorIndex = text.indexOf(',');
+    if (separatorIndex == -1) {
+      // TODO(laszlocsomor): remove support for ":" after 2018-02-28 (about 6 months from now).
+      // Everyone should have updated to newer Bazel versions by then.
+      // ":" is supported for the sake of the deprecated --libraries flag whose format is
+      // --libraries=key1:value1,key2:value2,keyN:valueN . The new flag is --library with
+      // multi-value support and expected format: --library=key1,value1 --library=key2,value2 .
+      separatorIndex = text.indexOf(':');
+    }
+    if (separatorIndex == -1) {
       throw new IllegalArgumentException(text + " is not in the format " + commandlineFormat(""));
     }
-    String[] parts = text.split(File.pathSeparator);
-    return new DependencySymbolFileProvider(getFile(parts[0], fileSystem),
-        getFile(parts[1], fileSystem));
+    return new DependencySymbolFileProvider(
+        getFile(text.substring(0, separatorIndex), fileSystem),
+        getFile(text.substring(separatorIndex + 1), fileSystem));
   }
 
   private static File getFile(String pathString, FileSystem fileSystem) {
@@ -78,7 +84,7 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
   }
 
   public static String commandlineFormat(String libNum) {
-    return String.format("lib%s/R.txt:lib%s/AndroidManifest.xml", libNum, libNum);
+    return String.format("lib%s/R.txt,lib%s/AndroidManifest.xml", libNum, libNum);
   }
 
   @Override

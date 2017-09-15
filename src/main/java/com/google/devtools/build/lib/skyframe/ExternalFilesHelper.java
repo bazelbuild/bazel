@@ -30,7 +30,7 @@ import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
-  private static final Logger LOG = Logger.getLogger(ExternalFilesHelper.class.getName());
+  private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
   private static final int MAX_NUM_EXTERNAL_FILES_TO_LOG = 100;
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
@@ -187,7 +187,7 @@ public class ExternalFilesHelper {
       }
       if (fileType == FileType.EXTERNAL
           && numExternalFilesLogged.incrementAndGet() < MAX_NUM_EXTERNAL_FILES_TO_LOG) {
-        LOG.info("Encountered an external path " + rootedPath);
+        logger.info("Encountered an external path " + rootedPath);
       }
       return;
     }

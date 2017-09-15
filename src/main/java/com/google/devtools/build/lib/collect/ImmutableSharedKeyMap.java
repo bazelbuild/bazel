@@ -153,6 +153,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality")
   public boolean equals(Object o) {
     if (this == o) {
       return true;

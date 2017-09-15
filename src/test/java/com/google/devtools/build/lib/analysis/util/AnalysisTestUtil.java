@@ -412,9 +412,10 @@ public final class AnalysisTestUtil {
     rootMap.put(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles");
+        "bin");
     rootMap.put(
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal");
@@ -423,27 +424,25 @@ public final class AnalysisTestUtil {
     rootMap.put(
         hostConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin(host)");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles(host)");
+        "bin(host)");
     rootMap.put(
         hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal(host)");
 
-    if (targetConfiguration.useDynamicConfigurations()) {
-      // With dynamic configurations, the output paths that bin, genfiles, etc. refer to may
-      // or may not include the C++-contributed pieces. e.g. they may be
-      // bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be bazel-out/fastbuild/. This code
-      // adds support for the non-C++ case, too.
-      Map<String, String> prunedRootMap = new HashMap<>();
-      for (Map.Entry<String, String> root : rootMap.entrySet()) {
-        prunedRootMap.put(
-            OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
-            root.getValue()
-        );
-      }
-      rootMap.putAll(prunedRootMap);
+    // The output paths that bin, genfiles, etc. refer to may or may not include the C++-contributed
+    // pieces. e.g. they may be bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be
+    // bazel-out/fastbuild/. This code adds support for the non-C++ case, too.
+    Map<String, String> prunedRootMap = new HashMap<>();
+    for (Map.Entry<String, String> root : rootMap.entrySet()) {
+      prunedRootMap.put(
+          OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
+          root.getValue()
+      );
     }
+    rootMap.putAll(prunedRootMap);
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {

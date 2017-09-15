@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Provides information about jar files produced by a Java rule. */
@@ -96,13 +97,17 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
 
     @Nullable
     @SkylarkCallable(
-        name = "source_jars",
-        doc = "A list of sources archive files.",
-        allowReturnNones = true,
-        structField = true
+      name = "source_jars",
+      doc = "A list of sources archive files.",
+      allowReturnNones = true,
+      structField = true
     )
-    public SkylarkList<Artifact> getSrcJars() {
+    public SkylarkList<Artifact> getSrcJarsSkylark() {
       return SkylarkList.createImmutable(srcJars);
+    }
+
+    public Iterable<Artifact> getSrcJars() {
+      return srcJars;
     }
   }
 
@@ -118,6 +123,23 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
   public ImmutableList<OutputJar> getOutputJars() {
     return outputJars;
+  }
+
+  /**
+   * Collects all class output jars from {@link #outputJars}
+   */
+  public Iterable<Artifact> getAllClassOutputJars() {
+    return outputJars.stream().map(OutputJar::getClassJar).collect(Collectors.toList());
+  }
+
+  /**
+   * Collects all source output jars from {@link #outputJars}
+   */
+  public Iterable<Artifact> getAllSrcOutputJars() {
+    return outputJars
+        .stream()
+        .map(OutputJar::getSrcJars)
+        .reduce(ImmutableList.of(), Iterables::concat);
   }
 
   @Nullable

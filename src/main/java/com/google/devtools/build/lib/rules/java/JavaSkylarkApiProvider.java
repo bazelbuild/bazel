@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -38,7 +38,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Provides access to information about Java rules. Every Java-related target provides "
-          + "this struct, accessible as a 'java' field on a Target struct."
+          + "this struct, accessible as a <code>java</code> field on a "
+          + "<a href=\"Target.html\">target</a>."
 )
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
@@ -121,7 +122,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     name = "transitive_source_jars",
     doc =
         "Returns the Jars containing Java source files for the target and all of its transitive "
-            + "dependencies",
+            + "dependencies.",
     structField = true
   )
   public NestedSet<Artifact> getTransitiveSourceJars() {

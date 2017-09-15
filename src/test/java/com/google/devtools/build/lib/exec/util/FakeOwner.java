@@ -52,6 +52,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
         mnemonic,
         /*targetKind=*/ null,
         "configurationChecksum",
+        /* configuration=*/ null,
         "additionalProgressInfo");
   }
 

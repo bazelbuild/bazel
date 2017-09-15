@@ -70,11 +70,11 @@ public final class SimpleBlobStoreFactory {
     return new ConcurrentMapBlobStore(instance.<String, byte[]>getMap(HAZELCAST_CACHE_NAME));
   }
 
-  public static SimpleBlobStore createRest(RemoteOptions options) {
+  public static SimpleBlobStore createRest(RemoteOptions options) throws IOException {
     return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
   }
 
-  public static SimpleBlobStore create(RemoteOptions options) {
+  public static SimpleBlobStore create(RemoteOptions options) throws IOException {
     if (isHazelcastOptions(options)) {
       return createHazelcast(options);
     }

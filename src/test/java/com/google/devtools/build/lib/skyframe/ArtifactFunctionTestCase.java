@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -75,8 +76,8 @@ abstract class ArtifactFunctionTestCase {
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         root.getFileSystem().getPath("/outputbase"), ImmutableList.of(root)));
-    BlazeDirectories directories = new BlazeDirectories(root, root, root,
-        TestConstants.PRODUCT_NAME);
+    BlazeDirectories directories =
+        new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,

@@ -14,12 +14,14 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.android.dex.Dex;
+import com.android.dx.command.dexer.DxContext;
 import com.android.dx.dex.DexOptions;
 import com.android.dx.dex.cf.CfOptions;
 import com.android.dx.dex.file.DexFile;
@@ -59,14 +61,29 @@ public class DexFileAggregatorTest {
   @Test
   public void testClose_emptyWritesNothing() throws Exception {
     DexFileAggregator dexer =
-        new DexFileAggregator(dest, MultidexStrategy.MINIMAL, DEX_LIMIT, WASTE);
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.MINIMAL,
+            DEX_LIMIT,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
     dexer.close();
     verify(dest, times(0)).addFile(any(ZipEntry.class), any(Dex.class));
   }
 
   @Test
   public void testAddAndClose_singleInputWritesThatInput() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(dest, MultidexStrategy.MINIMAL, 0, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.MINIMAL,
+            0,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
     dexer.add(dex);
     dexer.close();
     verify(dest).addFile(any(ZipEntry.class), eq(dex));
@@ -75,7 +92,14 @@ public class DexFileAggregatorTest {
   @Test
   public void testMultidex_underLimitWritesOneShard() throws Exception {
     DexFileAggregator dexer =
-        new DexFileAggregator(dest, MultidexStrategy.BEST_EFFORT, DEX_LIMIT, WASTE);
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.BEST_EFFORT,
+            DEX_LIMIT,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);
     dexer.add(dex2);
@@ -87,8 +111,15 @@ public class DexFileAggregatorTest {
 
   @Test
   public void testMultidex_overLimitWritesSecondShard() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(dest, MultidexStrategy.BEST_EFFORT,
-        2 /* dex has more than 2 methods and fields */, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.BEST_EFFORT,
+            2 /* dex has more than 2 methods and fields */,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);   // classFile is already over limit but we take anything in empty shard
     dexer.add(dex2);  // this should start a new shard
@@ -101,8 +132,15 @@ public class DexFileAggregatorTest {
 
   @Test
   public void testMonodex_alwaysWritesSingleShard() throws Exception {
-    DexFileAggregator dexer = new DexFileAggregator(dest, MultidexStrategy.OFF,
-        2 /* dex has more than 2 methods and fields */, WASTE);
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.OFF,
+            2 /* dex has more than 2 methods and fields */,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
     Dex dex2 = DexFiles.toDex(convertClass(ByteStreams.class));
     dexer.add(dex);
     dexer.add(dex2);
@@ -116,7 +154,7 @@ public class DexFileAggregatorTest {
     String path = clazz.getName().replace('.', '/') + ".class";
     try (InputStream in =
         Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
-      return new DexConverter(new Dexing(new DexOptions(), new CfOptions()))
+      return new DexConverter(new Dexing(new DxContext(), new DexOptions(), new CfOptions()))
           .toDexFile(ByteStreams.toByteArray(in), path);
     }
   }

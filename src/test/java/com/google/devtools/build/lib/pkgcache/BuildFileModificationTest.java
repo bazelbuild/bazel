@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -71,9 +74,12 @@ public class BuildFileModificationTest extends FoundationTestCase {
     analysisMock = AnalysisMock.get();
     ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     skyframeExecutor =
-        SequencedSkyframeExecutor.createForTesting(
+        SequencedSkyframeExecutor.create(
             analysisMock
                 .getPackageFactoryBuilderForTesting()
                 .build(ruleClassProvider, scratch.getFileSystem()),
@@ -86,7 +92,12 @@ public class BuildFileModificationTest extends FoundationTestCase {
             AnalysisMock.get().getSkyFunctions(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName());
+            PathFragment.EMPTY_FRAGMENT,
+            analysisMock.getProductName(),
+            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     OptionsParser parser = OptionsParser.newOptionsParser(
         PackageCacheOptions.class, SkylarkSemanticsOptions.class);
     analysisMock.getInvocationPolicyEnforcer().enforce(parser);

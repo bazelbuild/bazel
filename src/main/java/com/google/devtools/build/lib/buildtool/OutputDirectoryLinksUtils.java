@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -23,13 +26,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * Static utilities for managing output directory symlinks.
@@ -55,16 +55,27 @@ public class OutputDirectoryLinksUtils {
   private static String execRootSymlink(String symlinkPrefix, String workspaceName) {
     return symlinkPrefix + workspaceName;
   }
+
   /**
-   * Attempts to create convenience symlinks in the workspaceDirectory and in
-   * execRoot to the output area and to the configuration-specific output
-   * directories. Issues a warning if it fails, e.g. because workspaceDirectory
-   * is readonly.
+   * Attempts to create convenience symlinks in the workspaceDirectory and in execRoot to the output
+   * area and to the configuration-specific output directories. Issues a warning if it fails, e.g.
+   * because workspaceDirectory is readonly.
+   *
+   * <p>Configuration-specific output symlinks will be created or updated if and only if the set of
+   * {@code targetConfigs} contains only configurations whose output directories match. Otherwise -
+   * i.e., if there are multiple configurations with distinct output directories or there were no
+   * targets with non-null configurations in the build - any stale symlinks left over from previous
+   * invocations will be removed.
    */
-  static void createOutputDirectoryLinks(String workspaceName,
-      Path workspace, Path execRoot, Path outputPath,
-      EventHandler eventHandler, @Nullable BuildConfiguration targetConfig,
-      String symlinkPrefix, String productName) {
+  static void createOutputDirectoryLinks(
+      String workspaceName,
+      Path workspace,
+      Path execRoot,
+      Path outputPath,
+      EventHandler eventHandler,
+      Set<BuildConfiguration> targetConfigs,
+      String symlinkPrefix,
+      String productName) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -81,13 +92,49 @@ public class OutputDirectoryLinksUtils {
     createLink(workspace, execRootSymlink(
         symlinkPrefix, workspace.getBaseName()), execRoot, failures);
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
-    if (targetConfig != null) {
-      createLink(workspace, symlinkPrefix + "bin",
-          targetConfig.getBinDirectory(repositoryName).getPath(), failures);
-      createLink(workspace, symlinkPrefix + "testlogs",
-          targetConfig.getTestLogsDirectory(repositoryName).getPath(), failures);
-      createLink(workspace, symlinkPrefix + "genfiles",
-          targetConfig.getGenfilesDirectory(repositoryName).getPath(), failures);
+
+    // Set up convenience symlinks iff there's only one useful target for them to point to;
+    // otherwise, remove stale symlinks from previous invocations at that path to avoid confusion
+    Set<Path> binPaths =
+        targetConfigs
+            .stream()
+            .map(targetConfig -> targetConfig.getBinDirectory(repositoryName).getPath())
+            .distinct()
+            .collect(toImmutableSet());
+    if (binPaths.size() == 1) {
+      createLink(workspace, symlinkPrefix + "bin", Iterables.getOnlyElement(binPaths), failures);
+    } else {
+      removeLink(workspace, symlinkPrefix + "bin", failures);
+    }
+    Set<Path> testLogsPaths =
+        targetConfigs
+            .stream()
+            .map(targetConfig -> targetConfig.getTestLogsDirectory(repositoryName).getPath())
+            .distinct()
+            .collect(toImmutableSet());
+    if (testLogsPaths.size() == 1) {
+      createLink(
+          workspace,
+          symlinkPrefix + "testlogs",
+          Iterables.getOnlyElement(testLogsPaths),
+          failures);
+    } else {
+      removeLink(workspace, symlinkPrefix + "testlogs", failures);
+    }
+    Set<Path> genfilesPaths =
+        targetConfigs
+            .stream()
+            .map(targetConfig -> targetConfig.getGenfilesDirectory(repositoryName).getPath())
+            .distinct()
+            .collect(toImmutableSet());
+    if (genfilesPaths.size() == 1) {
+      createLink(
+          workspace,
+          symlinkPrefix + "genfiles",
+          Iterables.getOnlyElement(genfilesPaths),
+          failures);
+    } else {
+      removeLink(workspace, symlinkPrefix + "genfiles", failures);
     }
 
     if (!failures.isEmpty()) {
@@ -209,8 +256,8 @@ public class OutputDirectoryLinksUtils {
   private static boolean removeLink(Path base, String name, List<String> failures) {
     Path link = base.getRelative(name);
     try {
-      if (link.exists(Symlinks.NOFOLLOW)) {
-        ExecutionTool.log.finest("Removing " + link);
+      if (link.isSymbolicLink()) {
+        ExecutionTool.logger.finest("Removing " + link);
         link.delete();
       }
       return true;

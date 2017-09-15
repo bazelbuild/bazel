@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,8 +24,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -82,15 +81,14 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static <T extends SkylarkClassObject>  Iterable<T> getProviders(
+  public static <T extends Info> Iterable<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final ClassObjectConstructor.Key skylarkKey,
-      Class<T> resultClass) {
+      final NativeProvider<T> skylarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      SkylarkClassObject prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(skylarkKey);
       if (prerequisiteProvider != null) {
-        result.add(resultClass.cast(prerequisiteProvider));
+        result.add(prerequisiteProvider);
       }
     }
     return result.build();
@@ -101,13 +99,15 @@ public final class AnalysisUtils {
    */
   public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider> Iterable<S>
       filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
-    return Iterables.filter(prerequisites, new Predicate<S>() {
-      @Override
-      public boolean apply(S target) {
-        return target.getProvider(provider) != null;
-      }
-    });
+    return Iterables.filter(prerequisites, target -> target.getProvider(provider) != null);
   }
+
+  /** Returns the iterable of collections that have the specified provider. */
+  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
+      Iterable<S> prerequisites, final NativeProvider<C> provider) {
+    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
+  }
+
 
   /**
    * Returns the path of the associated manifest file for the path of a Fileset. Works for both
