@@ -1508,7 +1508,7 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, "source",
         Arrays.asList("--alpha=one", "--gamma=two", "--echo=three"));
-    List<UnparsedOptionValueDescription> result = parser.asListOfUnparsedOptions();
+    List<ParsedOptionDescription> result = parser.asCompleteListOfParsedOptions();
     assertThat(result).isNotNull();
     assertThat(result).hasSize(3);
 
@@ -1539,7 +1539,7 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, "source",
         Arrays.asList("--alpha=one", "--gamma=two"));
-    List<UnparsedOptionValueDescription> result = parser.asListOfExplicitOptions();
+    List<ParsedOptionDescription> result = parser.asListOfExplicitOptions();
     assertThat(result).isNotNull();
     assertThat(result).hasSize(2);
 

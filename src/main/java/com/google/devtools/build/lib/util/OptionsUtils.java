@@ -20,7 +20,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.UnparsedOptionValueDescription;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,9 +34,9 @@ public final class OptionsUtils {
    * Returns a string representation of the non-hidden specified options; option values are
    * shell-escaped.
    */
-  public static String asShellEscapedString(Iterable<UnparsedOptionValueDescription> optionsList) {
+  public static String asShellEscapedString(Iterable<ParsedOptionDescription> optionsList) {
     StringBuilder result = new StringBuilder();
-    for (UnparsedOptionValueDescription option : optionsList) {
+    for (ParsedOptionDescription option : optionsList) {
       if (option.isHidden()) {
         continue;
       }
@@ -69,16 +69,16 @@ public final class OptionsUtils {
    * specified options; option values are shell-escaped.
    */
   public static String asShellEscapedString(OptionsProvider options) {
-    return asShellEscapedString(options.asListOfUnparsedOptions());
+    return asShellEscapedString(options.asCompleteListOfParsedOptions());
   }
 
   /**
    * Return a representation of the non-hidden specified options, as a list of string. No escaping
    * is done.
    */
-  public static List<String> asArgumentList(Iterable<UnparsedOptionValueDescription> optionsList) {
+  public static List<String> asArgumentList(Iterable<ParsedOptionDescription> optionsList) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (UnparsedOptionValueDescription option : optionsList) {
+    for (ParsedOptionDescription option : optionsList) {
       if (option.isHidden()) {
         continue;
       }
@@ -107,16 +107,15 @@ public final class OptionsUtils {
    * is done.
    */
   public static List<String> asArgumentList(OptionsProvider options) {
-    return asArgumentList(options.asListOfUnparsedOptions());
+    return asArgumentList(options.asCompleteListOfParsedOptions());
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options, filtering out any sensitive options; option values are
-   * shell-escaped.
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options,
+   * filtering out any sensitive options; option values are shell-escaped.
    */
-  public static String asFilteredShellEscapedString(OptionsProvider options,
-      Iterable<UnparsedOptionValueDescription> optionsList) {
+  public static String asFilteredShellEscapedString(
+      OptionsProvider options, Iterable<ParsedOptionDescription> optionsList) {
     return asShellEscapedString(optionsList);
   }
 
@@ -126,7 +125,7 @@ public final class OptionsUtils {
    * shell-escaped.
    */
   public static String asFilteredShellEscapedString(OptionsProvider options) {
-    return asFilteredShellEscapedString(options, options.asListOfUnparsedOptions());
+    return asFilteredShellEscapedString(options, options.asCompleteListOfParsedOptions());
   }
 
   /**

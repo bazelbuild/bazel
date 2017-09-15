@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * <p>The origin includes the form it had when parsed, its priority, a message about where it came
  * from, and whether it was set explicitly or expanded/implied by other flags.
  */
-public final class UnparsedOptionValueDescription {
+public final class ParsedOptionDescription {
   private final OptionDefinition optionDefinition;
   private final String commandLineForm;
   @Nullable private final String unconvertedValue;
@@ -38,7 +38,7 @@ public final class UnparsedOptionValueDescription {
   // user, for that to be true, it needs the right combination of explicit & priority.
   private final boolean explicit;
 
-  public UnparsedOptionValueDescription(
+  public ParsedOptionDescription(
       OptionDefinition optionDefinition,
       String commandLineForm,
       @Nullable String unconvertedValue,
