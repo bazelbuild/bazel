@@ -48,6 +48,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for ios_test. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class IosTestTest extends ObjcRuleTestCase {
   protected static final RuleType RULE_TYPE = new BinaryRuleType("ios_test");
 

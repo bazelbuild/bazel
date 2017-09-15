@@ -23,6 +23,7 @@ import org.junit.runners.JUnit4;
  * because each test is also run in the superclass, which tests --experimental_objc_crosstool=all.
  */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyObjcFrameworkTest extends ObjcFrameworkTest {
   @Override
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {

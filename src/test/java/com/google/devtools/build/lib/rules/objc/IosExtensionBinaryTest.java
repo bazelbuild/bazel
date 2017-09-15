@@ -32,6 +32,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for ios_extension_binary. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class IosExtensionBinaryTest extends ObjcRuleTestCase {
   static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("ios_extension_binary");
   protected static final ExtraLinkArgs EXTRA_LINK_ARGS =

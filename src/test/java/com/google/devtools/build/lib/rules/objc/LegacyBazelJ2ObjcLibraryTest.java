@@ -31,6 +31,7 @@ import org.junit.runners.JUnit4;
  * devtools.build.lib.rules.objc
  */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyBazelJ2ObjcLibraryTest extends BazelJ2ObjcLibraryTest {
   @Override
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {

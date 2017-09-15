@@ -35,6 +35,7 @@ java_library(
         "LegacyObjcFrameworkTest.java",
         "LegacyObjcImportTest.java",
         "LegacyObjcLibraryTest.java",
+        "LegacyTest.java",
         "ObjcBundleLibraryTest.java",
         "ObjcBundleTest.java",
         "ObjcFrameworkTest.java",

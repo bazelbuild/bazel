@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Legacy test: These tests test --experimental_objc_crosstool=off. See README.
+ * Annotates a test class as covering legacy (deprecated) functionality.
  */
-@RunWith(JUnit4.class)
-@LegacyTest
-public class LegacyObjcBundleLibraryTest extends ObjcBundleLibraryTest {
-  @Override
-  protected ObjcCrosstoolMode getObjcCrosstoolMode() {
-    return ObjcCrosstoolMode.OFF;
-  }
-}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+// TODO(b/65681482): Remove all objc_* legacy tests.
+public @interface LegacyTest {}

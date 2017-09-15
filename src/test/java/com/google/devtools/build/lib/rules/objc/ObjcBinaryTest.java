@@ -49,6 +49,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for objc_binary. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class ObjcBinaryTest extends ObjcRuleTestCase {
   static final RuleType RULE_TYPE = new BinaryRuleType("objc_binary");
 
