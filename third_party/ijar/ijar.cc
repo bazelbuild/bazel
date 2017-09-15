@@ -63,11 +63,22 @@ class JarStripperProcessor : public ZipExtractorProcessor {
 
 bool JarStripperProcessor::Accept(const char* filename, const u4 attr) {
   const size_t filename_len = strlen(filename);
-  if (filename_len >= CLASS_EXTENSION_LENGTH) {
-    return strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
-                  CLASS_EXTENSION) == 0;
+  if (filename_len < CLASS_EXTENSION_LENGTH ||
+      strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
+             CLASS_EXTENSION) != 0) {
+    return false;
   }
-  return false;
+  // skip module-info.class files, which don't need stripping
+  const char* slash = strrchr(filename, '/');
+  if (slash == NULL) {
+    slash = filename;
+  } else {
+    slash++;
+  }
+  if (strcmp(slash, "module-info.class") == 0) {
+    return false;
+  }
+  return true;
 }
 
 void JarStripperProcessor::Process(const char* filename, const u4 attr,

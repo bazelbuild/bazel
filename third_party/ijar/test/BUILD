@@ -142,6 +142,31 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+java_binary(
+    name = "GenModuleInfo",
+    testonly = 1,
+    srcs = ["GenModuleInfo.java"],
+    main_class = "GenModuleInfo",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "module_info",
+    testonly = 1,
+    outs = ["module_info.jar"],
+    cmd = "$(location :GenModuleInfo) $@",
+    tools = [":GenModuleInfo"],
+)
+
+genrule(
+    name = "module_info_interface",
+    testonly = 1,
+    srcs = [":module_info.jar"],
+    outs = ["module_info-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -157,6 +182,7 @@ java_test(
         ":interface_ijar_testlib",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
+        ":module_info-interface.jar",
         "//third_party/java/jdk/langtools:javac_jar",
     ],
     jvm_flags = [
