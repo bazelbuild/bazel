@@ -28,8 +28,6 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
-    // TODO(ulfjack): Consider moving these elsewhere; it's not needed for most proto_library tests.
-    createJsPbPlugin(config);
     createJavascriptClosureProto2(config);
   }
 
@@ -170,22 +168,6 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'context',",
         "           srcs = [ 'context.go' ])");
-  }
-
-  /**
-   * Create a dummy "java/com/google/apps/jspb" package.
-   */
-  private static void createJsPbPlugin(MockToolsConfig config) throws IOException {
-    config.create("java/com/google/apps/jspb/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_binary(name = 'JsPbCodeGeneratorPlugin',",
-        "    srcs = ['jspb.java'])");
-    config.create(
-        "javascript/apps/jspb/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'message',",
-        "    srcs = ['message.js'],",
-        "    deps_mgmt = 'legacy')");
   }
 
   /**
