@@ -311,6 +311,22 @@ public class CppRuleClasses {
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
 
   /**
+   * A string constant for a feature that automatically exporting symbols on Windows. Bazel
+   * generates a DEF file for object files of a cc_library, then use it at linking time. This
+   * feature should only be used for toolchains targeting Windows, and the toolchain should support
+   * using DEF files for exporting symbols.
+   */
+  public static final String WINDOWS_EXPORT_ALL_SYMBOLS = "windows_export_all_symbols";
+
+  /** A string constant for a feature to disable WINDOWS_EXPORT_ALL_SYMBOLS. */
+  public static final String NO_WINDOWS_EXPORT_ALL_SYMBOLS = "no_windows_export_all_symbols";
+
+  /**
+   * A string constant for a feature that indicates we are using a toolchain building for Windows.
+   */
+  public static final String TARGETS_WINDOWS = "targets_windows";
+
+  /**
    * A string constant for no_stripping feature, if it's specified, then no strip action config is
    * needed, instead the stripped binary will simply be a symlink (or a copy on Windows) of the
    * original binary.

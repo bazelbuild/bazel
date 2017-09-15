@@ -355,37 +355,51 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet CPP_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.addConfig(
-              CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
+  /**
+   * Set the label for Windows DEF parser. In bazel, it should be
+   * @bazel_tools//tools/def_parser:def_parser, otherwise it should be null.
+   *
+   * <p>TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
+   * Related bug b/63658220
+   */
+  public static final RuleSet CPP_RULES = cppRules("@bazel_tools//tools/def_parser:def_parser");
 
-          builder.addBuildInfoFactory(new CppBuildInfo());
-          builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
+  public static RuleSet cppRules() {
+    return cppRules(null);
+  }
 
-          builder.addRuleDefinition(new CcToolchainRule());
-          builder.addRuleDefinition(new CcToolchainSuiteRule());
-          builder.addRuleDefinition(new CcToolchainAlias.CcToolchainAliasRule());
-          builder.addRuleDefinition(new CcIncLibraryRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
-          builder.addRuleDefinition(new BazelCcBinaryRule());
-          builder.addRuleDefinition(new BazelCcTestRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
-          builder.addRuleDefinition(new BazelCcLibraryRule());
-          builder.addRuleDefinition(new BazelCcIncLibraryRule());
-        }
+  public static RuleSet cppRules(String defParserLabel) {
+    return new RuleSet() {
+      @Override
+      public void init(Builder builder) {
+        builder.addConfig(
+            CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
 
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, PLATFORM_RULES);
-        }
-      };
+        builder.addBuildInfoFactory(new CppBuildInfo());
+        builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
+
+        builder.addRuleDefinition(new CcToolchainRule(defParserLabel));
+        builder.addRuleDefinition(new CcToolchainSuiteRule());
+        builder.addRuleDefinition(new CcToolchainAlias.CcToolchainAliasRule());
+        builder.addRuleDefinition(new CcIncLibraryRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
+        builder.addRuleDefinition(new BazelCcBinaryRule());
+        builder.addRuleDefinition(new BazelCcTestRule());
+        builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
+        builder.addRuleDefinition(new BazelCcLibraryRule());
+        builder.addRuleDefinition(new BazelCcIncLibraryRule());
+      }
+
+      @Override
+      public ImmutableList<RuleSet> requires() {
+        return ImmutableList.of(CoreRules.INSTANCE, PLATFORM_RULES);
+      }
+    };
+  }
 
   public static final RuleSet CPP_PROTO_RULES =
       new RuleSet() {

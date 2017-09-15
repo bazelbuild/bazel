@@ -1,0 +1,13 @@
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "def_parser",
+    srcs = select({
+      "//src:host_windows": ["def_parser.exe"],
+      "//src:host_windows_msvc": ["def_parser.exe"],
+      "//src:host_windows_msys": ["def_parser.exe"],
+      "//conditions:default": [
+        "no_op.bat",
+      ],
+    }),
+)

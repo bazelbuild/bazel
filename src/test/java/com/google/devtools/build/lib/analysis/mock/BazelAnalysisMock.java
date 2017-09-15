@@ -165,6 +165,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
 
     config.create(
+        "/bazel_tools_workspace/tools/def_parser/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "filegroup(name='def_parser', srcs=['def_parser.exe'])");
+
+    config.create(
         "/bazel_tools_workspace/objcproto/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "objc_library(",

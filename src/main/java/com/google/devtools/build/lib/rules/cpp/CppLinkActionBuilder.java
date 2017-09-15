@@ -79,6 +79,8 @@ public class CppLinkActionBuilder {
    */
   public static final String THINLTO_PARAM_FILE_VARIABLE = "thinlto_param_file";
 
+  public static final String DEF_FILE_PATH_VARIABLE = "def_file_path";
+
   /**
    * A build variable to let thinlto know where it should write linker flags when indexing.
    */
@@ -190,6 +192,7 @@ public class CppLinkActionBuilder {
   private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
   private String libraryIdentifier = null;
   private ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
+  private Artifact defFile;
 
   private boolean fake;
   private boolean isNativeDeps;
@@ -561,10 +564,13 @@ public class CppLinkActionBuilder {
     }
 
     switch (linkType) {
-        // We currently can't split dynamic library links if they have interface outputs. That was
-        // probably an unintended side effect of the change that introduced interface outputs.
+        // On Unix, we currently can't split dynamic library links if they have interface outputs.
+        // That was probably an unintended side effect of the change that introduced interface
+        // outputs.
+        // On Windows, We can always split the command line when building DLL.
       case DYNAMIC_LIBRARY:
-        return interfaceOutput == null;
+        return (interfaceOutput == null
+            || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:
       case STATIC_LIBRARY:
       case PIC_STATIC_LIBRARY:
@@ -818,6 +824,9 @@ public class CppLinkActionBuilder {
       dependencyInputsBuilder.addAll(buildInfoHeaderArtifacts);
       dependencyInputsBuilder.addAll(linkstamps);
       dependencyInputsBuilder.addTransitive(compilationInputs.build());
+    }
+    if (defFile != null) {
+      dependencyInputsBuilder.add(defFile);
     }
 
     Iterable<Artifact> expandedInputs =
@@ -1092,6 +1101,11 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder addLtoBitcodeFiles(ImmutableMap<Artifact, Artifact> files) {
     Preconditions.checkState(ltoBitcodeFiles == null);
     ltoBitcodeFiles = files;
+    return this;
+  }
+
+  public CppLinkActionBuilder setDefFile(Artifact defFile) {
+    this.defFile = defFile;
     return this;
   }
 
@@ -1532,6 +1546,10 @@ public class CppLinkActionBuilder {
       buildVariables.addStringVariable(
           INTERFACE_LIBRARY_OUTPUT_VARIABLE,
           shouldGenerateInterfaceLibrary ? interfaceLibraryOutput.getExecPathString() : "ignored");
+
+      if (defFile != null) {
+        buildVariables.addStringVariable(DEF_FILE_PATH_VARIABLE, defFile.getExecPathString());
+      }
 
       // Variables arising from the toolchain
       buildVariables
