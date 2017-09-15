@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
@@ -277,14 +278,20 @@ public interface JavaSemantics {
   ImmutableList<Artifact> collectResources(RuleContext ruleContext);
 
   /**
-   * Constructs the command line to call SingleJar to join all artifacts from
-   * {@code classpath} (java code) and {@code resources} into {@code output}.
+   * Constructs the command line to call SingleJar to join all artifacts from {@code classpath}
+   * (java code) and {@code resources} into {@code output}.
    */
-  CustomCommandLine buildSingleJarCommandLine(BuildConfiguration configuration,
-      Artifact output, String mainClass, ImmutableList<String> manifestLines,
-      Iterable<Artifact> buildInfoFiles, ImmutableList<Artifact> resources,
-      Iterable<Artifact> classpath, boolean includeBuildData,
-      Compression compression, Artifact launcher);
+  CustomCommandLine buildSingleJarCommandLine(
+      BuildConfiguration configuration,
+      Artifact output,
+      String mainClass,
+      ImmutableList<String> manifestLines,
+      Iterable<Artifact> buildInfoFiles,
+      ImmutableList<Artifact> resources,
+      NestedSet<Artifact> classpath,
+      boolean includeBuildData,
+      Compression compression,
+      Artifact launcher);
 
   /**
    * Creates the action that writes the Java executable stub script.
