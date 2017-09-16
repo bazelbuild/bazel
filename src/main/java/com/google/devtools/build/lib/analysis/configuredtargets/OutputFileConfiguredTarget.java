@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -31,7 +36,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
 
   private final TransitiveInfoCollection generatingRule;
 
-  OutputFileConfiguredTarget(
+  public OutputFileConfiguredTarget(
       TargetContext targetContext, OutputFile outputFile,
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
     super(targetContext, outputArtifact);

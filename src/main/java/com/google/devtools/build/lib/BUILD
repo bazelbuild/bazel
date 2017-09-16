@@ -409,6 +409,7 @@ java_library(
             "analysis/actions/*.java",
             "analysis/buildinfo/*.java",
             "analysis/config/*.java",
+            "analysis/configuredtargets/*.java",
             "analysis/constraints/*.java",
             "analysis/extra/*.java",
             "analysis/fileset/*.java",

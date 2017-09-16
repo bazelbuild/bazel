@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -37,7 +42,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
 
   private final NestedSet<PackageSpecification> packageSpecifications;
 
-  PackageGroupConfiguredTarget(TargetContext targetContext, PackageGroup packageGroup) {
+  public PackageGroupConfiguredTarget(TargetContext targetContext, PackageGroup packageGroup) {
     super(targetContext);
     Preconditions.checkArgument(targetContext.getConfiguration() == null);
 

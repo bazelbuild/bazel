@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.util.Preconditions;
  * environment groups are not really first-class Targets.
  */
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
-  EnvironmentGroupConfiguredTarget(TargetContext targetContext, EnvironmentGroup envGroup) {
+  public EnvironmentGroupConfiguredTarget(TargetContext targetContext, EnvironmentGroup envGroup) {
     super(targetContext);
     Preconditions.checkArgument(targetContext.getConfiguration() == null);
   }

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
+import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -38,7 +40,7 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
   private final PathFragment filesetLinkDir;
   @Nullable private final ImmutableList<FilesetTraversalParams> filesetTraversals;
 
-  FilesetOutputConfiguredTarget(
+  public FilesetOutputConfiguredTarget(
       TargetContext targetContext,
       OutputFile outputFile,
       TransitiveInfoCollection generatingRule,

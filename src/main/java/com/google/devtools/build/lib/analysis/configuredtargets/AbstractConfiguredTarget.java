@@ -12,10 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -53,14 +63,14 @@ public abstract class AbstractConfiguredTarget
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
 
-  AbstractConfiguredTarget(Target target,
+  public AbstractConfiguredTarget(Target target,
                            BuildConfiguration configuration) {
     this.target = target;
     this.configuration = configuration;
     this.visibility = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  AbstractConfiguredTarget(TargetContext targetContext) {
+  public AbstractConfiguredTarget(TargetContext targetContext) {
     this.target = targetContext.getTarget();
     this.configuration = targetContext.getConfiguration();
     this.visibility = targetContext.getVisibility();

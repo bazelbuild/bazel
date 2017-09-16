@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -34,7 +35,8 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
   private final Artifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
-  InputFileConfiguredTarget(TargetContext targetContext, InputFile inputFile, Artifact artifact) {
+  public InputFileConfiguredTarget(TargetContext targetContext, InputFile inputFile,
+      Artifact artifact) {
     super(targetContext, artifact);
     Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
     Preconditions.checkArgument(getConfiguration() == null, getLabel());
