@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -235,7 +235,7 @@ public class BazelCppRuleClasses {
           .add(attr("includes", STRING_LIST))
           .add(
               attr(":lipo_context_collector", LABEL)
-                  .cfg(LipoTransition.LIPO_COLLECTOR)
+                  .cfg(LipoContextCollectorTransition.INSTANCE)
                   .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                   .skipPrereqValidatorCheck())
           .build();

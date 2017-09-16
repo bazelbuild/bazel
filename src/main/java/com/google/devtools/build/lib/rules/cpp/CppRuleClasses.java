@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -69,33 +68,13 @@ public class CppRuleClasses {
   };
 
   /**
-   * Configuration transitions required by LIPO.
-   */
-  public enum LipoTransition implements Transition {
-    /**
-     * LIPO context collector.
-     *
-     * <p>This configuration transition leads into a configuration that is used for collecting
-     * C++ compilation contexts for LIPO builds so that e.g. an include path entry required by an
-     * inlined function is there when the place is compiled where it is inlined at.
-     */
-    LIPO_COLLECTOR,
-
-    /**
-     * Transition used for switching back to the LIPO-optimized configuration.
-     */
-    TARGET_CONFIG_FOR_LIPO;
-  }
-
-  /**
    * Declares the implementations for C++ transition enums.
    *
    * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
    */
   public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
       ImmutableMap.of(
-          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
-          LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
+          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE
       );
 
 

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 
 /**
  * Rule definition for compiler definition.
@@ -133,7 +133,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
-                .cfg(LipoTransition.LIPO_COLLECTOR)
+                .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
         .build();
