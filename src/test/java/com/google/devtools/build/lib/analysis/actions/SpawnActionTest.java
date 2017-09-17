@@ -221,7 +221,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 CustomCommandLine.builder().add("-X").build(),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED)
                     .setCharset(ISO_8859_1)
-                    .setFlag("--flagfile=")
+                    .setFlagFormatString("--flagfile=%s")
                     .build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);

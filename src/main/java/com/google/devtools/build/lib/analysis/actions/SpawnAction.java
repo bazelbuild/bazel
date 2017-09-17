@@ -1327,8 +1327,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           result.add((String) value);
         } else if (value instanceof Artifact) {
           Artifact paramFile = (Artifact) value;
-          String flag = (String) values[++i];
-          result.add(flag + paramFile.getExecPathString());
+          String flagFormatString = (String) values[++i];
+          result.add(flagFormatString.replaceFirst("%s", paramFile.getExecPathString()));
         } else if (value instanceof CommandLine) {
           CommandLine commandLine = (CommandLine) value;
           if (artifactExpander != null) {
@@ -1351,7 +1351,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
       Builder addParamFile(Artifact paramFile, ParamFileInfo paramFileInfo) {
         values.add(paramFile);
-        values.add(paramFileInfo.getFlag());
+        values.add(paramFileInfo.getFlagFormatString());
         return this;
       }
 
