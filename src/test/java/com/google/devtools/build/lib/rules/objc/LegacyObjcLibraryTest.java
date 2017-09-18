@@ -710,11 +710,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   }
 
   @Test
-  public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
-    checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
-  }
-
-  @Test
   public void testCompilesAssemblyS() throws Exception {
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.s")

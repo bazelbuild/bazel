@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -30,8 +29,4 @@ public class LegacyObjcImportTest extends ObjcImportTest {
     return ObjcCrosstoolMode.OFF;
   }
 
-  @Test
-  public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
-    checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
-  }
 }

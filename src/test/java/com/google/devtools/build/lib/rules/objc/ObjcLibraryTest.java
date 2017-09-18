@@ -1290,6 +1290,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
+    checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
+  }
+
+  @Test
   public void testUsesDotdPruning() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL, "--objc_use_dotd_pruning");

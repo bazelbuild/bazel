@@ -128,4 +128,8 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     checkNestedBundleInformationPropagatedToDependers(RULE_TYPE);
   }
 
+  @Test
+  public void testSdkIncludesUsedInCompileActionsOfDependers() throws Exception {
+    checkSdkIncludesUsedInCompileActionsOfDependers(RULE_TYPE);
+  }
 }

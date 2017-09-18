@@ -2765,19 +2765,22 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .setList("sdk_includes", "from_bin")
         .write();
     String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
-    assertThat(compileAction("//lib:lib", "a.o").getArguments())
-        .containsAllOf(
-            "-I", sdkIncludeDir + "/from_lib",
-            "-I", sdkIncludeDir + "/foo",
-            "-I", sdkIncludeDir + "/bar/baz")
-        .inOrder();
-    assertThat(compileAction("//bin:bin", "b.o").getArguments())
-        .containsAllOf(
-            "-I", sdkIncludeDir + "/from_bin",
-            "-I", sdkIncludeDir + "/from_lib",
-            "-I", sdkIncludeDir + "/foo",
-            "-I", sdkIncludeDir + "/bar/baz")
-        .inOrder();
+
+    // We remove spaces because the crosstool case does not use spaces for include paths.
+    String compileAArgs = Joiner.on("")
+        .join(compileAction("//lib:lib", "a.o").getArguments())
+        .replace(" ", "");
+    assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/from_lib");
+    assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/foo");
+    assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/bar/baz");
+
+    String compileBArgs = Joiner.on("")
+        .join(compileAction("//bin:bin", "b.o").getArguments())
+        .replace(" ", "");
+    assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_bin");
+    assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_lib");
+    assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/foo");
+    assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/bar/baz");
   }
 
   protected void checkCompileXibActions(
