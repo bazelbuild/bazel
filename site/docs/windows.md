@@ -29,7 +29,7 @@ Bazel is a native Windows binary. Run it from the Windows Command Prompt
     Run the following command in the msys2 shell to install them:
 
     ```bash
-    pacman -Syuu git curl zip unzip
+    pacman -Syuu git curl zip unzip patch
     ```
 
 *   Java JDK 8.
