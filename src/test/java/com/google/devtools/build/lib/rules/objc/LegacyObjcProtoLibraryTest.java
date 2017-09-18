@@ -79,7 +79,7 @@ public class LegacyObjcProtoLibraryTest extends ObjcProtoLibraryTest {
                 .add("-F", frameworkDir(platform))
                 .addAll(FASTBUILD_COPTS)
                 .addAll(
-                    LegacyObjcLibraryTest.iquoteArgs(
+                    ObjcLibraryTest.iquoteArgs(
                         target.get(ObjcProvider.SKYLARK_CONSTRUCTOR), getTargetConfiguration()))
                 .add("-I")
                 .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
