@@ -168,8 +168,6 @@ public final class DataBinding {
     // For full compilation:
     attributes.addProcessorPath(plugin.getProcessorClasspath());
     attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
-
-    //addProcessorFlags(ruleContext, attributes, isBinary);
   }
 
   /**
@@ -223,9 +221,9 @@ public final class DataBinding {
    * end user code consumes.
    *
    * <p>This mostly just triggers the annotation processor. Annotation processor settings
-   * are configured in {@link #addProcessorFlags}.
+   * are configured separately in {@link #getJavacopts}.
    */
-  static Artifact createAnnotationFile(RuleContext ruleContext, boolean isLibrary) {
+  static Artifact createAnnotationFile(RuleContext ruleContext) {
     String contents;
     try {
       contents = ResourceFileLoader.loadResource(DataBinding.class,

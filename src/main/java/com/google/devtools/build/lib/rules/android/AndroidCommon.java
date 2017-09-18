@@ -988,7 +988,7 @@ public class AndroidCommon {
       // binding didn't reprocess a library's data binding expressions redundantly up the dependency
       // chain (meaning each depender processes them again as if they were its own), this problem
       // wouldn't happen.
-      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
+      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext);
       if (annotationFile != null) {
         srcs = ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
       }
