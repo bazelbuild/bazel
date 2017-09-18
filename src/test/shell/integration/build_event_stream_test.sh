@@ -40,14 +40,14 @@ EOF
 exit 1
 EOF
   chmod 755 pkg/false.sh
-  cat > pkg/slowtest.sh <<EOF
+  cat > pkg/slowtest.sh <<'EOF'
 #!/bin/sh
 sleep 1
 exit 0
 EOF
   chmod 755 pkg/slowtest.sh
   touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
-  cat > pkg/BUILD <<EOF
+  cat > pkg/BUILD <<'EOF'
 exports_files(["somesourcefile"])
 sh_test(
   name = "true",
@@ -80,7 +80,7 @@ sh_test(
 genrule(
   name = "output_files_and_tags",
   outs = ["out1.txt"],
-  cmd = "echo foo > \\"\$@\\"",
+  cmd = "echo foo > \"$@\"",
   tags = ["tag1", "tag2"]
 )
 action_listener(
@@ -104,10 +104,10 @@ filegroup(
 genrule(
   name = "not_a_test",
   outs = ["not_a_test.txt"],
-  cmd = "touch \$@",
+  cmd = "touch $@",
 )
 EOF
-cat > simpleaspect.bzl <<EOF
+cat > simpleaspect.bzl <<'EOF'
 def _simple_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
@@ -119,7 +119,7 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
-cat > failingaspect.bzl <<EOF
+cat > failingaspect.bzl <<'EOF'
 def _failing_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
@@ -134,25 +134,25 @@ def _failing_aspect_impl(target, ctx):
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
 touch BUILD
-cat > sample_workspace_status <<EOF
+cat > sample_workspace_status <<'EOF'
 #!/bin/sh
 echo SAMPLE_WORKSPACE_STATUS workspace_status_value
 EOF
 chmod  755 sample_workspace_status
 mkdir -p visibility/hidden
-cat > visibility/hidden/BUILD <<EOF
+cat > visibility/hidden/BUILD <<'EOF'
 genrule(
     name = "hello",
     outs = ["hello.txt"],
-    cmd = "echo Hello World > \$@",
+    cmd = "echo Hello World > $@",
 )
 EOF
-cat > visibility/BUILD <<EOF
+cat > visibility/BUILD <<'EOF'
 genrule(
     name = "cannotsee",
     outs = ["cannotsee.txt"],
     srcs = ["//visibility/hidden:hello"],
-    cmd = "cp \$< \$@",
+    cmd = "cp $< $@",
 )
 EOF
 mkdir -p failingtool
