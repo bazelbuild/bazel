@@ -216,6 +216,12 @@ else
   }
 fi
 
+if is_macos || [[ ${OSTYPE} == "freebsd" ]]; then
+  function md5func() { md5 -q $@ ; }
+else
+  function md5func() { md5sum $@ | awk '{print $1}' ; }
+fi
+
 # Set JAVABIN to the path to the JVM launcher.
 %javabin%
 
@@ -291,8 +297,9 @@ function create_and_run_classpath_jar() {
   done
   unset IFS
 
+  RAND_ID=$(cat /dev/urandom | head -c 128 | md5func)
   # Create manifest file
-  MANIFEST_FILE="${self}.jar_manifest"
+  MANIFEST_FILE="${self}-${RAND_ID}.jar_manifest"
 
   echo "Manifest-Version: 1.0" >$MANIFEST_FILE
   CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
@@ -308,14 +315,21 @@ function create_and_run_classpath_jar() {
   echo "Created-By: Bazel" >>$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="${self}-classpath.jar"
-  is_windows && MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
+  MANIFEST_JAR_FILE="${self}-${RAND_ID}-classpath.jar"
+  if is_windows; then
+    MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
+    MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
+  fi
   JARBIN="${JARBIN:-$(rlocation "$1")}"
   $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null || \
     die "ERROR: $self failed because $JARBIN failed"
 
   # Execute JAVA command
   $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+  exit_code=$?
+  rm -f "$MANIFEST_FILE"
+  rm -f "$MANIFEST_JAR_FILE"
+  exit $exit_code
 }
 
 # If the user didn't specify a --classpath_limit, use the default value.

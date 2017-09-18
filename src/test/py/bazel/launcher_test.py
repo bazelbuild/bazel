@@ -496,9 +496,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertIn('foo-classpath.jar', classpath)
-    classpath_jar = os.path.join(bazel_bin, 'foo', 'foo-classpath.jar')
-    self.assertTrue(os.path.exists(classpath_jar))
+    self.assertRegexpMatches(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
 
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:

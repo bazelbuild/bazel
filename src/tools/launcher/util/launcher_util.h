@@ -57,6 +57,9 @@ bool DoesFilePathExist(const char* path);
 // Check if a directory exists at a given path.
 bool DoesDirectoryPathExist(const char* path);
 
+// Delete a file at a given path.
+bool DeleteFileByPath(const char* path);
+
 // Get the value of a specific environment variable
 //
 // Return true if succeeded and the result is stored in buffer.
@@ -67,6 +70,10 @@ bool GetEnv(const std::string& env_name, std::string* buffer);
 //
 // Return true if succeeded, otherwise false.
 bool SetEnv(const std::string& env_name, const std::string& value);
+
+// Return a random string with a given length.
+// The string consists of a-zA-Z0-9
+std::string GetRandomStr(size_t len);
 
 }  // namespace launcher
 }  // namespace bazel
