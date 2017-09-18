@@ -75,9 +75,15 @@ interface RemoteActionCache {
 
   /**
    * Upload the result of a locally executed action to the cache by uploading any necessary files,
-   * stdin / stdout, as well as adding an entry for the given action key to the cache.
+   * stdin / stdout, as well as adding an entry for the given action key to the cache if
+   * uploadAction is true.
    */
-  void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
+  void upload(
+      ActionKey actionKey,
+      Path execRoot,
+      Collection<Path> files,
+      FileOutErr outErr,
+      boolean uploadAction)
       throws IOException, InterruptedException;
 
   /** Release resources associated with the cache. The cache may not be used after calling this. */

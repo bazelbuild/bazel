@@ -147,8 +147,13 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
-    verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
-          any(FileOutErr.class));
+    verify(cache, never())
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            any(Boolean.class));
     verifyZeroInteractions(localRunner);
   }
 
@@ -187,15 +192,20 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
-    verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
-        any(FileOutErr.class));
+    verify(cache, never())
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            any(Boolean.class));
   }
 
   @Test
   @SuppressWarnings("unchecked")
-  public void failedActionShouldNotBeUploaded() throws Exception {
-    // Test that the outputs of a failed locally executed action are not uploaded to a remote
-    // cache.
+  public void failedActionShouldOnlyUploadOutputs() throws Exception {
+    // Test that the outputs of a failed locally executed action are uploaded to a remote cache,
+    // but the action result itself is not.
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteUploadLocalResults = true;
@@ -217,8 +227,13 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner).execLocallyAndUpload(eq(spawn), eq(policy), any(SortedMap.class), eq(cache),
         any(ActionKey.class));
-    verify(cache, never()).upload(any(ActionKey.class), any(Path.class), any(Collection.class),
-        any(FileOutErr.class));
+    verify(cache)
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            eq(false));
   }
 
   @Test
@@ -267,9 +282,14 @@ public class RemoteSpawnRunnerTest {
     when(cache.getCachedActionResult(any(ActionKey.class)))
         .thenThrow(new IOException("cache down"));
 
-    doThrow(new IOException("cache down")).when(cache)
-        .upload(any(ActionKey.class), any(Path.class), any(Collection.class),
-            any(FileOutErr.class));
+    doThrow(new IOException("cache down"))
+        .when(cache)
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            eq(true));
 
     SpawnResult res = new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(0).build();
     when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);

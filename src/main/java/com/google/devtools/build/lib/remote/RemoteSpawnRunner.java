@@ -329,10 +329,6 @@ class RemoteSpawnRunner implements SpawnRunner {
       ActionKey actionKey) throws ExecException, IOException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
     SpawnResult result = fallbackRunner.exec(spawn, policy);
-    if (!Status.SUCCESS.equals(result.status()) || result.exitCode() != 0) {
-      // Don't upload failed actions.
-      return result;
-    }
     Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
     for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
       // Skip uploading to remote cache, because an input was modified during execution.
@@ -342,7 +338,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
     List<Path> outputFiles = listExistingOutputFiles(execRoot, spawn);
     try {
-      remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr());
+      boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+      remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr(), uploadAction);
     } catch (IOException e) {
       if (verboseFailures) {
         report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

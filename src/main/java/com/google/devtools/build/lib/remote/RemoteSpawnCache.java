@@ -128,11 +128,9 @@ final class RemoteSpawnCache implements SpawnCache {
         @Override
         public void store(SpawnResult result, Collection<Path> files)
             throws InterruptedException, IOException {
-          if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
-            return;
-          }
           try {
-            remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr());
+            boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+            remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
           } catch (IOException e) {
             if (verboseFailures) {
               report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

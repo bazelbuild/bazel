@@ -281,10 +281,18 @@ public class GrpcRemoteCache implements RemoteActionCache {
   }
 
   @Override
-  public void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
+  public void upload(
+      ActionKey actionKey,
+      Path execRoot,
+      Collection<Path> files,
+      FileOutErr outErr,
+      boolean uploadAction)
       throws IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(execRoot, files, outErr, result);
+    if (!uploadAction) {
+      return;
+    }
     try {
       retrier.execute(
           () ->

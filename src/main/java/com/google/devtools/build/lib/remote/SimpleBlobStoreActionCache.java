@@ -170,8 +170,12 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
 
   @Override
   public void upload(
-      ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
-          throws IOException, InterruptedException {
+      ActionKey actionKey,
+      Path execRoot,
+      Collection<Path> files,
+      FileOutErr outErr,
+      boolean uploadAction)
+      throws IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(result, execRoot, files);
     if (outErr.getErrorPath().exists()) {
@@ -182,8 +186,10 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       Digest stdout = uploadFileContents(outErr.getOutputPath());
       result.setStdoutDigest(stdout);
     }
-    blobStore.putActionResult(
-        actionKey.getDigest().getHash(), new ByteArrayInputStream(result.build().toByteArray()));
+    if (uploadAction) {
+      blobStore.putActionResult(
+          actionKey.getDigest().getHash(), new ByteArrayInputStream(result.build().toByteArray()));
+    }
   }
 
   public void upload(ActionResult.Builder result, Path execRoot, Collection<Path> files)

@@ -189,7 +189,11 @@ public class RemoteSpawnCacheTest {
             any(Command.class));
     verify(remoteCache, never())
         .upload(
-            any(ActionKey.class), any(Path.class), any(Collection.class), any(FileOutErr.class));
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            any(Boolean.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     // We expect the CachedLocalSpawnRunner to _not_ write to outErr at all.
@@ -205,11 +209,7 @@ public class RemoteSpawnCacheTest {
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     entry.store(result, outputFiles);
     verify(remoteCache)
-        .upload(
-            any(ActionKey.class),
-            any(Path.class),
-            eq(outputFiles),
-            eq(outErr));
+        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
   }
 
   @Test
@@ -219,18 +219,13 @@ public class RemoteSpawnCacheTest {
     SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
 
-    doThrow(new IOException("cache down")).when(remoteCache).upload(any(ActionKey.class),
-        any(Path.class),
-        eq(outputFiles),
-        eq(outErr));
+    doThrow(new IOException("cache down"))
+        .when(remoteCache)
+        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
 
     entry.store(result, outputFiles);
     verify(remoteCache)
-        .upload(
-            any(ActionKey.class),
-            any(Path.class),
-            eq(outputFiles),
-            eq(outErr));
+        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
