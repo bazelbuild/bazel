@@ -511,11 +511,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    // TODO(b/31711689): remove --no-optimize and --no-locals as DexFileMerger no longer needs them
     @Option(
       name = "dexopts_supported_in_dexmerger",
       converter = Converters.CommaSeparatedOptionListConverter.class,
-      defaultValue = "--no-optimize,--no-locals,--minimal-main-dex,--set-max-idx-number",
+      defaultValue = "--minimal-main-dex,--set-max-idx-number",
       metadataTags = {OptionMetadataTag.HIDDEN},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
