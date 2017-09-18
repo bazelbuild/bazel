@@ -31,8 +31,10 @@ import java.util.Map.Entry;
  * the configuration.
  *
  * <p>To use, create a {@link ObjectCodecs.Builder} and add custom classifier to {@link ObjectCodec}
- * mappings using {@link ObjectCodecs.Builder#add}. The provided mappings used to determine
- * serialization/deserialization logic. For example:
+ * mappings using {@link ObjectCodecs.Builder#add} directly or by using one of the convenience
+ * builders returned by {@link ObjectCodecs.Builder#asSkyFunctionNameKeyedBuilder()} or
+ * {@link ObjectCodecs.Builder#asClassKeyedBuilder()}. The provided mappings are then used to
+ * determine serialization/deserialization logic. For example:
  *
  * <pre>{@code
  * // Create an instance for which anything identified as "foo" will use FooCodec.
@@ -197,8 +199,14 @@ public class ObjectCodecs {
 
     private Builder() {}
 
-    /** Add custom serialization strategy ({@code codec}) for {@code classifier}. */
-    public Builder add(String classifier, ObjectCodec<?> codec) {
+    /**
+     * Add custom serialization strategy ({@code codec}) for {@code classifier}.
+     *
+     * <p>Intended for package-internal usage only. Consider using the specialized build types
+     * returned by {@link #asClassKeyedBuilder()} or {@link #asSkyFunctionNameKeyedBuilder()}
+     * before using this method.
+     */
+    Builder add(String classifier, ObjectCodec<?> codec) {
       codecsBuilder.put(classifier, codec);
       return this;
     }
@@ -232,7 +240,7 @@ public class ObjectCodecs {
       this.underlying = underlying;
     }
 
-    public <T> ClassKeyedBuilder add(Class<T> clazz, ObjectCodec<? extends T> codec) {
+    public <T> ClassKeyedBuilder add(Class<? extends T> clazz, ObjectCodec<T> codec) {
       underlying.add(clazz.getName(), codec);
       return this;
     }
