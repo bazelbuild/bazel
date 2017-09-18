@@ -102,7 +102,7 @@ import javax.annotation.Nullable;
         + "Files. If you have a Skylark rule that needs to create a new File, you have two options:"
         + "<ul>"
         + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
-        + "or <a href='actions.html#declare_file'>ctx.actions.declare_director</a>to "
+        + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a> to "
         + "declare a new file in the rule implementation.</li>"
         + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
         + " Then you can access the File through the rule's "
