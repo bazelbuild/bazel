@@ -72,7 +72,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         The version of the Android build tools to use from within the Android SDK. If not specified,
         the latest build tools version installed will be used.
 
-        <p>Bazel requires build tools version 24.0.3 or later.
+        <p>Bazel requires build tools version 26.0.1 or later.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_tools_version", STRING).nonconfigurable("WORKSPACE rule"))
         /* <!-- #BLAZE_RULE(android_sdk_repository).ATTRIBUTE(api_level) -->
