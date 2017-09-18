@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1269,5 +1270,89 @@ public class IosTestTest extends ObjcRuleTestCase {
   @Test
   public void testSdkIncludesUsedInCompileAction() throws Exception {
     checkSdkIncludesUsedInCompileAction(RULE_TYPE);
+  }
+
+  @Test
+  public void testGetsIncludesFromTestRig() throws Exception {
+    scratch.file("x/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.m'],",
+        "    includes = ['libinc'],",
+        "    sdk_includes = ['libinc_sdk'],",
+        ")",
+        "objc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.m'],",
+        "    includes = ['bininc'],",
+        "    sdk_includes = ['bininc_sdk'],",
+        "    deps = [':lib'],",
+        ")",
+        "ios_application(",
+        "    name = 'testApp',",
+        "    binary = ':bin',",
+        ")",
+        "ios_test(",
+        "    name = 'test',",
+        "    srcs = ['test.m'],",
+        "    includes = ['testinc'],",
+        "    sdk_includes = ['testinc_sdk'],",
+        "    xctest = 1,",
+        "    xctest_app = ':testApp',",
+        ")");
+    // We remove spaces because the crosstool case does not use spaces for include paths.
+    String compileArgs = Joiner.on("")
+        .join(compileAction("//x:test", "test.o").getArguments())
+        .replace(" ", "");
+    assertThat(compileArgs).contains("-Ix/libinc");
+    assertThat(compileArgs).contains("-Ix/bininc");
+    assertThat(compileArgs).contains("-Ix/testinc");
+
+    String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include/";
+    assertThat(compileArgs).contains("-I" + sdkIncludeDir + "libinc_sdk");
+    assertThat(compileArgs).contains("-I" + sdkIncludeDir + "bininc_sdk");
+    assertThat(compileArgs).contains("-I" + sdkIncludeDir + "testinc_sdk");
+  }
+
+  @Test
+  public void testGetsFrameworksFromTestRig() throws Exception {
+    scratch.file("x/BUILD",
+        "objc_framework(",
+        "    name = 'fx',",
+        "    framework_imports = ['fx.framework/1'],",
+        ")",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.m'],",
+        "    deps = [':fx'],",
+        ")",
+        "objc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.m'],",
+        "    deps = [':lib'],",
+        ")",
+        "ios_application(",
+        "    name = 'testApp',",
+        "    binary = ':bin',",
+        ")",
+        "ios_test(",
+        "    name = 'test',",
+        "    srcs = ['test.m'],",
+        "    xctest = 1,",
+        "    xctest_app = ':testApp',",
+        ")");
+    CommandAction compileAction = compileAction("//x:test", "test.o");
+
+    assertThat(Artifact.toExecPaths(compileAction.getInputs()))
+        .contains("x/fx.framework/1");
+    // We remove spaces since the crosstool case does not use spaces for '-F'.
+    String compileActionArgs = Joiner.on("")
+        .join(compileAction.getArguments())
+        .replace(" ", "");
+
+    assertThat(compileActionArgs).contains("-Fx");
+
+    CommandAction linkAction = linkAction("//x:test");
+    assertThat(Joiner.on(" ").join(linkAction.getArguments())).doesNotContain("-framework fx");
   }
 }
