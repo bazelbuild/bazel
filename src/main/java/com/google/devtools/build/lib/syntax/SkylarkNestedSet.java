@@ -334,6 +334,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   @Override
   public final boolean containsKey(Object key, Location loc) throws EvalException {
-    return (set.toSet().contains(key));
+    return (set.toList().contains(key));
   }
 }
