@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -37,15 +38,6 @@ import java.util.List;
  */
 public class AndroidResourcesProcessorBuilder {
 
-  private static final ResourceContainerConverter.ToArtifacts AAPT2_RESOURCE_DEP_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeAapt2RTxt()
-          .includeSymbolsBin()
-          .includeStaticLibrary()
-          .toArtifactConverter();
-
   private static final ResourceContainerConverter.ToArg AAPT2_RESOURCE_DEP_TO_ARG =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -55,20 +47,6 @@ public class AndroidResourcesProcessorBuilder {
           .includeStaticLibrary()
           .withSeparator(SeparatorType.COLON_COMMA)
           .toArgConverter();
-
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .toArtifactConverter();
-
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_DEP_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeManifest()
-          .includeRTxt()
-          .includeSymbolsBin()
-          .toArtifactConverter();
 
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
@@ -115,6 +93,7 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact featureAfter;
   private AndroidAaptVersion aaptVersion;
   private boolean throwOnResourceConflict;
+  private String packageUnderTest;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -272,6 +251,11 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
+  public AndroidResourcesProcessorBuilder setPackageUnderTest(String packageUnderTest) {
+    this.packageUnderTest = packageUnderTest;
+    return this;
+  }
+
   private ResourceContainer createAapt2ApkAction(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     // TODO(corysmith): Convert to an immutable list builder, as there is no benefit to a NestedSet
@@ -283,24 +267,28 @@ public class AndroidResourcesProcessorBuilder {
     builder.add("--tool").add("AAPT2_PACKAGE").add("--");
 
     builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
-    ResourceContainerConverter.convertDependencies(
-        dependencies, builder, inputs, AAPT2_RESOURCE_DEP_TO_ARG, AAPT2_RESOURCE_DEP_TO_ARTIFACTS);
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, AAPT2_RESOURCE_DEP_TO_ARG);
+      inputs
+          .addTransitive(dependencies.getTransitiveResourceRoots())
+          .addTransitive(dependencies.getTransitiveManifests())
+          .addTransitive(dependencies.getTransitiveAapt2RTxt())
+          .addTransitive(dependencies.getTransitiveSymbolsBin())
+          .addTransitive(dependencies.getTransitiveStaticLib());
+    }
 
     configureCommonFlags(outs, inputs, builder);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     // Create the spawn action.
     ruleContext.registerAction(
@@ -310,7 +298,7 @@ public class AndroidResourcesProcessorBuilder {
             .addTool(sdk.getAapt2())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
@@ -343,24 +331,27 @@ public class AndroidResourcesProcessorBuilder {
     // Set the busybox tool.
     builder.add("--tool").add("PACKAGE").add("--");
 
-    ResourceContainerConverter.convertDependencies(
-        dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_DEP_TO_ARG);
+      inputs
+          .addTransitive(dependencies.getTransitiveResourceRoots())
+          .addTransitive(dependencies.getTransitiveManifests())
+          .addTransitive(dependencies.getTransitiveRTxt())
+          .addTransitive(dependencies.getTransitiveSymbolsBin());
+    }
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     configureCommonFlags(outs, inputs, builder);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     // Create the spawn action.
     ruleContext.registerAction(
@@ -370,7 +361,7 @@ public class AndroidResourcesProcessorBuilder {
             .addTool(sdk.getAapt())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
@@ -398,7 +389,8 @@ public class AndroidResourcesProcessorBuilder {
 
     // Add data
     builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
-    inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
+    inputs.addAll(primary.getArtifacts());
+    inputs.add(primary.getManifest());
 
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
       builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
@@ -515,6 +507,10 @@ public class AndroidResourcesProcessorBuilder {
 
     if (throwOnResourceConflict) {
       builder.add("--throwOnResourceConflict");
+    }
+
+    if (packageUnderTest != null) {
+      builder.add("--packageUnderTest", packageUnderTest);
     }
   }
 }

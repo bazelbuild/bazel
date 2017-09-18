@@ -721,11 +721,17 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public CustomCommandLine buildSingleJarCommandLine(BuildConfiguration configuration,
-      Artifact output, String mainClass, ImmutableList<String> manifestLines,
-      Iterable<Artifact> buildInfoFiles, ImmutableList<Artifact> resources,
-      Iterable<Artifact> classpath, boolean includeBuildData,
-      Compression compression, Artifact launcher) {
+  public CustomCommandLine buildSingleJarCommandLine(
+      BuildConfiguration configuration,
+      Artifact output,
+      String mainClass,
+      ImmutableList<String> manifestLines,
+      Iterable<Artifact> buildInfoFiles,
+      ImmutableList<Artifact> resources,
+      NestedSet<Artifact> classpath,
+      boolean includeBuildData,
+      Compression compression,
+      Artifact launcher) {
     return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines,
         buildInfoFiles, resources, classpath, includeBuildData, compression, launcher).build();
   }

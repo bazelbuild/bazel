@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -48,8 +49,7 @@ public class BlazeExecutorTest {
     InMemoryFileSystem fs = new InMemoryFileSystem();
     directories =
         new BlazeDirectories(
-            fs.getPath("/install"),
-            fs.getPath("/base"),
+            new ServerDirectories(fs.getPath("/install"), fs.getPath("/base")),
             fs.getPath("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);

@@ -57,8 +57,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -73,6 +71,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -1075,19 +1075,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
     setConfigurationFragmentFactories(configurationFragmentFactories);
-    return createDynamicConfigurations(eventHandler, buildOptions, multiCpu);
-  }
-
-  /**
-   * {@link #createConfigurations} implementation that creates the configurations dynamically.
-   */
-  private BuildConfigurationCollection createDynamicConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu)
-      throws InvalidConfigurationException, InterruptedException {
     List<BuildConfiguration> topLevelTargetConfigs =
-        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu));
+        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), keepGoing);
 
     // The host configuration inherits the data, not target options. This is so host tools don't
     // apply LIPO.
@@ -1104,7 +1093,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         dataOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
             ? HostTransition.INSTANCE.apply(dataOptions)
             : dataOptions;
-    BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions);
+    BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated
     // accessor (i.e. not the event handler) to trigger the exception below.
@@ -1129,7 +1118,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (String cpu : multiCpu) {
       BuildOptions clonedOptions = buildOptions.clone();
       clonedOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-      clonedOptions.get(BuildConfiguration.Options.class).experimentalMultiCpuDistinguisher = cpu;
       multiCpuOptions.add(clonedOptions);
     }
     return multiCpuOptions.build();
@@ -1246,10 +1234,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public ImmutableList<ConfiguredTarget> getConfiguredTargets(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys,
-      boolean useOriginalConfig) {
+      Iterable<Dependency> keys) {
     return getConfiguredTargetMap(
-        eventHandler, originalConfig, keys, useOriginalConfig).values().asList();
+        eventHandler, originalConfig, keys).values().asList();
   }
 
   /**
@@ -1265,28 +1252,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public ImmutableMultimap<Dependency, ConfiguredTarget> getConfiguredTargetMap(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys,
-      boolean useOriginalConfig) {
+      Iterable<Dependency> keys) {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
     if (originalConfig != null) {
-
-      if (useOriginalConfig) {
-        // This flag is used because of some unfortunate complexity in the configuration machinery:
-        // Most callers of this method pass a <Label, Configuration> pair to directly create a
-        // ConfiguredTarget from, but happen to use the Dependency data structure to pass that
-        // info (even though the data has nothing to do with dependencies). If this configuration
-        // includes a split transition, a dynamic configuration created from it will *not*
-        // include that transition (because dynamic configurations don't embed transitions to
-        // other configurations. In that case, we need to preserve the original configuration.
-        // TODO(bazel-team); make this unnecessary once split transition logic is properly ported
-        // out of configurations.
-        configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
-        configs.put(Iterables.getOnlyElement(keys), originalConfig);
-      } else {
-        configs = getConfigurations(eventHandler, originalConfig.getOptions(), keys);
-      }
+     configs = getConfigurations(eventHandler, originalConfig.getOptions(), keys);
     } else {
       configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
       for (Dependency key : keys) {
@@ -1365,9 +1336,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if the build options produces an invalid configuration
    */
   public BuildConfiguration getConfiguration(ExtendedEventHandler eventHandler,
-      BuildOptions options) throws InvalidConfigurationException {
+      BuildOptions options, boolean keepGoing) throws InvalidConfigurationException {
     return Iterables.getOnlyElement(
-        getConfigurations(eventHandler, ImmutableList.<BuildOptions>of(options)));
+        getConfigurations(eventHandler, ImmutableList.of(options), keepGoing));
   }
 
   /**
@@ -1377,7 +1348,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   public List<BuildConfiguration> getConfigurations(ExtendedEventHandler eventHandler,
-      List<BuildOptions> optionsList) throws InvalidConfigurationException {
+      List<BuildOptions> optionsList, boolean keepGoing) throws InvalidConfigurationException {
     Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
 
     // Prepare the Skyframe inputs.
@@ -1395,7 +1366,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // Skyframe-evaluate the configurations and throw errors if any.
     EvaluationResult<SkyValue> evalResult =
-        evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/true);
+        evaluateSkyKeys(eventHandler, configSkyKeys, keepGoing);
     if (evalResult.hasError()) {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
@@ -1435,9 +1406,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ArrayListMultimap.<Dependency, BuildConfiguration>create();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
-    // Check: if !Configuration.useDynamicConfigs then just return the original configs.
     Set<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
-    if (useUntrimmedDynamicConfigs(fromOptions)) {
+    if (useUntrimmedConfigs(fromOptions)) {
       allFragments = ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
     }
 
@@ -1446,9 +1416,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Map<Label, Set<Class<? extends BuildConfiguration.Fragment>>> fragmentsMap = new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
     for (Dependency key : keys) {
-      if (key.hasStaticConfiguration()) {
+      if (key.hasExplicitConfiguration()) {
         builder.put(key, key.getConfiguration());
-      } else if (useUntrimmedDynamicConfigs(fromOptions)) {
+      } else if (useUntrimmedConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
@@ -1475,7 +1445,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Now get the configurations.
     final List<SkyKey> configSkyKeys = new ArrayList<>();
     for (Dependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasStaticConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
       Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
@@ -1490,7 +1460,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<SkyValue> configsResult =
         evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/true);
     for (Dependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasStaticConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
       Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
@@ -1513,12 +1483,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns whether dynamic configurations should trim their fragments to only those needed by
+   * Returns whether configurations should trim their fragments to only those needed by
    * targets and their transitive dependencies.
    */
-  private static boolean useUntrimmedDynamicConfigs(BuildOptions options) {
-    return options.get(BuildConfiguration.Options.class).useDynamicConfigurations
-        == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM;
+  private static boolean useUntrimmedConfigs(BuildOptions options) {
+    return options.get(BuildConfiguration.Options.class).configsMode
+        == BuildConfiguration.Options.ConfigsMode.NOTRIM;
   }
 
   /**
@@ -1607,8 +1577,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             configuration,
             ImmutableList.of(configuration == null
                 ? Dependency.withNullConfiguration(label)
-                : Dependency.withTransitionAndAspects(label, transition, AspectCollection.EMPTY)),
-            false),
+                : Dependency.withTransitionAndAspects(label, transition, AspectCollection.EMPTY))),
         null);
   }
 

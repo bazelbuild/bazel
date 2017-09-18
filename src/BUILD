@@ -161,6 +161,7 @@ py_binary(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
+        "//third_party/def_parser:srcs",
         "//third_party/ijar",
         "//third_party/ijar:embedded_tools",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
@@ -185,14 +186,17 @@ py_binary(
         ":windows": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
             "//src/tools/launcher:launcher",
+            "//third_party/def_parser:def_parser",
         ],
         ":windows_msys": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
             "//src/tools/launcher:launcher",
+            "//third_party/def_parser:def_parser",
         ],
         ":windows_msvc": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
             "//src/tools/launcher:launcher",
+            "//third_party/def_parser:def_parser",
         ],
         ":arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
@@ -403,6 +407,7 @@ filegroup(
         "//src/test/docker:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
+        "//src/test/skylark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",

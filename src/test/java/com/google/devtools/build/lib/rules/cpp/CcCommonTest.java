@@ -160,7 +160,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
     assertThat(copts).containsAllOf("-Wmy-warning", "-frun-faster");
-    assertContainsEvent("each item in the list should contain only one option");
   }
 
   @Test
@@ -190,7 +189,8 @@ public class CcCommonTest extends BuildViewTestCase {
             "archive_in_srcs_test",
             "cc_test(name = 'archive_in_srcs_test',",
             "           srcs = ['archive_in_srcs_test.cc'],",
-            "           deps = [':archive_in_srcs_lib'])",
+            "           deps = [':archive_in_srcs_lib'],",
+            "           linkstatic = 0,)",
             "cc_library(name = 'archive_in_srcs_lib',",
             "           srcs = ['libstatic.a', 'libboth.a', 'libboth.so'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(archiveInSrcsTest));

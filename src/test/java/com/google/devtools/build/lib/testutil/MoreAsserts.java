@@ -439,4 +439,43 @@ public class MoreAsserts {
     assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
     return foundEvents;
   }
+
+  /*
+   * These methods will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static void assertThrows(
+      Class<? extends Throwable> expectedThrowable, ThrowingRunnable runnable) {
+    expectThrows(expectedThrowable, runnable);
+  }
+
+  public static <T extends Throwable> T expectThrows(
+      Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable actualThrown) {
+      if (expectedThrowable.isInstance(actualThrown)) {
+        @SuppressWarnings("unchecked")
+        T retVal = (T) actualThrown;
+        return retVal;
+      } else {
+        throw new AssertionError(
+            String.format(
+                "expected %s to be thrown, but %s was thrown",
+                expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
+            actualThrown);
+      }
+    }
+    String message =
+        String.format(
+            "expected %s to be thrown, but nothing was thrown", expectedThrowable.getSimpleName());
+    throw new AssertionError(message);
+  }
+
+  /** A helper interface for {@link #assertThrows}. */
+  public interface ThrowingRunnable {
+    void run() throws Throwable;
+  }
 }

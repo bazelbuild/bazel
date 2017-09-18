@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -65,6 +64,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -75,10 +75,11 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.DynamicConfigsMode;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.ConfigsMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -182,7 +183,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
   private List<String> configurationArgs;
-  private DynamicConfigsMode dynamicConfigsMode = DynamicConfigsMode.NOTRIM;
+  private ConfigsMode configsMode = ConfigsMode.NOTRIM;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -199,7 +200,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public final void initializeSkyframeExecutor() throws Exception {
     analysisMock = getAnalysisMock();
     directories =
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     analysisMock.setupMockClient(mockToolsConfig);
@@ -234,7 +238,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             analysisMock.getSkyFunctions(),
-            getPrecomputedValues(),
+            ImmutableList.of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             PathFragment.EMPTY_FRAGMENT,
             analysisMock.getProductName(),
@@ -280,10 +284,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
     return ImmutableList.<EnvironmentExtension>of();
-  }
-
-  protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
-    return ImmutableList.of();
   }
 
   protected SkylarkSemanticsOptions getSkylarkSemantics() {
@@ -418,12 +418,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
     if (alsoConfigs) {
       try {
-        // Also invalidate all configurations. This is important for dynamic configurations: by
-        // invalidating all files we invalidate CROSSTOOL, which invalidates CppConfiguration (and
-        // a few other fragments). So we need to invalidate the
-        // {@link SkyframeBuildView#hostConfigurationCache} as well. Otherwise we end up
-        // with old CppConfiguration instances. Even though they're logically equal to the new ones,
-        // CppConfiguration has no .equals() method and some production code expects equality.
+        // Also invalidate all configurations. This is important: by invalidating all files we
+        // invalidate CROSSTOOL, which invalidates CppConfiguration (and a few other fragments). So
+        // we need to invalidate the {@link SkyframeBuildView#hostConfigurationCache} as well.
+        // Otherwise we end up with old CppConfiguration instances. Even though they're logically
+        // equal to the new ones, CppConfiguration has no .equals() method and some production code
+        // expects equality.
         useConfiguration(configurationArgs.toArray(new String[0]));
       } catch (Exception e) {
         // There are enough dependers on this method that don't handle Exception that just passing
@@ -445,7 +445,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     String[] actualArgs;
     actualArgs = Arrays.copyOf(args, args.length + 1);
     actualArgs[args.length] = "--experimental_dynamic_configs="
-        + dynamicConfigsMode.toString().toLowerCase();
+        + configsMode.toString().toLowerCase();
     masterConfig = createConfigurations(actualArgs);
     targetConfig = getTargetConfiguration();
     configurationArgs = Arrays.asList(actualArgs);
@@ -453,11 +453,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations
-   * in the specified mode.
+   * Makes subsequent {@link #useConfiguration} calls automatically use the specified style for
+   * configurations.
    */
-  protected final void useDynamicConfigurations(DynamicConfigsMode mode) {
-    dynamicConfigsMode = mode;
+  protected final void useConfigurationMode(ConfigsMode mode) {
+    configsMode = mode;
   }
 
   /**
@@ -485,9 +485,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
-    return new CachingAnalysisEnvironment(view.getArtifactFactory(),
-        ArtifactOwner.NULL_OWNER, /*isSystemEnv=*/true, /*extendedSanityChecks*/false, reporter,
-        /*skyframeEnv=*/ null, /*actionsEnabled=*/true);
+    return new CachingAnalysisEnvironment(
+        view.getArtifactFactory(),
+        ArtifactOwner.NULL_OWNER,
+        /*isSystemEnv=*/ true, /*extendedSanityChecks*/
+        false,
+        reporter,
+        /* env= */ null,
+        /* allowRegisteringActions= */ true);
   }
 
   /**
@@ -511,33 +516,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     return null;
-  }
-
-  /**
-   * Asserts that a target's prerequisites contain the given dependency.
-   */
-  // TODO(bazel-team): replace this method with assertThat(iterable).contains(target).
-  // That doesn't work now because dynamic configurations aren't yet applied to top-level targets.
-  // This means that getConfiguredTarget("//go:two") returns a different configuration than
-  // requesting "//go:two" as a dependency. So the configured targets aren't considered "equal".
-  // Once we apply dynamic configs to top-level targets this discrepancy will go away.
-  protected void assertDirectPrerequisitesContain(ConfiguredTarget target, ConfiguredTarget dep)
-      throws Exception {
-    Iterable<ConfiguredTarget> prereqs = getDirectPrerequisites(target);
-    BuildConfiguration depConfig = dep.getConfiguration();
-    for (ConfiguredTarget contained : prereqs) {
-      if (contained.getLabel().equals(dep.getLabel())) {
-        BuildConfiguration containedConfig = contained.getConfiguration();
-        if (containedConfig == null && depConfig == null) {
-          return;
-        } else if (containedConfig != null
-            && depConfig != null
-            && containedConfig.cloneOptions().equals(depConfig.cloneOptions())) {
-          return;
-        }
-      }
-    }
-    fail("Cannot find " + target.toString() + " in " + prereqs.toString());
   }
 
   /**
@@ -1158,12 +1136,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Strips the C++-contributed prefix out of an output path when tests are run with dynamic
+   * Strips the C++-contributed prefix out of an output path when tests are run with trimmed
    * configurations. e.g. turns "bazel-out/gcc-X-glibc-Y-k8-fastbuild/ to "bazel-out/fastbuild/".
    *
    * <p>This should be used for targets use configurations with C++ fragments.
    */
-  protected String stripCppPrefixForDynamicConfigs(String outputPath) {
+  protected String stripCppPrefixForTrimmedConfigs(String outputPath) {
     return targetConfig.trimConfigurations()
         ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
         : outputPath;
@@ -1306,7 +1284,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config;
     try {
       config = getConfiguredTarget(label).getConfiguration();
-      config = view.getDynamicConfigurationForTesting(getTarget(label), config, reporter);
+      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
     } catch (Exception e) {
@@ -1501,8 +1479,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the configuration created by applying the given transition to the source
-   * configuration. Works for both static and dynamic configuration tests.
+   * Returns the configuration created by applying the given transition to the source configuration.
    */
   protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
       Attribute.Transition transition) throws InterruptedException {

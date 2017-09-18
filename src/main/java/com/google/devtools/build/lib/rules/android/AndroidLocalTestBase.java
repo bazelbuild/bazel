@@ -293,7 +293,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     SingleJarActionBuilder.createSourceJarAction(
         ruleContext,
         ImmutableMap.<PathFragment, Artifact>of(),
-        transitiveSourceJars.toCollection(),
+        transitiveSourceJars,
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);

@@ -192,37 +192,26 @@ public class DependencyResolverTest extends AnalysisTestCase {
   }
 
   /**
-   * Null configurations should be static whether we're building with static or dynamic
-   * configurations. This is because the dynamic config logic that translates transitions into
-   * final configurations can be trivially skipped in those cases.
+   * Null configurations should always be explicit (vs. holding transitions). This lets Bazel skip
+   * its complicated dependency configuration logic for these cases.
    */
   @Test
-  public void nullConfigurationsAlwaysStatic() throws Exception {
+  public void nullConfigurationsAlwaysExplicit() throws Exception {
     pkg("a",
         "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     update();
     Dependency dep = assertDep(dependentNodeMap("//a:gen", null), "srcs", "//a:gen.in");
-    assertThat(dep.hasStaticConfiguration()).isTrue();
+    assertThat(dep.hasExplicitConfiguration()).isTrue();
     assertThat(dep.getConfiguration()).isNull();
   }
 
-  /** Runs the same test with trimmed dynamic configurations. */
+  /** Runs the same test with trimmed configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurations extends DependencyResolverTest {
+  public static class WithTrimmedConfigurations extends DependencyResolverTest {
     @Override
     protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
-    }
-  }
-
-  /** Runs the same test with untrimmed dynamic configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurationsNoTrim extends DependencyResolverTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM);
+      return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
     }
   }
 }

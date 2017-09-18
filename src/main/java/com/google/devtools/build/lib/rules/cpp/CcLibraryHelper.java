@@ -89,6 +89,12 @@ public final class CcLibraryHelper {
           + "hidden_header_tokens"
           + OutputGroupProvider.INTERNAL_SUFFIX;
 
+  /** A string constant for the name of archive library(.a, .lo) output group. */
+  public static final String ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME = "cc_archive";
+
+  /** A string constant for the name of dynamic library output group. */
+  public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "cc_dynamic_library";
+
   /**
    * A group of source file types and action names for builds controlled by CcLibraryHelper.
    * Determines what file types CcLibraryHelper considers sources and what action configs are
@@ -1137,10 +1143,20 @@ public final class CcLibraryHelper {
               configuration,
               Link.LinkTargetType.DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix));
+
+      if (ccToolchain.getCppConfiguration().useInterfaceSharedObjects()
+          && emitInterfaceSharedObjects) {
+        dynamicLibrary.add(
+            CppHelper.getLinuxLinkedArtifact(
+                ruleContext,
+                configuration,
+                LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
+                linkedArtifactNameSuffix));
+      }
     }
 
-    outputGroups.put("archive", archiveFile.build());
-    outputGroups.put("dynamic_library", dynamicLibrary.build());
+    outputGroups.put(ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME, archiveFile.build());
+    outputGroups.put(DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME, dynamicLibrary.build());
   }
 
   /**

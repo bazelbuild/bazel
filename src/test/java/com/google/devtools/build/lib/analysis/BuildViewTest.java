@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
-import com.google.devtools.build.lib.analysis.util.ExpectedDynamicConfigurationErrors;
+import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationErrors;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -527,10 +529,9 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("and referenced by '//foo:bad'");
     assertContainsEvent("in sh_library rule //foo");
     assertContainsEvent("cycle in dependency graph");
-    // Dynamic configurations trigger this error both in configuration trimming (which visits
-    // the transitive target closure) and in the normal configured target cycle detection path.
-    // So we get an additional instance of this check (which varies depending on whether Skyframe
-    // loading phase is enabled).
+    // This error is triggered both in configuration trimming (which visits the transitive target
+    // closure) and in the normal configured target cycle detection path. So we get an additional
+    // instance of this check (which varies depending on whether Skyframe loading phase is enabled).
     // TODO(gregce): Fix above and uncomment the below. Note that the duplicate doesn't make it into
     // real user output (it only affects tests).
     //  assertEventCount(3, eventCollector);
@@ -924,10 +925,9 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testCycleDueToJavaLauncherConfiguration() throws Exception {
-    if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
-      // Dynamic configurations don't yet support late-bound attributes. Development testing already
-      // runs all tests with dynamic configurations enabled, so this will still fail for developers
-      // and won't get lost in the fog.
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
+      // Trimmed configurations don't yet support late-bound attributes.
+      // TODO(gregce): re-enable this when ready.
       return;
     }
     scratch.file("foo/BUILD",
@@ -936,7 +936,7 @@ public class BuildViewTest extends BuildViewTestBase {
     // Everything is fine - the dependency graph is acyclic.
     update("//foo:java", "//foo:cpp");
     if (getTargetConfiguration().trimConfigurations()) {
-      fail(ExpectedDynamicConfigurationErrors.LATE_BOUND_ATTRIBUTES_UNSUPPORTED);
+      fail(ExpectedTrimmedConfigurationErrors.LATE_BOUND_ATTRIBUTES_UNSUPPORTED);
     }
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
     // the cc_binary launcher.
@@ -1231,7 +1231,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testTopLevelTargetsAreTrimmedWithDynamicConfigurations() throws Exception {
+  public void testTopLevelTargetsAreTrimmedWithTrimmedConfigurations() throws Exception {
     scratch.file("foo/BUILD",
         "sh_library(name='x', ",
         "        srcs=['x.sh'])");
@@ -1239,7 +1239,7 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult res = update("//foo:x");
     ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
     assertThat(topLevelTarget.getConfiguration().getAllFragments().keySet())
-        .containsExactly(ruleClassProvider.getUniversalFragment(), PlatformConfiguration.class);
+        .containsExactly(ruleClassProvider.getUniversalFragment());
   }
 
   @Test
@@ -1389,13 +1389,13 @@ public class BuildViewTest extends BuildViewTestBase {
     }
   }
 
-  /** Runs the same test with dynamic configurations. */
+  /** Runs the same test with trimmed configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurations extends BuildViewTest {
+  public static class WithTrimmedConfigurations extends BuildViewTest {
     @Override
     protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
+      return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
     }
   }
 }

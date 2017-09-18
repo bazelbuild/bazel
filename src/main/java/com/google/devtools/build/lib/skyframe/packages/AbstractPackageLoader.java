@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
@@ -192,8 +193,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     // WorkspaceFileFunction, so we pass in a dummy Path.
     // TODO(nharmata): Refactor WorkspaceFileFunction to make this a non-issue.
     Path devNull = workspaceDir.getFileSystem().getPath("/dev/null");
-    this.directories = new BlazeDirectories(/*installBase=*/devNull,
-        /*outputBase=*/devNull, /*workspace=*/workspaceDir, "blaze");
+    this.directories =
+        new BlazeDirectories(new ServerDirectories(devNull, devNull), workspaceDir, "blaze");
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocatorRef,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
@@ -348,7 +349,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(
-                /*deletedPackagesRef=*/ new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
+                /* deletedPackages= */ new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
                 getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority()))
         .put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, new BlacklistedPackagePrefixesFunction())

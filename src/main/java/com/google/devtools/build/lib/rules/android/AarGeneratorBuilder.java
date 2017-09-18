@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.util.OS;
@@ -127,6 +128,7 @@ public class AarGeneratorBuilder {
       args.add("--throwOnResourceConflict");
     }
 
+    ParamFileInfo paramFileInfo = null;
     if (OS.getCurrent() == OS.WINDOWS) {
       // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
       // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
@@ -136,7 +138,7 @@ public class AarGeneratorBuilder {
       // list-type and list-of-list-type flags that use such problematic separators in favor of
       // multi-value flags (to remove one level of listing) and by changing all list separators to a
       // platform-safe character (= comma).
-      builder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+      paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build();
     }
 
     ruleContext.registerAction(
@@ -144,7 +146,7 @@ public class AarGeneratorBuilder {
             .useDefaultShellEnvironment()
             .addInputs(ImmutableList.<Artifact>copyOf(ins))
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(CommandLine.of(args))
+            .addCommandLine(CommandLine.of(args), paramFileInfo)
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Building AAR package for %s", ruleContext.getLabel())

@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -69,49 +68,22 @@ public class CppRuleClasses {
   };
 
   /**
-   * Configuration transitions required by LIPO.
-   */
-  public enum LipoTransition implements Transition {
-    /**
-     * LIPO context collector.
-     *
-     * <p>This configuration transition leads into a configuration that is used for collecting
-     * C++ compilation contexts for LIPO builds so that e.g. an include path entry required by an
-     * inlined function is there when the place is compiled where it is inlined at.
-     */
-    LIPO_COLLECTOR,
-
-    /**
-     * Transition used for switching back to the LIPO-optimized configuration.
-     */
-    TARGET_CONFIG_FOR_LIPO;
-  }
-
-  /**
    * Declares the implementations for C++ transition enums.
    *
    * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
    */
   public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
       ImmutableMap.of(
-          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
-          LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
+          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE
       );
 
 
   /**
    * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
    * TARGET transition).
-   *
-   * <p>This is how dynamic configurations enable LIPO on the LIPO context.
    */
   public static final RuleTransitionFactory LIPO_ON_DEMAND =
-      new RuleTransitionFactory() {
-        @Override
-        public Attribute.Transition buildTransitionFor(Rule rule) {
-          return new EnableLipoTransition(rule.getLabel());
-        }
-      };
+      (rule) -> new EnableLipoTransition(rule.getLabel());
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
@@ -134,6 +106,17 @@ public class CppRuleClasses {
       @Override
       public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
         return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
+      }
+    };
+  }
+
+  public static LateBoundLabel<BuildConfiguration> ccToolchainTypeAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return CppHelper.getCcToolchainType(env.getToolsRepository());
       }
     };
   }
@@ -323,6 +306,22 @@ public class CppRuleClasses {
    * targeting Windows that include a linker producing PDB files
    */
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
+
+  /**
+   * A string constant for a feature that automatically exporting symbols on Windows. Bazel
+   * generates a DEF file for object files of a cc_library, then use it at linking time. This
+   * feature should only be used for toolchains targeting Windows, and the toolchain should support
+   * using DEF files for exporting symbols.
+   */
+  public static final String WINDOWS_EXPORT_ALL_SYMBOLS = "windows_export_all_symbols";
+
+  /** A string constant for a feature to disable WINDOWS_EXPORT_ALL_SYMBOLS. */
+  public static final String NO_WINDOWS_EXPORT_ALL_SYMBOLS = "no_windows_export_all_symbols";
+
+  /**
+   * A string constant for a feature that indicates we are using a toolchain building for Windows.
+   */
+  public static final String TARGETS_WINDOWS = "targets_windows";
 
   /**
    * A string constant for no_stripping feature, if it's specified, then no strip action config is

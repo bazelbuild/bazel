@@ -162,7 +162,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setExecutable(xcrunwrapper(ruleContext))
-            .setCommandLine(copyCommandLine)
+            .addCommandLine(copyCommandLine)
             .setMnemonic("CopyStubExecutable")
             .addOutput(outputBinary)
             .disableSandboxing()

@@ -58,7 +58,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
             mapFile, journalFile);
       this.clock = clock;
       nextUpdate = clock.nanoTime();
-      load(/*throwOnLoadFailure=*/true);
+      load(/* failFast= */ true);
     }
 
     @Override

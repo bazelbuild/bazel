@@ -266,4 +266,10 @@ public class IjarTests {
             /*flags=*/ 0);
     return innerClasses;
   }
+
+  @Test
+  public void moduleInfo() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/module_info-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class");
+  }
 }

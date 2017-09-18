@@ -166,7 +166,9 @@ function tempdir() {
   local DIR="$(mktemp -d "${tmp%%/}/bazel_XXXXXXXX")"
   mkdir -p "${DIR}"
   local DIRBASE=$(basename "${DIR}")
-  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}' >&/dev/null || true ; }"
+  # TODO(laszlocsomor): Remove the "[ -n ... ] && echo ... ;" part from the
+  # following command after we fixed https://github.com/bazelbuild/bazel/issues/3618.
+  eval "cleanup_tempdir_${DIRBASE}() { [ -n \"\$TEST_TMPDIR\" ] && echo \"DEBUG[$0 (\$(date))] deleting ($DIR)\" ; rm -rf '${DIR}' >&/dev/null || true ; }"
   atexit cleanup_tempdir_${DIRBASE}
   NEW_TMPDIR="${DIR}"
 }

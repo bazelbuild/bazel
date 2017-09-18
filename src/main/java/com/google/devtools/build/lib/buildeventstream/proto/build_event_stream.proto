@@ -340,7 +340,8 @@ message File {
   string name = 1;
 
   oneof file {
-    // A location where the contents of the file can be found.
+    // A location where the contents of the file can be found. The string is
+    // encoded according to RFC2396.
     string uri = 2;
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;

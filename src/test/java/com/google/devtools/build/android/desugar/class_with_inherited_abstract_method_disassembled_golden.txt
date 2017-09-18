@@ -1,0 +1,4 @@
+Compiled from "Named.java"
+public abstract class com.google.devtools.build.android.desugar.testdata.java8.Named$AbstractName extends com.google.devtools.build.android.desugar.testdata.java8.Named$AbstractNameBase implements com.google.devtools.build.android.desugar.testdata.java8.Named {
+  public com.google.devtools.build.android.desugar.testdata.java8.Named$AbstractName();
+}

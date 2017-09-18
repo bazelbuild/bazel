@@ -150,20 +150,6 @@ public final class CcCommon {
 
   public ImmutableList<String> getCopts() {
     Preconditions.checkState(hasAttribute("copts", Type.STRING_LIST));
-    // TODO(bazel-team): getAttributeCopts should not tokenize the strings. Make a warning for now.
-    List<String> tokens = new ArrayList<>();
-    for (String str : ruleContext.attributes().get("copts", Type.STRING_LIST)) {
-      tokens.clear();
-      try {
-        ShellUtils.tokenize(tokens, str);
-        if (tokens.size() > 1) {
-          ruleContext.attributeWarning("copts",
-              "each item in the list should contain only one option");
-        }
-      } catch (ShellUtils.TokenizationException e) {
-        // ignore, the error is reported in the getAttributeCopts call
-      }
-    }
 
     if (!getCoptsFilter(ruleContext).apply("-Wno-future-warnings")) {
       ruleContext.attributeWarning(

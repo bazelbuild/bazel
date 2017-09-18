@@ -166,7 +166,7 @@ toolchain {
   }
   supports_gold_linker: false
   supports_start_end_lib: false
-  supports_interface_shared_objects: false
+  supports_interface_shared_objects: true
   supports_incremental_linker: false
   supports_normalizing_ar: true
   needsPic: false
@@ -243,9 +243,20 @@ toolchain {
     name: 'compile_action_flags_in_flag_set'
   }
 
+  feature {
+    name: 'has_configured_linker_path'
+  }
+
+
   # This feature indicates strip is not supported, building stripped binary will just result a copy of orignial binary
   feature {
     name: 'no_stripping'
+  }
+
+  # This feature indicates this is a toolchain targeting Windows.
+  feature {
+    name: 'targets_windows'
+    enabled: true
   }
 
   action_config {
@@ -363,6 +374,7 @@ toolchain {
     implies: 'msvc_env'
     implies: 'use_linker'
     implies: 'no_stripping'
+    implies: 'has_configured_linker_path'
   }
 
   action_config {
@@ -623,12 +635,11 @@ toolchain {
   feature {
     name: 'input_param_flags'
     flag_set {
-      expand_if_all_available: 'library_search_directories'
+      expand_if_all_available: 'interface_library_output_path'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
-        iterate_over: 'library_search_directories'
-        flag: "-L%{library_search_directories}"
+        flag: "/IMPLIB:%{interface_library_output_path}"
       }
     }
     flag_set {
@@ -938,6 +949,27 @@ toolchain {
     }
   }
 
+  feature {
+    name: 'windows_export_all_symbols'
+    flag_set {
+      expand_if_all_available: 'def_file_path'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: "/DEF:%{def_file_path}"
+        # We can specify a different DLL name in DEF file, /ignore:4070 suppresses
+        # the warning message about DLL name doesn't match the default one.
+        # See https://msdn.microsoft.com/en-us/library/sfkk2fz7.aspx
+        flag: "/ignore:4070"
+      }
+    }
+  }
+
+  feature {
+    name: 'no_windows_export_all_symbols'
+  }
+
+  linking_mode_flags { mode: DYNAMIC }
 
 %{compilation_mode_content}
 

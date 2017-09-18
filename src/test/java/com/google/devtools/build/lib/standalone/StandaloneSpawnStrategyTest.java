@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -106,7 +107,8 @@ public class StandaloneSpawnStrategyTest {
     outputBase.createDirectory();
 
     BlazeDirectories directories =
-        new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase), workspaceDir, "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
     IntegrationMock.get().getIntegrationBinTools(directories, TestConstants.WORKSPACE_NAME);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);

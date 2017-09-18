@@ -735,7 +735,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
           /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
           /*includes=*/ ImmutableList.of("W*", "subdir"),
           /*excludes=*/ ImmutableList.<String>of(),
-          /*excludesDirs=*/ true);
+          /* excludeDirs= */ true);
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessage("ERROR /globs/BUILD:2:73: name 'this_will_fail' is not defined");
@@ -748,7 +748,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
         /*excludes=*/ ImmutableList.<String>of(),
-        /*excludesDirs=*/ true);
+        /* excludeDirs= */ true);
   }
 
   @Test
@@ -757,7 +757,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
         /*includes=*/ ImmutableList.of("W*", "subdir"),
         /*excludes=*/ ImmutableList.<String>of(),
-        /*excludesDirs=*/ false);
+        /* excludeDirs= */ false);
   }
 
   @Test
@@ -766,7 +766,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
         /*includes=*/ ImmutableList.of("W*"),
         /*excludes=*/ Collections.<String>emptyList(),
-        /*excludesDirs=*/ false);
+        /* excludeDirs= */ false);
   }
 
   @Test
@@ -785,7 +785,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("Wombat1.java"),
         /*includes=*/ ImmutableList.of("W*"),
         /*excludes=*/ ImmutableList.of("*2*"),
-        /*excludesDirs=*/ false);
+        /* excludeDirs= */ false);
   }
 
   @Test
@@ -794,7 +794,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("Wombat1.java", "subdir/Wombat3.java"),
         /*includes=*/ ImmutableList.of("W*", "subdir/W*"),
         /*excludes=*/ ImmutableList.of("*2*"),
-        /*excludesDirs=*/ false);
+        /* excludeDirs= */ false);
   }
 
   @Test
@@ -803,7 +803,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*result=*/ ImmutableList.of("subdir/Wombat3.java"),
         /*includes=*/ ImmutableList.of("W*", "subdir/W*"),
         /*excludes=*/ ImmutableList.of("Wombat*.java"),
-        /*excludesDirs=*/ false);
+        /* excludeDirs= */ false);
   }
 
   @Test

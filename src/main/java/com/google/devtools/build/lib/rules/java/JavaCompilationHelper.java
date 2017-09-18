@@ -224,7 +224,6 @@ public final class JavaCompilationHelper {
     builder.setClassDirectory(classDir(classJar));
     builder.setProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
-    builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
@@ -377,7 +376,6 @@ public final class JavaCompilationHelper {
     // only run API-generating annotation processors during header compilation
     builder.setProcessorPaths(attributes.getApiGeneratingProcessorPath());
     builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
-    builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);
@@ -461,7 +459,7 @@ public final class JavaCompilationHelper {
                     JavaCommon.getHostJavaExecutable(ruleContext),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
-                .setCommandLine(
+                .addCommandLine(
                     CustomCommandLine.builder()
                         .addExecPath("--manifest_proto", manifestProto)
                         .addExecPath("--class_jar", classJar)
@@ -590,7 +588,8 @@ public final class JavaCompilationHelper {
    */
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
     JavaTargetAttributes attributes = getAttributes();
-    Collection<Artifact> resourceJars = new ArrayList<>(attributes.getSourceJars());
+    NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
+    resourceJars.addAll(attributes.getSourceJars());
     if (gensrcJar != null) {
       resourceJars.add(gensrcJar);
     }
@@ -598,7 +597,8 @@ public final class JavaCompilationHelper {
     for (Artifact sourceFile : attributes.getSourceFiles()) {
       resources.put(semantics.getDefaultJavaResourcePath(sourceFile.getRootRelativePath()), sourceFile);
     }
-    SingleJarActionBuilder.createSourceJarAction(ruleContext, resources, resourceJars, outputJar);
+    SingleJarActionBuilder.createSourceJarAction(
+        ruleContext, resources, resourceJars.build(), outputJar);
   }
 
   /**
@@ -807,7 +807,7 @@ public final class JavaCompilationHelper {
               .useDefaultShellEnvironment()
               .setProgressMessage("Extracting interface %s", ruleContext.getLabel())
               .setMnemonic("JavaIjar")
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .addExecPath(inputJar)
                       .addExecPath(interfaceJar)

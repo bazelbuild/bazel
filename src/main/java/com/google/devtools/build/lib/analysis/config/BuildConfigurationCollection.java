@@ -16,23 +16,17 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 
 /**
- * The primary container for all main {@link BuildConfiguration} instances,
- * currently "target", "data", and "host".
+ * Convenience container for top-level target and host configurations.
  *
- * <p>The target configuration is used for all targets specified on the command
- * line. Data dependencies of targets in the target configuration use the data
- * configuration instead.
+ * <p>The target configuration is used for all targets specified on the command line. Multiple
+ * target configurations are possible because of settings like {@link
+ * com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions#multiCpus}.
  *
- * <p>The host configuration is used for tools that are executed during the
- * build, e. g, compilers.
- *
- * <p>The "related" configurations are also contained in this class.
+ * <p>The host configuration is used for tools that are executed during the build, e. g, compilers.
  */
 @ThreadSafe
 public final class BuildConfigurationCollection {
@@ -65,10 +59,9 @@ public final class BuildConfigurationCollection {
   /**
    * Returns the host configuration for this collection.
    *
-   * <p>Don't use this method. It's limited in that it assumes a single host configuration for
-   * the entire collection. This may not be true in the future and more flexible interfaces based
-   * on dynamic configurations will likely supplant this interface anyway. Its main utility is
-   * to keep Bazel working while dynamic configuration progress is under way.
+   * <p>Don't use this method. It's limited in that it assumes a single host configuration for the
+   * entire collection. This may not be true in the future and more flexible interfaces will likely
+   * supplant this interface anyway.
    */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
@@ -89,37 +82,5 @@ public final class BuildConfigurationCollection {
   @Override
   public int hashCode() {
     return targetConfigurations.hashCode();
-  }
-
-  /**
-   * A holder class for {@link BuildConfiguration} instances that allows {@code null} values,
-   * because none of the Table implementations allow them.
-   */
-  public static final class ConfigurationHolder implements Serializable {
-    private final BuildConfiguration configuration;
-
-    public ConfigurationHolder(BuildConfiguration configuration) {
-      this.configuration = configuration;
-    }
-
-    public BuildConfiguration getConfiguration() {
-      return configuration;
-    }
-
-    @Override
-    public int hashCode() {
-      return configuration == null ? 0 : configuration.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o == this) {
-        return true;
-      }
-      if (!(o instanceof ConfigurationHolder)) {
-        return false;
-      }
-      return Objects.equals(configuration, ((ConfigurationHolder) o).configuration);
-    }
   }
 }

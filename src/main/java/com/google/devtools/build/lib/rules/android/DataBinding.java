@@ -152,8 +152,8 @@ public final class DataBinding {
    * <p>This, in conjunction with {@link #createAnnotationFile} extends the Java compilation to
    * translate data binding .xml into corresponding classes.
    */
-  static void addAnnotationProcessor(RuleContext ruleContext,
-      JavaTargetAttributes.Builder attributes, boolean isBinary) {
+  static void addAnnotationProcessor(
+      RuleContext ruleContext, JavaTargetAttributes.Builder attributes) {
     JavaPluginInfoProvider plugin = ruleContext.getPrerequisite(
         DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.TARGET,
         JavaPluginInfoProvider.class);
@@ -169,53 +169,52 @@ public final class DataBinding {
     attributes.addProcessorPath(plugin.getProcessorClasspath());
     attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
 
-    addProcessorFlags(ruleContext, attributes, isBinary);
+    //addProcessorFlags(ruleContext, attributes, isBinary);
   }
 
   /**
-   * Adds javac flags to configure data binding's annotation processor.
+   * The javac flags that are needed to configure data binding's annotation processor.
    */
-  private static void addProcessorFlags(RuleContext ruleContext,
-      JavaTargetAttributes.Builder attributes, boolean isBinary) {
+  static ImmutableList<String> getJavacopts(RuleContext ruleContext, boolean isBinary) {
+    ImmutableList.Builder<String> flags = ImmutableList.builder();
     String metadataOutputDir = getDataBindingExecPath(ruleContext).getPathString();
 
     // Directory where the annotation processor looks for deps metadata output. The annotation
     // processor automatically appends {@link DEP_METADATA_INPUT_DIR} to this path. Individual
     // files can be anywhere under this directory, recursively.
-    addProcessorFlag(attributes, "bindingBuildFolder", metadataOutputDir);
+    flags.add(createProcessorFlag("bindingBuildFolder", metadataOutputDir));
     // Directory where the annotation processor should write this rule's metadata output. The
     // annotation processor automatically appends {@link METADATA_OUTPUT_DIR} to this path.
-    addProcessorFlag(attributes, "generationalFileOutDir", metadataOutputDir);
+    flags.add(createProcessorFlag("generationalFileOutDir", metadataOutputDir));
     // Path to the Android SDK installation (if available).
-    addProcessorFlag(attributes, "sdkDir", "/not/used");
+    flags.add(createProcessorFlag("sdkDir", "/not/used"));
     // Whether the current rule is a library or binary.
-    addProcessorFlag(attributes, "artifactType", isBinary ? "APPLICATION" : "LIBRARY");
+    flags.add(createProcessorFlag("artifactType", isBinary ? "APPLICATION" : "LIBRARY"));
     // The path where data binding's resource processor wrote its output (the data binding XML
     // expressions). The annotation processor reads this file to translate that XML into Java.
-    addProcessorFlag(attributes, "xmlOutDir", getDataBindingExecPath(ruleContext).toString());
+    flags.add(createProcessorFlag("xmlOutDir", getDataBindingExecPath(ruleContext).toString()));
     // Unused.
-    addProcessorFlag(attributes, "exportClassListTo", "/tmp/exported_classes");
+    flags.add(createProcessorFlag("exportClassListTo", "/tmp/exported_classes"));
     // The Java package for the current rule.
-    addProcessorFlag(attributes, "modulePackage",
-        AndroidCommon.getJavaPackage(ruleContext));
+    flags.add(createProcessorFlag("modulePackage", AndroidCommon.getJavaPackage(ruleContext)));
     // The minimum Android SDK compatible with this rule.
-    addProcessorFlag(attributes, "minApi", "14"); // TODO(gregce): update this
+    flags.add(createProcessorFlag("minApi", "14")); // TODO(gregce): update this
     // If enabled, the annotation processor reports detailed output about its activities.
     // addProcessorFlag(attributes, "enableDebugLogs", "1");
     // If enabled, produces cleaner output for Android Studio.
-    addProcessorFlag(attributes, "printEncodedErrors", "0");
+    flags.add(createProcessorFlag("printEncodedErrors", "0"));
     // Specifies whether the current rule is a test. Currently unused.
     //    addDataBindingProcessorFlag(attributes, "isTestVariant", "false");
     // Specifies that data binding is only used for test instrumentation. Currently unused.
     // addDataBindingProcessorFlag(attributes, "enableForTests", null);
+    return flags.build();
   }
 
   /**
    * Turns a key/value pair into a javac annotation processor flag received by data binding.
    */
-  private static void addProcessorFlag(JavaTargetAttributes.Builder attributes,
-      String flag, String value) {
-    attributes.addProcessorFlag(String.format("-Aandroid.databinding.%s=%s", flag, value));
+  private static String createProcessorFlag(String flag, String value) {
+    return String.format("-Aandroid.databinding.%s=%s", flag, value);
   }
 
   /**

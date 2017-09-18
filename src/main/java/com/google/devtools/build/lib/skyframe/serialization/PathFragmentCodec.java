@@ -22,7 +22,7 @@ import java.io.IOException;
 /** Custom serialization for {@link PathFragment}s. */
 class PathFragmentCodec implements ObjectCodec<PathFragment> {
 
-  private final ObjectCodec<String> stringCodec = new FastStringCodec();
+  private final FastStringCodec stringCodec = new FastStringCodec();
 
   @Override
   public Class<PathFragment> getEncodedClass() {
@@ -30,8 +30,7 @@ class PathFragmentCodec implements ObjectCodec<PathFragment> {
   }
 
   @Override
-  public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
-      throws IOException, SerializationException {
+  public void serialize(PathFragment pathFragment, CodedOutputStream codedOut) throws IOException {
     codedOut.writeInt32NoTag(pathFragment.getDriveLetter());
     codedOut.writeBoolNoTag(pathFragment.isAbsolute());
     codedOut.writeInt32NoTag(pathFragment.segmentCount());
@@ -41,8 +40,7 @@ class PathFragmentCodec implements ObjectCodec<PathFragment> {
   }
 
   @Override
-  public PathFragment deserialize(CodedInputStream codedIn)
-      throws IOException, SerializationException {
+  public PathFragment deserialize(CodedInputStream codedIn) throws IOException {
     char driveLetter = (char) codedIn.readInt32();
     boolean isAbsolute = codedIn.readBool();
     int segmentCount = codedIn.readInt32();

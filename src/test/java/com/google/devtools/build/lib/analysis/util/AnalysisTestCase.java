@@ -28,13 +28,14 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -96,10 +97,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     KEEP_GOING,
     SKYFRAME_LOADING_PHASE,
-    // Dynamic configurations that only include the fragments a target needs to properly analyze.
-    DYNAMIC_CONFIGURATIONS,
-    // Dynamic configurations that always include all fragments even when targets don't need them.
-    DYNAMIC_CONFIGURATIONS_NOTRIM
+    // Configurations that only include the fragments a target needs to properly analyze.
+    TRIMMED_CONFIGURATIONS
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -146,7 +145,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     analysisMock = getAnalysisMock();
     pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
     directories =
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
 
@@ -178,7 +180,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             analysisMock.getSkyFunctions(),
-            getPrecomputedValues(),
+            ImmutableList.of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             PathFragment.EMPTY_FRAGMENT,
             analysisMock.getProductName(),
@@ -213,10 +215,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return AnalysisMock.get();
   }
 
-  protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
-    return ImmutableList.of();
-  }
-
   /**
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
@@ -231,10 +229,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
-    if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
+    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
-    } else if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM)) {
-      optionsParser.parse("--experimental_dynamic_configs=notrim");
     }
 
     InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
@@ -268,30 +264,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   /**
    * Returns the target configuration for the most recent build, as created in Blaze's
-   * master configuration creation phase. Most significantly, this is never a dynamic
-   * configuration.
+   * master configuration creation phase.
    */
   protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
-    return getTargetConfiguration(false);
-  }
-
-  /**
-   * Returns the target configuration for the most recent build. If useDynamicVersionIfEnabled is
-   * true and dynamic configurations are enabled, returns the dynamic version. Else returns the
-   * static version.
-   */
-  // TODO(gregce): force getTargetConfiguration() to getTargetConfiguration(true) once we know
-  //    all callers can handle the dynamic version
-  protected BuildConfiguration getTargetConfiguration(boolean useDynamicVersionIfEnabled)
-    throws InterruptedException {
-    BuildConfiguration targetConfig =
-        Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
-    if (useDynamicVersionIfEnabled) {
-      return skyframeExecutor.getConfigurationForTesting(
-          reporter, targetConfig.fragmentClasses(), targetConfig.getOptions());
-    } else {
-      return targetConfig;
-    }
+    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }
 
   protected BuildConfiguration getHostConfiguration() {

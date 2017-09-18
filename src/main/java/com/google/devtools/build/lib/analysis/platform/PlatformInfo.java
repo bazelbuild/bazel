@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.collect.ArrayListMultimap;
+import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static java.util.stream.Collectors.joining;
+
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -32,6 +37,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -255,21 +261,26 @@ public class PlatformInfo extends NativeInfo {
 
     private ImmutableList<ConstraintValueInfo> validateConstraints(
         Iterable<ConstraintValueInfo> constraintValues) throws DuplicateConstraintException {
-      Multimap<ConstraintSettingInfo, ConstraintValueInfo> constraints = ArrayListMultimap.create();
 
-      for (ConstraintValueInfo constraintValue : constraintValues) {
-        constraints.put(constraintValue.constraint(), constraintValue);
+      // Collect the constraints by the settings.
+      ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> constraints =
+          Streams.stream(constraintValues)
+              .collect(
+                  toImmutableListMultimap(ConstraintValueInfo::constraint, Functions.identity()));
+
+      // Find settings with duplicate values.
+      ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicates =
+          constraints
+              .asMap()
+              .entrySet()
+              .stream()
+              .filter(e -> e.getValue().size() > 1)
+              .collect(
+                  flatteningToImmutableListMultimap(Map.Entry::getKey, e -> e.getValue().stream()));
+
+      if (!duplicates.isEmpty()) {
+        throw new DuplicateConstraintException(duplicates);
       }
-
-      // Are there any settings with more than one value?
-      for (ConstraintSettingInfo constraintSetting : constraints.keySet()) {
-        if (constraints.get(constraintSetting).size() > 1) {
-          // Only reports the first case of this error.
-          throw new DuplicateConstraintException(
-              constraintSetting, constraints.get(constraintSetting));
-        }
-      }
-
       return ImmutableList.copyOf(constraints.values());
     }
   }
@@ -279,32 +290,43 @@ public class PlatformInfo extends NativeInfo {
    * ConstraintSettingInfo} is added to a {@link Builder}.
    */
   public static class DuplicateConstraintException extends Exception {
-    private final ImmutableSet<ConstraintValueInfo> duplicateConstraints;
+    private final ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo>
+        duplicateConstraints;
 
     public DuplicateConstraintException(
-        ConstraintSettingInfo constraintSetting,
-        Iterable<ConstraintValueInfo> duplicateConstraintValues) {
-      super(formatError(constraintSetting, duplicateConstraintValues));
-      this.duplicateConstraints = ImmutableSet.copyOf(duplicateConstraintValues);
+        ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
+      super(formatError(duplicateConstraints));
+      this.duplicateConstraints = ImmutableListMultimap.copyOf(duplicateConstraints);
     }
 
-    public ImmutableSet<ConstraintValueInfo> duplicateConstraints() {
+    public ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo>
+        duplicateConstraints() {
       return duplicateConstraints;
     }
 
     private static String formatError(
-        ConstraintSettingInfo constraintSetting,
-        Iterable<ConstraintValueInfo> duplicateConstraints) {
-      StringBuilder constraintValuesDescription = new StringBuilder();
-      for (ConstraintValueInfo constraintValue : duplicateConstraints) {
-        if (constraintValuesDescription.length() > 0) {
-          constraintValuesDescription.append(", ");
-        }
-        constraintValuesDescription.append(constraintValue.label());
-      }
+        ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
       return String.format(
-          "Duplicate constraint_values for constraint_setting %s: %s",
-          constraintSetting.label(), constraintValuesDescription.toString());
+          "Duplicate constraint_values detected: %s",
+          duplicateConstraints
+              .asMap()
+              .entrySet()
+              .stream()
+              .map(e -> describeSingleDuplicateConstraintSetting(e))
+              .collect(joining(", ")));
+    }
+
+    private static String describeSingleDuplicateConstraintSetting(
+        Map.Entry<ConstraintSettingInfo, Collection<ConstraintValueInfo>> duplicate) {
+      return String.format(
+          "constraint_setting %s has [%s]",
+          duplicate.getKey().label(),
+          duplicate
+              .getValue()
+              .stream()
+              .map(ConstraintValueInfo::label)
+              .map(Label::toString)
+              .collect(joining(", ")));
     }
   }
 }

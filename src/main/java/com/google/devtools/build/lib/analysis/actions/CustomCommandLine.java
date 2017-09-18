@@ -715,15 +715,6 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * Concatenates the passed prefix string and the object's string representation.
-     *
-     * <p>Prefer {@link Builder#addPrefixed}, as it will be more memory efficient.
-     */
-    Builder addWithDynamicPrefix(String prefix, @Nullable Object arg) {
-      return addPrefixedInternal(prefix, arg);
-    }
-
-    /**
      * Adds the passed strings to the command line.
      *
      * <p>If you are converting long lists or nested sets of a different type to string lists,

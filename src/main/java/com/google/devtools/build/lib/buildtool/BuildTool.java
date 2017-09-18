@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -139,7 +140,6 @@ public final class BuildTool {
     env.setupPackageCache(request, DefaultsPackage.getDefaultsPackageContent(buildOptions));
 
     ExecutionTool executionTool = null;
-    BuildConfigurationCollection configurations;
     boolean catastrophe = false;
     try {
       env.getEventBus().post(new BuildStartingEvent(env, request));
@@ -189,10 +189,9 @@ public final class BuildTool {
       env.throwPendingException();
 
       // Configuration creation.
-      // TODO(gregce): BuildConfigurationCollection is important for static configs, less so for
-      // dynamic configs. Consider dropping it outright and passing on-the-fly target / host configs
-      // directly when needed (although this could be hard when Skyframe is unavailable).
-      configurations =
+      // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
+      // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
+      BuildConfigurationCollection configurations =
           env.getSkyframeExecutor()
               .createConfigurations(
                   env.getReporter(),
@@ -222,8 +221,11 @@ public final class BuildTool {
         for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
           BuildConfiguration config = target.getConfiguration();
           Label label = target.getLabel();
-          env.getEventBus().post(new AbortedEvent(config.getEventId(), AbortReason.SKIPPED,
-              String.format("Target %s build was skipped.", label), label));
+          env.getEventBus().post(
+              new AbortedEvent(
+                  BuildEventId.targetCompleted(label, config.getEventId()),
+                  AbortReason.SKIPPED,
+                  String.format("Target %s build was skipped.", label), label));
         }
 
         // TODO(janakr): this query will operate over the graph as constructed by analysis, but will

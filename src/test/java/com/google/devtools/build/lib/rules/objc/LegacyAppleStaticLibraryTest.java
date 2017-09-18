@@ -22,10 +22,10 @@ import org.junit.runners.JUnit4;
  * Legacy test: These tests test --experimental_objc_crosstool=off. See README.
  */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyAppleStaticLibraryTest extends AppleStaticLibraryTest {
   @Override
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {
     return ObjcCrosstoolMode.OFF;
   }
-
 }

@@ -33,12 +33,29 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 
 /**
  * Rule definition for compiler definition.
  */
 public final class CcToolchainRule implements RuleDefinition {
+
+  /**
+   * The label points to the Windows object file parser. In bazel, it should be
+   * //tools/def_parser:def_parser, otherwise it should be null.
+   *
+   * <p>TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
+   * Related bug b/63658220
+   */
+  private final String defParserLabel;
+
+  public CcToolchainRule(String defParser) {
+    this.defParserLabel = defParser;
+  }
+
+  public CcToolchainRule() {
+    this.defParserLabel = null;
+  }
 
   /**
    * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
@@ -60,6 +77,13 @@ public final class CcToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
+    if (defParserLabel != null) {
+      builder.add(
+          attr("$def_parser", LABEL)
+              .cfg(HOST)
+              .singleArtifact()
+              .value(env.getLabel(defParserLabel)));
+    }
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class)
@@ -109,7 +133,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
-                .cfg(LipoTransition.LIPO_COLLECTOR)
+                .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
         .build();

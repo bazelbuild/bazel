@@ -14,9 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-
 import java.util.List;
 
 /**
@@ -37,27 +34,25 @@ public interface OptionsProvider extends OptionsClassProvider {
   boolean containsExplicitOption(String string);
 
   /**
-   * Returns a mutable copy of the list of all options that were specified
-   * either explicitly or implicitly. These options are sorted by priority, and
-   * by the order in which they were specified. If an option was specified
-   * multiple times, it is included in the result multiple times. Does not
-   * include the residue.
+   * Returns a mutable copy of the list of all options that were specified either explicitly or
+   * implicitly. These options are sorted by priority, and by the order in which they were
+   * specified. If an option was specified multiple times, it is included in the result multiple
+   * times. Does not include the residue.
    *
-   * <p>The returned list can be filtered if undocumented, hidden or implicit
-   * options should not be displayed.
+   * <p>The returned list can be filtered if undocumented, hidden or implicit options should not be
+   * displayed.
    */
-  List<UnparsedOptionValueDescription> asListOfUnparsedOptions();
+  List<ParsedOptionDescription> asCompleteListOfParsedOptions();
 
   /**
-   * Returns a list of all explicitly specified options, suitable for logging
-   * or for displaying back to the user. These options are sorted by priority,
-   * and by the order in which they were specified. If an option was
-   * explicitly specified multiple times, it is included in the result
+   * Returns a list of all explicitly specified options, suitable for logging or for displaying back
+   * to the user. These options are sorted by priority, and by the order in which they were
+   * specified. If an option was explicitly specified multiple times, it is included in the result
    * multiple times. Does not include the residue.
    *
    * <p>The list includes undocumented options.
    */
-  List<UnparsedOptionValueDescription> asListOfExplicitOptions();
+  List<ParsedOptionDescription> asListOfExplicitOptions();
 
   /**
    * Returns a list of all options, including undocumented ones, and their

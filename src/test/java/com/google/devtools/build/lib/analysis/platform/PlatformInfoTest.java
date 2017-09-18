@@ -15,21 +15,19 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests of {@link PlatformInfo}. */
 @RunWith(JUnit4.class)
 public class PlatformInfoTest extends BuildViewTestCase {
-  @Rule public ExpectedException expectedException = ExpectedException.none();
 
   @Before
   public void createPlatform() throws Exception {
@@ -43,19 +41,32 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
   public void platformInfo_overlappingConstraintsError() throws Exception {
-    ConstraintSettingInfo setting = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(makeLabel("//constraint:complex"));
+    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(makeLabel("//constraint:single"));
 
-    ConstraintValueInfo value1 = ConstraintValueInfo.create(setting, makeLabel("//constraint:foo"));
-    ConstraintValueInfo value2 = ConstraintValueInfo.create(setting, makeLabel("//constraint:bar"));
+    PlatformInfo.Builder builder = PlatformInfo.builder();
 
-    PlatformInfo.Builder builder =
-        PlatformInfo.builder().addConstraint(value1).addConstraint(value2);
+    builder.addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1")));
+    builder.addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:value2")));
 
-    expectedException.expect(PlatformInfo.DuplicateConstraintException.class);
-    expectedException.expectMessage(
-        "Duplicate constraint_values for constraint_setting //constraint:basic: "
-            + "//constraint:foo, //constraint:bar");
-    builder.build();
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:value3")));
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:value4")));
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:value5")));
+
+    builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:value6")));
+
+    PlatformInfo.DuplicateConstraintException exception =
+        expectThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Duplicate constraint_values detected: "
+                + "constraint_setting //constraint:basic has "
+                + "[//constraint:value1, //constraint:value2], "
+                + "constraint_setting //constraint:complex has "
+                + "[//constraint:value3, //constraint:value4, //constraint:value5]");
   }
 
   @Test

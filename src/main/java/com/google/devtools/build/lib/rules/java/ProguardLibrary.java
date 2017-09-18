@@ -134,7 +134,7 @@ public final class ProguardLibrary {
             .setExecutable(proguardWhitelister)
             .setProgressMessage("Validating proguard configuration")
             .setMnemonic("ValidateProguard")
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--path", specToValidate)
                     .addExecPath("--output", output)

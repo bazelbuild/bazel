@@ -40,6 +40,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for linking targets with the OSX crosstool. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
   static final RuleType RULE_TYPE = new BinaryRuleType("objc_binary");
 

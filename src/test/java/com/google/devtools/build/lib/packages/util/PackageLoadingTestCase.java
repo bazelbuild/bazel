@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -107,7 +108,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         SequencedSkyframeExecutor.create(
             packageFactory,
             new BlazeDirectories(
-                outputBase, outputBase, rootDirectory, loadingMock.getProductName()),
+                new ServerDirectories(outputBase, outputBase),
+                rootDirectory,
+                loadingMock.getProductName()),
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),

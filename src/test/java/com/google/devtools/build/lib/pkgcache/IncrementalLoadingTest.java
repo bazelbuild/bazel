@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -468,8 +469,7 @@ public class IncrementalLoadingTest {
                   .getPackageFactoryBuilderForTesting()
                   .build(loadingMock.createRuleClassProvider(), fs),
               new BlazeDirectories(
-                  fs.getPath("/install"),
-                  fs.getPath("/output"),
+                  new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
                   workspace,
                   loadingMock.getProductName()),
               null, /* BinTools */

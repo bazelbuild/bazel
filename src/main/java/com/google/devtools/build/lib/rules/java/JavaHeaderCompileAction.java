@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -195,7 +196,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private ImmutableList<String> javacOpts;
     private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private final List<String> processorNames = new ArrayList<>();
-    private final List<String> processorFlags = new ArrayList<>();
 
     private NestedSet<Artifact> javabaseInputs;
     private Artifact javacJar;
@@ -278,13 +278,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
     public Builder addProcessorNames(Collection<String> processorNames) {
       checkNotNull(processorNames, "processorNames must not be null");
       this.processorNames.addAll(processorNames);
-      return this;
-    }
-
-    /** Sets annotation processor flags to pass to javac. */
-    public Builder addProcessorFlags(Collection<String> processorFlags) {
-      checkNotNull(processorFlags, "processorFlags must not be null");
-      this.processorFlags.addAll(processorFlags);
       return this;
     }
 
@@ -393,12 +386,15 @@ public class JavaHeaderCompileAction extends SpawnAction {
       if ((noFallback || directJars.isEmpty()) && !requiresAnnotationProcessing) {
         SpawnAction.Builder builder = new SpawnAction.Builder();
         NestedSet<Artifact> classpath;
+        final ParamFileInfo paramFileInfo;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
           classpath = directJars;
+          paramFileInfo = null;
         } else {
           classpath = classpathEntries;
           // Transitive classpath actions may exceed the command line length limit.
-          builder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+          paramFileInfo =
+              ParamFileInfo.builder(ParameterFileType.UNQUOTED).setUseAlways(true).build();
         }
         CustomCommandLine.Builder commandLine =
             baseCommandLine(CustomCommandLine.builder(), classpath);
@@ -410,7 +406,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
             .addTransitiveInputs(baseInputs)
             .addTransitiveInputs(classpath)
             .addOutputs(outputs)
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build(), paramFileInfo)
             .setJarExecutable(
                 JavaCommon.getHostJavaExecutable(ruleContext),
                 javaToolchain.getHeaderCompiler(),
@@ -570,9 +566,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
       baseCommandLine(result, classpathEntries);
       if (!processorNames.isEmpty()) {
         result.addAll("--processors", ImmutableList.copyOf(processorNames));
-      }
-      if (!processorFlags.isEmpty()) {
-        result.addAll("--javacopts", ImmutableList.copyOf(processorFlags));
       }
       if (!processorPath.isEmpty()) {
         result.addExecPaths("--processorpath", processorPath);

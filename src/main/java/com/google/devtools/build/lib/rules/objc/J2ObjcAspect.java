@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -567,7 +568,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addTransitiveInputs(depsHeaderMappingFiles)
             .addTransitiveInputs(depsClassMappingFiles)
             .addInput(paramFile)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder().addFormatted("@%s", paramFile.getExecPath()).build())
             .addOutputs(j2ObjcSource.getObjcSrcs())
             .addOutputs(j2ObjcSource.getObjcHdrs())
@@ -594,16 +595,18 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             "--source_jars", VectorArg.join(",").each(ImmutableList.copyOf(sourceJars)));
       }
       headerMapCommandLine.addExecPath("--output_mapping_file", outputHeaderMappingFile);
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .setMnemonic("GenerateJ2objcHeaderMap")
-          .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
-          .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
-          .addInputs(sources)
-          .addInputs(sourceJars)
-          .setCommandLine(headerMapCommandLine.build())
-          .useParameterFile(ParameterFileType.SHELL_QUOTED)
-          .addOutput(outputHeaderMappingFile)
-          .build(ruleContext));
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .setMnemonic("GenerateJ2objcHeaderMap")
+              .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
+              .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
+              .addInputs(sources)
+              .addInputs(sourceJars)
+              .addCommandLine(
+                  headerMapCommandLine.build(),
+                  ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
+              .addOutput(outputHeaderMappingFile)
+              .build(ruleContext));
     }
 
     return new J2ObjcMappingFileProvider(

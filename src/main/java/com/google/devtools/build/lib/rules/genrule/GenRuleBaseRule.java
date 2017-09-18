@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -58,6 +59,21 @@ public class GenRuleBaseRule implements RuleDefinition {
         return attributes != null
                 && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
             ? CppRuleClasses.ccToolchainAttribute(env).resolve(rule, attributes, configuration)
+            : null;
+      }
+    };
+  }
+
+  /** Late-bound dependency on the C++ toolchain type. */
+  public static Attribute.LateBoundLabel<BuildConfiguration> ccToolchainTypeAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return attributes != null
+                && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
+            ? CppHelper.getCcToolchainType(env.getToolsRepository())
             : null;
       }
     };

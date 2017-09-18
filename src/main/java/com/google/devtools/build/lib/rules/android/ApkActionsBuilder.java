@@ -229,7 +229,7 @@ public class ApkActionsBuilder {
       commandLine.addExecPath(classesDex);
     }
 
-    actionBuilder.setCommandLine(commandLine.build());
+    actionBuilder.addCommandLine(commandLine.build());
     ruleContext.registerAction(actionBuilder.build(ruleContext));
   }
 
@@ -303,7 +303,7 @@ public class ApkActionsBuilder {
               .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
               .addInput(javaResourceZip)
               .addOutput(extractedJavaResourceZip)
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .addExecPath(javaResourceZip)
                       .addExecPath(extractedJavaResourceZip)
@@ -338,9 +338,9 @@ public class ApkActionsBuilder {
       singleJarCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
     }
 
-    compressedApkActionBuilder.setCommandLine(compressedApkCommandLine.build());
+    compressedApkActionBuilder.addCommandLine(compressedApkCommandLine.build());
     ruleContext.registerAction(compressedApkActionBuilder.build(ruleContext));
-    singleJarActionBuilder.setCommandLine(singleJarCommandLine.build());
+    singleJarActionBuilder.addCommandLine(singleJarCommandLine.build());
     ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
   }
 
@@ -355,7 +355,7 @@ public class ApkActionsBuilder {
             .setMnemonic("AndroidZipAlign")
             .addInput(inputApk)
             .addOutput(zipAlignedApk)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("-p") // memory page aligment for stored shared object files
                     .add("4")
@@ -382,7 +382,7 @@ public class ApkActionsBuilder {
             .addInput(signingKey)
             .addOutput(signedAndZipalignedApk)
             .addInput(unsignedApk)
-            .setCommandLine(
+            .addCommandLine(
                 CustomCommandLine.builder()
                     .add("sign")
                     .add("--ks")

@@ -34,24 +34,30 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
@@ -189,6 +195,9 @@ public final class HelpCommand implements BlazeCommand {
     } else if (helpSubject.equals("completion")) {
       emitCompletionHelp(runtime, outErr);
       return ExitCode.SUCCESS;
+    } else if (helpSubject.equals("flags-as-proto")) {
+      emitFlagsAsProtoHelp(runtime, outErr);
+      return ExitCode.SUCCESS;
     } else if (helpSubject.equals("everything-as-html")) {
       new HtmlEmitter(runtime).emit(outErr);
       return ExitCode.SUCCESS;
@@ -272,6 +281,43 @@ public final class HelpCommand implements BlazeCommand {
         };
 
     visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
+  }
+
+  private void emitFlagsAsProtoHelp(BlazeRuntime runtime, OutErr outErr) {
+    Map<String, BazelFlagsProto.FlagInfo.Builder> flags = new HashMap<>();
+
+    Predicate<OptionDefinition> allOptions = option -> true;
+    BiConsumer<String, OptionDefinition> visitor =
+        (commandName, option) -> {
+          BazelFlagsProto.FlagInfo.Builder info =
+              flags.computeIfAbsent(option.getOptionName(), key -> createFlagInfo(option));
+          info.addCommands(commandName);
+        };
+    Consumer<OptionsParser> startupOptionVisitor =
+        parser -> {
+          parser.visitOptions(allOptions, option -> visitor.accept("startup", option));
+        };
+    CommandOptionVisitor commandOptionVisitor =
+        (commandName, commandAnnotation, parser) -> {
+          parser.visitOptions(allOptions, option -> visitor.accept(commandName, option));
+        };
+
+    visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
+
+    BazelFlagsProto.FlagCollection.Builder collectionBuilder =
+        BazelFlagsProto.FlagCollection.newBuilder();
+    for (BazelFlagsProto.FlagInfo.Builder info : flags.values()) {
+      collectionBuilder.addFlagInfos(info);
+    }
+    outErr.printOut(Base64.getEncoder().encodeToString(collectionBuilder.build().toByteArray()));
+  }
+
+  private BazelFlagsProto.FlagInfo.Builder createFlagInfo(OptionDefinition option) {
+    BazelFlagsProto.FlagInfo.Builder flagBuilder = BazelFlagsProto.FlagInfo.newBuilder();
+    flagBuilder.setName(option.getOptionName());
+    flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
+    flagBuilder.setDocumentation(option.getHelpText());
+    return flagBuilder;
   }
 
   private void visitAllOptions(

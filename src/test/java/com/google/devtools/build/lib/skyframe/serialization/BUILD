@@ -12,6 +12,7 @@ filegroup(
 
 TEST_BASE_FILES = [
     "AbstractObjectCodecTest.java",
+    "FsUtils.java",
     "TestUtils.java",
 ]
 
@@ -25,6 +26,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -55,6 +58,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

@@ -15,6 +15,7 @@
 syntax = "proto2";
 package blaze.invocation_policy;
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
 
 // The --invocation_policy flag takes a base64-encoded binary-serialized or text

@@ -161,6 +161,11 @@ public class OptionDefinition {
     return optionAnnotation.wrapperOption();
   }
 
+  /** Returns whether an option --foo has a negative equivalent --nofoo. */
+  public boolean hasNegativeOption() {
+    return getType().equals(boolean.class) || getType().equals(TriState.class);
+  }
+
   /** The type of the optionDefinition. */
   public Class<?> getType() {
     return field.getType();
@@ -210,7 +215,7 @@ public class OptionDefinition {
    *
    * <p>Memoizes the converter-finding logic to avoid repeating the computation.
    */
-  Converter<?> getConverter() {
+  public Converter<?> getConverter() {
     if (converter != null) {
       return converter;
     }
@@ -240,7 +245,7 @@ public class OptionDefinition {
    *
    * <p>Can be used for usage help and controlling whether the "no" prefix is allowed.
    */
-  boolean isBooleanField() {
+  public boolean usesBooleanValueSyntax() {
     return getType().equals(boolean.class)
         || getType().equals(TriState.class)
         || getConverter() instanceof BoolOrEnumConverter;

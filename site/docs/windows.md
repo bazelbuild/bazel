@@ -77,15 +77,15 @@ To build C++ targets, you need:
 
     You can install it in one of the following ways:
 
-    *   Install [Visual Studio](https://www.visualstudio.com/) (Community
-        Edition is enough) with Visual C++.
+    *   Install [Visual Studio 2015 or later](https://www.visualstudio.com/)
+        (Community Edition is enough) with Visual C++.
 
         Make sure to also install the `Visual C++ > Common Tools for Visual C++`
         and `Visual C++ > Microsoft Foundation Classes for C++` features. These
         features are not installed by default.
 
     *   Install the [Visual C++ Build
-        Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
+        Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
 *   The `BAZEL_VS` or `BAZEL_VC` environment variable.
 
@@ -155,13 +155,18 @@ To build Python targets, you need:
 
     Both Python 2 and Python 3 are supported.
 
-    Bazel tries to locate the Python runtime the first time you build any
-    target. To tell Bazel where Python is, you can set the `BAZEL_PYTHON`
-    environment variable to the Python interpreter's path. For example:
+    To tell Bazel where Python is, you can use `--python_path=<path/to/python>`.
+    For example:
 
     ```
-    set BAZEL_PYTHON=C:\Python27\python.exe
+    bazel build --python_path=C:/Python27/python.exe ...
     ```
+
+    If `--python_path` is not specified, Bazel uses `python.exe` as
+    the interpreter and the binary looks for it in `$PATH` during runtime.
+    If it is not in `$PATH`(for example, when you use `py_binary` as an action's
+    executable, Bazel will sanitize `$PATH`), then the execution will fail.
+
 
 On Windows, Bazel builds two output files for `py_binary` rules:
 

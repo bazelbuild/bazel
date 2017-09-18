@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
@@ -38,11 +39,6 @@ import java.util.List;
  */
 public class AndroidResourceMergingActionBuilder {
 
-  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeSymbolsBin()
-          .toArtifactConverter();
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -138,14 +134,18 @@ public class AndroidResourceMergingActionBuilder {
 
     Preconditions.checkNotNull(primary);
     builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
-    inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
+    inputs.addAll(primary.getArtifacts());
+    inputs.add(primary.getSymbols());
 
     Preconditions.checkNotNull(primary.getManifest());
     builder.addExecPath("--primaryManifest", primary.getManifest());
     inputs.add(primary.getManifest());
 
-    ResourceContainerConverter.convertDependencies(
-        dependencies, builder, inputs, RESOURCE_CONTAINER_TO_ARG, RESOURCE_CONTAINER_TO_ARTIFACTS);
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
+      inputs.addTransitive(dependencies.getTransitiveResourceRoots());
+      inputs.addTransitive(dependencies.getTransitiveSymbolsBin());
+    }
 
     List<Artifact> outs = new ArrayList<>();
     if (classJarOut != null) {
@@ -183,20 +183,16 @@ public class AndroidResourceMergingActionBuilder {
     }
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
-
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-      // file.
-      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-      // list-type and list-of-list-type flags that use such problematic separators in favor of
-      // multi-value flags (to remove one level of listing) and by changing all list separators to a
-      // platform-safe character (= comma).
-      spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    } else {
-      spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
-    }
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
 
     // Create the spawn action.
     ruleContext.registerAction(
@@ -204,7 +200,7 @@ public class AndroidResourceMergingActionBuilder {
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Merging Android resources for %s", ruleContext.getLabel())

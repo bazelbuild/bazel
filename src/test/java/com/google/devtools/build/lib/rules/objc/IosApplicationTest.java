@@ -53,6 +53,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for ios_application. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class IosApplicationTest extends ObjcRuleTestCase {
   protected static final RuleType RULE_TYPE =
       new RuleType("ios_application") {

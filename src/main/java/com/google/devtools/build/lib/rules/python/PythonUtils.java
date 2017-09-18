@@ -125,7 +125,7 @@ public final class PythonUtils {
             .setExecutable(py2to3converter)
             .setProgressMessage("Converting to Python 3: %s", input.prettyPrint())
             .setMnemonic("2to3")
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .build(ruleContext));
     return output;
   }

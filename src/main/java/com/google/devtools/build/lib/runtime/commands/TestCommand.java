@@ -137,8 +137,12 @@ public class TestCommand implements BlazeCommand {
     if (testTargets.isEmpty()) {
       env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
-      env.getEventBus().post(new NoTestsFound());
-      return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+      env.getEventBus()
+          .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
+      return exitCode;
     }
 
     boolean buildSuccess = buildResult.getSuccess();

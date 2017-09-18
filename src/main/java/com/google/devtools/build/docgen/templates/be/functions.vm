@@ -555,7 +555,8 @@ sh_test(
 <p>Create a library built from all java files in this directory and all
 subdirectories except those whose path includes a directory named testing.
 Subdirectories containing a BUILD file are ignored.
-<b>This should be a very common pattern.</b>
+<b>This pattern should be avoided if possible, as it can reduce build
+incrementality and therefore increase build times.</b>
 </p>
 <pre class="code">
 java_library(

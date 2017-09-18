@@ -208,11 +208,8 @@ public class CommandTest {
     ByteArrayInputStream emptyInput = new ByteArrayInputStream(new byte[0]);
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-    FutureCommandResult result = command.executeAsync(
-        emptyInput,
-        stdOut,
-        stdErr,
-        /*killSubprocess=*/ false);
+    FutureCommandResult result =
+        command.executeAsync(emptyInput, stdOut, stdErr, /* killSubprocessOnInterrupt= */ false);
     result.get(); // Make sure the process actually finished
     assertThat(stdOut.toString("UTF-8")).isEqualTo(helloWorld + "\n");
     assertThat(stdErr.toByteArray()).isEmpty();

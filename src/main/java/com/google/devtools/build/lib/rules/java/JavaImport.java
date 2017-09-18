@@ -65,8 +65,14 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .addAll(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .addAll(ruleContext.getPrerequisites("exports", Mode.TARGET))
             .build();
-    final JavaCommon common = new JavaCommon(
-        ruleContext, semantics, /*srcs=*/ImmutableList.<Artifact>of(), targets, targets, targets);
+    final JavaCommon common =
+        new JavaCommon(
+            ruleContext,
+            semantics,
+            /* sources= */ ImmutableList.<Artifact>of(),
+            targets,
+            targets,
+            targets);
     semantics.checkRule(ruleContext, common);
 
     // No need for javac options - no compilation happening here.

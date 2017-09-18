@@ -49,6 +49,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for objc_binary. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class ObjcBinaryTest extends ObjcRuleTestCase {
   static final RuleType RULE_TYPE = new BinaryRuleType("objc_binary");
 
@@ -353,7 +354,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",
@@ -394,7 +395,7 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkCcDependenciesAreForceLoaded() throws Exception {
-    useConfiguration("--experimental_disable_go", "--experimental_disable_jvm", "--cpu=ios_i386",
+    useConfiguration("--experimental_disable_go", "--cpu=ios_i386",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     scratch.file("bin/BUILD",
@@ -876,6 +877,31 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilesSources() throws Exception {
     checkCompilesSources(RULE_TYPE);
+  }
+
+  @Test
+  public void testLinkActionWithTransitiveCppDependency() throws Exception {
+    checkLinkActionWithTransitiveCppDependency(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts() throws Exception {
+    checkLinkWithFrameworkImportsIncludesFlagsAndInputArtifacts(RULE_TYPE);
+  }
+
+  @Test
+  public void testForceLoadsAlwayslinkTargets() throws Exception {
+    checkForceLoadsAlwayslinkTargets(RULE_TYPE, new ExtraLinkArgs());
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
   @Test

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -112,6 +114,8 @@ public class AndroidCommon {
     }
     return builder.build();
   }
+
+  public static final String RESOURCES_WHITELIST_NAME = "android_resources";
 
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
@@ -226,7 +230,7 @@ public class AndroidCommon {
             .addOutput(classesDex)
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
-            .setCommandLine(commandLine.build())
+            .addCommandLine(commandLine.build())
             .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
     if (mainDexList != null) {
       builder.addInput(mainDexList);
@@ -504,7 +508,7 @@ public class AndroidCommon {
               .addInput(jarJarRuleFile)
               .addInput(binaryResourcesJar)
               .addOutput(resourcesJar)
-              .setCommandLine(
+              .addCommandLine(
                   CustomCommandLine.builder()
                       .add("process")
                       .addExecPath(jarJarRuleFile)
@@ -556,14 +560,16 @@ public class AndroidCommon {
       bootclasspath =
           ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
     }
+    Iterable<String> javacopts = androidSemantics.getJavacArguments(ruleContext);
+    if (DataBinding.isEnabled(ruleContext)) {
+      javacopts = Iterables.concat(javacopts, DataBinding.getJavacopts(ruleContext, isBinary));
+    }
     JavaTargetAttributes.Builder attributes =
         javaCommon
-            .initCommon(
-                idlHelper.getIdlGeneratedJavaSources(),
-                androidSemantics.getJavacArguments(ruleContext))
+            .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts)
             .setBootClassPath(bootclasspath);
     if (DataBinding.isEnabled(ruleContext)) {
-      DataBinding.addAnnotationProcessor(ruleContext, attributes, isBinary);
+      DataBinding.addAnnotationProcessor(ruleContext, attributes);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -1028,5 +1034,15 @@ public class AndroidCommon {
       }
     }
     return supportApks.build();
+  }
+
+  public static void validateResourcesAttribute(RuleContext ruleContext) throws RuleErrorException {
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
+        && !ruleContext.getFragment(AndroidConfiguration.class).allowResourcesAttr()
+        && !Whitelist.isAvailable(ruleContext, RESOURCES_WHITELIST_NAME)) {
+      ruleContext.throwWithAttributeError(
+          "resources",
+          "The resources attribute has been removed. Please use resource_files instead.");
+    }
   }
 }

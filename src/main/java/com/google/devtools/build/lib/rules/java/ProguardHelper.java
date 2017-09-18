@@ -434,7 +434,7 @@ public abstract class ProguardHelper {
       proguardAction
           .setProgressMessage("Trimming binary with Proguard")
           .addOutput(proguardOutputJar);
-      proguardAction.setCommandLine(commandLine.build());
+      proguardAction.addCommandLine(commandLine.build());
       ruleContext.registerAction(proguardAction.build(ruleContext));
     } else {
       // Optimization passes have been specified, so run proguard in multiple phases.
@@ -463,7 +463,7 @@ public abstract class ProguardHelper {
           .setProgressMessage("Trimming binary with Proguard: Verification/Shrinking Pass")
           .addOutput(lastStageOutput);
       initialCommandLine.add("-runtype INITIAL").addExecPath("-nextstageoutput", lastStageOutput);
-      initialAction.setCommandLine(initialCommandLine.build());
+      initialAction.addCommandLine(initialCommandLine.build());
       ruleContext.registerAction(initialAction.build(ruleContext));
 
       for (int i = 1; i <= optimizationPasses; i++) {
@@ -517,7 +517,7 @@ public abstract class ProguardHelper {
               .add("-runtype OPTIMIZATION")
               .addExecPath("-laststageoutput", lastStageOutput)
               .addExecPath("-nextstageoutput", optimizationOutput);
-          optimizationAction.setCommandLine(optimizationCommandLine.build());
+          optimizationAction.addCommandLine(optimizationCommandLine.build());
           ruleContext.registerAction(optimizationAction.build(ruleContext));
           lastStageOutput = optimizationOutput;
         }
@@ -546,7 +546,7 @@ public abstract class ProguardHelper {
           .addInput(lastStageOutput)
           .addOutput(proguardOutputJar);
       finalCommandLine.add("-runtype FINAL").addExecPath("-laststageoutput", lastStageOutput);
-      finalAction.setCommandLine(finalCommandLine.build());
+      finalAction.addCommandLine(finalCommandLine.build());
       ruleContext.registerAction(finalAction.build(ruleContext));
     }
 

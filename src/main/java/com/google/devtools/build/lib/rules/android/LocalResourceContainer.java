@@ -46,6 +46,7 @@ public final class LocalResourceContainer {
   public static final String[] RESOURCES_ATTRIBUTES = new String[] {
       "manifest",
       "resource_files",
+      "local_resource_files",
       "assets",
       "assets_dir",
       "inline_constants",

@@ -282,7 +282,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   private class BazelStatusActionFactory implements WorkspaceStatusAction.Factory {
-    private String hostname;
 
     @Override
     public Map<String, String> createDummyWorkspaceStatus() {
@@ -312,11 +311,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
      * changes during bazel server lifetime, bazel will not see the change.
      */
     private String getHostname() {
-      if (hostname == null) {
-        hostname = NetUtil.findShortHostName();
-      }
-
-      return hostname;
+      return NetUtil.getCachedShortHostName();
     }
   }
 

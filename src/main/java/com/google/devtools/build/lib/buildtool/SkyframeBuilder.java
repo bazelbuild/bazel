@@ -284,7 +284,7 @@ public class SkyframeBuilder implements Builder {
         // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
         // we can do is throw a generic build failure exception, since we've already reported the
         // cycles above.
-        throw new BuildFailedException(null, /*hasCatastrophe=*/ false);
+        throw new BuildFailedException(null, /* catastrophic= */ false);
       } else {
         rethrow(exception);
       }

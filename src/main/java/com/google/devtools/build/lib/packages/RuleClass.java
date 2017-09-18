@@ -335,7 +335,7 @@ public class RuleClass {
             Preconditions.checkState(presentAttribute != null,
                 "Missing mandatory '%s' attribute in test rule class.", attribute.getName());
             Preconditions.checkState(presentAttribute.getType().equals(attribute.getType()),
-                "Mandatory attribute '%s' in test rule class has incorrect type (expcected %s).",
+                "Mandatory attribute '%s' in test rule class has incorrect type (expected %s).",
                 attribute.getName(), attribute.getType());
           }
         }

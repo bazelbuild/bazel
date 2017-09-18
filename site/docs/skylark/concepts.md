@@ -2,8 +2,10 @@
 layout: documentation
 title: Extensions - Overview
 ---
+
 # Overview
 
+<!-- [TOC] -->
 
 ## Loading an extension
 

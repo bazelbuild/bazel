@@ -59,7 +59,6 @@ java_test(
 java_test(
     name = "AndroidBinaryTest",
     srcs = ["AndroidBinaryTest.java"],
-    shard_count = 5,
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -208,11 +207,13 @@ java_test(
 
 java_test(
     name = "AndroidLibraryTest",
+    timeout = "long",
     srcs = ["AndroidLibraryTest.java"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -292,6 +293,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",

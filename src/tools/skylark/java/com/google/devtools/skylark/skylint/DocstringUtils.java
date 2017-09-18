@@ -67,15 +67,21 @@ public final class DocstringUtils {
    *     must be indented by (at least) two spaces
    *   another_parameter (unused, mutable): a parameter may be followed
    *     by additional attributes in parentheses
+   *
+   * Returns:
+   *   Description of the return value.
+   *   Can span multiple lines.
    * """
    * }</pre>
    *
    * @param docstring a docstring of the format described above
+   * @param indentation the indentation level (number of spaces) of the docstring
    * @param parseErrors a list to which parsing error messages are written
    * @return the parsed docstring information
    */
-  static DocstringInfo parseDocString(String docstring, List<DocstringParseError> parseErrors) {
-    DocstringParser parser = new DocstringParser(docstring);
+  static DocstringInfo parseDocstring(
+      String docstring, int indentation, List<DocstringParseError> parseErrors) {
+    DocstringParser parser = new DocstringParser(docstring, indentation);
     DocstringInfo result = parser.parse();
     parseErrors.addAll(parser.errors);
     return result;
@@ -84,12 +90,19 @@ public final class DocstringUtils {
   static class DocstringInfo {
     final String summary;
     final List<ParameterDoc> parameters;
+    final String returns;
     final String longDescription;
 
-    public DocstringInfo(String summary, List<ParameterDoc> parameters, String longDescription) {
+    public DocstringInfo(
+        String summary, List<ParameterDoc> parameters, String returns, String longDescription) {
       this.summary = summary;
       this.parameters = ImmutableList.copyOf(parameters);
+      this.returns = returns;
       this.longDescription = longDescription;
+    }
+
+    public boolean isSingleLineDocstring() {
+      return longDescription.isEmpty() && parameters.isEmpty() && returns.isEmpty();
     }
   }
 
@@ -110,19 +123,23 @@ public final class DocstringUtils {
     private int startOfLineOffset = 0;
     private int endOfLineOffset = -1;
     private int lineNumber = 0;
-    private int expectedIndentation = 0;
+    private int baselineIndentation = 0;
+    private boolean blankLineBefore = false;
     private String line = "";
     private final List<DocstringParseError> errors = new ArrayList<>();
 
-    DocstringParser(String docstring) {
+    DocstringParser(String docstring, int indentation) {
       this.docstring = docstring;
       nextLine();
+      // the indentation is only relevant for the following lines, not the first one:
+      this.baselineIndentation = indentation;
     }
 
     boolean nextLine() {
       if (startOfLineOffset >= docstring.length()) {
         return false;
       }
+      blankLineBefore = line.isEmpty();
       lineNumber++;
       startOfLineOffset = endOfLineOffset + 1;
       if (startOfLineOffset >= docstring.length()) {
@@ -136,19 +153,24 @@ public final class DocstringUtils {
       line = docstring.substring(startOfLineOffset, endOfLineOffset);
       int indentation = getIndentation(line);
       if (!line.isEmpty()) {
-        if (indentation < expectedIndentation) {
+        if (indentation < baselineIndentation) {
           error(
               "line indented too little (here: "
                   + indentation
-                  + " spaces; before: "
-                  + expectedIndentation
+                  + " spaces; expected: "
+                  + baselineIndentation
                   + " spaces)");
-          expectedIndentation = indentation;
+          startOfLineOffset += indentation;
+        } else {
+          startOfLineOffset += baselineIndentation;
         }
-        startOfLineOffset += expectedIndentation;
       }
       line = docstring.substring(startOfLineOffset, endOfLineOffset);
       return true;
+    }
+
+    private boolean eof() {
+      return startOfLineOffset >= docstring.length();
     }
 
     private static int getIndentation(String line) {
@@ -166,41 +188,45 @@ public final class DocstringUtils {
     DocstringInfo parse() {
       String summary = line;
       if (!nextLine()) {
-        return new DocstringInfo(summary, Collections.emptyList(), "");
+        return new DocstringInfo(summary, Collections.emptyList(), "", "");
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");
       } else {
         nextLine();
       }
-      expectedIndentation = getIndentation(line);
-      line = line.substring(expectedIndentation);
       List<String> longDescriptionLines = new ArrayList<>();
       List<ParameterDoc> params = new ArrayList<>();
-      boolean sectionStart = true;
-      do {
-        if (line.startsWith(" ")) {
-          error(
-              "line indented too much (here: "
-                  + (expectedIndentation + getIndentation(line))
-                  + " spaces; expected: "
-                  + expectedIndentation
-                  + " spaces)");
+      String returns = "";
+      while (!eof()) {
+        switch (line) {
+          case "Args:":
+            if (!blankLineBefore) {
+              error("section should be preceded by a blank line");
+            }
+            if (!params.isEmpty()) {
+              error("parameters were already documented before");
+            }
+            if (!returns.isEmpty()) {
+              error("parameters should be documented before the return value");
+            }
+            params.addAll(parseParameters());
+            break;
+          case "Returns:":
+            if (!blankLineBefore) {
+              error("section should be preceded by a blank line");
+            }
+            if (!returns.isEmpty()) {
+              error("return value was already documented before");
+            }
+            returns = parseSectionAfterHeading();
+            break;
+          default:
+            longDescriptionLines.add(line);
+            nextLine();
         }
-        if (line.equals("Args:")) {
-          if (!sectionStart) {
-            error("section should be preceded by a blank line");
-          }
-          if (!params.isEmpty()) {
-            error("parameters were already documented before");
-          }
-          params.addAll(parseParameters());
-        } else {
-          longDescriptionLines.add(line);
-        }
-        sectionStart = line.isEmpty();
-      } while (nextLine());
-      return new DocstringInfo(summary, params, String.join("\n", longDescriptionLines));
+      }
+      return new DocstringInfo(summary, params, returns, String.join("\n", longDescriptionLines));
     }
 
     private static final Pattern paramLineMatcher =
@@ -212,13 +238,27 @@ public final class DocstringUtils {
     private List<ParameterDoc> parseParameters() {
       nextLine();
       List<ParameterDoc> params = new ArrayList<>();
-      while (!line.isEmpty()) {
-        if (getIndentation(line) != 2) {
-          error("parameter lines have to be indented by two spaces");
-        } else {
-          line = line.substring(2);
+      while (!eof()) {
+        if (line.isEmpty()) {
+          nextLine();
+          continue;
         }
-        Matcher matcher = paramLineMatcher.matcher(line);
+        if (getIndentation(line) == 0) {
+          if (!blankLineBefore) {
+            error("end of 'Args' section without blank line");
+          }
+          break;
+        }
+        String trimmedLine;
+        if (getIndentation(line) < 2) {
+          error(
+              "parameter lines have to be indented by two spaces"
+                  + " (relative to the left margin of the docstring)");
+          trimmedLine = line.substring(getIndentation(line));
+        } else {
+          trimmedLine = line.substring(2);
+        }
+        Matcher matcher = paramLineMatcher.matcher(trimmedLine);
         if (!matcher.matches()) {
           error("invalid parameter documentation");
           nextLine();
@@ -231,13 +271,67 @@ public final class DocstringUtils {
             attributesString == null
                 ? Collections.emptyList()
                 : Arrays.asList(attributesSeparator.split(attributesString));
-        while (nextLine() && getIndentation(line) > 2) {
-          description.append('\n');
-          description.append(line, getIndentation(line), line.length());
-        }
-        params.add(new ParameterDoc(parameterName, attributes, description.toString()));
+        parseContinuedParamDescription(description);
+        params.add(new ParameterDoc(parameterName, attributes, description.toString().trim()));
       }
       return params;
+    }
+
+    /** Parses additional lines that can come after "param: foo" in an 'Args' section. */
+    private void parseContinuedParamDescription(StringBuilder description) {
+      while (nextLine()) {
+        if (line.isEmpty()) {
+          description.append('\n');
+          continue;
+        }
+        if (getIndentation(line) <= 2) {
+          break;
+        }
+        String trimmedLine;
+        if (getIndentation(line) < 4) {
+          error(
+              "continued parameter lines have to be indented by four spaces"
+                  + " (relative to the left margin of the docstring)");
+          trimmedLine = line.substring(getIndentation(line));
+        } else {
+          trimmedLine = line.substring(4);
+        }
+        description.append('\n');
+        description.append(trimmedLine);
+      }
+    }
+
+    private String parseSectionAfterHeading() {
+      nextLine();
+      StringBuilder returns = new StringBuilder();
+      boolean firstLine = true;
+      while (!eof()) {
+        String trimmedLine;
+        if (line.isEmpty()) {
+          trimmedLine = line;
+        } else if (getIndentation(line) == 0) {
+          if (!blankLineBefore) {
+            error("end of section without blank line");
+          }
+          break;
+        } else {
+          if (getIndentation(line) < 2) {
+            error(
+                "text in a section has to be indented by two spaces"
+                    + " (relative to the left margin of the docstring)");
+            trimmedLine = line.substring(getIndentation(line));
+          } else {
+            trimmedLine = line.substring(2);
+          }
+        }
+        if (!firstLine) {
+          returns.append('\n');
+        }
+        returns.append(trimmedLine);
+        nextLine();
+        firstLine = false;
+      }
+      return returns.toString().trim();
     }
   }
 

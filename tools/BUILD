@@ -19,6 +19,7 @@ filegroup(
         "//tools/coverage:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
+        "//tools/def_parser:srcs",
         "//tools/platforms:srcs",
         "//tools/genrule:srcs",
         "//tools/cpp:srcs",
@@ -38,7 +39,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//tools/android:embedded_tools",
         "//tools/build_defs/apple:srcs",
-        "//tools/build_defs/docker:srcs",
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:srcs",
@@ -51,6 +51,7 @@ filegroup(
         "//tools/jdk:package-srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
+        "//tools/def_parser:srcs",
         "//tools/platforms:srcs",
         "//tools/objc:srcs",
         "//tools/python:srcs",

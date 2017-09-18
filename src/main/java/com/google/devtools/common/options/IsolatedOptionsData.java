@@ -259,7 +259,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
               optionName,
               "option name collision with another option's old name");
           checkForBooleanAliasCollisions(booleanAliasMap, optionName, "option");
-          if (optionDefinition.isBooleanField()) {
+          if (optionDefinition.usesBooleanValueSyntax()) {
             checkAndUpdateBooleanAliases(
                 nameToFieldBuilder, oldNameToFieldBuilder, booleanAliasMap, optionName);
           }
@@ -277,7 +277,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
                 "old option name collision with another old option name");
             checkForBooleanAliasCollisions(booleanAliasMap, oldName, "old option name");
             // If boolean, repeat the alias dance for the old name.
-            if (optionDefinition.isBooleanField()) {
+            if (optionDefinition.usesBooleanValueSyntax()) {
               checkAndUpdateBooleanAliases(
                   nameToFieldBuilder, oldNameToFieldBuilder, booleanAliasMap, oldName);
             }

@@ -39,8 +39,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -49,6 +47,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -531,7 +531,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Creates a dynamic configuration for each dep that's custom-fitted specifically for that dep.
    *
    * <p>More specifically: given a set of {@link Dependency} instances holding dynamic config
-   * transition requests (e.g. {@link Dependency#hasStaticConfiguration()} == false}), returns
+   * transition requests (e.g. {@link Dependency#hasExplicitConfiguration()} == false}), returns
    * equivalent dependencies containing dynamically created configurations applying those
    * transitions. If {@link BuildConfiguration.Options#trimConfigurations()} is true, these
    * configurations only contain the fragments needed by the dep and its transitive closure. Else
@@ -618,7 +618,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       //
       // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
       // simple cc_binary show this saves ~1% of total analysis phase time.
-      if (dep.hasStaticConfiguration()) {
+      if (dep.hasExplicitConfiguration()) {
         continue;
       }
 
@@ -869,7 +869,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       AttributeAndLabel attrAndLabel = iterator.next();
-      if (depsEntry.getValue().hasStaticConfiguration()) {
+      if (depsEntry.getValue().hasExplicitConfiguration()) {
         result.put(attrAndLabel.attribute, depsEntry.getValue());
       } else {
         Collection<Dependency> dynamicAttrDeps = dynamicDeps.get(attrAndLabel);

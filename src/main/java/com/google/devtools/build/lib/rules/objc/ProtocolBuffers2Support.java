@@ -75,7 +75,7 @@ final class ProtocolBuffers2Support {
             .addOutputs(getGeneratedProtoOutputs(getHeaderExtension()))
             .addOutputs(getGeneratedProtoOutputs(getSourceExtension()))
             .setExecutable(PathFragment.create("/usr/bin/python"))
-            .setCommandLine(getGenerationCommandLine())
+            .addCommandLine(getGenerationCommandLine())
             .build(ruleContext));
     return this;
   }

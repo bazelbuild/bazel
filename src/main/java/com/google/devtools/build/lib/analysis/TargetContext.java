@@ -103,7 +103,8 @@ public class TargetContext {
    * Returns the prerequisite with the given label and configuration, or null if no such
    * prerequisite exists.
    */
-  TransitiveInfoCollection maybeFindDirectPrerequisite(Label label, BuildConfiguration config) {
+  public TransitiveInfoCollection maybeFindDirectPrerequisite(Label label,
+      BuildConfiguration config) {
     for (ConfiguredTarget prerequisite : directPrerequisites) {
       if (prerequisite.getLabel().equals(label)
           && (Objects.equal(prerequisite.getConfiguration(), config))) {

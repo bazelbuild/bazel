@@ -888,7 +888,7 @@ public class BuildView {
         nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
       }
     }
-    return ImmutableList.copyOf(getDynamicConfigurations(nodes, eventHandler));
+    return ImmutableList.copyOf(getConfigurations(nodes, eventHandler));
   }
 
   /**
@@ -908,7 +908,7 @@ public class BuildView {
    */
   // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
   // never make it through analysis (and especially not seed ConfiguredTargetValues)
-  private LinkedHashSet<TargetAndConfiguration> getDynamicConfigurations(
+  private LinkedHashSet<TargetAndConfiguration> getConfigurations(
       Iterable<TargetAndConfiguration> inputs, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
@@ -931,7 +931,7 @@ public class BuildView {
       }
     }
 
-    // Maps <target, originalConfig> pairs to <target, dynamicConfig> pairs for targets that
+    // Maps <target, originalConfig> pairs to <target, finalConfig> pairs for targets that
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
@@ -1003,17 +1003,17 @@ public class BuildView {
 
 
   /**
-   * Gets a dynamic configuration for the given target.
+   * Gets a configuration for the given target.
    *
    * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
    * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
    * includes all fragments.
    */
   @VisibleForTesting
-  public BuildConfiguration getDynamicConfigurationForTesting(
+  public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    return Iterables.getOnlyElement(getDynamicConfigurations(
+    return Iterables.getOnlyElement(getConfigurations(
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config)),
         eventHandler)).getConfiguration();
   }
@@ -1061,8 +1061,7 @@ public class BuildView {
         ImmutableSet.copyOf(
             getDirectPrerequisiteDependenciesForTesting(
                     eventHandler, ct, configurations, /*toolchainContext=*/ null)
-                .values()),
-        false);
+                .values()));
   }
 
   @VisibleForTesting
@@ -1177,7 +1176,7 @@ public class BuildView {
 
     ImmutableMultimap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
         eventHandler,
-        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
+        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
@@ -1218,10 +1217,11 @@ public class BuildView {
   }
 
   /**
-   * Returns a configured target for the specified target and configuration. If dynamic
-   * configurations are activated, and the target in question has a top-level rule class transition,
-   * that transition is applied in the returned ConfiguredTarget. Returns {@code null} if something
-   * goes wrong.
+   * Returns a configured target for the specified target and configuration. If the target in
+   * question has a top-level rule class transition, that transition is applied in the returned
+   * ConfiguredTarget.
+   *
+   * <p>Returns {@code null} if something goes wrong.
    */
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(

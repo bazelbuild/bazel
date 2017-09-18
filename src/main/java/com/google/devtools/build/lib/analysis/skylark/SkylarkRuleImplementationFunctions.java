@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -25,7 +24,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory.Args;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -120,14 +119,12 @@ public class SkylarkRuleImplementationFunctions {
         name = "arguments",
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
         doc =
             "command line arguments of the action."
-                + "May be either a list or an actions.args() object."
       ),
       @Param(
         name = "mnemonic",

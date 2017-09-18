@@ -23,6 +23,7 @@ import org.junit.runners.JUnit4;
  * Legacy test: These tests test --experimental_objc_crosstool=off. See README.
  */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyAppleBinaryTest extends AppleBinaryTest {
   @Override
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {

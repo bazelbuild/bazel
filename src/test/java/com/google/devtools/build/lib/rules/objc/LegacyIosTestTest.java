@@ -31,6 +31,7 @@ import org.junit.runners.JUnit4;
  * Legacy test: These tests test --experimental_objc_crosstool=off. See README.
  */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyIosTestTest extends IosTestTest {
   @Override
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {
@@ -113,13 +114,4 @@ public class LegacyIosTestTest extends IosTestTest {
     assertThat(Joiner.on(" ").join(linkAction.getArguments())).doesNotContain("-framework fx");
   }
 
-  @Test
-  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
-    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
-  }
-
-  @Test
-  public void testSdkIncludesUsedInCompileAction() throws Exception {
-    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
-  }
 }

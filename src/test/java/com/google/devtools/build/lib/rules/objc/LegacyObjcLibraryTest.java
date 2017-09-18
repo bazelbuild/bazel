@@ -48,6 +48,7 @@ import org.junit.runners.JUnit4;
 
 /** Legacy test case (that is, without the OSX crosstool) for objc_library. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   private static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
   private static final String XCRUNWRAPPER = "xcrunwrapper";
@@ -706,16 +707,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testProvidesHdrsAndIncludes() throws Exception {
     checkProvidesHdrsAndIncludes(RULE_TYPE);
-  }
-
-  @Test
-  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
-    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
-  }
-
-  @Test
-  public void testSdkIncludesUsedInCompileAction() throws Exception {
-    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
   @Test

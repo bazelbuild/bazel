@@ -729,7 +729,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "For use in testing before migrating away from android_resources. If false, will"
-            + " fail when android_resources rules are encountered"
+            + " fail when non-whitelisted android_resources rules are encountered."
     )
     public boolean allowAndroidResources;
 
@@ -739,7 +739,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "For use in testing before migrating away from android_resources. If false, will"
-            + " fail when android_resources rules are encountered"
+            + " fail when non-whitelisted instances of the 'resources' attribute are encountered."
     )
     public boolean allowResourcesAttr;
 

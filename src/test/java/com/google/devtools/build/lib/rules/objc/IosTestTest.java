@@ -48,6 +48,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for ios_test. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class IosTestTest extends ObjcRuleTestCase {
   protected static final RuleType RULE_TYPE = new BinaryRuleType("ios_test");
 
@@ -1258,5 +1259,15 @@ public class IosTestTest extends ObjcRuleTestCase {
     Iterable<Artifact> compileInputs =
         compileAction("//x:test", "test.o").getPossibleInputsForTesting();
     assertThat(Artifact.toExecPaths(compileInputs)).containsAllOf("x/lib.h", "x/bin.h", "x/test.h");
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 }

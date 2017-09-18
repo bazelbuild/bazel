@@ -48,8 +48,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--cpu=piii");
-    String outputDirPrefix = outputBase
-        + "/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
+    String outputDirPrefix =
+        outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
         .matches(outputDirPrefix);
@@ -71,7 +71,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
         .matches(
             outputBase
-                + "/"
+                + "/execroot/"
                 + config.getMainRepositoryName()
                 + "/blaze-out/.*k8-fastbuild-test");
   }
@@ -139,7 +139,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // TODO(ulfjack): It would be better to get the better error message also if the Jvm is enabled.
     // Currently: "No JVM target found under //tools/jdk:jdk that would work for bogus"
     try {
-      create("--cpu=bogus", "--experimental_disable_jvm");
+      create("--cpu=bogus");
       fail();
     } catch (InvalidConfigurationException e) {
       assertThat(e)

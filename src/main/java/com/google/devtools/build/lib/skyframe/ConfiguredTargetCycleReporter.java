@@ -58,15 +58,9 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
       return false;
     }
     Iterable<SkyKey> cycleKeys = Iterables.concat(cycleInfo.getPathToCycle(), cycleInfo.getCycle());
-    // Static configurations expect all keys to be ConfiguredTargetValue keys. Dynamic
-    // configurations expect the top-level key to be a ConfiguredTargetValue key, but cycles and
-    // paths to them can travel through TransitiveTargetValue keys because ConfiguredTargetFunction
+    // The top-level key should be a ConfiguredTargetValue key, but cycles and paths to it can
+    // travel through TransitiveTargetValue keys because ConfiguredTargetFunction visits
     // visits TransitiveTargetFunction as a part of dynamic configuration computation.
-    //
-    // Unfortunately this class can't easily figure out if we're in static or dynamic configuration
-    // mode, so we loosely permit both cases.
-    //
-    // TODO: remove the static-style checking once dynamic configurations fully replace them
     return Iterables.all(cycleKeys,
         Predicates.<SkyKey>or(IS_CONFIGURED_TARGET_SKY_KEY, IS_TRANSITIVE_TARGET_SKY_KEY));
   }

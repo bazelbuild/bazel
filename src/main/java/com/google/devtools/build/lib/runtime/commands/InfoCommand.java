@@ -124,7 +124,7 @@ public class InfoCommand implements BlazeCommand {
               runtime.getConfigurationFragmentFactories());
           // TODO(bazel-team): What if there are multiple configurations? [multi-config]
           return env.getSkyframeExecutor().getConfiguration(
-              env.getReporter(), runtime.createBuildOptions(optionsProvider));
+              env.getReporter(), runtime.createBuildOptions(optionsProvider), /*keepGoing=*/true);
         } catch (InvalidConfigurationException e) {
           env.getReporter().handle(Event.error(e.getMessage()));
           throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);

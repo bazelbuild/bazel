@@ -292,15 +292,11 @@ public class SkylarkActionFactory implements SkylarkValue {
         type = Object.class,
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc =
-            "command line arguments of the action. "
-                + "May be either a list or an actions.args() object. "
-                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
+        doc = "command line arguments of the action."
       ),
       @Param(
         name = "mnemonic",
@@ -386,10 +382,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       SkylarkList skylarkList = ((SkylarkList) arguments);
       @SuppressWarnings("unchecked")
       List<String> argumentsContents = skylarkList.getContents(String.class, "arguments");
-      builder.setCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
+      builder.addCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
     } else {
       Args args = (Args) arguments;
-      builder.setCommandLine(args.build());
+      builder.addCommandLine(args.build());
     }
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
@@ -442,14 +438,12 @@ public class SkylarkActionFactory implements SkylarkValue {
         name = "arguments",
         allowedTypes = {
           @ParamType(type = SkylarkList.class),
-          @ParamType(type = Args.class),
         },
         defaultValue = "[]",
         named = true,
         positional = false,
         doc =
             "command line arguments of the action. "
-                + "May be either a list or an actions.args() object.<br><br>"
                 + "Blaze passes the elements in this attribute as arguments to the command."
                 + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
                 + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
@@ -570,10 +564,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       @SuppressWarnings("unchecked")
       List<String> argumentsContents = argumentList.getContents(String.class, "arguments");
       commandLine.addAll(argumentsContents);
-      builder.setCommandLine(commandLine.build());
+      builder.addCommandLine(commandLine.build());
     } else {
       Args args = (Args) arguments;
-      builder.setCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
+      builder.addCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
     }
 
     if (commandUnchecked instanceof String) {
@@ -970,15 +964,6 @@ public class SkylarkActionFactory implements SkylarkValue {
     static {
       SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
     }
-  }
-
-  @SkylarkCallable(
-    name = "args",
-    doc = "returns an Args object that can be used to build memory-efficient command lines."
-  )
-  public Args args() {
-    return new Args(
-        skylarkSemanticsOptions, ruleContext.getAnalysisEnvironment().getEventHandler());
   }
 
   @Override

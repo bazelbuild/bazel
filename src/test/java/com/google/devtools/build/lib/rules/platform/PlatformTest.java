@@ -126,8 +126,9 @@ public class PlatformTest extends BuildViewTestCase {
     checkError(
         "constraint/overlap",
         "plat_overlap",
-        "Duplicate constraint_values for constraint_setting //constraint:basic: "
-            + "//constraint:foo, //constraint/overlap:bar",
+        "Duplicate constraint_values detected: "
+            + "constraint_setting //constraint:basic has "
+            + "[//constraint:foo, //constraint/overlap:bar]",
         "constraint_value(name = 'bar',",
         "    constraint_setting = '//constraint:basic',",
         "    )",

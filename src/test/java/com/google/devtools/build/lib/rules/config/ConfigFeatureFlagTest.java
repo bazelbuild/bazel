@@ -37,7 +37,7 @@ import org.junit.runners.JUnit4;
 public final class ConfigFeatureFlagTest extends SkylarkTestCase {
 
   @Before
-  public void useDynamicConfigurations() throws Exception {
+  public void useTrimmedConfigurations() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
   }
 

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.devtools.build.lib.packages.Attribute;
 
 /**
- * Interface for a configuration transition using dynamic configurations.
+ * Interface for a configuration transition.
  *
  * <p>The concept is simple: given the input configuration's build options, the
  * transition does whatever it wants to them and returns the modified result.
