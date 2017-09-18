@@ -20,7 +20,7 @@ filegroup(
     name = "android_jar_for_testing",
     srcs = select({
         # TODO(ajmichael): Use //tools/defaults:android_jar here once it supplies runfiles.
-        "//external:has_androidsdk": ["@androidsdk//:platforms/android-25/android.jar"],
+        "//external:has_androidsdk": ["@androidsdk//:platforms/android-24/android.jar"],
         "//conditions:default": ["@bazel_tools//tools/android:error_message.jar"],
     }),
 )
