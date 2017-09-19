@@ -38,7 +38,7 @@ public final class NetUtil {
         }
       }
     }
-    return computeShortHostName();
+    return hostname;
   }
 
   /**
