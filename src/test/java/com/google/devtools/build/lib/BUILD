@@ -807,9 +807,12 @@ java_test(
 
 java_test(
     name = "profiler-tests",
-    srcs = glob([
-        "profiler/*.java",
-    ]),
+    srcs = glob(
+        [
+            "profiler/*.java",
+        ],
+        exclude = ["profiler/*Benchmark.java"],
+    ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",

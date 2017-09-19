@@ -7,9 +7,6 @@ filegroup(
     name = "srcs",
     srcs = glob(
         ["**"],
-        exclude = [
-            "javac/testing/**",
-        ],
     ) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
@@ -170,6 +167,7 @@ bootstrap_java_binary(
         exclude = [
             "JarOwner.java",
             "VanillaJavaBuilder.java",
+            "javac/testing/**",
         ],
     ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
