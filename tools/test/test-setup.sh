@@ -223,4 +223,42 @@ for signal in $signals; do
 done
 write_xml_output_file
 
+# Add all of the files from the undeclared outputs directory to the manifest.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
+  # For each file, write a tab-separated line with name (relative to
+  # TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type to the manifest. e.g.
+  # foo.txt	9	text/plain
+  while read -r undeclared_output; do
+    rel_path="${undeclared_output#$TEST_UNDECLARED_OUTPUTS_DIR/}"
+    # stat has different flags for different systems. -c is supported by GNU,
+    # and -f by BSD (and thus OSX). Try both.
+    file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
+    file_type="$(file -L -b --mime-type "$undeclared_output")"
+
+    printf "$rel_path\t$file_size\t$file_type\n"
+  done <<< "$(find -L "$TEST_UNDECLARED_OUTPUTS_DIR" -type f | sort)" \
+    > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+  if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
+    rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+  fi
+fi
+
+# Add all of the custom manifest entries to the annotation file.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" && \
+      -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" && \
+      -d "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ]]; then
+  (
+   shopt -s failglob
+   cat "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"/*.part > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
+  ) 2> /dev/null
+fi
+
+# Zip up undeclared outputs.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
+  (
+   shopt -s dotglob failglob
+   zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- *
+  ) 2> /dev/null
+fi
+
 exit $exitCode

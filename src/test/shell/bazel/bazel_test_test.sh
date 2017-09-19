@@ -513,4 +513,91 @@ EOF
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 
+function test_undeclared_outputs_are_zipped_and_manifest_exists() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
+echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/fake.html"
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
+
+  # Check that the undeclared outputs zip file exists.
+  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
+  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+
+  # Check the contents of the zip file.
+  unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
+  cat > expected_text <<EOF
+some text
+EOF
+diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
+  cat > expected_html <<EOF
+<!DOCTYPE html>
+EOF
+diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
+
+  # Check that the undeclared outputs manifest exists and that it has the
+  # correct contents.
+  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  [ -s $outputs_manifest ] || fail "$outputs_manifest was not present after test"
+  cat > expected_manifest <<EOF
+fake.html	16	text/html
+text.txt	10	text/plain
+EOF
+diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
+}
+
+function test_undeclared_outputs_annotations_are_added() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "an annotation" > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/1.part"
+echo "another annotation" > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/2.part"
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
+
+  # Check that the undeclared outputs manifest exists and that it has the
+  # correct contents.
+  annotations=bazel-testlogs/dir/test/test.outputs_manifest/ANNOTATIONS
+  [ -s $annotations ] || fail "$annotations was not present after test"
+  cat > expected_annotations <<EOF
+an annotation
+another annotation
+EOF
+diff expected_annotations "$annotations" > d || fail "$annotations differs from expected:$N$(cat d)$N"
+}
+
 run_suite "bazel test tests"
