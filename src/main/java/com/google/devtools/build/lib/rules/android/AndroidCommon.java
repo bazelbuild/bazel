@@ -419,7 +419,7 @@ public class AndroidCommon {
     // We don't actually use the ijar. That is almost the same as the resource class jar
     // except for <clinit>, but it takes time to build and waiting for that to build would
     // just delay building the rest of the library.
-    artifactsBuilder.addCompileTimeJar(resourceClassJar);
+    artifactsBuilder.addCompileTimeJarAsFullJar(resourceClassJar);
 
     // Add the compiled resource jar as a declared output of the rule.
     filesBuilder.add(resourceSourceJar);

@@ -141,7 +141,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     common.setJavaCompilationArtifacts(
         new JavaCompilationArtifacts.Builder()
             .addRuntimeJar(mergedJar)
-            .addCompileTimeJar(mergedJar)
+            .addCompileTimeJarAsFullJar(mergedJar)
             .build());
 
     return ruleBuilder

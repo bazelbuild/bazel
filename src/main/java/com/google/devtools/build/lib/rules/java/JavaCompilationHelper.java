@@ -610,14 +610,20 @@ public final class JavaCompilationHelper {
   public Artifact createCompileTimeJarAction(
       Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) {
     Artifact jar;
+    boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {
       jar = createHeaderCompilationAction(runtimeJar, builder);
     } else if (getJavaConfiguration().getUseIjars()) {
       jar = createIjarAction(ruleContext, javaToolchain, runtimeJar, false);
     } else {
       jar = runtimeJar;
+      isFullJar = true;
     }
-    builder.addCompileTimeJar(jar);
+    if (isFullJar) {
+      builder.addCompileTimeJarAsFullJar(jar);
+    } else {
+      builder.addInterfaceJarWithFullJar(jar, runtimeJar);
+    }
     return jar;
   }
 

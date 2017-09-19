@@ -272,6 +272,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  my_provider = java_common.create_provider(",
         "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        use_ijar = False,",
         "        runtime_jars = ctx.files.runtime_jars,",
         "        transitive_compile_time_jars = ctx.files.transitive_compile_time_jars,",
         "        transitive_runtime_jars = ctx.files.transitive_runtime_jars,",
@@ -280,6 +281,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule = rule(_impl, ",
         "    attrs = { ",
         "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'full_compile_time_jars' : attr.label_list(allow_files=['.jar']),",
         "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
         "        'transitive_compile_time_jars': attr.label_list(allow_files=['.jar']),",
         "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
@@ -300,6 +302,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     SkylarkNestedSet compileJars = info.getCompileTimeJars();
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
+    SkylarkNestedSet fullCompileJars = info.getFullCompileTimeJars();
+    assertThat(
+        prettyJarNames(fullCompileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
+
     SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
     assertThat(prettyJarNames(
         transitiveCompileTimeJars.getSet(Artifact.class))).containsExactly("foo/libc.jar");
@@ -316,6 +322,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  my_provider = java_common.create_provider(",
         "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        use_ijar = False,",
         "        runtime_jars = [],",
         "        transitive_compile_time_jars = [],",
         "        transitive_runtime_jars = ctx.files.transitive_runtime_jars)",
@@ -339,7 +346,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(prettyJarNames(compileJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
     SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
-    assertThat(prettyJarNames(transitiveCompileTimeJars.getSet(Artifact.class))).isEmpty();
+    assertThat(prettyJarNames(
+        transitiveCompileTimeJars.getSet(Artifact.class))).containsExactly("foo/liba.jar");
 
     SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
     assertThat(prettyJarNames(
@@ -353,6 +361,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  my_provider = java_common.create_provider(",
         "        compile_time_jars = depset(ctx.files.compile_time_jars),",
+        "        use_ijar = False,",
         "        runtime_jars = depset(ctx.files.runtime_jars),",
         "        transitive_compile_time_jars = depset(ctx.files.transitive_compile_time_jars),",
         "        transitive_runtime_jars = depset(ctx.files.transitive_runtime_jars),",
@@ -409,6 +418,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "      [dep[JavaInfo] for dep in ctx.attr.deps])",
         "  my_provider = java_common.create_provider(",
         "        compile_time_jars = depset(ctx.files.compile_time_jars),",
+        "        use_ijar = False,",
         "        runtime_jars = depset(ctx.files.runtime_jars))",
         "  return [java_common.merge([my_provider, transitive_provider])]",
         "my_rule = rule(_impl, ",

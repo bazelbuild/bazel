@@ -209,11 +209,12 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   private JavaCompilationArtifacts collectJavaArtifacts(
       ImmutableList<Artifact> jars,
       ImmutableList<Artifact> interfaceJars) {
-    JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    javaArtifactsBuilder.addRuntimeJars(jars);
-    // interfaceJars Artifacts have proper owner labels
-    javaArtifactsBuilder.addCompileTimeJars(interfaceJars);
-    return javaArtifactsBuilder.build();
+    return new JavaCompilationArtifacts.Builder()
+        .addRuntimeJars(jars)
+        .addFullCompileTimeJars(jars)
+        // interfaceJars Artifacts have proper owner labels
+        .addInterfaceJars(interfaceJars)
+        .build();
   }
 
   private ImmutableList<Artifact> collectJars(RuleContext ruleContext) {

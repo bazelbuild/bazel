@@ -410,6 +410,13 @@ public class SkylarkActionFactory implements SkylarkValue {
         envUnchecked, executionRequirementsUnchecked, inputManifestsUnchecked, builder);
   }
 
+  /**
+   * Builds and registers a spawn action on the rule context.
+   */
+  public void buildAndRegisterSpawnAction(SpawnAction.Builder action) {
+    ruleContext.registerAction(action.build(ruleContext));
+  }
+
   @SkylarkCallable(
     name = "run_shell",
     doc = "Creates an action that runs a shell command.",
