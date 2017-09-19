@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -25,16 +26,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * the items commonly needed to construct action instances.
  */
 public interface ActionConstructionContext {
-
-  /**
-   * Returns the bin directory for constructed actions.
-   */
-  Root getBinDirectory();
-
-  /**
-   * Returns the internal directory (used for middlemen) for constructed actions.
-   */
-  Root getMiddlemanDirectory();
+  /** The rule for which the actions are constructed. */
+  Rule getRule();
 
   /** Returns the action owner that should be used for actions. */
   ActionOwner getActionOwner();

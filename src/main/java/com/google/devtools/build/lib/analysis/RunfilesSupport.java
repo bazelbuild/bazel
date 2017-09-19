@@ -267,7 +267,7 @@ public final class RunfilesSupport {
       Iterable<Artifact> allRunfilesArtifacts) {
     return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
         context.getActionOwner(), owningExecutable, allRunfilesArtifacts,
-        context.getMiddlemanDirectory(),
+        context.getConfiguration().getMiddlemanDirectory(context.getRule().getRepository()),
         "runfiles_artifacts");
   }
 
@@ -276,7 +276,7 @@ public final class RunfilesSupport {
     return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
         context.getActionOwner(), owningExecutable,
         ImmutableList.of(artifactsMiddleman, outputManifest),
-        context.getMiddlemanDirectory(),
+        context.getConfiguration().getMiddlemanDirectory(context.getRule().getRepository()),
         "runfiles");
   }
 
@@ -308,7 +308,7 @@ public final class RunfilesSupport {
 
     BuildConfiguration config = context.getConfiguration();
     Artifact outputManifest = context.getDerivedArtifact(
-        outputManifestPath, context.getBinDirectory());
+        outputManifestPath, config.getBinDirectory(context.getRule().getRepository()));
     context
         .getAnalysisEnvironment()
         .registerAction(
@@ -338,7 +338,7 @@ public final class RunfilesSupport {
     }
     return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
         context.getActionOwner(), owningExecutable, SourceManifestAction.getDependencies(runfiles),
-        context.getBinDirectory(),
+        context.getConfiguration().getMiddlemanDirectory(context.getRule().getRepository()),
         "runfiles_manifest");
   }
 
@@ -356,7 +356,7 @@ public final class RunfilesSupport {
         executablePath.getBaseName() + ".runfiles.SOURCES");
     Artifact sourceOnlyManifest = context.getDerivedArtifact(
         sourcesManifestPath,
-        context.getBinDirectory());
+        context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
     context.getAnalysisEnvironment().registerAction(SourceManifestAction.forRunfiles(
         ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
     return sourceOnlyManifest;
