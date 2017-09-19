@@ -45,10 +45,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -593,12 +591,8 @@ public final class JavaCompilationHelper {
     if (gensrcJar != null) {
       resourceJars.add(gensrcJar);
     }
-    Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
-    for (Artifact sourceFile : attributes.getSourceFiles()) {
-      resources.put(semantics.getDefaultJavaResourcePath(sourceFile.getRootRelativePath()), sourceFile);
-    }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, resources, resourceJars.build(), outputJar);
+        ruleContext, semantics, attributes.getSourceFiles(), resourceJars.build(), outputJar);
   }
 
   /**

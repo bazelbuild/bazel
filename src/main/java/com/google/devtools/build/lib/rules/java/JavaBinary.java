@@ -277,8 +277,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // TODO(bazel-team): if (getOptions().sourceJars) then make this a dummy prerequisite for the
     // DeployArchiveAction ? Needs a few changes there as we can't pass inputs
-    SingleJarActionBuilder.createSourceJarAction(ruleContext,
-        ImmutableMap.<PathFragment, Artifact>of(), transitiveSourceJars,
+    SingleJarActionBuilder.createSourceJarAction(
+        ruleContext,
+        semantics,
+        ImmutableList.of(),
+        transitiveSourceJars,
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);

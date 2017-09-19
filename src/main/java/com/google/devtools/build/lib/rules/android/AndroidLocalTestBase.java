@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Comp
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -63,7 +62,6 @@ import com.google.devtools.build.lib.rules.java.SingleJarActionBuilder;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -292,7 +290,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // DeployArchiveAction ? Needs a few changes there as we can't pass inputs
     SingleJarActionBuilder.createSourceJarAction(
         ruleContext,
-        ImmutableMap.<PathFragment, Artifact>of(),
+        javaSemantics,
+        ImmutableList.of(),
         transitiveSourceJars,
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
