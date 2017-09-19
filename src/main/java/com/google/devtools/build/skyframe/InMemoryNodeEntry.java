@@ -385,14 +385,14 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getReverseDepsForDoneEntry() {
+  public synchronized Set<SkyKey> getReverseDepsForDoneEntry() {
     assertKeepEdges();
     Preconditions.checkState(isDone(), "Called on not done %s", this);
     return ReverseDepsUtility.getReverseDeps(this);
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public synchronized Set<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     assertKeepEdges();
     if (!isDone()) {
       // This consolidation loses information about pending reverse deps to signal, but that is
