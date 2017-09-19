@@ -20,15 +20,12 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -59,30 +56,22 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     }
   };
 
-  /**
-   * Mock late-bound attribute resolver that returns a fixed label.
-   */
-  private static final Attribute.LateBoundLabel<BuildConfiguration> LATEBOUND_VALUE_RESOLVER =
-      new Attribute.LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration config) {
-          return Label.parseAbsoluteUnchecked("//foo:latebound_dep");
-        }
-      };
-
-  /**
-   * Rule definition with a latebound dependency.
-   */
-  private static final RuleDefinition LATE_BOUND_DEP_RULE = (MockRule) () -> MockRule.define(
-      "rule_with_latebound_attr",
-      (builder, env) -> {
-        builder
-            .add(
-                attr(":latebound_attr", LABEL)
-                    .value(LATEBOUND_VALUE_RESOLVER)
-                    .cfg(CHANGE_FOO_FLAG_TRANSITION))
-            .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
-      });
+  /** Rule definition with a latebound dependency. */
+  private static final RuleDefinition LATE_BOUND_DEP_RULE =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "rule_with_latebound_attr",
+                  (builder, env) -> {
+                    builder
+                        .add(
+                            attr(":latebound_attr", LABEL)
+                                .value(
+                                    Attribute.LateBoundDefault.fromConstant(
+                                        Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                .cfg(CHANGE_FOO_FLAG_TRANSITION))
+                        .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
+                  });
 
   @Before
   public void setupCustomLateBoundRules() throws Exception {

@@ -31,16 +31,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
@@ -71,21 +68,17 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
   private static final String PROTO_TOOLCHAIN_ATTR = ":aspect_cc_proto_toolchain";
 
-  private static final Attribute.LateBoundLabel<BuildConfiguration> PROTO_TOOLCHAIN_LABEL =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          "@com_google_protobuf_cc//:cc_toolchain", ProtoConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(ProtoConfiguration.class).protoToolchainForCc();
-        }
-      };
+  private static final Attribute.LateBoundDefault<?, Label> PROTO_TOOLCHAIN_LABEL =
+      Attribute.LateBoundDefault.fromTargetConfiguration(
+          ProtoConfiguration.class,
+          Label.parseAbsoluteUnchecked("@com_google_protobuf_cc//:cc_toolchain"),
+          (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;
-  private final Attribute.LateBoundLabel<BuildConfiguration> ccToolchainAttrValue;
+  private final Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue;
 
   public CcProtoAspect(
-      CppSemantics cppSemantics,
-      Attribute.LateBoundLabel<BuildConfiguration> ccToolchainAttrValue) {
+      CppSemantics cppSemantics, Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue) {
     this.cppSemantics = cppSemantics;
     this.ccToolchainAttrValue = ccToolchainAttrValue;
   }

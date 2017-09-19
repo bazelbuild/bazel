@@ -26,12 +26,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
@@ -46,13 +43,11 @@ import com.google.devtools.build.lib.util.FileType;
 public final class BazelPyRuleClasses {
   public static final FileType PYTHON_SOURCE = FileType.of(".py");
 
-  public static final LateBoundLabel<BuildConfiguration> PY_INTERPRETER =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(BazelPythonConfiguration.class).getPythonTop();
-        }
-      };
+  public static final LateBoundDefault<?, Label> PY_INTERPRETER =
+      LateBoundDefault.fromTargetConfiguration(
+          BazelPythonConfiguration.class,
+          null,
+          (rule, attributes, bazelPythonConfig) -> bazelPythonConfig.getPythonTop());
 
   /**
    * Base class for Python rule definitions.

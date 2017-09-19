@@ -33,16 +33,13 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
@@ -55,17 +52,16 @@ import com.google.devtools.build.lib.util.OsUtils;
 public class CppRuleClasses {
   /**
    * Implementation for the :lipo_context_collector attribute.
+   *
+   * <p>This attribute connects a target to the LIPO context target configured with the lipo input
+   * collector configuration.
    */
-  public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
-      new LateBoundLabel<BuildConfiguration>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      // This attribute connects a target to the LIPO context target configured with the
-      // lipo input collector configuration.
-      CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-      return cppConfiguration.isLipoOptimization() ? cppConfiguration.getLipoContextLabel() : null;
-    }
-  };
+  public static final LateBoundDefault<?, Label> LIPO_CONTEXT_COLLECTOR =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) ->
+              cppConfig.isLipoOptimization() ? cppConfig.getLipoContextLabel() : null);
 
   /**
    * Declares the implementations for C++ transition enums.
@@ -91,34 +87,20 @@ public class CppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
 
-  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).customMalloc();
-        }
-      };
+  public static final LateBoundDefault<?, Label> DEFAULT_MALLOC =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static LateBoundLabel<BuildConfiguration> ccToolchainAttribute(
+  public static LateBoundDefault<CppConfiguration, Label> ccToolchainAttribute(
       RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(CROSSTOOL_LABEL), CppConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-      }
-    };
+    return LateBoundDefault.fromTargetConfiguration(
+        CppConfiguration.class,
+        env.getToolsLabel(CROSSTOOL_LABEL),
+        (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
   }
 
-  public static LateBoundLabel<BuildConfiguration> ccToolchainTypeAttribute(
-      RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL), CppConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return CppHelper.getCcToolchainType(env.getToolsRepository());
-      }
-    };
+  public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules

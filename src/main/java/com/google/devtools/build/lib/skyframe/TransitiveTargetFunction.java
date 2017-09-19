@@ -197,9 +197,14 @@ public class TransitiveTargetFunction
 
       // Declared by late-bound attributes:
       for (Attribute attr : rule.getAttributes()) {
-        if (attr.isLateBound()) {
-          addFragmentsIfNew(builder,
-              attr.getLateBoundDefault().getRequiredConfigurationFragments());
+        if (attr.isLateBound()
+            && attr.getLateBoundDefault().getFragmentClass() != null
+            && BuildConfiguration.Fragment.class.isAssignableFrom(
+                attr.getLateBoundDefault().getFragmentClass())) {
+          addFragmentIfNew(
+              builder,
+              (Class<? extends BuildConfiguration.Fragment>)
+                  attr.getLateBoundDefault().getFragmentClass());
         }
       }
 

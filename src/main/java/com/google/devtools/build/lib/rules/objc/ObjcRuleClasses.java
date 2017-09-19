@@ -41,11 +41,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -160,30 +159,13 @@ public class ObjcRuleClasses {
   /**
    * Late-bound attribute giving the CcToolchain for CROSSTOOL_LABEL.
    *
-   * TODO(cpeyser): Use AppleCcToolchain instead of CcToolchain once released.
+   * <p>TODO(cpeyser): Use AppleCcToolchain instead of CcToolchain once released.
    */
-  public static final LateBoundLabel<BuildConfiguration> APPLE_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
-
-  /**
-   * A null value for the lipo context collector.  Objc builds do not use a lipo context collector.
-   */
-  // TODO(b/28084560): Allow :lipo_context_collector not to be set instead of having a null
-  // instance.
-  public static final LateBoundLabel<BuildConfiguration> NULL_LIPO_CONTEXT_COLLECTOR =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return null;
-        }
-      };
+  public static final LateBoundDefault<?, Label> APPLE_TOOLCHAIN =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          Label.parseAbsoluteUnchecked(CROSSTOOL_LABEL),
+          (rule, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
 
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
@@ -543,8 +525,12 @@ public class ObjcRuleClasses {
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .add(
+              // Objc builds do not use a lipo context collector, but must specify the attribute as
+              // a late-bound attribute to match with the similar attribute on the cc rules.
+              // TODO(b/28084560): Allow :lipo_context_collector not to be set instead of having a
+              // null instance.
               attr(":lipo_context_collector", LABEL)
-                  .value(NULL_LIPO_CONTEXT_COLLECTOR)
+                  .value(LateBoundDefault.alwaysNull())
                   .skipPrereqValidatorCheck())
           .build();
     }
@@ -677,7 +663,7 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
-          .allowedFileTypes())
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
           app bundle but not linked against at build time.
@@ -721,9 +707,7 @@ public class ObjcRuleClasses {
           If specified, Bazel will not generate a module map for this target, but will pass the
           provided module map to the compiler.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("module_map", LABEL)
-                  .allowedFileTypes(FileType.of(".modulemap")))
+          .add(attr("module_map", LABEL).allowedFileTypes(FileType.of(".modulemap")))
           /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
           sources and provide a list of required headers via a .header_list file.
 
@@ -735,33 +719,21 @@ public class ObjcRuleClasses {
               attr(HEADER_SCANNER_ATTRIBUTE, LABEL)
                   .cfg(HOST)
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(
+                      LateBoundDefault.fromTargetConfiguration(
+                          ObjcConfiguration.class,
                           env.getToolsLabel("//tools/objc:header_scanner"),
-                          ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          return configuration
-                              .getFragment(ObjcConfiguration.class)
-                              .getObjcHeaderScannerTool();
-                        }
-                      }))
+                          (rule, attributes, objcConfig) -> objcConfig.getObjcHeaderScannerTool())))
           .add(
               attr(APPLE_SDK_ATTRIBUTE, LABEL)
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          ObjcConfiguration objcConfiguration =
-                              configuration.getFragment(ObjcConfiguration.class);
+                      LateBoundDefault.fromTargetConfiguration(
+                          ObjcConfiguration.class,
+                          null,
                           // Apple SDKs are currently only used by ObjC header thinning feature
-                          if (objcConfiguration.useExperimentalHeaderThinning()) {
-                            return objcConfiguration.getAppleSdk();
-                          }
-                          return null;
-                        }
-                      }))
+                          (rule, attributes, objcConfig) ->
+                              objcConfig.useExperimentalHeaderThinning()
+                                  ? objcConfig.getAppleSdk()
+                                  : null)))
           .build();
     }
     @Override
@@ -1191,15 +1163,10 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .cfg(HOST)
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          return configuration
-                              .getFragment(ObjcConfiguration.class)
-                              .getExtraEntitlements();
-                        }
-                      })
+                      LateBoundDefault.fromTargetConfiguration(
+                          ObjcConfiguration.class,
+                          null,
+                          (rule, attributes, objcConfig) -> objcConfig.getExtraEntitlements()))
                   .allowedFileTypes(ENTITLEMENTS_TYPE))
           .add(
               attr(DEBUG_ENTITLEMENTS_ATTR, LABEL)
@@ -1222,22 +1189,20 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .allowedFileTypes(FileType.of(".mobileprovision"))
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          AppleConfiguration appleConfiguration =
-                              configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != ApplePlatform.IOS_DEVICE) {
-                            return null;
-                          }
-                          if (rule.isAttributeValueExplicitlySpecified(PROVISIONING_PROFILE_ATTR)) {
-                            return null;
-                          }
-                          return appleConfiguration.getDefaultProvisioningProfileLabel();
-                        }
-                      }))
+                      LateBoundDefault.fromTargetConfiguration(
+                          AppleConfiguration.class,
+                          null,
+                          (rule, attributes, appleConfig) -> {
+                            if (appleConfig.getMultiArchPlatform(PlatformType.IOS)
+                                != ApplePlatform.IOS_DEVICE) {
+                              return null;
+                            }
+                            if (attributes.isAttributeValueExplicitlySpecified(
+                                PROVISIONING_PROFILE_ATTR)) {
+                              return null;
+                            }
+                            return appleConfig.getDefaultProvisioningProfileLabel();
+                          })))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(app_icon) -->
           The name of the application icon.
 
@@ -1507,23 +1472,20 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .allowedFileTypes(FileType.of(".mobileprovision"))
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          AppleConfiguration appleConfiguration =
-                              configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != ApplePlatform.IOS_DEVICE) {
-                            return null;
-                          }
-                          if (rule.isAttributeValueExplicitlySpecified(
-                              WATCH_EXT_PROVISIONING_PROFILE_ATTR)) {
-                            return null;
-                          }
-                          return appleConfiguration.getDefaultProvisioningProfileLabel();
-                        }
-                      }))
+                      LateBoundDefault.fromTargetConfiguration(
+                          AppleConfiguration.class,
+                          null,
+                          (rule, attributes, appleConfig) -> {
+                            if (appleConfig.getMultiArchPlatform(PlatformType.IOS)
+                                != ApplePlatform.IOS_DEVICE) {
+                              return null;
+                            }
+                            if (attributes.isAttributeValueExplicitlySpecified(
+                                WATCH_EXT_PROVISIONING_PROFILE_ATTR)) {
+                              return null;
+                            }
+                            return appleConfig.getDefaultProvisioningProfileLabel();
+                          })))
           /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_resources) -->
           Files to include in the final watch extension bundle.
 
@@ -1696,23 +1658,20 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .allowedFileTypes(FileType.of(".mobileprovision"))
                   .value(
-                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-                        @Override
-                        public Label resolve(
-                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                          AppleConfiguration appleConfiguration =
-                              configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != ApplePlatform.IOS_DEVICE) {
-                            return null;
-                          }
-                          if (rule.isAttributeValueExplicitlySpecified(
-                              WATCH_APP_PROVISIONING_PROFILE_ATTR)) {
-                            return null;
-                          }
-                          return appleConfiguration.getDefaultProvisioningProfileLabel();
-                        }
-                      }))
+                      LateBoundDefault.fromTargetConfiguration(
+                          AppleConfiguration.class,
+                          null,
+                          (rule, attributes, appleConfig) -> {
+                            if (appleConfig.getMultiArchPlatform(PlatformType.IOS)
+                                != ApplePlatform.IOS_DEVICE) {
+                              return null;
+                            }
+                            if (attributes.isAttributeValueExplicitlySpecified(
+                                WATCH_APP_PROVISIONING_PROFILE_ATTR)) {
+                              return null;
+                            }
+                            return appleConfig.getDefaultProvisioningProfileLabel();
+                          })))
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(app_storyboards) -->
           Files which are .storyboard resources for the watch application, possibly
           localizable.

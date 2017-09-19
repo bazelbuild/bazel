@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,10 +44,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -72,28 +69,24 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   public static final String PROTO_TOOLCHAIN_ATTR = ":aspect_proto_toolchain_for_javalite";
 
-  public static Attribute.LateBoundLabel<BuildConfiguration> getProtoToolchainLabel(
-      String defaultValue) {
-    return new Attribute.LateBoundLabel<BuildConfiguration>(
-        defaultValue, ProtoConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJavaLite();
-      }
-    };
+  public static LateBoundDefault<?, Label> getProtoToolchainLabel(String defaultValue) {
+    return LateBoundDefault.fromTargetConfiguration(
+        ProtoConfiguration.class,
+        Label.parseAbsoluteUnchecked(defaultValue),
+        (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJavaLite());
   }
 
   private final JavaSemantics javaSemantics;
 
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
-  private final LateBoundLabel<BuildConfiguration> hostJdkAttribute;
+  private final LateBoundDefault<?, Label> hostJdkAttribute;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
       String defaultProtoToolchainLabel,
-      LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
+      LateBoundDefault<?, Label> hostJdkAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;

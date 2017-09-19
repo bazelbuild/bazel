@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -367,9 +368,7 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      @SuppressWarnings("unchecked")
-      LateBoundDefault<BuildConfiguration> lateBoundDefault =
-        (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
+      LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
 
       Collection<BuildOptions> splitOptions =
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
@@ -452,20 +451,8 @@ public abstract class DependencyResolver {
       throws EvalException, InterruptedException {
     Preconditions.checkArgument(attribute.isLateBound());
 
-    @SuppressWarnings("unchecked")
-    LateBoundDefault<BuildConfiguration> lateBoundDefault =
-      (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
-
-    // TODO(bazel-team): This might be too expensive - can we cache this somehow?
-    if (!lateBoundDefault.getRequiredConfigurationFragments().isEmpty()) {
-      if (!config.hasAllFragments(lateBoundDefault.getRequiredConfigurationFragments())) {
-        return ImmutableList.<Label>of();
-      }
-    }
-
-    // TODO(bazel-team): We should check if the implementation tries to access an undeclared
-    // fragment.
-    Object actualValue = lateBoundDefault.resolve(rule, attributeMap, config);
+    Object actualValue =
+        resolveLateBoundDefault(attribute.getLateBoundDefault(), rule, attributeMap, config);
     if (EvalUtils.isNullOrNone(actualValue)) {
       return ImmutableList.<Label>of();
     }
@@ -493,6 +480,29 @@ public abstract class DependencyResolver {
               attribute.getType(),
               EvalUtils.getDataTypeName(actualValue, true)));
     }
+  }
+
+  @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
+  public static <FragmentT, ValueT> ValueT resolveLateBoundDefault(
+      LateBoundDefault<FragmentT, ValueT> lateBoundDefault,
+      Rule rule,
+      AttributeMap attributeMap,
+      BuildConfiguration config) {
+    Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
+    // TODO(b/65746853): remove this when nothing uses it anymore
+    if (BuildConfiguration.class.equals(fragmentClass)) {
+      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(config));
+    }
+    if (Void.class.equals(fragmentClass)) {
+      return lateBoundDefault.resolve(rule, attributeMap, null);
+    }
+    FragmentT fragment =
+        fragmentClass.cast(
+            config.getFragment((Class<? extends BuildConfiguration.Fragment>) fragmentClass));
+    if (fragment == null) {
+      return null;
+    }
+    return lateBoundDefault.resolve(rule, attributeMap, fragment);
   }
 
   /**

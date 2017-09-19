@@ -35,11 +35,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
@@ -112,14 +109,11 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
   public static final String PROTO_JAVACOPTS_KEY = "proto";
 
-  LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(JavaConfiguration.class).getToolchainLabel();
-        }
-      };
+  LateBoundDefault<?, Label> JAVA_TOOLCHAIN =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
+          (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
 
   /**
    * Name of the output group used for source jars.
@@ -135,111 +129,86 @@ public interface JavaSemantics {
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /** Implementation for the :jvm attribute. */
-  static LateBoundLabel<BuildConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(Jvm.class).getJvmLabel();
-      }
-    };
+  static LateBoundDefault<?, Label> jvmAttribute(RuleDefinitionEnvironment env) {
+    return LateBoundDefault.fromTargetConfiguration(
+        Jvm.class,
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
+        (rule, attributes, jvm) -> jvm.getJvmLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
-  static LateBoundLabel<BuildConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
-      @Override
-      public boolean useHostConfiguration() {
-        return true;
-      }
-
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(Jvm.class).getJvmLabel();
-      }
-    };
+  static LateBoundDefault<?, Label> hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return LateBoundDefault.fromHostConfiguration(
+        Jvm.class,
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
+        (rule, attributes, jvm) -> jvm.getJvmLabel());
   }
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // This nullness check is purely for the sake of a test that doesn't bother to include an
-          // attribute map when calling this method.
-          if (attributes != null) {
-            // Don't depend on the launcher if we don't create an executable anyway
-            if (attributes.has("create_executable")
-                && !attributes.get("create_executable", Type.BOOLEAN)) {
-              return null;
+  LateBoundDefault<?, Label> JAVA_LAUNCHER =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> {
+            // This nullness check is purely for the sake of a test that doesn't bother to include
+            // an
+            // attribute map when calling this method.
+            if (attributes != null) {
+              // Don't depend on the launcher if we don't create an executable anyway
+              if (attributes.has("create_executable")
+                  && !attributes.get("create_executable", Type.BOOLEAN)) {
+                return null;
+              }
+
+              // don't read --java_launcher if this target overrides via a launcher attribute
+              if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
+                return attributes.get("launcher", LABEL);
+              }
             }
+            return javaConfig.getJavaLauncherLabel();
+          });
 
-            // don't read --java_launcher if this target overrides via a launcher attribute
-            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
-              return attributes.get("launcher", LABEL);
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  LateBoundDefault<?, List<Label>> JAVA_PLUGINS =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, configuration) -> ImmutableList.copyOf(configuration.getPlugins()));
+
+  /** Implementation for the :proguard attribute. */
+  LateBoundDefault<?, Label> PROGUARD =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
+
+  LateBoundDefault<?, List<Label>> EXTRA_PROGUARD_SPECS =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) ->
+              ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
+
+  LateBoundDefault<?, List<Label>> BYTECODE_OPTIMIZERS =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) -> {
+            // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
+            JavaOptimizationMode optMode = javaConfig.getJavaOptimizationMode();
+            boolean hasProguardSpecs =
+                attributes.has("proguard_specs")
+                    && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
+            if (optMode == JavaOptimizationMode.NOOP
+                || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
+              return ImmutableList.<Label>of();
             }
-          }
-          return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
-        }
-      };
-
-  LateBoundLabelList<BuildConfiguration> JAVA_PLUGINS =
-      new LateBoundLabelList<BuildConfiguration>() {
-        @Override
-        public List<Label> resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return ImmutableList.copyOf(configuration.getPlugins());
-        }
-      };
-
-  /**
-   * Implementation for the :proguard attribute.
-   */
-  LateBoundLabel<BuildConfiguration> PROGUARD =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(JavaConfiguration.class).getProguardBinary();
-        }
-      };
-
-  LateBoundLabelList<BuildConfiguration> EXTRA_PROGUARD_SPECS =
-      new LateBoundLabelList<BuildConfiguration>() {
-        @Override
-        public List<Label> resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return ImmutableList.copyOf(
-              configuration.getFragment(JavaConfiguration.class).getExtraProguardSpecs());
-        }
-      };
-
-  LateBoundLabelList<BuildConfiguration> BYTECODE_OPTIMIZERS =
-      new LateBoundLabelList<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public List<Label> resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
-          JavaOptimizationMode optMode =
-              configuration.getFragment(JavaConfiguration.class).getJavaOptimizationMode();
-          boolean hasProguardSpecs = attributes.has("proguard_specs")
-              && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-          if (optMode == JavaOptimizationMode.NOOP
-              || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
-            return ImmutableList.<Label>of();
-          }
-          return ImmutableList.copyOf(
-              Optional.presentInstances(
-                  configuration
-                      .getFragment(JavaConfiguration.class)
-                      .getBytecodeOptimizers()
-                      .values()));
-        }
-      };
+            return ImmutableList.copyOf(
+                Optional.presentInstances(javaConfig.getBytecodeOptimizers().values()));
+          });
 
   String IJAR_LABEL = "//tools/defaults:ijar";
 

@@ -27,9 +27,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -140,21 +139,16 @@ public class IosTestRule implements RuleDefinition {
             attr(IosTest.OBJC_GCOV_ATTR, LABEL)
                 .cfg(HOST)
                 .value(env.getToolsLabel("//tools/objc:gcov")))
+        // TODO(b/65746853): provide a way to do this without passing the entire configuration
         .add(
             attr(IosTest.MCOV_TOOL_ATTR, LABEL)
                 .cfg(HOST)
                 .value(
-                    new LateBoundLabel<BuildConfiguration>(mcov) {
-                      @Override
-                      public Label resolve(
-                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                        if (!configuration.isCodeCoverageEnabled()) {
-                          return null;
-                        }
-
-                        return mcov;
-                      }
-                    }))
+                    LateBoundDefault.fromTargetConfiguration(
+                        BuildConfiguration.class,
+                        mcov,
+                        (rule, attributes, configuration) ->
+                            configuration.isCodeCoverageEnabled() ? mcov : null)))
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }

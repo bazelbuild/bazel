@@ -74,7 +74,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.rules.Alias.AliasRule;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
@@ -464,8 +464,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(Builder builder) {
-          LateBoundLabel<BuildConfiguration> hostJdkAttribute =
-              JavaSemantics.hostJdkAttribute(builder);
+          LateBoundDefault<?, Label> hostJdkAttribute = JavaSemantics.hostJdkAttribute(builder);
           BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect(hostJdkAttribute);
           BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect =
               new BazelJavaLiteProtoAspect(hostJdkAttribute);

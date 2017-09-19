@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -191,17 +191,12 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_images/emulator-meta-data.pb");
   static final FileType APK = FileType.of(".apk");
 
-  /**
-   * The default label of android_sdk option
-   */
-  public static final class AndroidSdkLabel extends LateBoundLabel<BuildConfiguration> {
-    public AndroidSdkLabel(Label androidSdk) {
-      super(androidSdk, AndroidConfiguration.class);
-    }
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      return configuration.getFragment(AndroidConfiguration.class).getSdk();
-    }
+  /** The default label of android_sdk option */
+  public static LateBoundDefault<?, Label> getAndroidSdkLabel(Label androidSdk) {
+    return LateBoundDefault.fromTargetConfiguration(
+        AndroidConfiguration.class,
+        androidSdk,
+        (rule, attributes, configuration) -> configuration.getSdk());
   }
 
   public static final SplitTransition<BuildOptions> ANDROID_SPLIT_TRANSITION =
@@ -555,7 +550,7 @@ public final class AndroidRuleClasses {
           .add(
               attr(":android_sdk", LABEL)
                   .allowedRuleClasses("android_sdk", "filegroup")
-                  .value(new AndroidSdkLabel(env.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
+                  .value(getAndroidSdkLabel(env.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           Every <code>java_plugin</code> specified in

@@ -42,15 +42,12 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -73,36 +70,30 @@ public class BazelCppRuleClasses {
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
 
-  public static final LateBoundLabel<BuildConfiguration> STL =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return getStl(rule, configuration);
-        }
-      };
-
   /**
    * Returns the STL prerequisite of the rule.
    *
-   * <p>If rule has an implicit $stl_default attribute returns STL version set on the
-   * command line or if not set, the value of the $stl_default attribute. Returns
-   * {@code null} otherwise.
+   * <p>If rule has an implicit $stl_default attribute returns STL version set on the command line
+   * or if not set, the value of the $stl_default attribute. Returns {@code null} otherwise.
    */
-  private static Label getStl(Rule rule, BuildConfiguration original) {
-    Label stl = null;
-    if (rule.getRuleClassObject().hasAttr("$stl_default", BuildType.LABEL)) {
-      Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
-      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl_default", BuildType.LABEL);
-      if (stlConfigLabel == null) {
-        stl = stlRuleLabel;
-      } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
-        // prevents self-reference and a cycle through standard STL in the dependency graph
-        stl = stlConfigLabel;
-      }
-    }
-    return stl;
-  }
+  public static final LateBoundDefault<?, Label> STL =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            Label stl = null;
+            if (attributes.has("$stl_default", BuildType.LABEL)) {
+              Label stlConfigLabel = cppConfig.getStl();
+              Label stlRuleLabel = attributes.get("$stl_default", BuildType.LABEL);
+              if (stlConfigLabel == null) {
+                stl = stlRuleLabel;
+              } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
+                // prevents self-reference and a cycle through standard STL in the dependency graph
+                stl = stlConfigLabel;
+              }
+            }
+            return stl;
+          });
 
   static final FileTypeSet ALLOWED_SRC_FILES =
       FileTypeSet.of(
@@ -421,14 +412,14 @@ public class BazelCppRuleClasses {
   }
 
   /** Implementation for the :lipo_context attribute. */
-  static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
-          return (rule == null || rule.getLabel().equals(result)) ? null : result;
-        }
-      };
+  static final LateBoundDefault<?, Label> LIPO_CONTEXT =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            Label result = cppConfig.getLipoContextLabel();
+            return (rule == null || rule.getLabel().equals(result)) ? null : result;
+          });
 
   /**
    * Helper rule class.

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
 import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.analysis.util.TestAspects.EMPTY_LATE_BOUND_LABEL;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.skyframe.AspectValue;
@@ -426,7 +426,8 @@ public class AspectTest extends AnalysisTestCase {
       @Override
       public AspectDefinition getDefinition(AspectParameters params) {
         return new AspectDefinition.Builder(this)
-            .add(attr(":late", LABEL).value(EMPTY_LATE_BOUND_LABEL)).build();
+            .add(attr(":late", LABEL).value(LateBoundDefault.alwaysNull()))
+            .build();
       }
 
       @Override
@@ -448,10 +449,9 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   /**
-   * An Aspect has a late-bound attribute with no value (that is, a LateBoundLabel whose
-   * getDefault() returns `null`).
-   * Test that this attribute is available in the RuleContext which is provided to the Aspect's
-   * `create()` method.
+   * An Aspect has a late-bound attribute with no value (that is, a LateBoundDefault whose
+   * getDefault() returns `null`). Test that this attribute is available in the RuleContext which is
+   * provided to the Aspect's `create()` method.
    */
   @Test
   public void emptyAspectAttributesAreAvailableInRuleContext() throws Exception {

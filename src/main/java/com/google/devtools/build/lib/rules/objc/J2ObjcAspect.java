@@ -37,18 +37,15 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -105,13 +102,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   protected static final ImmutableList<String> J2OBJC_PLUGIN_PARAMS =
       ImmutableList.of("file_dir_mapping", "generate_class_mappings");
 
-  private static final LateBoundLabel<BuildConfiguration> DEAD_CODE_REPORT =
-      new LateBoundLabel<BuildConfiguration>(J2ObjcConfiguration.class) {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      return configuration.getFragment(J2ObjcConfiguration.class).deadCodeReport().orNull();
-    }
-  };
+  private static final LateBoundDefault<?, Label> DEAD_CODE_REPORT =
+      LateBoundDefault.fromTargetConfiguration(
+          J2ObjcConfiguration.class,
+          null,
+          (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport().orNull());
 
   /** Adds additional attribute aspects and attributes to the given AspectDefinition.Builder. */
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
@@ -182,14 +177,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
+        .add(attr(":dead_code_report", LABEL).cfg(HOST).value(DEAD_CODE_REPORT))
         .add(
-            attr(":dead_code_report", LABEL)
-                .cfg(HOST)
-                .value(DEAD_CODE_REPORT))
-        .add(attr("$jre_lib", LABEL)
-            .value(
-                Label.parseAbsoluteUnchecked(
-                    toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
+            attr("$jre_lib", LABEL)
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$protobuf_lib", LABEL)
                 .value(
@@ -210,7 +203,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .allowedRuleClasses("xcode_config")
                 .checkConstraints()
                 .direct_compile_time_input()
-                .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)))
+                .value(AppleToolchain.getXcodeConfigLabel(toolsRepository)))
         .add(
             attr("$zipper", LABEL)
                 .cfg(HOST)
@@ -224,8 +217,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_proto_blacklist"))))
         .add(attr(":j2objc_cc_toolchain", LABEL).value(ObjcRuleClasses.APPLE_TOOLCHAIN))
         .add(
+            // Objc builds do not use a lipo context collector, but must specify the attribute as
+            // a late-bound attribute to match with the similar attribute on the cc rules.
+            // TODO(b/28084560): Allow :lipo_context_collector not to be set instead of having a
+            // null instance.
             attr(":lipo_context_collector", LABEL)
-                .value(ObjcRuleClasses.NULL_LIPO_CONTEXT_COLLECTOR)
+                .value(LateBoundDefault.alwaysNull())
                 .skipPrereqValidatorCheck())
         .build();
   }

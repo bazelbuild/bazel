@@ -146,7 +146,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                 attr(":dex_archive_android_sdk", LABEL)
                     .allowedRuleClasses("android_sdk", "filegroup")
                     .value(
-                        new AndroidRuleClasses.AndroidSdkLabel(
+                        AndroidRuleClasses.getAndroidSdkLabel(
                             Label.parseAbsoluteUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)

@@ -51,9 +51,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
@@ -71,13 +69,6 @@ import java.util.List;
  * and {@link com.google.devtools.build.lib.analysis.AspectTest}.
  */
 public class TestAspects {
-
-  public static final LateBoundLabel EMPTY_LATE_BOUND_LABEL = new LateBoundLabel<Object>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, Object configuration) {
-      return null;
-    }
-  };
 
   /**
    * A transitive info provider for collecting aspects in the transitive closure. Created by
@@ -999,14 +990,12 @@ public class TestAspects {
    * Rule with a late-bound dependency.
    */
   public static class LateBoundDepRule implements RuleDefinition {
-    private static final LateBoundLabelList<BuildConfiguration> PLUGINS_LABEL_LIST =
-        new LateBoundLabelList<BuildConfiguration>() {
-          @Override
-          public List<Label> resolve(Rule rule, AttributeMap attributes,
-              BuildConfiguration configuration) {
-            return configuration.getPlugins();
-          }
-        };
+    // TODO(b/65746853): provide a way to do this without passing the entire configuration
+    private static final LateBoundDefault<?, List<Label>> PLUGINS_LABEL_LIST =
+        LateBoundDefault.fromTargetConfiguration(
+            BuildConfiguration.class,
+            ImmutableList.of(),
+            (rule, attributes, configuration) -> configuration.getPlugins());
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {

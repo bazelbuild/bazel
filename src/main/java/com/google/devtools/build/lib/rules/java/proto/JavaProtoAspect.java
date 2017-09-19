@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,10 +43,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -71,17 +68,13 @@ import javax.annotation.Nullable;
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
   private static final String SPEED_PROTO_TOOLCHAIN_ATTR = ":aspect_java_proto_toolchain";
-  private final LateBoundLabel<BuildConfiguration> hostJdkAttribute;
+  private final LateBoundDefault<?, Label> hostJdkAttribute;
 
-  private static Attribute.LateBoundLabel<BuildConfiguration> getSpeedProtoToolchainLabel(
-      String defaultValue) {
-    return new Attribute.LateBoundLabel<BuildConfiguration>(
-        defaultValue, ProtoConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJava();
-      }
-    };
+  private static LateBoundDefault<?, Label> getSpeedProtoToolchainLabel(String defaultValue) {
+    return LateBoundDefault.fromTargetConfiguration(
+        ProtoConfiguration.class,
+        Label.parseAbsoluteUnchecked(defaultValue),
+        (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJava());
   }
 
   private final JavaSemantics javaSemantics;
@@ -95,7 +88,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       @Nullable String jacocoLabel,
       RpcSupport rpcSupport,
       String defaultSpeedProtoToolchainLabel,
-      LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
+      LateBoundDefault<?, Label> hostJdkAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.rpcSupport = rpcSupport;

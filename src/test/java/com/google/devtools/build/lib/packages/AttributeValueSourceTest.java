@@ -22,12 +22,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.syntax.EvalException;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Set;
 
 /**
  * Test class for {@link AttributeValueSource}.
@@ -126,30 +123,7 @@ public class AttributeValueSourceTest {
               });
 
   private static final Attribute.Builder<?> LATE_BOUND_BUILDER =
-      attr(":x", STRING)
-          .value(
-              new LateBoundDefault<String>() {
-                @Override
-                public boolean useHostConfiguration() {
-                  return false;
-                }
-
-                @Override
-                public Set<Class<?>> getRequiredConfigurationFragments() {
-                  return null;
-                }
-
-                @Override
-                public Object getDefault() {
-                  return null;
-                }
-
-                @Override
-                public Object resolve(Rule rule, AttributeMap attributes, String o)
-                    throws EvalException, InterruptedException {
-                  return null;
-                }
-              });
+      attr(":x", STRING).value(LateBoundDefault.alwaysNull());
 
   private static final Attribute.Builder<?> DIRECT_BUILDER = attr("x", STRING).value("value");
 }
