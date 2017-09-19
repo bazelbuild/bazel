@@ -1691,7 +1691,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs =['bin.java'],",
         "               )");
 
-    // TODO(b/37087277): Add a configuration flag once this behavior is no longer the default.
+    useConfiguration("--experimental_android_include_library_resource_jars");
 
     Action deployJarAction =
         getGeneratingAction(

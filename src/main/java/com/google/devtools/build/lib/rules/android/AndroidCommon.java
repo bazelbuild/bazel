@@ -541,7 +541,7 @@ public class AndroidCommon {
       boolean addCoverageSupport,
       boolean collectJavaCompilationArgs,
       boolean isBinary,
-      boolean includeLibraryResourceJars)
+      NestedSet<Artifact> excludedRuntimeArtifacts)
       throws InterruptedException, RuleErrorException {
 
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
@@ -572,6 +572,10 @@ public class AndroidCommon {
       DataBinding.addAnnotationProcessor(ruleContext, attributes);
     }
 
+    if (excludedRuntimeArtifacts != null) {
+      attributes.addExcludedArtifacts(excludedRuntimeArtifacts);
+    }
+
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
@@ -586,14 +590,10 @@ public class AndroidCommon {
       compileResources(javaSemantics, resourceApk, resourcesJar, artifactsBuilder, attributes,
           filesBuilder, useRClassGenerator);
 
-      // In binary targets, add the resource jar as a runtime dependency. In libraries, the resource
-      // jar from the appropriate binary will be used, but add this jar anyway if requested.
-      if (isBinary || includeLibraryResourceJars) {
-        // Combined resource constants needs to come even before our own classes that may contain
-        // local resource constants.
-        artifactsBuilder.addRuntimeJar(resourceClassJar);
-        jarsProducedForRuntime.add(resourceClassJar);
-      }
+      // Combined resource constants needs to come even before our own classes that may contain
+      // local resource constants.
+      artifactsBuilder.addRuntimeJar(resourceClassJar);
+      jarsProducedForRuntime.add(resourceClassJar);
 
       if (resourceApk.isLegacy()) {
         // Repackages the R.java for each dependency package and places the resultant jars before

@@ -222,7 +222,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */));
     }
 
-    AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
 
     JavaTargetAttributes javaTargetAttributes = androidCommon.init(
         javaSemantics,
@@ -231,7 +230,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         false /* addCoverageSupport */,
         true /* collectJavaCompilationArgs */,
         false /* isBinary */,
-        androidConfig.includeLibraryResourceJars());
+        null /* excludedRuntimeArtifacts */);
     if (javaTargetAttributes == null) {
       return null;
     }

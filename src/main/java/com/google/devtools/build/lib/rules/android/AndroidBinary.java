@@ -311,6 +311,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     boolean shrinkResources = shouldShrinkResources(ruleContext);
 
+    NestedSet<Artifact> excludedRuntimeArtifacts = null;
+    if (!androidConfig.includeLibraryResourceJars()) {
+      // Remove the library resource JARs from the binary's runtime classpath.
+      // Resource classes from android_library dependencies are replaced by the binary's resource
+      // class. We remove them only at the top level so that resources included by a library that is
+      // a dependency of a java_library are still included, since these resources are propagated via
+      // android-specific providers and won't show up when we collect the library resource JARs.
+      excludedRuntimeArtifacts = getLibraryResourceJars(ruleContext);
+    }
+
     JavaTargetAttributes resourceClasses = androidCommon.init(
         javaSemantics,
         androidSemantics,
@@ -318,7 +328,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration().isCodeCoverageEnabled(),
         true /* collectJavaCompilationArgs */,
         true, /* isBinary */
-        androidConfig.includeLibraryResourceJars());
+        excludedRuntimeArtifacts);
     ruleContext.assertNoErrors();
 
     Function<Artifact, Artifact> derivedJarFunction =
@@ -689,19 +699,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // The resources jars from android_library rules contain stub ids, so filter those out of the
     // transitive jars.
-    Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
-        AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
-
-    NestedSetBuilder<Artifact> libraryResourceJarsBuilder = NestedSetBuilder.naiveLinkOrder();
-    for (AndroidLibraryResourceClassJarProvider provider : libraryResourceJarProviders) {
-      libraryResourceJarsBuilder.addTransitive(provider.getResourceClassJars());
-    }
-    NestedSet<Artifact> libraryResourceJars = libraryResourceJarsBuilder.build();
-
     Iterable<Artifact> filteredJars =
         Streams.stream(jars)
-            .filter(not(in(libraryResourceJars.toSet())))
+            .filter(not(in(getLibraryResourceJars(ruleContext).toSet())))
             .collect(toImmutableList());
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -718,6 +718,18 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             debugKeystore);
 
     ruleContext.registerAction(manifestAction);
+  }
+
+  private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
+    Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
+
+    NestedSetBuilder<Artifact> libraryResourceJarsBuilder = NestedSetBuilder.naiveLinkOrder();
+    for (AndroidLibraryResourceClassJarProvider provider : libraryResourceJarProviders) {
+      libraryResourceJarsBuilder.addTransitive(provider.getResourceClassJars());
+    }
+    return libraryResourceJarsBuilder.build();
   }
 
   /** Generates an uncompressed _deploy.jar of all the runtime jars. */
