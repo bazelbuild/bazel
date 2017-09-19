@@ -51,3 +51,11 @@ cc_library(
     hdrs = ["bash_launcher.h"],
     deps = [":launcher_base"],
 )
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//src/tools/launcher/util:all_windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
+)

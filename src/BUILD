@@ -447,3 +447,33 @@ genrule(
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//src/test/cpp:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/docgen:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/skyframe:all_windows_tests",
+        "//src/test/java/com/google/devtools/common/options:all_windows_tests",
+        "//src/test/native:all_windows_tests",
+        "//src/test/py/bazel:all_windows_tests",
+        "//src/test/shell/bazel:bazel_bootstrap_distfile_test",
+        "//src/test/shell/bazel:bazel_windows_example_test",
+        "//src/tools/launcher:all_windows_tests",
+        # TODO(laszlocsomor): uncomment the line below after I added the
+        # corresponding target to the third_party package on GitHub.
+        # "//third_party/def_parser:all_windows_tests",
+    ],
+)

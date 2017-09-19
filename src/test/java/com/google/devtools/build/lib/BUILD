@@ -1387,3 +1387,33 @@ test_suite(
     name = "others",
     tags = ["-" + n for n in TEST_SUITES],
 )
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/analysis/platform:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/rules/android:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/rules/apple:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/rules/config:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/rules/platform:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/rules/repository:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skylark:all_windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
+)
