@@ -136,7 +136,7 @@ dependencies.
 
 The attributes in the target explicitly state its dependencies and options.
 While the `name` attribute is mandatory, many are optional. For example, in the
-`hello-greet` target, `name` is self-explanatory, and `srcs` specifies the
+`hello-world` target, `name` is self-explanatory, and `srcs` specifies the
 source file(s) from which Bazel builds the target.
 
 ### Build the project
