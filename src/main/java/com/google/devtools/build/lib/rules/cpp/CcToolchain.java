@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -58,7 +60,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Implementation for the cc_toolchain rule.
@@ -526,7 +527,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
     return dep != null
         ? getFiles(context, attribute)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+        : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   private MakeVariableInfo createMakeVariableProvider(
@@ -546,16 +547,34 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a map that should be templated into the crosstool as build variables. Is meant to
-   * be overridden by subclasses of CcToolchain.
+   * Returns {@link Variables} instance with build variables that only depend on the toolchain.
    *
    * @param ruleContext the rule context
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+  private final Variables getBuildVariables(RuleContext ruleContext) throws RuleErrorException {
+    Variables.Builder variables = new Variables.Builder();
+
+    PathFragment sysroot = calculateSysroot(ruleContext);
+    if (sysroot != null) {
+      variables.addStringVariable(CppModel.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
+    }
+
+    addBuildVariables(ruleContext, variables);
+
+    return variables.build();
+  }
+
+  /**
+   * Add local build variables from subclasses into {@link Variables} returned from {@link
+   * #getBuildVariables(RuleContext)}.
+   *
+   * <p>This method is meant to be overridden by subclasses of CcToolchain.
+   */
+  protected void addBuildVariables(RuleContext ruleContext, Builder variables)
       throws RuleErrorException {
-    return ImmutableMap.<String, String>of();
+    // To be overridden in subclasses.
   }
 
   /**

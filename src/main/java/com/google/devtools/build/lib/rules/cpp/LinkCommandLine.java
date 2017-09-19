@@ -397,8 +397,7 @@ public final class LinkCommandLine extends CommandLine {
     argv.addAll(
         featureConfiguration.getCommandLine(
             actionName,
-            new Variables.Builder()
-                .addAll(variables)
+            new Variables.Builder(variables)
                 .addStringSequenceVariable(
                     CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
                 .build()));

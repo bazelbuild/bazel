@@ -716,7 +716,7 @@ public class CppLinkActionBuilder {
             : null;
 
     // Add build variables necessary to template link args into the crosstool.
-    Variables.Builder buildVariablesBuilder = new Variables.Builder();
+    Variables.Builder buildVariablesBuilder = new Variables.Builder(toolchain.getBuildVariables());
     CppLinkVariablesExtension variablesExtension =
         isLtoIndexing
             ? new CppLinkVariablesExtension(
@@ -1450,11 +1450,6 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(FORCE_PIC_VARIABLE, "");
       }
 
-      if (toolchain.getSysroot() != null) {
-        buildVariables.addStringVariable(
-            CppModel.SYSROOT_VARIABLE_NAME, toolchain.getSysroot().getPathString());
-      }
-
       if (cppConfiguration.shouldStripBinaries()) {
         buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
       }
@@ -1551,10 +1546,6 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(DEF_FILE_PATH_VARIABLE, defFile.getExecPathString());
       }
 
-      // Variables arising from the toolchain
-      buildVariables
-          .addAllStringVariables(toolchain.getBuildVariables())
-          .build();
       fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
     }
 

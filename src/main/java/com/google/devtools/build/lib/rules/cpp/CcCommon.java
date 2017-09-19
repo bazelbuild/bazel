@@ -692,9 +692,7 @@ public final class CcCommon {
       return null;
     }
 
-    Variables buildVariables = new Variables.Builder()
-        .addAllStringVariables(toolchainProvider.getBuildVariables())
-        .build();
+    Variables buildVariables = toolchainProvider.getBuildVariables();
     String toolchainCcFlags =
         Joiner.on(" ")
             .join(

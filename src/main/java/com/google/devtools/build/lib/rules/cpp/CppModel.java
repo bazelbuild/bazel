@@ -527,7 +527,7 @@ public final class CppModel {
       CppModuleMap cppModuleMap,
       Map<String, String> sourceSpecificBuildVariables) {
     CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder();
+        new CcToolchainFeatures.Variables.Builder(ccToolchain.getBuildVariables());
 
     CppCompilationContext builderContext = builder.getContext();
     Artifact sourceFile = builder.getSourceFile();
@@ -650,13 +650,6 @@ public final class CppModel {
       buildVariables.addStringVariable(
           LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME, ltoIndexingFile.getExecPathString());
     }
-
-    if (ccToolchain.getSysroot() != null) {
-      buildVariables.addStringVariable(
-          SYSROOT_VARIABLE_NAME, ccToolchain.getSysroot().getPathString());
-    }
-
-    buildVariables.addAllStringVariables(ccToolchain.getBuildVariables());
 
     buildVariables.addAllStringVariables(sourceSpecificBuildVariables);
 

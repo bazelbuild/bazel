@@ -108,9 +108,8 @@ public final class CompileCommandLine {
     CcToolchainFeatures.Variables updatedVariables = variables;
     if (variables != null && overwrittenVariables != null) {
       CcToolchainFeatures.Variables.Builder variablesBuilder =
-          new CcToolchainFeatures.Variables.Builder();
-      variablesBuilder.addAll(variables);
-      variablesBuilder.addAndOverwriteAll(overwrittenVariables);
+          new CcToolchainFeatures.Variables.Builder(variables);
+      variablesBuilder.addAllNonTransitive(overwrittenVariables);
       updatedVariables = variablesBuilder.build();
     }
     addFilteredOptions(

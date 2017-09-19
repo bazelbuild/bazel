@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -59,7 +59,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
           CppCompilationContext.EMPTY,
           false,
           false,
-          ImmutableMap.<String, String>of(),
+          Variables.EMPTY,
           ImmutableList.<Artifact>of(),
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
           null,
@@ -87,7 +87,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final CppCompilationContext cppCompilationContext;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final ImmutableMap<String, String> buildVariables;
+  private final Variables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
@@ -116,7 +116,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       CppCompilationContext cppCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      Map<String, String> buildVariables,
+      Variables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
@@ -144,7 +144,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.cppCompilationContext = Preconditions.checkNotNull(cppCompilationContext);
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
-    this.buildVariables = ImmutableMap.copyOf(buildVariables);
+    this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.coverageEnvironment = coverageEnvironment;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
@@ -298,11 +298,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
   public CppConfiguration getCppConfiguration() {
     return cppConfiguration;
   }
-  
-  /**
-   * Returns build variables to be templated into the crosstool.
-   */
-  public ImmutableMap<String, String> getBuildVariables() {
+
+  /** Returns build variables to be templated into the crosstool. */
+  public Variables getBuildVariables() {
     return buildVariables;
   }
 

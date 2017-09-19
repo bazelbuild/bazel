@@ -20,6 +20,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -54,7 +55,7 @@ public class CcToolchainProviderTest {
             CppCompilationContext.EMPTY,
             false,
             false,
-            ImmutableMap.<String, String>of(),
+            Variables.EMPTY,
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
             null,
@@ -84,7 +85,7 @@ public class CcToolchainProviderTest {
             CppCompilationContext.EMPTY,
             false,
             false,
-            ImmutableMap.<String, String>of(),
+            Variables.EMPTY,
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
             null,

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+  protected void addBuildVariables(RuleContext ruleContext, Variables.Builder variables)
       throws RuleErrorException {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
@@ -67,44 +68,44 @@ public class AppleCcToolchain extends CcToolchain {
 
     Map<String, String> appleEnv = getEnvironmentBuildVariables(ruleContext);
 
-    return ImmutableMap.<String, String>builder()
-        .put(
+    variables
+        .addStringVariable(
             XCODE_VERSION_KEY,
             XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
-        .put(
+        .addStringVariable(
             IOS_SDK_VERSION_KEY,
             XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.IOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
-        .put(
+        .addStringVariable(
             MACOS_SDK_VERSION_KEY,
             XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.MACOS)
                 .toStringWithMinimumComponents(2))
-        .put(
+        .addStringVariable(
             TVOS_SDK_VERSION_KEY,
             XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.TVOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
-        .put(
+        .addStringVariable(
             WATCHOS_SDK_VERSION_KEY,
             XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.WATCHOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
-        .put(SDK_DIR_KEY, AppleToolchain.sdkDir())
-        .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, ruleContext))
-        .put(
+        .addStringVariable(SDK_DIR_KEY, AppleToolchain.sdkDir())
+        .addStringVariable(
+            SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, ruleContext))
+        .addStringVariable(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
             AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
-        .put(
+        .addStringVariable(
             XCODE_VERISON_OVERRIDE_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.XCODE_VERSION_ENV_NAME, ""))
-        .put(
+        .addStringVariable(
             APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, ""))
-        .put(
+        .addStringVariable(
             APPLE_SDK_PLATFORM_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
-        .put(
+        .addStringVariable(
             VERSION_MIN_KEY,
-            XcodeConfig.getMinimumOsForPlatformType(ruleContext, platform.getType()).toString())
-        .build();
+            XcodeConfig.getMinimumOsForPlatformType(ruleContext, platform.getType()).toString());
   }
 
   @Override
