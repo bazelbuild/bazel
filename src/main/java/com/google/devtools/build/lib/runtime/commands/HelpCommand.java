@@ -85,8 +85,8 @@ public final class HelpCommand implements BlazeCommand {
       category = "help",
       defaultValue = "medium",
       converter = Converters.HelpVerbosityConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "Select the verbosity of the help command."
     )
     public OptionsParser.HelpVerbosity helpVerbosity;
@@ -97,8 +97,8 @@ public final class HelpCommand implements BlazeCommand {
       defaultValue = "null",
       category = "help",
       expansion = {"--help_verbosity=long"},
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "Show full description of each option, instead of just its name."
     )
     public Void showLongFormOptions;
@@ -108,8 +108,8 @@ public final class HelpCommand implements BlazeCommand {
       defaultValue = "null",
       category = "help",
       expansion = {"--help_verbosity=short"},
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "Show only the names of the options, not their types or meanings."
     )
     public Void showShortFormOptions;

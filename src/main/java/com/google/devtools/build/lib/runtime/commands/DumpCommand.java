@@ -67,8 +67,8 @@ public class DumpCommand implements BlazeCommand {
       name = "packages",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump package cache content."
     )
     public boolean dumpPackages;
@@ -77,8 +77,8 @@ public class DumpCommand implements BlazeCommand {
       name = "vfs",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump virtual filesystem cache content."
     )
     public boolean dumpVfs;
@@ -87,8 +87,8 @@ public class DumpCommand implements BlazeCommand {
       name = "action_cache",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump action cache content."
     )
     public boolean dumpActionCache;
@@ -97,8 +97,8 @@ public class DumpCommand implements BlazeCommand {
       name = "rule_classes",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump rule classes."
     )
     public boolean dumpRuleClasses;
@@ -108,8 +108,8 @@ public class DumpCommand implements BlazeCommand {
       defaultValue = "off",
       category = "verbosity",
       converter = SkyframeDumpEnumConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump Skyframe graph: 'off', 'summary', or 'detailed'."
     )
     public SkyframeDumpOption dumpSkyframe;

@@ -96,12 +96,12 @@ public class RunCommand implements BlazeCommand  {
       name = "script_path",
       category = "run",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.EXECUTION},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "If set, write a shell script to the given file which invokes the "
-              + "target. If this option is set, the target is not run from %{product}. "
+          "If set, write a shell script to the given file which invokes the target. "
+              + "If this option is set, the target is not run from %{product}. "
               + "Use '%{product} run --script_path=foo //foo && ./foo' to invoke target '//foo' "
               + "This differs from '%{product} run //foo' in that the %{product} lock is released "
               + "and the executable is connected to the terminal's stdin."

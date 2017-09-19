@@ -62,8 +62,8 @@ public final class CleanCommand implements BlazeCommand {
       name = "clean_style",
       defaultValue = "",
       category = "clean",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "Can be 'expunge', 'expunge_async', or 'async'."
     )
     public String cleanStyle;
@@ -73,8 +73,8 @@ public final class CleanCommand implements BlazeCommand {
       defaultValue = "null",
       category = "clean",
       expansion = "--clean_style=expunge",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If specified, clean removes the entire working tree for this %{product} "
               + "instance, which includes all %{product}-created temporary and build output "
@@ -87,8 +87,8 @@ public final class CleanCommand implements BlazeCommand {
       defaultValue = "null",
       category = "clean",
       expansion = "--clean_style=expunge_async",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If specified, clean asynchronously removes the entire working tree for "
               + "this %{product} instance, which includes all %{product}-created temporary and "
@@ -103,8 +103,8 @@ public final class CleanCommand implements BlazeCommand {
       defaultValue = "null",
       category = "clean",
       expansion = "--clean_style=async",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If specified, clean asynchronously removes the entire working tree for "
               + "this %{product} instance, which includes all %{product}-created temporary and "

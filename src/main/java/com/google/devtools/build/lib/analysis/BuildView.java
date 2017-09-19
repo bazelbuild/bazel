@@ -186,8 +186,8 @@ public class BuildView {
       abbrev = 'k',
       defaultValue = "false",
       category = "strategy",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "Continue as much as possible after an error.  While the target that failed, and those "
               + "that depend on it, cannot be analyzed (or built), the other prerequisites of "

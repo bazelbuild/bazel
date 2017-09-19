@@ -93,4 +93,11 @@ public enum OptionDocumentationCategory {
 
   /** This option relates to query output and semantics. */
   QUERY,
+
+  /**
+   * This option specifies or alters a generic input to a Bazel command. This category should only
+   * be used if the input is generic and does not fall into other categories, such as toolchain-
+   * specific inputs.
+   */
+  GENERIC_INPUTS,
 }
