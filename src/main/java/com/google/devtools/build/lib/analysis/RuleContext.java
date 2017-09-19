@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -239,7 +240,20 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  public RepositoryName getRepository() {
+    return rule.getRepository();
+  }
+
   @Override
+  public Root getBinDirectory() {
+    return getConfiguration().getBinDirectory(rule.getRepository());
+  }
+
+  @Override
+  public Root getMiddlemanDirectory() {
+    return getConfiguration().getMiddlemanDirectory(rule.getRepository());
+  }
+  
   public Rule getRule() {
     return rule;
   }
