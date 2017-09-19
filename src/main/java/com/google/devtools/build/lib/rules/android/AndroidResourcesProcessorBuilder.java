@@ -443,7 +443,9 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
-    if (resourceFilter.shouldPropagateConfigs(ruleContext)) {
+    if (resourceFilter.hasConfigurationFilters()) {
+      // Always pass filters to aapt, even if we filtered in analysis, since aapt is stricter and
+      // might remove resources that we previously accepted.
       builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
     if (resourceFilter.hasDensities()) {
