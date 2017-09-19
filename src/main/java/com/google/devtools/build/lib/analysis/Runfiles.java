@@ -828,9 +828,9 @@ public final class Runfiles {
       return this;
     }
 
-
     /**
      * @deprecated Use {@link #addTransitiveArtifacts} instead, to prevent increased memory use.
+     *     <p>See alse {@link Builder#addTransitiveArtifactsWrappedInStableOrder}
      */
     @Deprecated
     public Builder addArtifacts(NestedSet<Artifact> artifacts) {
@@ -846,6 +846,20 @@ public final class Runfiles {
      */
     public Builder addTransitiveArtifacts(NestedSet<Artifact> artifacts) {
       artifactsBuilder.addTransitive(artifacts);
+      return this;
+    }
+
+    /**
+     * Adds a nested set to the internal collection.
+     *
+     * <p>The nested set will become wrapped in stable order. Only use this when the set of
+     * artifacts will not have conflicting root relative paths, or the wrong artifact will end up in
+     * the runfiles tree.
+     */
+    public Builder addTransitiveArtifactsWrappedInStableOrder(NestedSet<Artifact> artifacts) {
+      NestedSet<Artifact> wrappedArtifacts =
+          NestedSetBuilder.<Artifact>stableOrder().addTransitive(artifacts).build();
+      artifactsBuilder.addTransitive(wrappedArtifacts);
       return this;
     }
 

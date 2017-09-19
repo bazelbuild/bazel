@@ -120,11 +120,11 @@ public class ProtoCommon {
 
   public static Runfiles.Builder createDataRunfilesProvider(
       final NestedSet<Artifact> transitiveProtoSources, RuleContext ruleContext) {
+    // We assume that the proto sources will not have conflicting artifacts
+    // with the same root relative path
     return new Runfiles.Builder(
             ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        // TODO(bazel-team): addArtifacts is deprecated, but addTransitive fails
-        // due to nested set ordering restrictions. Figure this out.
-        .addArtifacts(transitiveProtoSources);
+        .addTransitiveArtifactsWrappedInStableOrder(transitiveProtoSources);
   }
 
   // =================================================================

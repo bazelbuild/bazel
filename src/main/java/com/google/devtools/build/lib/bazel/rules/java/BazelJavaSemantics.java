@@ -535,8 +535,10 @@ public class BazelJavaSemantics implements JavaSemantics {
       Runfiles.Builder runfilesBuilder) {
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport != null) {
-      // Not using addTransitiveArtifacts() due to the mismatch in NestedSet ordering.
-      runfilesBuilder.addArtifacts(getRuntimeJarsForTargets(testSupport));
+      // We assume that the runtime jars will not have conflicting artifacts
+      // with the same root relative path
+      runfilesBuilder.addTransitiveArtifactsWrappedInStableOrder(
+          getRuntimeJarsForTargets(testSupport));
     }
   }
 

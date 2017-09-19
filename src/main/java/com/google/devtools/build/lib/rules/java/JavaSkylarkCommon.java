@@ -443,8 +443,11 @@ public class JavaSkylarkCommon {
         .build();
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true);
-    Runfiles runfiles = new Runfiles.Builder(skylarkRuleContext.getWorkspaceName()).addArtifacts(
-        javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()).build();
+    Runfiles runfiles =
+        new Runfiles.Builder(skylarkRuleContext.getWorkspaceName())
+            .addTransitiveArtifactsWrappedInStableOrder(
+                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars())
+            .build();
 
     JavaPluginInfoProvider transitivePluginsProvider =
         JavaPluginInfoProvider.merge(Iterables.concat(

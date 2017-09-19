@@ -442,7 +442,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       }
     }
 
-    builder.addArtifacts(javaCommon.getRuntimeClasspath());
+    // We assume that the runtime jars will not have conflicting artifacts
+    // with the same root relative path
+    builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
 
     // Add the JDK files if it comes from P4 (see java_stub_template.txt).
     TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);

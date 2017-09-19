@@ -60,9 +60,11 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
 
+    // We assume that the runtime jars will not have conflicting artifacts
+    // with the same root relative path
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addArtifacts(
+            .addTransitiveArtifactsWrappedInStableOrder(
                 dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars())
             .build();
 
