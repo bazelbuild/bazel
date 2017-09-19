@@ -27,15 +27,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
 
   PythonConfiguration(PythonVersion pythonVersion, boolean ignorePythonVersionAttribute) {
     this.ignorePythonVersionAttribute = ignorePythonVersionAttribute;
-
     this.defaultPythonVersion = pythonVersion;
-  }
-
-  /**
-   * Returns the Python version (PY2 or PY3) this configuration uses.
-   */
-  public PythonVersion getDefaultPythonVersion() {
-    return defaultPythonVersion;
   }
 
   /**
