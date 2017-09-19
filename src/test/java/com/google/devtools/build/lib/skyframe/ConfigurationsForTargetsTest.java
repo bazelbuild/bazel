@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -233,7 +234,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   /**
    * Unlike {@link SetMultimap}, {@link ListMultimap} allows duplicate <Key, value> pairs. Make
-   * sure that doesn't fool {@link ConfiguredTargetFunction#putOnlyEntry}.
+   * sure that doesn't fool {@link ConfigurationResolver#putOnlyEntry}.
    */
   @Test
   public void putOnlyEntryCorrectWithListMultimap() throws Exception {
@@ -241,16 +242,16 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   }
 
   private void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
-    ConfiguredTargetFunction.putOnlyEntry(map, "foo", "bar");
-    ConfiguredTargetFunction.putOnlyEntry(map, "baz", "bar");
+    ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
+    ConfigurationResolver.putOnlyEntry(map, "baz", "bar");
     try {
-      ConfiguredTargetFunction.putOnlyEntry(map, "foo", "baz");
+      ConfigurationResolver.putOnlyEntry(map, "foo", "baz");
       fail("Expected an exception when trying to add a new value to an existing key");
     } catch (VerifyException e) {
       assertThat(e).hasMessage("couldn't insert baz: map already has key foo");
     }
     try {
-      ConfiguredTargetFunction.putOnlyEntry(map, "foo", "bar");
+      ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
       fail("Expected an exception when trying to add a pre-existing <key, value> pair");
     } catch (VerifyException e) {
       assertThat(e).hasMessage("couldn't insert bar: map already has key foo");
@@ -313,7 +314,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         .containsExactly("armeabi-v7a", "k8");
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
-        ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING.compare(
+        ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
             Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
             Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
         .isLessThan(0);

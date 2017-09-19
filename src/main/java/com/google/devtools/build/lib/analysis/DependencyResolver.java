@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPath
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
@@ -62,10 +62,10 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-  private final ConfigurationResolver configResolver;
+  private final TransitionResolver transitionResolver;
 
   protected DependencyResolver(DynamicTransitionMapper transitionMapper) {
-    this.configResolver = new ConfigurationResolver(transitionMapper);
+    this.transitionResolver = new TransitionResolver(transitionMapper);
   }
 
   /**
@@ -374,11 +374,11 @@ public abstract class DependencyResolver {
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
       if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
-        // Since we want to get the same results as ConfigurationResolver.evaluateTransition (but
+        // Since we want to get the same results as TransitionResolver.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
-        // doesn't do anything differently. ConfigurationResolver.evaluateTransition has additional
+        // doesn't do anything differently. TransitionResolver.evaluateTransition has additional
         // logic for host configs. So when we're in the host configuration we fall back to the
-        // non-split branch, which calls ConfigurationResolver.evaluateTransition, which returns its
+        // non-split branch, which calls TransitionResolver.evaluateTransition, which returns its
         // "host mode" result without ever looking at the split.
         Iterable<BuildConfiguration> splitConfigs =
             getConfigurations(ruleConfig.fragmentClasses(), splitOptions);
@@ -714,7 +714,7 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
-      Attribute.Transition transition = configResolver.evaluateTransition(
+      Attribute.Transition transition = transitionResolver.evaluateTransition(
           ruleConfig, rule, attributeAndOwner.attribute, toTarget);
       outgoingEdges.put(
           attributeAndOwner.attribute,
@@ -728,7 +728,7 @@ public abstract class DependencyResolver {
      * Resolves the given dep for the given attribute using a pre-prepared configuration.
      *
      * <p>Use this method with care: it skips Bazel's standard config transition semantics ({@link
-     * ConfigurationResolver#evaluateTransition}). That means attributes passed through here won't
+     * TransitionResolver#evaluateTransition}). That means attributes passed through here won't
      * obey standard rules on which configurations apply to their deps. This should only be done for
      * special circumstances that really justify the difference. When in doubt, use {@link
      * #resolveDep(AttributeAndOwner, Label)}.
@@ -741,7 +741,7 @@ public abstract class DependencyResolver {
       }
       outgoingEdges.put(
           attributeAndOwner.attribute,
-          configResolver.usesNullConfiguration(toTarget)
+          transitionResolver.usesNullConfiguration(toTarget)
               ? Dependency.withNullConfiguration(depLabel)
               : Dependency.withTransitionAndAspects(depLabel, new FixedTransition(
                     config.getOptions()), requiredAspects(attributeAndOwner, toTarget)));

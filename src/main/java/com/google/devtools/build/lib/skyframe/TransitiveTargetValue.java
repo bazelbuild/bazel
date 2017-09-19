@@ -126,7 +126,7 @@ public class TransitiveTargetValue implements SkyValue {
    * <p>See
    * {@link com.google.devtools.build.lib.packages.RuleClass.Builder#requiresConfigurationFragments}
    */
-  NestedSet<Class<? extends BuildConfiguration.Fragment>> getTransitiveConfigFragments() {
+  public NestedSet<Class<? extends BuildConfiguration.Fragment>> getTransitiveConfigFragments() {
     return transitiveConfigFragments;
   }
 

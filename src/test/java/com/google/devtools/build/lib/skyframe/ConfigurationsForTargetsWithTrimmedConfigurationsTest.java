@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -58,11 +59,11 @@ import org.junit.runners.JUnit4;
 public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     extends ConfigurationsForTargetsTest {
 
-  private ConfigurationResolver configResolver;
+  private TransitionResolver transitionResolver;
 
   @Before
-  public void createConfigResolver() {
-    configResolver = new ConfigurationResolver(ruleClassProvider.getDynamicTransitionMapper());
+  public void createTransitionResolver() {
+    transitionResolver = new TransitionResolver(ruleClassProvider.getDynamicTransitionMapper());
   }
 
   @Override
@@ -482,7 +483,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private List<String> getTestFilterOptionValue(Transition transition)
       throws Exception {
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
-    for (BuildOptions toOptions : ConfiguredTargetFunction.getDynamicTransitionOptions(
+    for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
         getTargetConfiguration().getOptions(), transition,
         ruleClassProvider.getAllFragments(), ruleClassProvider, false)) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
@@ -494,7 +495,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   public void composedStraightTransitions() throws Exception {
     update(); // Creates the target configuration.
     assertThat(getTestFilterOptionValue(
-        configResolver.composeTransitions(
+        transitionResolver.composeTransitions(
             newPatchTransition("foo"),
             newPatchTransition("bar"))))
         .containsExactly("foobar");
@@ -504,7 +505,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   public void composedStraightTransitionThenSplitTransition() throws Exception {
     update(); // Creates the target configuration.
     assertThat(getTestFilterOptionValue(
-        configResolver.composeTransitions(
+        transitionResolver.composeTransitions(
             newPatchTransition("foo"),
             newSplitTransition("split"))))
         .containsExactly("foosplit1", "foosplit2");
@@ -514,7 +515,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   public void composedSplitTransitionThenStraightTransition() throws Exception {
     update(); // Creates the target configuration.
     assertThat(getTestFilterOptionValue(
-        configResolver.composeTransitions(
+        transitionResolver.composeTransitions(
             newSplitTransition("split"),
             newPatchTransition("foo"))))
         .containsExactly("split1foo", "split2foo");
@@ -524,7 +525,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   public void composedSplitTransitions() throws Exception {
     update(); // Creates the target configuration.
     assertThat(getTestFilterOptionValue(
-        configResolver.composeTransitions(
+        transitionResolver.composeTransitions(
             newSplitTransition("s"),
             newSplitTransition("t"))))
         .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
