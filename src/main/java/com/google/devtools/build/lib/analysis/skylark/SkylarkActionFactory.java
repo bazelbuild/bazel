@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -25,8 +26,8 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -296,7 +298,10 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "command line arguments of the action."
+        doc =
+            "command line arguments of the action. "
+                + "Must be a list of strings or actions.args() objects. "
+                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
       ),
       @Param(
         name = "mnemonic",
@@ -378,15 +383,8 @@ public class SkylarkActionFactory implements SkylarkValue {
     context.checkMutable("actions.run");
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
-    if (arguments instanceof SkylarkList) {
-      SkylarkList skylarkList = ((SkylarkList) arguments);
-      @SuppressWarnings("unchecked")
-      List<String> argumentsContents = skylarkList.getContents(String.class, "arguments");
-      builder.addCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
-    } else {
-      Args args = (Args) arguments;
-      builder.addCommandLine(args.build());
-    }
+    SkylarkList argumentsList = ((SkylarkList) arguments);
+    buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
       builder.addInput(executable);
@@ -451,6 +449,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         positional = false,
         doc =
             "command line arguments of the action. "
+                + "Must be a list of strings or actions.args() objects.<br>"
                 + "Blaze passes the elements in this attribute as arguments to the command."
                 + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
                 + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
@@ -556,26 +555,9 @@ public class SkylarkActionFactory implements SkylarkValue {
     context.checkMutable("actions.run_shell");
 
     // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
+    SkylarkList argumentList = (SkylarkList) arguments;
     SpawnAction.Builder builder = new SpawnAction.Builder();
-    if (arguments instanceof SkylarkList) {
-      CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-      SkylarkList argumentList = (SkylarkList) arguments;
-      if (argumentList.size() > 0) {
-        // When we use a shell command, add an empty argument before other arguments.
-        //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-        // bash will use the empty argument as the value of $0 (which we don't care about).
-        // arg1 and arg2 will be $1 and $2, as a user expects.
-        commandLine.add("");
-      }
-
-      @SuppressWarnings("unchecked")
-      List<String> argumentsContents = argumentList.getContents(String.class, "arguments");
-      commandLine.addAll(argumentsContents);
-      builder.addCommandLine(commandLine.build());
-    } else {
-      Args args = (Args) arguments;
-      builder.addCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
-    }
+    buildCommandLine(builder, argumentList);
 
     if (commandUnchecked instanceof String) {
       Map<String, String> executionInfo =
@@ -609,6 +591,13 @@ public class SkylarkActionFactory implements SkylarkValue {
           "expected string or list of strings for command instead of "
               + EvalUtils.getDataTypeName(commandUnchecked));
     }
+    if (argumentList.size() > 0) {
+      // When we use a shell command, add an empty argument before other arguments.
+      //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+      // bash will use the empty argument as the value of $0 (which we don't care about).
+      // arg1 and arg2 will be $1 and $2, as a user expects.
+      builder.addExecutableArguments("");
+    }
     registerSpawnAction(
         outputs,
         inputs,
@@ -619,6 +608,31 @@ public class SkylarkActionFactory implements SkylarkValue {
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
         builder);
+  }
+
+  private void buildCommandLine(SpawnAction.Builder builder, SkylarkList argumentsList)
+      throws EvalException {
+    List<String> stringArgs = new ArrayList<>();
+    for (Object value : argumentsList) {
+      if (value instanceof String) {
+        stringArgs.add((String) value);
+      } else if (value instanceof Args) {
+        if (!stringArgs.isEmpty()) {
+          builder.addCommandLine(CommandLine.of(stringArgs));
+          stringArgs = new ArrayList<>();
+        }
+        Args args = (Args) value;
+        builder.addCommandLine(args.commandLine.build(), args.paramFileInfo);
+      } else {
+        throw new EvalException(
+            null,
+            "expected list of strings or ctx.actions.args() for arguments instead of "
+                + EvalUtils.getDataTypeName(value));
+      }
+    }
+    if (!stringArgs.isEmpty()) {
+      builder.addCommandLine(CommandLine.of(stringArgs));
+    }
   }
 
   /**
@@ -815,9 +829,11 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "# ]"
             + "</pre>"
   )
-  static class Args {
+  static class Args implements SkylarkValue {
 
+    private final SkylarkRuleContext context;
     private final SkylarkCustomCommandLine.Builder commandLine;
+    private ParamFileInfo paramFileInfo;
 
     @SkylarkSignature(
       name = "add",
@@ -894,6 +910,9 @@ public class SkylarkActionFactory implements SkylarkValue {
               Object mapFn,
               Location loc)
               throws EvalException {
+            if (self.isImmutable()) {
+              throw new EvalException(null, "cannot modify frozen value");
+            }
             if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
               self.addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
             } else {
@@ -960,7 +979,79 @@ public class SkylarkActionFactory implements SkylarkValue {
       }
     }
 
-    public Args(SkylarkSemanticsOptions skylarkSemantics, EventHandler eventHandler) {
+    @SkylarkCallable(
+      name = "use_param_file",
+      doc =
+          "Spills the args to a params file, replacing them with a pointer to the param file. "
+              + "Use when your args may be too large for the system's command length limits ",
+      parameters = {
+        @Param(
+          name = "param_file_arg",
+          type = String.class,
+          named = true,
+          doc =
+              "a format string with a single \"%s\". "
+                  + "If the args are spilled to a params file then they are replaced "
+                  + "with an argument consisting of this string formatted with"
+                  + "the path of the params file."
+        ),
+        @Param(
+          name = "use_always",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "False",
+          doc =
+              "whether to always spill the args to a params file. If false, "
+                  + "bazel will decide whether the arguments need to be spilled "
+                  + "based on your system and arg length."
+        ),
+        @Param(
+          name = "format",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "\"shell\"",
+          doc =
+              "the format of the param file. Must be one of:<br>"
+                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
+                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
+        )
+      }
+    )
+    public void useParamsFile(String paramFileArg, Boolean useAlways, String format)
+        throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      if (!paramFileArg.contains("%s")) {
+        throw new EvalException(
+            null,
+            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
+      }
+      final ParameterFileType parameterFileType;
+      if (format.equals("shell")) {
+        parameterFileType = ParameterFileType.SHELL_QUOTED;
+      } else if (format.equals("multiline")) {
+        parameterFileType = ParameterFileType.UNQUOTED;
+      } else {
+        throw new EvalException(
+            null,
+            "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
+      }
+
+      paramFileInfo =
+          ParamFileInfo.builder(parameterFileType)
+              .setUseAlways(useAlways)
+              .setFlagFormatString(paramFileArg)
+              .build();
+    }
+
+    public Args(
+        SkylarkRuleContext context,
+        SkylarkSemanticsOptions skylarkSemantics,
+        EventHandler eventHandler) {
+      this.context = context;
       this.commandLine = new SkylarkCustomCommandLine.Builder(skylarkSemantics, eventHandler);
     }
 
@@ -968,9 +1059,28 @@ public class SkylarkActionFactory implements SkylarkValue {
       return commandLine.build();
     }
 
+    @Override
+    public boolean isImmutable() {
+      return context.isImmutable();
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("context.args() object");
+    }
+
     static {
       SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
     }
+  }
+
+  @SkylarkCallable(
+    name = "args",
+    doc = "returns an Args object that can be used to build memory-efficient command lines."
+  )
+  public Args args() {
+    return new Args(
+        context, skylarkSemanticsOptions, ruleContext.getAnalysisEnvironment().getEventHandler());
   }
 
   @Override

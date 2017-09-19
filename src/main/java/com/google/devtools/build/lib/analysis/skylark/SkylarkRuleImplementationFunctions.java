@@ -125,6 +125,7 @@ public class SkylarkRuleImplementationFunctions {
         positional = false,
         doc =
             "command line arguments of the action."
+                + "Must be a list of strings or actions.args() objects."
       ),
       @Param(
         name = "mnemonic",

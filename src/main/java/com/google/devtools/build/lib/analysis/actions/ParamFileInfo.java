@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.errorprone.annotations.CompileTimeConstant;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -113,7 +112,7 @@ public final class ParamFileInfo {
      * <p>The format string must have a single "%s" that will be replaced by the execution path to
      * the param file.
      */
-    public Builder setFlagFormatString(@CompileTimeConstant String flagFormatString) {
+    public Builder setFlagFormatString(String flagFormatString) {
       this.flagFormatString = flagFormatString;
       return this;
     }
