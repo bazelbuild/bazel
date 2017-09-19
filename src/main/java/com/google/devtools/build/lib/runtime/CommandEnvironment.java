@@ -570,6 +570,7 @@ public final class CommandEnvironment {
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setOutputService(outputService);
+    skyframeExecutor.noteCommandStart();
 
     // Ensure that the working directory will be under the workspace directory.
     Path workspace = getWorkspace();

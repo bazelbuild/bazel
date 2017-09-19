@@ -534,6 +534,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.outputService = outputService;
   }
 
+  /** Inform this SkyframeExecutor that a new command is starting. */
+  public void noteCommandStart() {}
+
   /**
    * Notify listeners about changed files, and release any associated memory afterwards.
    */
