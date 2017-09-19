@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
@@ -516,7 +517,6 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that depend on a crosstool.
    */
   public static class CrosstoolRule implements RuleDefinition {
-
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -532,6 +532,8 @@ public class ObjcRuleClasses {
               attr(":lipo_context_collector", LABEL)
                   .value(LateBoundDefault.alwaysNull())
                   .skipPrereqValidatorCheck())
+          .addRequiredToolchains(
+              ImmutableList.of(CppHelper.getCcToolchainType(env.getToolsRepository())))
           .build();
     }
 

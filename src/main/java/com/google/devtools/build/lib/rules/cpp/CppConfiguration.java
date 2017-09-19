@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
+import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -225,6 +226,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   private final Label crosstoolTop;
+  private final CrosstoolFile crosstoolFile;
   private final String hostSystemName;
   private final String compiler;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
@@ -336,6 +338,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.targetLibc = toolchain.getTargetLibc();
     this.targetOS = toolchain.getCcTargetOs();
     this.crosstoolTop = params.crosstoolTop;
+    this.crosstoolFile = params.crosstoolFile;
     this.ccToolchainLabel = params.ccToolchainLabel;
     this.stlLabel = params.stlLabel;
     this.compilationMode = params.commonOptions.compilationMode;
@@ -832,6 +835,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
+  }
+
+  /** Returns the contents of the CROSSTOOL for this configuration. */
+  public CrosstoolFile getCrosstoolFile() {
+    return crosstoolFile;
   }
 
   /**

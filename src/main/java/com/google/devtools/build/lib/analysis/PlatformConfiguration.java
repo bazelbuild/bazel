@@ -38,17 +38,20 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<Label> targetPlatforms;
   private final ImmutableList<Label> extraToolchains;
   private final ImmutableMap<Label, Label> toolchainResolutionOverrides;
+  private final ImmutableList<Label> enabledToolchainTypes;
 
   public PlatformConfiguration(
       Label executionPlatform,
       List<Label> targetPlatforms,
       List<Label> extraToolchains,
-      List<ToolchainResolutionOverride> overrides) {
+      List<ToolchainResolutionOverride> overrides,
+      List<Label> enabledToolchainTypes) {
 
     this.executionPlatform = executionPlatform;
     this.targetPlatforms = ImmutableList.copyOf(targetPlatforms);
     this.extraToolchains = ImmutableList.copyOf(extraToolchains);
     this.toolchainResolutionOverrides = convertOverrides(overrides);
+    this.enabledToolchainTypes = ImmutableList.copyOf(enabledToolchainTypes);
   }
 
   private static ImmutableMap<Label, Label> convertOverrides(
@@ -88,5 +91,10 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   /** Returns the {@link Label} of the toolchain to use for the given toolchain type. */
   public Label getToolchainOverride(Label toolchainType) {
     return toolchainResolutionOverrides.get(toolchainType);
+  }
+
+  /** Returns the set of toolchain types enabled for platform-based toolchain selection. */
+  public List<Label> getEnabledToolchainTypes() {
+    return enabledToolchainTypes;
   }
 }

@@ -67,7 +67,7 @@ public class ToolchainInfo extends NativeInfo {
         }
       };
 
-  protected ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
+  public ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
     super(PROVIDER, ImmutableMap.copyOf(toolchainData), loc);
   }
 

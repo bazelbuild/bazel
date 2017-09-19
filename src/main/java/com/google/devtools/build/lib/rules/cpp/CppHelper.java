@@ -27,9 +27,11 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
+import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -328,6 +330,35 @@ public class CppHelper {
    */
   public static CcToolchainProvider getToolchain(RuleContext ruleContext,
       TransitiveInfoCollection dep) {
+    Label toolchainType;
+    // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
+    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
+      toolchainType =
+          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL);
+    } else {
+      toolchainType = null;
+    }
+
+    if (toolchainType != null
+        && ruleContext
+            .getFragment(PlatformConfiguration.class)
+            .getEnabledToolchainTypes()
+            .contains(toolchainType)) {
+      return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
+    }
+    return getToolchainFromCrosstoolTop(ruleContext, dep);
+  }
+
+  private static CcToolchainProvider getToolchainFromPlatformConstraints(
+      RuleContext ruleContext, Label toolchainType) {
+    ResolvedToolchainProviders providers =
+        (ResolvedToolchainProviders)
+            ruleContext.getToolchainContext().getResolvedToolchainProviders();
+    return (CcToolchainProvider) providers.getForToolchainType(toolchainType);
+  }
+
+  private static CcToolchainProvider getToolchainFromCrosstoolTop(
+      RuleContext ruleContext, TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
     if ((dep == null) || (dep.get(ToolchainInfo.PROVIDER) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");

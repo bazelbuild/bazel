@@ -124,7 +124,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot) {
-    super(ImmutableMap.<String, Object>of(), Location.BUILTIN);
+    super(ImmutableMap.of(), Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);

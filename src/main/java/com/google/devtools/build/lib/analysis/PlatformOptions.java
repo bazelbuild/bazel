@@ -94,12 +94,24 @@ public class PlatformOptions extends FragmentOptions {
   )
   public boolean toolchainResolutionDebug;
 
+  @Option(
+    name = "enabled_toolchain_types",
+    defaultValue = "",
+    converter = LabelListConverter.class,
+    category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help = "Signals that the given rule categories use platform-based toolchain resolution"
+  )
+  public List<Label> enabledToolchainTypes;
+
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms = ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;
     host.extraToolchains = this.extraToolchains;
+    host.enabledToolchainTypes = this.enabledToolchainTypes;
     return host;
   }
 

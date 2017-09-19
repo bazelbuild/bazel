@@ -104,7 +104,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")",
-        "cc_toolchain(name = 'cc-compiler-piii', all_files = ':empty', compiler_files = ':empty',",
+        "cc_toolchain(name = 'cc-compiler-piii', all_files = ':all-files-piii',",
+        "    compiler_files = ':compiler-files-piii',",
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
         "    linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
@@ -176,6 +177,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     }
     MockObjcSupport.setup(config);
     MockPlatformSupport.setup(config, "/bazel_tools_workspace/platforms");
+    MockPlatformSupport.setup(config, "/bazel_tools_workspace/");
   }
 
   @Override
