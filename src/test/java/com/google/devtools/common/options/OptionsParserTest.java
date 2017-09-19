@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.OptionValueDescription.SingleOptionValueDescription;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -1190,12 +1191,14 @@ public class OptionsParserTest {
     assertThat(result).isNotNull();
     assertThat(result.getOptionDefinition().getOptionName()).isEqualTo("simple");
     assertThat(result.getValue()).isEqualTo("abc");
-    assertThat(result.getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
-    assertThat(result.getSource()).isEqualTo("my description");
-    assertThat(result.getImplicitDependant()).isNull();
-    assertThat(result.isImplicitDependency()).isFalse();
-    assertThat(result.getExpansionParent()).isNull();
-    assertThat(result.isExpansion()).isFalse();
+    assertThat(result.getSourceString()).isEqualTo("my description");
+
+    // To check that the option tracks origin correctly, we need to check information that is
+    // specific to a single-valued option.
+    SingleOptionValueDescription singleOptionResult = (SingleOptionValueDescription) result;
+    ParsedOptionDescription singleOptionInstance = singleOptionResult.getEffectiveOptionInstance();
+    assertThat(singleOptionInstance.getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
+    assertThat(singleOptionInstance.isExpansion()).isFalse();
   }
 
   public static class ImplicitDependencyWarningOptions extends OptionsBase {
@@ -1403,7 +1406,7 @@ public class OptionsParserTest {
   public static class ExpansionWarningOptions extends OptionsBase {
     @Option(
       name = "first",
-      expansion = "--underlying=other",
+      expansion = "--underlying=expandedFromFirst",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null"
@@ -1412,7 +1415,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "second",
-      expansion = "--underlying=other",
+      expansion = "--underlying=expandedFromSecond",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null"
@@ -1464,7 +1467,7 @@ public class OptionsParserTest {
       category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "alpha"
+      defaultValue = "alphaDefaultValue"
     )
     public String alpha;
 
@@ -1473,7 +1476,7 @@ public class OptionsParserTest {
       category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "beta"
+      defaultValue = "betaDefaultValue"
     )
     public String beta;
 
@@ -1481,7 +1484,7 @@ public class OptionsParserTest {
       name = "gamma",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "gamma"
+      defaultValue = "gammaDefaultValue"
     )
     public String gamma;
 
@@ -1489,7 +1492,7 @@ public class OptionsParserTest {
       name = "delta",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "delta"
+      defaultValue = "deltaDefaultValue"
     )
     public String delta;
 
@@ -1498,7 +1501,7 @@ public class OptionsParserTest {
       metadataTags = {OptionMetadataTag.HIDDEN},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "echo"
+      defaultValue = "echoDefaultValue"
     )
     public String echo;
   }
@@ -1556,21 +1559,29 @@ public class OptionsParserTest {
     assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
 
-  private void assertOptionValue(String expectedName, Object expectedValue,
-      OptionPriority expectedPriority, String expectedSource,
-      OptionValueDescription actual) {
+  private void assertOptionValue(
+      String expectedName, Object expectedValue, OptionValueDescription actual) {
     assertThat(actual).isNotNull();
     assertThat(actual.getOptionDefinition().getOptionName()).isEqualTo(expectedName);
     assertThat(actual.getValue()).isEqualTo(expectedValue);
-    assertThat(actual.getPriority()).isEqualTo(expectedPriority);
-    assertThat(actual.getSource()).isEqualTo(expectedSource);
+  }
+
+  private void assertOptionValue(
+      String expectedName,
+      Object expectedValue,
+      OptionPriority expectedPriority,
+      String expectedSource,
+      SingleOptionValueDescription actual) {
+    assertOptionValue(expectedName, expectedValue, actual);
+    assertThat(actual.getSourceString()).isEqualTo(expectedSource);
+    assertThat(actual.getEffectiveOptionInstance().getPriority()).isEqualTo(expectedPriority);
   }
 
   @Test
   public void asListOfEffectiveOptions() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
-    parser.parse(OptionPriority.COMMAND_LINE, "source",
-        Arrays.asList("--alpha=one", "--gamma=two"));
+    parser.parse(OptionPriority.COMMAND_LINE, "command line source",
+        Arrays.asList("--alpha=alphaValueSetOnCommandLine", "--gamma=gammaValueSetOnCommandLine"));
     List<OptionValueDescription> result = parser.asListOfEffectiveOptions();
     assertThat(result).isNotNull();
     assertThat(result).hasSize(5);
@@ -1579,16 +1590,23 @@ public class OptionsParserTest {
       map.put(description.getOptionDefinition().getOptionName(), description);
     }
 
-    assertOptionValue("alpha", "one", OptionPriority.COMMAND_LINE, "source",
-        map.get("alpha"));
-    assertOptionValue("beta", "beta", OptionPriority.DEFAULT, null,
-        map.get("beta"));
-    assertOptionValue("gamma", "two", OptionPriority.COMMAND_LINE, "source",
-        map.get("gamma"));
-    assertOptionValue("delta", "delta", OptionPriority.DEFAULT, null,
-        map.get("delta"));
-    assertOptionValue("echo", "echo", OptionPriority.DEFAULT, null,
-        map.get("echo"));
+    // All options in IntrospectionExample are single-valued options, and so have a 1:1 relationship
+    // with the --flag=value option instance they came from (if any).
+    assertOptionValue(
+        "alpha",
+        "alphaValueSetOnCommandLine",
+        OptionPriority.COMMAND_LINE,
+        "command line source",
+        (SingleOptionValueDescription) map.get("alpha"));
+    assertOptionValue(
+        "gamma",
+        "gammaValueSetOnCommandLine",
+        OptionPriority.COMMAND_LINE,
+        "command line source",
+        (SingleOptionValueDescription) map.get("gamma"));
+    assertOptionValue("beta", "betaDefaultValue", map.get("beta"));
+    assertOptionValue("delta", "deltaDefaultValue", map.get("delta"));
+    assertOptionValue("echo", "echoDefaultValue", map.get("echo"));
   }
 
   // Regression tests for bug:
@@ -1797,15 +1815,20 @@ public class OptionsParserTest {
     result = parser.getOptions(LongValueExample.class);
     assertThat(result.longval).isEqualTo(Long.MIN_VALUE);
 
+    parser.parse("--longval", "100");
+    result = parser.getOptions(LongValueExample.class);
+    assertThat(result.longval).isEqualTo(100);
+  }
+
+  @Test
+  public void intOutOfBounds() {
+    OptionsParser parser = newOptionsParser(LongValueExample.class);
     try {
       parser.parse("--intval=2147483648");
       fail();
     } catch (OptionsParsingException e) {
+      assertThat(e).hasMessageThat().contains("'2147483648' is not an int");
     }
-
-    parser.parse("--longval", "100");
-    result = parser.getOptions(LongValueExample.class);
-    assertThat(result.longval).isEqualTo(100);
   }
 
   public static class OldNameExample extends OptionsBase {

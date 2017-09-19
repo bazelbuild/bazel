@@ -547,7 +547,7 @@ public final class InvocationPolicyEnforcer {
           "Keeping value '%s' from source '%s' for flag '%s' "
               + "because the invocation policy specifying the value(s) '%s' is overridable",
           valueDescription.getValue(),
-          valueDescription.getSource(),
+          valueDescription.getSourceString(),
           optionDefinition.getOptionName(),
           setValue.getFlagValueList());
     } else {
@@ -561,17 +561,17 @@ public final class InvocationPolicyEnforcer {
       for (String flagValue : setValue.getFlagValueList()) {
         if (valueDescription == null) {
           logInApplySetValueOperation(
-              "Setting value for flag '%s' from invocation "
-                  + "policy to '%s', overriding the default value '%s'",
+              "Setting value for flag '%s' from invocation policy to '%s', overriding the "
+                  + "default value '%s'",
               optionDefinition.getOptionName(), flagValue, optionDefinition.getDefaultValue());
         } else {
           logInApplySetValueOperation(
-              "Setting value for flag '%s' from invocation "
-                  + "policy to '%s', overriding value '%s' from '%s'",
+              "Setting value for flag '%s' from invocation policy to '%s', overriding "
+                  + "value '%s' from '%s'",
               optionDefinition.getOptionName(),
               flagValue,
               valueDescription.getValue(),
-              valueDescription.getSource());
+              valueDescription.getSourceString());
         }
         setFlagValue(parser, optionDefinition, flagValue);
       }
@@ -585,8 +585,6 @@ public final class InvocationPolicyEnforcer {
     if (clearedValueDescription != null) {
       // Log the removed value.
       String clearedFlagName = clearedValueDescription.getOptionDefinition().getOptionName();
-      String originalValue = clearedValueDescription.getValue().toString();
-      String source = clearedValueDescription.getSource();
 
       OptionDescription desc =
           parser.getOptionDescription(
@@ -597,9 +595,13 @@ public final class InvocationPolicyEnforcer {
       }
       logger.info(
           String.format(
-              "Using default value '%s' for flag '%s' as "
-                  + "specified by %s invocation policy, overriding original value '%s' from '%s'",
-              clearedFlagDefaultValue, clearedFlagName, policyType, originalValue, source));
+              "Using default value '%s' for flag '%s' as specified by %s invocation policy, "
+                  + "overriding original value '%s' from '%s'",
+              clearedFlagDefaultValue,
+              clearedFlagName,
+              policyType,
+              clearedValueDescription.getValue(),
+              clearedValueDescription.getSourceString()));
     }
   }
 
@@ -724,8 +726,8 @@ public final class InvocationPolicyEnforcer {
           // Use the default value from the policy.
           logger.info(
               String.format(
-                  "Overriding default value '%s' for flag '%s' with value '%s' "
-                      + "specified by invocation policy. %sed values are: %s",
+                  "Overriding default value '%s' for flag '%s' with value '%s' specified by "
+                      + "invocation policy. %sed values are: %s",
                   optionDefinition.getDefaultValue(),
                   optionDefinition.getOptionName(),
                   newValue,
@@ -738,8 +740,7 @@ public final class InvocationPolicyEnforcer {
           throw new OptionsParsingException(
               String.format(
                   "Default flag value '%s' for flag '%s' is not allowed by invocation policy, but "
-                      + "the policy does not provide a new value. "
-                      + "%sed values are: %s",
+                      + "the policy does not provide a new value. %sed values are: %s",
                   optionDescription.getOptionDefinition().getDefaultValue(),
                   optionDefinition.getOptionName(),
                   policyType,

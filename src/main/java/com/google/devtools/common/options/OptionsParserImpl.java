@@ -19,7 +19,6 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
@@ -177,7 +176,7 @@ class OptionsParserImpl {
       OptionDefinition optionDefinition = mapEntry.getValue();
       OptionValueDescription optionValue = optionValues.get(optionDefinition);
       if (optionValue == null) {
-        result.add(OptionValueDescription.newDefaultValue(optionDefinition));
+        result.add(OptionValueDescription.getDefaultOptionValue(optionDefinition));
       } else {
         result.add(optionValue);
       }
@@ -198,119 +197,6 @@ class OptionsParserImpl {
         + (warning.isEmpty() ? "" : ": " + warning));
   }
 
-  // Warnings should not end with a '.' because the internal reporter adds one automatically.
-  private void setValue(
-      ParsedOptionDescription parsedOption,
-      OptionDefinition implicitDependant,
-      OptionDefinition expandedFrom)
-      throws OptionsParsingException {
-    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
-    Preconditions.checkArgument(!optionDefinition.allowsMultiple());
-    Object convertedValue = parsedOption.getConvertedValue();
-    OptionValueDescription optionValue = optionValues.get(parsedOption.getOptionDefinition());
-    if (optionValue != null) {
-      // Override existing option if the new value has higher or equal priority.
-      if (parsedOption.getPriority().compareTo(optionValue.getPriority()) >= 0) {
-        // Output warnings:
-        if ((implicitDependant != null) && (optionValue.getImplicitDependant() != null)) {
-          if (!implicitDependant.equals(optionValue.getImplicitDependant())) {
-            warnings.add(
-                "Option '"
-                    + optionDefinition.getOptionName()
-                    + "' is implicitly defined by both option '"
-                    + optionValue.getImplicitDependant().getOptionName()
-                    + "' and option '"
-                    + implicitDependant.getOptionName()
-                    + "'");
-          }
-        } else if ((implicitDependant != null)
-            && parsedOption.getPriority().equals(optionValue.getPriority())) {
-          warnings.add(
-              "Option '"
-                  + optionDefinition.getOptionName()
-                  + "' is implicitly defined by option '"
-                  + implicitDependant.getOptionName()
-                  + "'; the implicitly set value overrides the previous one");
-        } else if (optionValue.getImplicitDependant() != null) {
-          warnings.add(
-              "A new value for option '"
-                  + optionDefinition.getOptionName()
-                  + "' overrides a previous implicit setting of that option by option '"
-                  + optionValue.getImplicitDependant().getOptionName()
-                  + "'");
-        } else if ((parsedOption.getPriority() == optionValue.getPriority())
-            && ((optionValue.getExpansionParent() == null) && (expandedFrom != null))) {
-          // Create a warning if an expansion option overrides an explicit option:
-          warnings.add(
-              "The option '"
-                  + expandedFrom.getOptionName()
-                  + "' was expanded and now overrides a "
-                  + "previous explicitly specified option '"
-                  + optionDefinition.getOptionName()
-                  + "'");
-        } else if ((optionValue.getExpansionParent() != null) && (expandedFrom != null)) {
-          warnings.add(
-              "The option '"
-                  + optionDefinition.getOptionName()
-                  + "' was expanded to from both options '"
-                  + optionValue.getExpansionParent().getOptionName()
-                  + "' and '"
-                  + expandedFrom.getOptionName()
-                  + "'");
-        }
-
-        // Record the new value:
-        optionValues.put(
-            optionDefinition,
-            OptionValueDescription.newOptionValue(
-                optionDefinition,
-                null,
-                convertedValue,
-                parsedOption.getPriority(),
-                parsedOption.getSource(),
-                implicitDependant,
-                expandedFrom));
-      }
-    } else {
-      optionValues.put(
-          optionDefinition,
-          OptionValueDescription.newOptionValue(
-              optionDefinition,
-              null,
-              convertedValue,
-              parsedOption.getPriority(),
-              parsedOption.getSource(),
-              implicitDependant,
-              expandedFrom));
-      maybeAddDeprecationWarning(optionDefinition);
-    }
-  }
-
-  private void addListValue(
-      ParsedOptionDescription parsedOption,
-      OptionDefinition implicitDependant,
-      OptionDefinition expandedFrom)
-      throws OptionsParsingException {
-    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
-    Preconditions.checkArgument(optionDefinition.allowsMultiple());
-
-    OptionValueDescription optionValue = optionValues.get(optionDefinition);
-    if (optionValue == null) {
-      optionValue =
-          OptionValueDescription.newOptionValue(
-              optionDefinition,
-              /* originalValueString */ null,
-              ArrayListMultimap.create(),
-              parsedOption.getPriority(),
-              parsedOption.getSource(),
-              implicitDependant,
-              expandedFrom);
-      optionValues.put(optionDefinition, optionValue);
-      maybeAddDeprecationWarning(optionDefinition);
-    }
-    Object convertedValue = parsedOption.getConvertedValue();
-    optionValue.addValue(parsedOption.getPriority(), convertedValue);
-  }
 
   OptionValueDescription clearValue(OptionDefinition optionDefinition)
       throws OptionsParsingException {
@@ -453,6 +339,8 @@ class OptionsParserImpl {
           identifyOptionAndPossibleArgument(
               arg, argsIterator, priority, sourceFunction, isExplicit);
       OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+      // All options can be deprecated; check and warn before doing any option-type specific work.
+      maybeAddDeprecationWarning(optionDefinition);
       @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
 
       if (optionDefinition.isWrapperOption()) {
@@ -515,7 +403,6 @@ class OptionsParserImpl {
                 + " from "
                 + sourceFunction.apply(optionDefinition);
         Function<OptionDefinition, String> expansionSourceFunction = o -> sourceMessage;
-        maybeAddDeprecationWarning(optionDefinition);
         List<String> unparsed =
             parse(priority, expansionSourceFunction, null, optionDefinition, expansion);
         if (!unparsed.isEmpty()) {
@@ -528,15 +415,10 @@ class OptionsParserImpl {
                   + Joiner.on(' ').join(unparsed));
         }
       } else {
-        // ...but allow duplicates of single-use options across separate calls to
-        // parse(); latest wins:
-        if (!optionDefinition.allowsMultiple()) {
-          setValue(parsedOption, implicitDependent, expandedFrom);
-        } else {
-          // But if it's a multiple-use option, then accumulate the values, in the order in which
-          // they were seen.
-          addListValue(parsedOption, implicitDependent, expandedFrom);
-        }
+        OptionValueDescription entry =
+            optionValues.computeIfAbsent(
+                optionDefinition, OptionValueDescription::createOptionValueDescription);
+        entry.addOptionInstance(parsedOption, implicitDependent, expandedFrom, warnings);
       }
 
       // Collect any implicit requirements.
@@ -566,6 +448,13 @@ class OptionsParserImpl {
               + Joiner.on(' ').join(unparsed));
         }
       }
+    }
+
+    // Go through the final values and make sure they are valid values for their option. Unlike any
+    // checks that happened above, this also checks that flags that were not set have a valid
+    // default value. getValue() will throw if the value is invalid.
+    for (OptionValueDescription valueDescription : asListOfEffectiveOptions()) {
+      valueDescription.getValue();
     }
 
     return unparsedArgs;
@@ -690,8 +579,17 @@ class OptionsParserImpl {
       }
       try {
         optionDefinition.getField().set(optionsInstance, value);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException(
+            String.format(
+                "Unable to set option '%s' to value '%s'.",
+                optionDefinition.getOptionName(), value),
+            e);
       } catch (IllegalAccessException e) {
-        throw new IllegalStateException(e);
+        throw new IllegalStateException(
+            "Could not set the field due to access issues. This is impossible, as the "
+                + "OptionProcessor checks that all options are non-final public fields.",
+            e);
       }
     }
     return optionsInstance;
