@@ -118,9 +118,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
@@ -144,6 +143,8 @@ toolchain {
   }
   linking_mode_flags {
     mode: DYNAMIC
+    linker_flag: "-undefined"
+    linker_flag: "dynamic_lookup"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -202,6 +203,17 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
     }
   }
   feature {
@@ -1505,6 +1517,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -1526,6 +1539,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -1604,6 +1618,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -1704,9 +1719,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "x86_64-apple-ios"
@@ -1729,9 +1743,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -1792,6 +1803,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -3102,6 +3133,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -3123,6 +3155,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -3201,6 +3234,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -3301,9 +3335,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "i386-apple-ios"
@@ -3326,9 +3359,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -3389,6 +3419,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -4701,6 +4751,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -4722,6 +4773,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -4800,6 +4852,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -4900,9 +4953,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "x86_64-apple-tvos"
@@ -4926,9 +4978,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -4989,6 +5038,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -5831,8 +5900,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "x86_64-apple-tvos"
       }
@@ -6329,6 +6396,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -6351,6 +6419,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -6430,6 +6499,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -6530,9 +6600,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "i386-apple-ios"
@@ -6555,9 +6624,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -6618,6 +6684,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -7928,6 +8014,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -7949,6 +8036,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -8027,6 +8115,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -8127,9 +8216,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "armv7-apple-ios"
@@ -8152,9 +8240,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -8215,6 +8300,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -9513,6 +9618,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -9534,6 +9640,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -9612,6 +9719,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -9712,9 +9820,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "armv7-apple-watchos"
@@ -9737,9 +9844,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -9800,6 +9904,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -11100,6 +11224,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -11121,6 +11246,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -11199,6 +11325,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -11299,9 +11426,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "arm64-apple-tvos"
@@ -11325,9 +11451,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -11388,6 +11511,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -12230,8 +12373,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "arm64-apple-tvos"
       }
@@ -12716,6 +12857,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -12738,6 +12880,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -12817,6 +12960,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -12917,9 +13061,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "arm64-apple-ios"
@@ -12942,9 +13085,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -13005,6 +13145,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -14303,6 +14463,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -14324,6 +14485,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -14402,6 +14564,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }
@@ -14503,9 +14666,8 @@ toolchain {
   compiler_flag: "-Wself-assign"
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
@@ -14527,12 +14689,6 @@ toolchain {
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -14596,6 +14752,26 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "contains_objc_source"
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fobjc-link-runtime"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-framework"
+        flag: "UIKit"
+      }
     }
   }
   feature {
@@ -15894,6 +16070,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags_executable"
@@ -15915,6 +16092,7 @@ toolchain {
       tool_path: "cc_wrapper.sh"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
     implies: "shared_flag"
@@ -15993,6 +16171,7 @@ toolchain {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
     }
+    implies: "contains_objc_source"
     implies: "strip_debug_symbols"
     implies: "apple_env"
   }

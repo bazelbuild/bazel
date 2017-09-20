@@ -137,9 +137,6 @@ toolchain {
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
   }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
     value: "-Wframe-larger-than=100000000 -Wno-vla"
@@ -1121,8 +1118,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -1867,6 +1862,8 @@ toolchain {
   }
   linking_mode_flags {
     mode: DYNAMIC
+    linker_flag: "-undefined"
+    linker_flag: "dynamic_lookup"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -2849,8 +2846,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -3593,9 +3588,6 @@ toolchain {
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
   }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
     value: "-Wframe-larger-than=100000000 -Wno-vla"
@@ -4577,8 +4569,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -5321,9 +5311,6 @@ toolchain {
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
   }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
     value: "-Wframe-larger-than=100000000 -Wno-vla"
@@ -6305,8 +6292,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -7050,9 +7035,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -8037,8 +8019,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -8788,9 +8768,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -9777,8 +9754,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -10529,9 +10504,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -11517,8 +11489,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "x86_64-apple-tvos"
       }
@@ -11528,8 +11498,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "x86_64-apple-tvos"
       }
@@ -12300,9 +12268,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -13287,8 +13252,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -14038,9 +14001,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -15025,8 +14985,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -15796,9 +15754,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -16785,8 +16740,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
@@ -17557,9 +17510,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -18545,8 +18495,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "arm64-apple-tvos"
       }
@@ -18556,8 +18504,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-lc++"
-        flag: "-undefined"
-        flag: "dynamic_lookup"
         flag: "-target"
         flag: "arm64-apple-tvos"
       }
@@ -19348,9 +19294,6 @@ toolchain {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -20335,8 +20278,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
-        flag: "-undefined"
-        flag: "dynamic_lookup"
       }
     }
   }
