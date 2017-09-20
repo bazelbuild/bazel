@@ -146,10 +146,10 @@ class OptionsParserImpl {
         // the other options alphabetically.
         .sorted(
             (v1, v2) -> {
-              if (v1.isImplicitRequirement()) {
-                return v2.isImplicitRequirement() ? 0 : 1;
+              if (v1.getOptionDefinition().hasImplicitRequirements()) {
+                return v2.getOptionDefinition().hasImplicitRequirements() ? 0 : 1;
               }
-              if (v2.isImplicitRequirement()) {
+              if (v2.getOptionDefinition().hasImplicitRequirements()) {
                 return -1;
               }
               return v1.getOptionDefinition()
@@ -157,7 +157,7 @@ class OptionsParserImpl {
                   .compareTo(v2.getOptionDefinition().getOptionName());
             })
         // Ignore expansion options.
-        .filter(value -> !value.isExpansion())
+        .filter(value -> !value.getOptionDefinition().isExpansionOption())
         .map(
             value ->
                 "--"
@@ -422,7 +422,7 @@ class OptionsParserImpl {
       }
 
       // Collect any implicit requirements.
-      if (optionDefinition.getImplicitRequirements().length > 0) {
+      if (optionDefinition.hasImplicitRequirements()) {
         implicitRequirements.put(
             optionDefinition, Arrays.asList(optionDefinition.getImplicitRequirements()));
       }

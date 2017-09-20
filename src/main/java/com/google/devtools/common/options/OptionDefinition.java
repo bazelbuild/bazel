@@ -185,6 +185,11 @@ public class OptionDefinition {
     return (getOptionExpansion().length > 0 || usesExpansionFunction());
   }
 
+  /** Returns whether the arg is an expansion option. */
+  public boolean hasImplicitRequirements() {
+    return (getImplicitRequirements().length > 0);
+  }
+
   /**
    * Returns whether the arg is an expansion option defined by an expansion function (and not a
    * constant expansion value).

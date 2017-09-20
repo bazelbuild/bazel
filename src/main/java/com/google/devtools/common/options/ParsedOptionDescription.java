@@ -82,14 +82,6 @@ public final class ParsedOptionDescription {
     return tags.contains(OptionMetadataTag.HIDDEN) || tags.contains(OptionMetadataTag.INTERNAL);
   }
 
-  boolean isExpansion() {
-    return optionDefinition.isExpansionOption();
-  }
-
-  boolean isImplicitRequirement() {
-    return optionDefinition.getImplicitRequirements().length > 0;
-  }
-
   public String getUnconvertedValue() {
     return unconvertedValue;
   }
@@ -128,4 +120,5 @@ public final class ParsedOptionDescription {
     }
     return result.toString();
   }
+
 }

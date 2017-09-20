@@ -69,7 +69,7 @@ public abstract class OptionValueDescription {
       return new RepeatableOptionValueDescription(option);
     } else if (option.isExpansionOption()) {
       return new ExpansionOptionValueDescription(option);
-    } else if (option.getImplicitRequirements().length > 0) {
+    } else if (option.hasImplicitRequirements()) {
       return new OptionWithImplicitRequirementsValueDescription(option);
     } else if (option.isWrapperOption()) {
       return new WrapperOptionValueDescription(option);
@@ -331,7 +331,7 @@ public abstract class OptionValueDescription {
 
     private OptionWithImplicitRequirementsValueDescription(OptionDefinition optionDefinition) {
       super(optionDefinition);
-      if (optionDefinition.getImplicitRequirements().length == 0) {
+      if (!optionDefinition.hasImplicitRequirements()) {
         throw new ConstructionException(
             "Options without implicit requirements can't be tracked using "
                 + "OptionWithImplicitRequirementsValueDescription");
