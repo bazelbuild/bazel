@@ -35,7 +35,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_host_platform",
-    converter = BuildConfiguration.LabelConverter.class,
+    converter = BuildConfiguration.EmptyToNullLabelConverter.class,
     defaultValue = "@bazel_tools//platforms:host_platform",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -108,7 +108,8 @@ public class PlatformOptions extends FragmentOptions {
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
-    host.platforms = ImmutableList.of(this.hostPlatform);
+    host.platforms =
+        this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;
     host.extraToolchains = this.extraToolchains;
     host.enabledToolchainTypes = this.enabledToolchainTypes;

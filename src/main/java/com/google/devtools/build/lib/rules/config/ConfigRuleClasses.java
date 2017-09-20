@@ -16,18 +16,24 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.List;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -107,6 +113,28 @@ public class ConfigRuleClasses {
     public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
+    /** The name of the attribute that declares constraint_values. */
+    public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
+    /** The name of the late bound attribute that declares the target platforms list. */
+    public static final String TARGET_PLATFORMS_ATTRIBUTE = ":target_platforms";
+
+    /** Implementation for the :target_platform attribute. */
+    public static final LateBoundDefault<?, List<Label>> TARGET_PLATFORMS =
+        LateBoundDefault.fromTargetConfiguration(
+            PlatformConfiguration.class,
+            ImmutableList.of(),
+            (rule, attributes, platformConfig) ->
+                ConfigSettingRule.getTargetPlatformsIfRelevant(attributes, platformConfig));
+
+    private static ImmutableList<Label> getTargetPlatformsIfRelevant(
+        AttributeMap attributes, PlatformConfiguration platformConfig) {
+      List<Label> constraintValues = attributes.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST);
+      if (constraintValues == null || constraintValues.isEmpty()) {
+        return ImmutableList.of();
+      } else {
+        return platformConfig.getTargetPlatforms();
+      }
+    }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -198,8 +226,15 @@ public class ConfigRuleClasses {
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
-                  .mandatoryProviders(
-                      ImmutableList.of(ConfigFeatureFlagProvider.id()))
+                  .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
+                  .allowedFileTypes())
+          .add(
+              attr(TARGET_PLATFORMS_ATTRIBUTE, LABEL_LIST)
+                  .value(TARGET_PLATFORMS)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(
