@@ -34,7 +34,8 @@ public final class WhitelistDummyRule implements RuleDefinition, RuleConfiguredT
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .add(
-            Whitelist.getAttributeFromWhitelistName("dummy", env.getLabel("//whitelist:whitelist")))
+            Whitelist.getAttributeFromWhitelistName("dummy")
+                .value(env.getLabel("//whitelist:whitelist")))
         .build();
   }
 

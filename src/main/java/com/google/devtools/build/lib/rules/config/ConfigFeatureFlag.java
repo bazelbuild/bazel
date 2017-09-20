@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
@@ -46,11 +48,32 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
   private static final String WHITELIST_NAME = "config_feature_flag";
 
+  /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
+  private static final String WHITELIST_LABEL =
+      "//tools/whitelists/config_feature_flag:config_feature_flag";
+
   /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
   public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return Whitelist.getAttributeFromWhitelistName(
-        WHITELIST_NAME,
-        env.getToolsLabel("//tools/whitelists/config_feature_flag:config_feature_flag"));
+    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+        .value(env.getToolsLabel(WHITELIST_LABEL));
+  }
+
+  /**
+   * Constructs a definition for the attribute used to restrict access to config_feature_flag. The
+   * whitelist will only be reached if the given {@code attributeToInspect} has a value explicitly
+   * specified. It must be non-configurable.
+   */
+  public static Attribute.Builder<Label> getWhitelistAttribute(
+      RuleDefinitionEnvironment env, String attributeToInspect) {
+    final Label label = env.getToolsLabel(WHITELIST_LABEL);
+    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+        .value(
+            new ComputedDefault() {
+              @Override
+              public Label getDefault(AttributeMap rule) {
+                return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;
+              }
+            });
   }
 
   /**

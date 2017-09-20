@@ -44,13 +44,10 @@ public final class Whitelist {
    *
    * @param whitelistName The name of the whitelist. This has to comply with attribute naming
    *     standards and will be used as a suffix for the attribute name.
-   * @param packageGroupWhitelist Label for the package group with the whitelist.
    */
-  public static Attribute.Builder<Label> getAttributeFromWhitelistName(
-      String whitelistName, Label packageGroupWhitelist) {
+  public static Attribute.Builder<Label> getAttributeFromWhitelistName(String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     return attr(attributeName, LABEL)
-        .value(packageGroupWhitelist)
         .cfg(HOST)
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
