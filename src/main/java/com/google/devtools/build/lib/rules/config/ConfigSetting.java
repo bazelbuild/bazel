@@ -39,6 +39,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDet
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -51,6 +55,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,24 +96,36 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
 
-    if (nativeFlagSettings.size() == 0 && userDefinedFlagSettings.isEmpty()) {
-      ruleContext.ruleError(
-          String.format(
-              "Either %s or %s must be specified and non-empty",
-              ConfigSettingRule.SETTINGS_ATTRIBUTE,
-              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE));
+    // Get the constraint values that match this rule
+    Iterable<ConstraintValueInfo> constraintValues =
+        PlatformProviderUtils.constraintValues(
+            ruleContext.getPrerequisites(
+                ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK));
+
+    // Get the target platform
+    Iterable<PlatformInfo> targetPlatforms =
+        PlatformProviderUtils.platforms(
+            ruleContext.getPrerequisites(
+                ConfigSettingRule.TARGET_PLATFORMS_ATTRIBUTE, Mode.DONT_CHECK));
+
+    // Check that this config_setting contains at least one of {values, define_values,
+    // constraint_values}
+    if (!checkValidConditions(
+        nativeFlagSettings, userDefinedFlagSettings, constraintValues, ruleContext)) {
       return null;
     }
-
-    ConfigFeatureFlagMatch featureFlags =
-        ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
-            userDefinedFlagSettings, flagValues, ruleContext);
 
     boolean nativeFlagsMatch =
         matchesConfig(
             nativeFlagSettings.entries(),
             BuildConfigurationOptionDetails.get(ruleContext.getConfiguration()),
             ruleContext);
+
+    ConfigFeatureFlagMatch featureFlags =
+        ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
+            userDefinedFlagSettings, flagValues, ruleContext);
+
+    boolean constraintValuesMatch = matchesConstraints(constraintValues, targetPlatforms);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -119,7 +136,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             featureFlags.getSpecifiedFlagValues(),
-            nativeFlagsMatch && featureFlags.matches());
+            nativeFlagsMatch && featureFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -130,10 +147,78 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  private boolean checkValidConditions(
+      ImmutableMultimap<String, String> nativeFlagSettings,
+      Map<Label, String> userDefinedFlagSettings,
+      Iterable<ConstraintValueInfo> constraintValues,
+      RuleErrorConsumer errors) {
+    // Check to make sure this config_setting contains and sets least one of {values, define_values,
+    // flag_value or constraint_values}.
+    if (!valuesAreSet(nativeFlagSettings, userDefinedFlagSettings, constraintValues, errors)) {
+      return false;
+    }
+
+    // The set of constraint_values in a config_setting should never contain multiple
+    // constraint_values that map to the same constraint_setting. This checks if there are
+    // duplicates and records an error if so.
+    if (containsDuplicateSettings(constraintValues, errors)) {
+      return false;
+    }
+
+    return true;
+  }
+
   /**
    * User error when value settings can't be properly parsed.
    */
   private static final String PARSE_ERROR_MESSAGE = "error while parsing configuration settings: ";
+
+  private boolean valuesAreSet(
+      ImmutableMultimap<String, String> nativeFlagSettings,
+      Map<Label, String> userDefinedFlagSettings,
+      Iterable<ConstraintValueInfo> constraintValues,
+      RuleErrorConsumer errors) {
+    if (nativeFlagSettings.isEmpty()
+        && userDefinedFlagSettings.isEmpty()
+        && Iterables.isEmpty(constraintValues)) {
+      errors.ruleError(
+          String.format(
+              "Either %s, %s or %s must be specified and non-empty",
+              ConfigSettingRule.SETTINGS_ATTRIBUTE,
+              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+              ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE));
+      return false;
+    }
+    return true;
+  }
+
+
+  /**
+   * The set of constraint_values in a config_setting should never contain multiple
+   * constraint_values that map to the same constraint_setting. This method checks if there are
+   * duplicates and records an error if so.
+   */
+  private boolean containsDuplicateSettings(
+      Iterable<ConstraintValueInfo> constraintValues, RuleErrorConsumer errors) {
+    HashMap<ConstraintSettingInfo, ConstraintValueInfo> constraints = new HashMap<>();
+    for (ConstraintValueInfo constraint : constraintValues) {
+      ConstraintSettingInfo setting = constraint.constraint();
+      if (constraints.containsKey(setting)) {
+        errors.attributeError(
+            ConfigSettingRule.TARGET_PLATFORMS_ATTRIBUTE,
+            String.format(
+                PARSE_ERROR_MESSAGE
+                    + "the target platform contains multiple values '%s' "
+                    + "and '%s' that map to the same setting '%s'",
+                constraint.label(),
+                constraints.get(setting).label(),
+                setting.label()));
+        return true;
+      }
+      constraints.put(setting, constraint);
+    }
+    return false;
+  }
 
   /**
    * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if
@@ -244,6 +329,33 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     return actualList.contains(expectedSingleValue);
   }
 
+  private boolean matchesConstraints(
+      Iterable<ConstraintValueInfo> expected, Iterable<PlatformInfo> targetPlatforms) {
+    // config_setting didn't specify any constraint values
+    if (Iterables.isEmpty(expected)) {
+      return true;
+    }
+
+    // TODO(jcater): re-evaluate this for multiple target platforms.
+    PlatformInfo targetPlatform = Iterables.getOnlyElement(targetPlatforms);
+    // config_setting DID specify constraint_value(s) but no target platforms are set
+    // in the configuration.
+    if (Iterables.isEmpty(targetPlatform.constraints())) {
+      return false;
+    }
+
+    // For every constraint in the attr check if it is (1)set aka non-null and
+    // (2)set correctly in the platform.
+    for (ConstraintValueInfo constraint : expected) {
+      ConstraintSettingInfo setting = constraint.constraint();
+      ConstraintValueInfo targetValue = targetPlatform.getConstraint(setting);
+      if (targetValue == null || !constraint.equals(targetValue)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private static final class ConfigFeatureFlagMatch {
     private final boolean matches;
     private final ImmutableMap<Label, String> specifiedFlagValues;
@@ -338,3 +450,4 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     }
   }
 }
+
