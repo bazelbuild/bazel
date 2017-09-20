@@ -19,10 +19,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for the objc_proto_library aspect. */
 @RunWith(JUnit4.class)
-public final class ObjcProtoAspectTest extends BuildViewTestCase {
+public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
   @Before
   public final void initializeToolsConfigMock() throws Exception {
@@ -80,8 +80,8 @@ public final class ObjcProtoAspectTest extends BuildViewTestCase {
     PathFragment includePath = header.getExecPath().getParentDirectory();
     PathFragment genIncludePath =
         PathFragment.create(
-            getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-                    .getGenfilesFragment()
+            configurationGenfiles(
+                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
                 + "/"
                 + includePath);
 
@@ -163,8 +163,8 @@ public final class ObjcProtoAspectTest extends BuildViewTestCase {
 
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly(
-            getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-                    .getGenfilesFragment()
+            configurationGenfiles(
+                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
                 + "/x/_proto_filters/objc_proto/generated_filter_file.pbascii");
   }
 
@@ -206,15 +206,17 @@ public final class ObjcProtoAspectTest extends BuildViewTestCase {
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsAllOf(
             "x/filter.pbascii",
-            getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-                    .getGenfilesFragment()
+            configurationGenfiles(
+                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
                 + "/x/_proto_filters/objc_proto_2/generated_filter_file.pbascii");
   }
 
   private ConfiguredTarget getObjcProtoAspectConfiguredTarget(String label) throws Exception {
-    scratch.file("bin/BUILD",
-        "objc_binary(",
+    scratch.file(
+        "bin/BUILD",
+        "apple_binary(",
         "  name = 'link_target',",
+        "  platform_type = 'ios',",
         "  deps = ['" + label + "'],",
         ")");
 

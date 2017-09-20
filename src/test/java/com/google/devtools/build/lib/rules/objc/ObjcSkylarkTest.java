@@ -203,8 +203,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   srcs = ['a.m'],",
         "   defines = ['mock_define']",
         ")",
-        "objc_binary(",
+        "apple_binary(",
         "   name = 'bin',",
+        "   platform_type = 'ios',",
         "   deps = [':my_target']",
         ")");
 
@@ -240,8 +241,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   srcs = ['a.m'],",
         "   deps = [':my_target']",
         ")",
-        "objc_binary(",
+        "apple_binary(",
         "   name = 'bin',",
+        "   platform_type = 'ios',",
         "   deps = [':lib']",
         ")");
 

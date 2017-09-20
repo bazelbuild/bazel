@@ -19,10 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDL
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
-import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import java.io.IOException;
 import java.util.Set;
 import org.junit.Test;
@@ -64,85 +61,6 @@ public class ObjcBundleLibraryTest extends ObjcRuleTestCase {
   public void testCreate_actoolAction() throws Exception {
     addTargetWithAssetCatalogs(RULE_TYPE);
     checkActoolActionCorrectness(DEFAULT_IOS_SDK_VERSION);
-  }
-
-  @Test
-  public void testProvidesBundling() throws Exception {
-    addBundleWithResource();
-    scratch.file(
-        "bin/BUILD",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    bundles = ['//bndl:bndl'],",
-        ")");
-    BundleMergeProtos.Control mergeControl = bundleMergeControl("//bin:bin");
-    BundleMergeProtos.Control nestedControl =
-        Iterables.getOnlyElement(mergeControl.getNestedBundleList());
-    BundleMergeProtos.BundleFile bundleFile =
-        BundleMergeProtos.BundleFile.newBuilder()
-            .setBundlePath("foo.data")
-            .setSourceFile(getSourceArtifact("bndl/foo.data").getExecPathString())
-            .setExternalFileAttribute(BundleableFile.DEFAULT_EXTERNAL_FILE_ATTRIBUTE)
-            .build();
-
-    // Should put resource in .bundle directory, not bundle root (.app dir)
-    assertThat(nestedControl.getBundleFileList()).containsExactly(bundleFile);
-    assertThat(mergeControl.getBundleFileList()).doesNotContain(bundleFile);
-  }
-
-  @Test
-  public void testDoesNotMergeInfoplistOfNestedBundle() throws Exception {
-    scratch.file("bndl1/bndl1-Info.plist");
-    scratch.file("bndl1/BUILD",
-        "objc_bundle_library(",
-        "    name = 'bndl1',",
-        "    infoplist = 'bndl1-Info.plist',",
-        ")");
-    scratch.file("bndl2/bndl2-Info.plist");
-    scratch.file("bndl2/BUILD",
-        "objc_bundle_library(",
-        "    name = 'bndl2',",
-        "    bundles = ['//bndl1:bndl1'],",
-        "    infoplist = 'bndl2-Info.plist',",
-        ")");
-    scratch.file("bin/bin-Info.plist");
-    scratch.file("bin/bin.m");
-    scratch.file("bin/BUILD",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    bundles = ['//bndl2:bndl2'],",
-        "    infoplist = 'bin-Info.plist'",
-        ")");
-    Artifact bundle1Infoplist = getSourceArtifact("bndl1/bndl1-Info.plist");
-    Artifact bundle2Infoplist = getSourceArtifact("bndl2/bndl2-Info.plist");
-    Artifact binaryInfoplist = getSourceArtifact("bin/bin-Info.plist");
-    Artifact binaryMergedInfoplist = getMergedInfoPlist(getConfiguredTarget("//bin:bin"));
-
-    PlMergeProtos.Control binaryPlMergeControl = plMergeControl("//bin:bin");
-
-    assertThat(binaryPlMergeControl.getSourceFileList())
-        .contains(binaryInfoplist.getExecPathString());
-    assertThat(binaryPlMergeControl.getSourceFileList())
-        .containsNoneOf(bundle1Infoplist.getExecPathString(), bundle2Infoplist.getExecPathString());
-
-    assertThat(bundleMergeAction("//bin:bin").getInputs())
-        .containsAllOf(bundle1Infoplist, bundle2Infoplist, binaryMergedInfoplist);
-
-    BundleMergeProtos.Control binControl = bundleMergeControl("//bin:bin");
-    assertThat(binControl.getBundleInfoPlistFile())
-        .isEqualTo(binaryMergedInfoplist.getExecPathString());
-
-    BundleMergeProtos.Control bundle2Control =
-        Iterables.getOnlyElement(binControl.getNestedBundleList());
-    assertThat(bundle2Control.getBundleInfoPlistFile())
-        .isEqualTo(bundle2Infoplist.getExecPathString());
-
-    BundleMergeProtos.Control bundle1Control =
-        Iterables.getOnlyElement(bundle2Control.getNestedBundleList());
-    assertThat(bundle1Control.getBundleInfoPlistFile())
-        .isEqualTo(bundle1Infoplist.getExecPathString());
   }
 
   @Test

@@ -205,8 +205,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (configurationDistinguisher) {
       case UNKNOWN:
         return String.format("%s-out/ios_%s-fastbuild/", TestConstants.PRODUCT_NAME, arch);
-      case IOS_EXTENSION: // Intentional fall-through.
-      case IOS_APPLICATION:
       case APPLEBIN_IOS:
         return String.format(
             "%1$s-out/ios-%2$s-min%4$s-%3$s-ios_%2$s-fastbuild/",
@@ -249,15 +247,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static String iosConfigurationCcDepsBin(
       String arch, ConfigurationDistinguisher configurationDistinguisher) {
     switch (configurationDistinguisher) {
-      case IOS_EXTENSION:
       case APPLEBIN_IOS:
         return String.format(
             "%s-out/%s-ios_%s-fastbuild/bin/",
             TestConstants.PRODUCT_NAME,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
             arch);
-      case UNKNOWN: // Intentional fall-through.
-      case IOS_APPLICATION:
+      case UNKNOWN:
         return String.format("%s-out/ios_%s-fastbuild/bin/", TestConstants.PRODUCT_NAME, arch);
       default:
         throw new AssertionError();
@@ -272,9 +268,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       ConfigurationDistinguisher configurationDistinguisher) {
     switch (configurationDistinguisher) {
       case UNKNOWN:
-      case IOS_EXTENSION:
-        return IosExtension.EXTENSION_MINIMUM_OS_VERSION;
-      case IOS_APPLICATION:
       case APPLEBIN_IOS:
         return DEFAULT_IOS_SDK_VERSION;
       case APPLEBIN_WATCHOS:
@@ -322,11 +315,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
   }
 
-  /**
-   * Creates an {@code objc_binary} target writer for the label indicated by the given String.
-   */
+  /** Creates an {@code apple_binary} target writer for the label indicated by the given String. */
   protected ScratchAttributeWriter createBinaryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "objc_binary", labelString);
+    return ScratchAttributeWriter.fromLabelString(this, "apple_binary", labelString)
+        .set("platform_type", "'ios'");
   }
 
   private static String compilationModeFlag(CompilationMode mode) {
@@ -2767,17 +2759,23 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .write();
     String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
 
+    CommandAction archiveAction = archiveAction("//lib:lib");
+    Artifact aObj = getFirstArtifactEndingWith(archiveAction.getInputs(), "a.o");
+    CommandAction aCompileAction = (CommandAction) getGeneratingAction(aObj);
+
     // We remove spaces because the crosstool case does not use spaces for include paths.
-    String compileAArgs = Joiner.on("")
-        .join(compileAction("//lib:lib", "a.o").getArguments())
-        .replace(" ", "");
+    String compileAArgs = Joiner.on("").join(aCompileAction.getArguments()).replace(" ", "");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/from_lib");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/foo");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/bar/baz");
 
-    String compileBArgs = Joiner.on("")
-        .join(compileAction("//bin:bin", "b.o").getArguments())
-        .replace(" ", "");
+    CommandAction linkAction = linkAction("//bin:bin");
+    Artifact binLib = getFirstArtifactEndingWith(linkAction.getInputs(), "libbin.a");
+    CommandAction binArchiveAction = (CommandAction) getGeneratingAction(binLib);
+    Artifact bObj = getFirstArtifactEndingWith(binArchiveAction.getInputs(), "b.o");
+    CommandAction bCompileAction = (CommandAction) getGeneratingAction(bObj);
+
+    String compileBArgs = Joiner.on("").join(bCompileAction.getArguments()).replace(" ", "");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_bin");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_lib");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/foo");
@@ -3255,45 +3253,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
           .build());
     }
     assertThat(control.getBundleFileList()).containsAllIn(expectedBundleFiles);
-  }
-
-  protected void checkNestedBundleInformationPropagatedToDependers(RuleType ruleType)
-      throws Exception {
-    scratch.file("bndl/bndl-Info.plist");
-    scratch.file("bndl/bndl.png");
-    scratch.file("bndl/BUILD",
-        "objc_bundle_library(",
-        "    name = 'bndl',",
-        "    infoplist = 'bndl-Info.plist',",
-        "    resources = ['bndl.png'],",
-        ")");
-
-    ruleType.scratchTarget(scratch, "bundles", "['//bndl:bndl']");
-
-    scratch.file("bin/bin.m");
-    scratch.file("bin/BUILD",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    deps = ['//x:x'],",
-        ")");
-
-    assertThat(bundleMergeAction("//bin:bin").getInputs())
-        .containsAllOf(
-            getSourceArtifact("bndl/bndl-Info.plist"), getSourceArtifact("bndl/bndl.png"));
-
-    BundleMergeProtos.Control binControl = bundleMergeControl("//bin:bin");
-    BundleMergeProtos.Control bundleControl =
-        Iterables.getOnlyElement(binControl.getNestedBundleList());
-
-    assertThat(bundleControl.getBundleInfoPlistFile()).isEqualTo("bndl/bndl-Info.plist");
-
-    assertThat(bundleControl.getBundleFileList())
-        .containsExactly(BundleMergeProtos.BundleFile.newBuilder()
-            .setBundlePath("bndl.png")
-            .setSourceFile("bndl/bndl.png")
-            .setExternalFileAttribute(BundleableFile.DEFAULT_EXTERNAL_FILE_ATTRIBUTE)
-            .build());
   }
 
   protected void checkConvertStringsAction(BinaryRuleTypePair ruleTypePair) throws Exception {

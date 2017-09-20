@@ -28,5 +28,4 @@ public class LegacyIosTestTest extends IosTestTest {
   protected ObjcCrosstoolMode getObjcCrosstoolMode() {
     return ObjcCrosstoolMode.OFF;
   }
-
 }

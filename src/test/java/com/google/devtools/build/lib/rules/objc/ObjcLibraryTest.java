@@ -1229,11 +1229,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testBundleInformationPropagatedThroughLibraries() throws Exception {
-    checkNestedBundleInformationPropagatedToDependers(RULE_TYPE);
-  }
-
-  @Test
   public void testAppleSdkVersionEnv() throws Exception {
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1639,15 +1634,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
     useConfiguration("--cpu=ios_i386");
 
-    scratch.file("package/BUILD",
+    scratch.file(
+        "package/BUILD",
         "cc_library(",
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")",
         "",
-        "objc_binary(",
+        "apple_binary(",
         "    name = 'objc_bin',",
         "    srcs = ['b.m'],",
+        "    platform_type = 'ios',",
         "    deps = [':cc_lib'],",
         ")");
 
