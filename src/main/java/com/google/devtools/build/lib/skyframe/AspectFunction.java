@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -466,7 +467,7 @@ public final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredAspect configuredAspect;
-    if (ConfiguredTargetFunction.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
+    if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
       configuredAspect =
           view.getConfiguredTargetFactory()
               .createAspect(

@@ -372,7 +372,7 @@ public final class AspectValue extends ActionLookupValue {
     transitivePackages = null;
   }
 
-  NestedSet<Package> getTransitivePackages() {
+  public NestedSet<Package> getTransitivePackages() {
     return Preconditions.checkNotNull(transitivePackages);
   }
 
