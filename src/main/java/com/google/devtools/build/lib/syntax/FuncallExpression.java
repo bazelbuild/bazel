@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -388,11 +389,23 @@ public final class FuncallExpression extends Expression {
   }
 
   private static SkylarkType getType(Param param) {
-    SkylarkType type =
-        param.generic1() != Object.class
-            ? SkylarkType.of(param.type(), param.generic1())
-            : SkylarkType.of(param.type());
-    return type;
+    if (param.allowedTypes().length > 0) {
+      Preconditions.checkState(Object.class.equals(param.type()));
+      SkylarkType result = SkylarkType.BOTTOM;
+      for (ParamType paramType : param.allowedTypes()) {
+        SkylarkType t = paramType.generic1() != Object.class
+            ? SkylarkType.of(paramType.type(), paramType.generic1())
+            : SkylarkType.of(paramType.type());
+        result = SkylarkType.Union.of(result, t);
+      }
+      return result;
+    } else {
+      SkylarkType type =
+          param.generic1() != Object.class
+              ? SkylarkType.of(param.type(), param.generic1())
+              : SkylarkType.of(param.type());
+      return type;
+    }
   }
 
   /**

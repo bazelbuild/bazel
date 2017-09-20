@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -155,6 +156,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           positional = false,
           named = true
         ),
+        @Param(
+          name = "multi",
+          allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Integer.class),
+              @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+          },
+          defaultValue = "None",
+          noneable = true,
+          positional = false,
+          named = true
+        )
       }
     )
     public String withParams(
@@ -164,7 +177,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         boolean named,
         boolean optionalNamed,
         Object nonNoneable,
-        Object noneable) {
+        Object noneable,
+        Object multi) {
       return "with_params("
           + pos1
           + ", "
@@ -177,6 +191,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + optionalNamed
           + ", "
           + nonNoneable.toString()
+          + (noneable != Runtime.NONE ? ", " + noneable : "")
+          + (multi != Runtime.NONE ? ", " + multi : "")
           + ")";
     }
 
@@ -744,6 +760,21 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("b", "with_params(1, true, false, true, false, a)");
     new SkylarkTest()
         .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, multi=1)")
+        .testLookup("b", "with_params(1, true, false, true, false, a, 1)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, multi='abc')")
+        .testLookup("b", "with_params(1, true, false, true, false, a, abc)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, multi=[1,2,3])")
+        .testLookup("b", "with_params(1, true, false, true, false, a, [1, 2, 3])");
+
+
+    new SkylarkTest()
+        .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "parameter 'named' has no default value, in method with_params(int, bool) of 'Mock'",
@@ -781,6 +812,25 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "parameter 'nonNoneable' cannot be None, in method with_params(int, bool, bool, "
                 + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "Cannot convert parameter 'multi' to type string or int or sequence of ints or"
+                + " NoneType, in method with_params(int, bool, bool named, bool multi) of 'Mock'",
+            "mock.with_params(1, True, named=True, multi=False)"
+        );
+
+    // We do not enforce list item parameter type constraints.
+    // Test for this behavior.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, multi=['a', 'b'])")
+        .testLookup(
+            "b", "with_params(1, true, false, true, false, a, [\"a\", \"b\"])"
+        );
+
   }
 
   @Test
