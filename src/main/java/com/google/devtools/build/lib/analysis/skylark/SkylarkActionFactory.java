@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -236,8 +237,12 @@ public class SkylarkActionFactory implements SkylarkValue {
       @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
       @Param(
         name = "content",
-        type = String.class,
-        doc = "the contents of the file.",
+        type = Object.class,
+        allowedTypes = {@ParamType(type = String.class), @ParamType(type = Args.class)},
+        doc =
+            "the contents of the file. "
+                + "May be a either a string or actions.args() object. "
+                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>.",
         named = true
       ),
       @Param(
@@ -249,10 +254,23 @@ public class SkylarkActionFactory implements SkylarkValue {
       )
     }
   )
-  public void write(Artifact output, String content, Boolean isExecutable) throws EvalException {
+  public void write(Artifact output, Object content, Boolean isExecutable) throws EvalException {
     context.checkMutable("actions.write");
-    FileWriteAction action =
-        FileWriteAction.create(ruleContext, output, content, isExecutable);
+    final Action action;
+    if (content instanceof String) {
+      action = FileWriteAction.create(ruleContext, output, (String) content, isExecutable);
+    } else if (content instanceof Args) {
+      Args args = (Args) content;
+      action =
+          new ParameterFileWriteAction(
+              ruleContext.getActionOwner(),
+              output,
+              args.build(),
+              args.parameterFileType,
+              StandardCharsets.UTF_8);
+    } else {
+      throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
+    }
     ruleContext.registerAction(action);
   }
 
@@ -635,7 +653,16 @@ public class SkylarkActionFactory implements SkylarkValue {
           stringArgs = new ArrayList<>();
         }
         Args args = (Args) value;
-        builder.addCommandLine(args.commandLine.build(), args.paramFileInfo);
+        ParamFileInfo paramFileInfo = null;
+        if (args.flagFormatString != null) {
+          paramFileInfo =
+              ParamFileInfo.builder(args.parameterFileType)
+                  .setFlagFormatString(args.flagFormatString)
+                  .setUseAlways(args.useAlways)
+                  .setCharset(StandardCharsets.UTF_8)
+                  .build();
+        }
+        builder.addCommandLine(args.commandLine.build(), paramFileInfo);
       } else {
         throw new EvalException(
             null,
@@ -846,7 +873,9 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     private final SkylarkRuleContext context;
     private final SkylarkCustomCommandLine.Builder commandLine;
-    private ParamFileInfo paramFileInfo;
+    private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
+    private String flagFormatString;
+    private boolean useAlways;
 
     @SkylarkSignature(
       name = "add",
@@ -1018,22 +1047,10 @@ public class SkylarkActionFactory implements SkylarkValue {
               "whether to always spill the args to a params file. If false, "
                   + "bazel will decide whether the arguments need to be spilled "
                   + "based on your system and arg length."
-        ),
-        @Param(
-          name = "format",
-          type = String.class,
-          named = true,
-          positional = false,
-          defaultValue = "\"shell\"",
-          doc =
-              "the format of the param file. Must be one of:<br>"
-                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
-                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
         )
       }
     )
-    public void useParamsFile(String paramFileArg, Boolean useAlways, String format)
-        throws EvalException {
+    public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
@@ -1042,22 +1059,44 @@ public class SkylarkActionFactory implements SkylarkValue {
             null,
             "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
       }
-      final ParameterFileType parameterFileType;
-      if (format.equals("shell")) {
-        parameterFileType = ParameterFileType.SHELL_QUOTED;
-      } else if (format.equals("multiline")) {
-        parameterFileType = ParameterFileType.UNQUOTED;
-      } else {
-        throw new EvalException(
-            null,
-            "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
-      }
+      this.flagFormatString = paramFileArg;
+      this.useAlways = useAlways;
+    }
 
-      paramFileInfo =
-          ParamFileInfo.builder(parameterFileType)
-              .setUseAlways(useAlways)
-              .setFlagFormatString(paramFileArg)
-              .build();
+    @SkylarkCallable(
+      name = "set_param_file_format",
+      doc = "sets the format of the param file when written to disk",
+      parameters = {
+        @Param(
+          name = "format",
+          type = String.class,
+          named = true,
+          doc =
+              "the format of the param file. Must be one of:<br>"
+                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
+                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
+                  + "The format defaults to \"shell\" if not called."
+        )
+      }
+    )
+    public void setParamFileFormat(String format) throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      final ParameterFileType parameterFileType;
+      switch (format) {
+        case "shell":
+          parameterFileType = ParameterFileType.SHELL_QUOTED;
+          break;
+        case "multiline":
+          parameterFileType = ParameterFileType.UNQUOTED;
+          break;
+        default:
+          throw new EvalException(
+              null,
+              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
+      }
+      this.parameterFileType = parameterFileType;
     }
 
     public Args(

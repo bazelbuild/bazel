@@ -57,6 +57,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Rule;
@@ -624,8 +625,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "Cannot convert parameter 'content' to type string, in method "
-            + "write(File output, int content, bool is_executable) of 'actions'",
+        "Cannot convert parameter 'content' to type string or Args",
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
@@ -1841,6 +1841,27 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testWriteArgsToParamFile() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "args.add('--foo')",
+        "output=ruleContext.actions.declare_file('out')",
+        "ruleContext.actions.write(",
+        "  output=output,",
+        "  content=args,",
+        ")");
+    List<ActionAnalysisMetadata> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions();
+    Optional<ActionAnalysisMetadata> action =
+        actions.stream().filter(a -> a instanceof ParameterFileWriteAction).findFirst();
+    assertThat(action.isPresent()).isTrue();
+    ParameterFileWriteAction paramAction = (ParameterFileWriteAction) action.get();
+    assertThat(paramAction.getContents()).containsExactly("--foo");
+  }
+
+  @Test
   public void testLazyArgsWithParamFileInvalidFormatString() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkError(
@@ -1855,8 +1876,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkError(
         ruleContext,
         "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"",
-        "args = ruleContext.actions.args()\n"
-            + "args.use_param_file('--file=%s', format='illegal')");
+        "args = ruleContext.actions.args()\n" + "args.set_param_file_format('illegal')");
   }
 
   @Test
