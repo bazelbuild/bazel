@@ -296,7 +296,11 @@ public final class SkyframeBuildView {
       if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
       }
-      throw new ViewCreationFailedException(errorMsg);
+      if (errorInfo.getException() != null) {
+        throw new ViewCreationFailedException(errorMsg, errorInfo.getException());
+      } else {
+        throw new ViewCreationFailedException(errorMsg);
+      }
     }
 
     boolean hasLoadingError = false;
