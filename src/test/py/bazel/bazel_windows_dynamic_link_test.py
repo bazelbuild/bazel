@@ -134,7 +134,7 @@ class BazelWindowsDynamicLinkTest(test_base.TestBase):
     # //:A export symbols by itself using __declspec(dllexport), so it doesn't
     # need Bazel to export symbols using DEF file.
     exit_code, _, stderr = self.RunBazel(
-        ['build', '//:A', '--output_groups=cc_dynamic_library'])
+        ['build', '//:A', '--output_groups=dynamic_library'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
@@ -155,7 +155,7 @@ class BazelWindowsDynamicLinkTest(test_base.TestBase):
     # //:B doesn't export symbols by itself, so it need Bazel to export symbols
     # using DEF file.
     exit_code, _, stderr = self.RunBazel(
-        ['build', '//:B', '--output_groups=cc_dynamic_library'])
+        ['build', '//:B', '--output_groups=dynamic_library'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
@@ -172,7 +172,7 @@ class BazelWindowsDynamicLinkTest(test_base.TestBase):
     # Test build //:B if windows_export_all_symbols feature is disabled by
     # no_windows_export_all_symbols.
     exit_code, _, stderr = self.RunBazel([
-        'build', '//:B', '--output_groups=cc_dynamic_library',
+        'build', '//:B', '--output_groups=dynamic_library',
         '--features=no_windows_export_all_symbols'
     ])
     self.AssertExitCode(exit_code, 1, stderr)

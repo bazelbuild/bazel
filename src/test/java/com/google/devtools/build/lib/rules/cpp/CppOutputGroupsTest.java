@@ -33,8 +33,8 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=0)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'cc_archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'cc_dynamic_library')");
+        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
+        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -50,8 +50,8 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=1)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'cc_archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'cc_dynamic_library')");
+        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
+        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -67,8 +67,8 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=0)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'cc_archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'cc_dynamic_library')");
+        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
+        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -87,8 +87,8 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=1)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'cc_archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'cc_dynamic_library')");
+        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
+        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");

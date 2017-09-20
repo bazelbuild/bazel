@@ -90,10 +90,10 @@ public final class CcLibraryHelper {
           + OutputGroupProvider.INTERNAL_SUFFIX;
 
   /** A string constant for the name of archive library(.a, .lo) output group. */
-  public static final String ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME = "cc_archive";
+  public static final String ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME = "archive";
 
   /** A string constant for the name of dynamic library output group. */
-  public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "cc_dynamic_library";
+  public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
 
   /**
    * A group of source file types and action names for builds controlled by CcLibraryHelper.
