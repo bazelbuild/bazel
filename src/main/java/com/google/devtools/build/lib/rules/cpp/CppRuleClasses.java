@@ -300,6 +300,9 @@ public class CppRuleClasses {
   /** A string constant for a feature to disable WINDOWS_EXPORT_ALL_SYMBOLS. */
   public static final String NO_WINDOWS_EXPORT_ALL_SYMBOLS = "no_windows_export_all_symbols";
 
+  /** A string constant for a feature to copy dynamic libraries to the binary's directory. */
+  public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY = "copy_dynamic_libraries_to_binary";
+
   /**
    * A string constant for a feature that indicates we are using a toolchain building for Windows.
    */

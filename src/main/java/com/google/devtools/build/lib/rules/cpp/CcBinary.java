@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -236,6 +237,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("linkshared", "'linkshared' used in non-shared library");
       return null;
     }
+
+    CcLinkParams linkParams =
+        collectCcLinkParams(
+            ruleContext,
+            linkStaticness != LinkStaticness.DYNAMIC,
+            isLinkShared(ruleContext),
+            linkopts);
+
     CppLinkActionBuilder linkActionBuilder =
         determineLinkerArguments(
             ruleContext,
@@ -248,8 +257,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppCompilationContext.getTransitiveCompilationPrerequisites(),
             fake,
             binary,
-            linkStaticness,
-            linkopts,
+            linkParams,
             linkCompileOutputSeparately);
     linkActionBuilder.setUseTestOnlyFlags(ruleContext.isTestTarget());
     if (linkStaticness == LinkStaticness.DYNAMIC) {
@@ -363,6 +371,17 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    // If the binary is linked dynamically and COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, collect
+    // all the dynamic libraries we need at runtime. Then copy these libraries next to the binary.
+    if (featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+      filesToBuild =
+          NestedSetBuilder.fromNestedSet(filesToBuild)
+              .addAll(
+                  createDynamicLibrariesCopyActions(
+                      ruleContext, linkParams.getExecutionDynamicLibraries()))
+              .build();
+    }
+
     // TODO(bazel-team): Do we need to put original shared libraries (along with
     // mangled symlinks) into the RunfilesSupport object? It does not seem
     // logical since all symlinked libraries will be linked anyway and would
@@ -462,8 +481,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ImmutableSet<Artifact> compilationPrerequisites,
       boolean fake,
       Artifact binary,
-      LinkStaticness linkStaticness,
-      List<String> linkopts,
+      CcLinkParams linkParams,
       boolean linkCompileOutputSeparately)
       throws InterruptedException {
     CppLinkActionBuilder builder =
@@ -512,9 +530,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     // Then the link params from the closure of deps.
-    CcLinkParams linkParams = collectCcLinkParams(
-        context, linkStaticness != LinkStaticness.DYNAMIC, isLinkShared(context), linkopts);
     builder.addLinkParams(linkParams, context);
+
     return builder;
   }
 
@@ -686,6 +703,29 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           intermediateDwpCount);
     }
     return Iterables.getOnlyElement(packagers);
+  }
+
+  /**
+   * Create the actions to symlink/copy execution dynamic libraries to binary directory so that they
+   * are available at runtime.
+   *
+   * @param executionDynamicLibraries The libraries to be copied.
+   * @return The result artifacts of the copies.
+   */
+  private static ImmutableList<Artifact> createDynamicLibrariesCopyActions(
+      RuleContext ruleContext, NestedSet<Artifact> executionDynamicLibraries) {
+    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
+    for (Artifact target : executionDynamicLibraries) {
+      if (!ruleContext.getLabel().getPackageName().equals(target.getOwner().getPackageName())) {
+        // SymlinkAction on file is actually copy on Windows.
+        Artifact copy = ruleContext.getBinArtifact(target.getFilename());
+        ruleContext.registerAction(
+            new SymlinkAction(
+                ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
+        result.add(copy);
+      }
+    }
+    return result.build();
   }
 
   /**

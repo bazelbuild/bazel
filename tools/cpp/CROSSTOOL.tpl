@@ -256,7 +256,12 @@ toolchain {
   # This feature indicates this is a toolchain targeting Windows.
   feature {
     name: 'targets_windows'
+    implies: 'copy_dynamic_libraries_to_binary'
     enabled: true
+  }
+
+  feature {
+    name: 'copy_dynamic_libraries_to_binary'
   }
 
   action_config {

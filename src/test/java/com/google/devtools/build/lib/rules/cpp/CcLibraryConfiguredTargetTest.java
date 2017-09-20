@@ -1186,6 +1186,52 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcLinkParamsHasExecutionDynamicLibraries() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig, MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION);
+    useConfiguration("--cpu=k8", "--features=copy_dynamic_libraries_to_binary");
+    ConfiguredTarget target =
+        scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    Iterable<Artifact> libraries =
+        target
+            .get(CcLinkParamsInfo.PROVIDER)
+            .getCcLinkParams(false, true)
+            .getExecutionDynamicLibraries();
+    assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.ifso");
+    assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.so");
+  }
+
+  @Test
+  public void testCcLinkParamsHasExecutionDynamicLibrariesWithoutCopyFeature() throws Exception {
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    Iterable<Artifact> libraries =
+        target
+            .get(CcLinkParamsInfo.PROVIDER)
+            .getCcLinkParams(false, true)
+            .getExecutionDynamicLibraries();
+    assertThat(artifactsToStrings(libraries)).doesNotContain("bin _solib_k8/liba_Slibfoo.ifso");
+    assertThat(artifactsToStrings(libraries)).contains("bin _solib_k8/liba_Slibfoo.so");
+  }
+
+  @Test
+  public void testCcLinkParamsDoNotHasExecutionDynamicLibraries() throws Exception {
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'], linkstatic=1)");
+    Iterable<Artifact> libraries =
+        target
+            .get(CcLinkParamsInfo.PROVIDER)
+            .getCcLinkParams(false, true)
+            .getExecutionDynamicLibraries();
+    assertThat(artifactsToStrings(libraries)).isEmpty();
+  }
+
+  @Test
   public void forbidBuildingAndWrappingSameLibraryIdentifier() throws Exception {
     useConfiguration("--cpu=k8");
     checkError(

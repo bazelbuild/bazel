@@ -1736,11 +1736,15 @@ public class CppLinkActionBuilder {
       for (LinkerInput input : linkerInputs) {
         if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-          Preconditions.checkState(
-              libDir.startsWith(solibDir),
-              "Artifact '%s' is not under directory '%s'.",
-              input.getArtifact(),
-              solibDir);
+          // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
+          // under solibDir, so don't check it.
+          if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+            Preconditions.checkState(
+                libDir.startsWith(solibDir),
+                "Artifact '%s' is not under directory '%s'.",
+                input.getArtifact(),
+                solibDir);
+          }
           if (libDir.equals(solibDir)) {
             includeSolibDir = true;
           }

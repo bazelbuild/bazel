@@ -406,6 +406,9 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
+      "" + "feature { " + "  name: 'copy_dynamic_libraries_to_binary'" + "}";
+
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
       ""
           + "artifact_name_pattern {"

@@ -1558,13 +1558,15 @@ public final class CcLibraryHelper {
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
         builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
         builder.addTransitiveTargets(
-            deps,
-            CcLinkParamsInfo.TO_LINK_PARAMS,
-            CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+            deps, CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
           builder.addLibraries(
               ccLinkingOutputs.getPreferredLibraries(
                   linkingStatically, /*preferPic=*/ linkShared || forcePic));
+          if (!linkingStatically) {
+            builder.addExecutionDynamicLibraries(
+                LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
+          }
           builder.addLinkOpts(linkopts);
         }
       }

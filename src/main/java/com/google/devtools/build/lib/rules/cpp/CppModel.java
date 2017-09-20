@@ -1543,7 +1543,11 @@ public final class CppModel {
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
     // mangled name only.
-    if (neverLink) {
+    //
+    // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, we don't need to create the special
+    // solibDir, instead we use the original interface library and dynamic library.
+    if (neverLink
+        || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
       result.addDynamicLibrary(interfaceLibrary);
       result.addExecutionDynamicLibrary(dynamicLibrary);
     } else {
