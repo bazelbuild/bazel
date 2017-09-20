@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Root;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
@@ -409,10 +411,21 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
   /**
-   * Builds and registers a spawn action on the rule context.
+   * Registers actions in the context of this {@link SkylarkActionFactory}.
+   *
+   * Use {@link #getActionConstructionContext()} to obtain the context required to
+   * create those actions.
    */
-  public void buildAndRegisterSpawnAction(SpawnAction.Builder action) {
-    ruleContext.registerAction(action.build(ruleContext));
+  public void registerAction(ActionAnalysisMetadata... actions) {
+    ruleContext.registerAction(actions);
+  }
+
+  /**
+   * Returns information needed to construct actions that can be
+   * registered with {@link #registerAction(ActionAnalysisMetadata...)}.
+   */
+  public ActionConstructionContext getActionConstructionContext() {
+    return ruleContext;
   }
 
   @SkylarkCallable(
