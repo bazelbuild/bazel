@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
+import com.google.devtools.build.lib.remote.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
@@ -49,6 +50,8 @@ import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Server;
+import io.grpc.ServerInterceptor;
+import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -121,15 +124,16 @@ public final class RemoteWorker {
   }
 
   public Server startServer() throws IOException {
+    ServerInterceptor headersInterceptor = new TracingMetadataUtils.ServerHeadersInterceptor();
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.listenPort)
-            .addService(actionCacheServer)
-            .addService(bsServer)
-            .addService(casServer);
+            .addService(ServerInterceptors.intercept(actionCacheServer, headersInterceptor))
+            .addService(ServerInterceptors.intercept(bsServer, headersInterceptor))
+            .addService(ServerInterceptors.intercept(casServer, headersInterceptor));
 
     if (execServer != null) {
-      b.addService(execServer);
-      b.addService(watchServer);
+      b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
+      b.addService(ServerInterceptors.intercept(watchServer, headersInterceptor));
     } else {
       logger.info("Execution disabled, only serving cache requests.");
     }

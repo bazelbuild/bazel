@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Digests;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import com.google.devtools.build.lib.remote.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -41,10 +42,12 @@ import com.google.devtools.remoteexecution.v1test.Command.EnvironmentVariable;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.devtools.remoteexecution.v1test.Platform;
+import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import com.google.longrunning.Operation;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
+import io.grpc.Context;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
@@ -59,7 +62,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -123,12 +125,8 @@ final class ExecutionServer extends ExecutionImplBase {
   @Override
   public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
     final String opName = UUID.randomUUID().toString();
-    ListenableFuture<ActionResult> future = executorService.submit(new Callable<ActionResult>() {
-      @Override
-      public ActionResult call() throws Exception {
-        return execute(request, opName);
-      }
-    });
+    ListenableFuture<ActionResult> future =
+        executorService.submit(Context.current().wrap(() -> execute(request, opName)));
     operationsCache.put(opName, future);
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
     responseObserver.onCompleted();
@@ -137,19 +135,20 @@ final class ExecutionServer extends ExecutionImplBase {
   private ActionResult execute(ExecuteRequest request, String id)
       throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
+    String workDetails = "";
     try {
       tempRoot.createDirectory();
-      logger.log(
-          FINE,
-          "Work received has {0} input files and {1} output files.",
-          new Object[]{
-              request.getTotalInputFileCount(), request.getAction().getOutputFilesCount()
-          });
+      RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+      workDetails =
+          String.format(
+              "build-request-id: %s command-id: %s action-id: %s",
+              meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
+      logger.log(FINE, "Received work for: {0}", workDetails);
       ActionResult result = execute(request.getAction(), tempRoot);
-      logger.log(FINE, "Completed {0}.", id);
+      logger.log(FINE, "Completed {0}.", workDetails);
       return result;
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Work failed.", e);
+      logger.log(Level.SEVERE, "Work failed: {0} {1}.", new Object[] {workDetails, e});
       throw e;
     } finally {
       if (workerOptions.debug) {

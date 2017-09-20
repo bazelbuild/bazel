@@ -45,6 +45,7 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
+import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -74,6 +75,8 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Nullable private final Reporter cmdlineReporter;
   @Nullable private final RemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
+  private final String buildRequestId;
+  private final String commandId;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -84,6 +87,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       SpawnRunner fallbackRunner,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
+      String buildRequestId,
+      String commandId,
       @Nullable RemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor) {
     this.execRoot = execRoot;
@@ -94,6 +99,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.remoteExecutor = remoteExecutor;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
   }
 
   @Override
@@ -121,64 +128,68 @@ class RemoteSpawnRunner implements SpawnRunner {
 
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = Digests.computeActionKey(action);
-    boolean acceptCachedResult = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
-    boolean uploadLocalResults = options.remoteUploadLocalResults;
-
+    Context withMetadata =
+        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
+    Context previous = withMetadata.attach();
     try {
-      // Try to lookup the action in the action cache.
-      ActionResult cachedResult =
-          acceptCachedResult
-              ? remoteCache.getCachedActionResult(actionKey)
-              : null;
-      if (cachedResult != null) {
-        if (cachedResult.getExitCode() != 0) {
-          // The remote cache must never serve a failed action.
-          throw new EnvironmentalExecException("The remote cache is in an invalid state as it"
-              + " served a failed action. Hash of the action: " + actionKey.getDigest());
+      boolean acceptCachedResult = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
+      boolean uploadLocalResults = options.remoteUploadLocalResults;
+
+      try {
+        // Try to lookup the action in the action cache.
+        ActionResult cachedResult =
+            acceptCachedResult ? remoteCache.getCachedActionResult(actionKey) : null;
+        if (cachedResult != null) {
+          if (cachedResult.getExitCode() != 0) {
+            // The remote cache must never serve a failed action.
+            throw new EnvironmentalExecException(
+                "The remote cache is in an invalid state as it"
+                    + " served a failed action. Hash of the action: "
+                    + actionKey.getDigest());
+          }
+          try {
+            return downloadRemoteResults(cachedResult, policy.getFileOutErr());
+          } catch (CacheNotFoundException e) {
+            // No cache hit, so we fall through to local or remote execution.
+            // We set acceptCachedResult to false in order to force the action re-execution.
+            acceptCachedResult = false;
+          }
         }
-        try {
-          return downloadRemoteResults(cachedResult, policy.getFileOutErr());
-        } catch (CacheNotFoundException e) {
-          // No cache hit, so we fall through to local or remote execution.
-          // We set acceptCachedResult to false in order to force the action re-execution.
-          acceptCachedResult = false;
-        }
+      } catch (IOException e) {
+        return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
       }
-    } catch (IOException e) {
-      return execLocallyOrFail(
-          spawn, policy, inputMap, actionKey, uploadLocalResults, e);
-    }
 
-    if (remoteExecutor == null) {
-      // Remote execution is disabled and so execute the spawn on the local machine.
-      return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
-    }
+      if (remoteExecutor == null) {
+        // Remote execution is disabled and so execute the spawn on the local machine.
+        return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
+      }
 
-    try {
-      // Upload the command and all the inputs into the remote cache.
-      remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
-    } catch (IOException e) {
-      return execLocallyOrFail(
-          spawn, policy, inputMap, actionKey, uploadLocalResults, e);
-    }
+      try {
+        // Upload the command and all the inputs into the remote cache.
+        remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
+      } catch (IOException e) {
+        return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
+      }
 
-    final ActionResult result;
-    try {
-      result = executeRemotely(action, inputMap.size(), acceptCachedResult);
-    } catch (IOException e) {
-      return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
-    }
+      final ActionResult result;
+      try {
+        result = executeRemotely(action, inputMap.size(), acceptCachedResult);
+      } catch (IOException e) {
+        return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
+      }
 
-    boolean executionFailed = result.getExitCode() != 0;
-    if (options.remoteLocalFallback && executionFailed) {
-      return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
-    }
+      boolean executionFailed = result.getExitCode() != 0;
+      if (options.remoteLocalFallback && executionFailed) {
+        return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
+      }
 
-    try {
-      return downloadRemoteResults(result, policy.getFileOutErr());
-    } catch (IOException e) {
-      return execLocallyOrFail(
-          spawn, policy, inputMap, actionKey, uploadLocalResults, e);
+      try {
+        return downloadRemoteResults(result, policy.getFileOutErr());
+      } catch (IOException e) {
+        return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
+      }
+    } finally {
+      withMetadata.detach(previous);
     }
   }
 
@@ -191,8 +202,8 @@ class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  private ActionResult executeRemotely(Action action, int numInputFiles,
-      boolean acceptCachedResult) throws IOException, InterruptedException {
+  private ActionResult executeRemotely(Action action, int numInputFiles, boolean acceptCachedResult)
+      throws IOException, InterruptedException {
     // TODO(olaola): set BuildInfo and input total bytes as well.
     ExecuteRequest.Builder request =
         ExecuteRequest.newBuilder()
@@ -204,9 +215,13 @@ class RemoteSpawnRunner implements SpawnRunner {
     return reply.getResult();
   }
 
-  private SpawnResult execLocallyOrFail(Spawn spawn, SpawnExecutionPolicy policy,
-      SortedMap<PathFragment, ActionInput> inputMap, ActionKey actionKey,
-      boolean uploadLocalResults, IOException cause)
+  private SpawnResult execLocallyOrFail(
+      Spawn spawn,
+      SpawnExecutionPolicy policy,
+      SortedMap<PathFragment, ActionInput> inputMap,
+      ActionKey actionKey,
+      boolean uploadLocalResults,
+      IOException cause)
       throws ExecException, InterruptedException, IOException {
     if (options.remoteLocalFallback) {
       return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
@@ -313,7 +328,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       SortedMap<PathFragment, ActionInput> inputMap,
       boolean uploadToCache,
       @Nullable RemoteActionCache remoteCache,
-      @Nullable ActionKey actionKey) throws ExecException, IOException, InterruptedException {
+      @Nullable ActionKey actionKey)
+      throws ExecException, IOException, InterruptedException {
     if (uploadToCache && Spawns.mayBeCached(spawn) && remoteCache != null && actionKey != null) {
       return execLocallyAndUpload(spawn, policy, inputMap, remoteCache, actionKey);
     }
@@ -326,7 +342,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy,
       SortedMap<PathFragment, ActionInput> inputMap,
       RemoteActionCache remoteCache,
-      ActionKey actionKey) throws ExecException, IOException, InterruptedException {
+      ActionKey actionKey)
+      throws ExecException, IOException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
     SpawnResult result = fallbackRunner.exec(spawn, policy);
     Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);

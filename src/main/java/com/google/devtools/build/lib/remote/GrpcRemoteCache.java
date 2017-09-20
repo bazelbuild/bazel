@@ -89,18 +89,21 @@ public class GrpcRemoteCache implements RemoteActionCache {
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
     return ContentAddressableStorageGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
   private ByteStreamBlockingStub bsBlockingStub() {
     return ByteStreamGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
   private ActionCacheBlockingStub acBlockingStub() {
     return ActionCacheGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }

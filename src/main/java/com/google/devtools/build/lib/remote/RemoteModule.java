@@ -35,9 +35,12 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import java.io.IOException;
+import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
+  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+
   @VisibleForTesting
   static final class CasPathConverter implements PathConverter {
     // Not final; unfortunately, the Bazel startup process requires us to create this object before
@@ -89,7 +92,9 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
-
+    String buildRequestId = env.getBuildRequestId().toString();
+    String commandId = env.getCommandId().toString();
+    logger.info("Command: buildRequestId = " + buildRequestId + ", commandId = " + commandId);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     converter.options = remoteOptions;

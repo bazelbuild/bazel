@@ -121,8 +121,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, executor);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
 
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
@@ -169,8 +177,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, null);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            null);
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
@@ -211,8 +227,17 @@ public class RemoteSpawnRunnerTest {
     options.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner =
-        spy(new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, null));
+        spy(
+            new RemoteSpawnRunner(
+                execRoot,
+                options,
+                localRunner,
+                true,
+                /*cmdlineReporter=*/ null,
+                "build-req-id",
+                "command-id",
+                cache,
+                null));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -249,8 +274,17 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     RemoteSpawnRunner runner =
-        spy(new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, null));
+        spy(
+            new RemoteSpawnRunner(
+                execRoot,
+                options,
+                localRunner,
+                true,
+                /*cmdlineReporter=*/ null,
+                "build-req-id",
+                "command-id",
+                cache,
+                null));
 
     try {
       runner.exec(spawn, policy);
@@ -274,7 +308,16 @@ public class RemoteSpawnRunnerTest {
     reporter.addHandler(eventHandler);
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, false, reporter, cache, null);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            false,
+            reporter,
+            "build-req-id",
+            "command-id",
+            cache,
+            null);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -315,8 +358,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteLocalFallback = true;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, null);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            null);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -343,8 +394,16 @@ public class RemoteSpawnRunnerTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, executor);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
@@ -375,8 +434,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, executor);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -402,8 +469,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, executor);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -429,8 +504,16 @@ public class RemoteSpawnRunnerTest {
     options.remoteLocalFallback = false;
 
     RemoteSpawnRunner runner =
-        new RemoteSpawnRunner(execRoot, options, localRunner, true, /*cmdlineReporter=*/null,
-            cache, executor);
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
 

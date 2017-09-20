@@ -49,20 +49,32 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+    String buildRequestId = env.getBuildRequestId().toString();
+    String commandId = env.getCommandId().toString();
 
     if (remoteOptions.experimentalRemoteSpawnCache) {
-      RemoteSpawnCache spawnCache = new RemoteSpawnCache(env.getExecRoot(), remoteOptions, cache,
-          executionOptions.verboseFailures, env.getReporter());
+      RemoteSpawnCache spawnCache =
+          new RemoteSpawnCache(
+              env.getExecRoot(),
+              remoteOptions,
+              cache,
+              buildRequestId,
+              commandId,
+              executionOptions.verboseFailures,
+              env.getReporter());
       return ImmutableList.of(spawnCache);
     } else {
-      RemoteSpawnRunner spawnRunner = new RemoteSpawnRunner(
-          env.getExecRoot(),
-          remoteOptions,
-          createFallbackRunner(env),
-          executionOptions.verboseFailures,
-          env.getReporter(),
-          cache,
-          executor);
+      RemoteSpawnRunner spawnRunner =
+          new RemoteSpawnRunner(
+              env.getExecRoot(),
+              remoteOptions,
+              createFallbackRunner(env),
+              executionOptions.verboseFailures,
+              env.getReporter(),
+              buildRequestId,
+              commandId,
+              cache,
+              executor);
       return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
     }
   }

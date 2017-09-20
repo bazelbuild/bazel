@@ -54,6 +54,7 @@ import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
+import io.grpc.Context;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -103,6 +104,10 @@ public class GrpcRemoteCacheTest {
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
+    Context withEmptyMetadata =
+        TracingMetadataUtils.contextWithMetadata(
+            "none", "none", Digests.unsafeActionKeyFromDigest(Digest.getDefaultInstance()));
+    withEmptyMetadata.attach();
   }
 
   @After

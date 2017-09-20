@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GrpcUtils;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -61,6 +62,7 @@ import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBas
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
+import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -69,9 +71,15 @@ import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
+import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
+import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
+import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -229,8 +237,17 @@ public class GrpcRemoteExecutionClientTest {
         GrpcUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
         new GrpcRemoteCache(channel, creds, options, retrier);
-    client = new RemoteSpawnRunner(execRoot, options, null, true, /*cmdlineReporter=*/null,
-        remoteCache, executor);
+    client =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            null,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            remoteCache,
+            executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
@@ -364,22 +381,42 @@ public class GrpcRemoteExecutionClientTest {
     };
   }
 
+  /** Capture the request headers from a client. Useful for testing metadata propagation. */
+  private static class RequestHeadersValidator implements ServerInterceptor {
+    @Override
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call,
+        Metadata headers,
+        ServerCallHandler<ReqT, RespT> next) {
+      RequestMetadata meta = headers.get(TracingMetadataUtils.METADATA_KEY);
+      assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+      assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+      assertThat(meta.getActionId()).isNotEmpty();
+      assertThat(meta.getToolDetails().getToolName()).isEqualTo("bazel");
+      assertThat(meta.getToolDetails().getToolVersion())
+          .isEqualTo(BlazeVersionInfo.instance().getVersion());
+      return next.startCall(call, headers);
+    }
+  }
+
   @Test
   public void remotelyExecute() throws Exception {
-    serviceRegistry.addService(
+    BindableService actionCache =
         new ActionCacheImplBase() {
           @Override
           public void getActionResult(
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
-        });
+        };
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(actionCache, new RequestHeadersValidator()));
     final ActionResult actionResult =
         ActionResult.newBuilder()
             .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
             .setStderrRaw(ByteString.copyFromUtf8("stderr"))
             .build();
-    serviceRegistry.addService(
+    BindableService execService =
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
@@ -395,7 +432,9 @@ public class GrpcRemoteExecutionClientTest {
                     .build());
             responseObserver.onCompleted();
           }
-        });
+        };
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(execService, new RequestHeadersValidator()));
     final Command command =
         Command.newBuilder()
             .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))
@@ -406,7 +445,7 @@ public class GrpcRemoteExecutionClientTest {
                     .build())
             .build();
     final Digest cmdDigest = Digests.computeDigest(command);
-    serviceRegistry.addService(
+    BindableService cas =
         new ContentAddressableStorageImplBase() {
           @Override
           public void findMissingBlobs(
@@ -424,13 +463,15 @@ public class GrpcRemoteExecutionClientTest {
             responseObserver.onNext(b.build());
             responseObserver.onCompleted();
           }
-        });
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(cas, new RequestHeadersValidator()));
 
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
         .thenAnswer(blobWriteAnswer(command.toByteArray()))
         .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8)));
-    serviceRegistry.addService(mockByteStreamImpl);
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(mockByteStreamImpl, new RequestHeadersValidator()));
 
     SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     assertThat(result.setupSuccess()).isTrue();
@@ -563,7 +604,8 @@ public class GrpcRemoteExecutionClientTest {
             })
         .when(mockWatcherImpl)
         .watch(Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
-    serviceRegistry.addService(mockWatcherImpl);
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(mockWatcherImpl, new RequestHeadersValidator()));
     final Command command =
         Command.newBuilder()
             .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))

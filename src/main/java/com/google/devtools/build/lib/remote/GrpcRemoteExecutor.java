@@ -58,12 +58,14 @@ class GrpcRemoteExecutor {
 
   private ExecutionBlockingStub execBlockingStub() {
     return ExecutionGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(callCredentials)
         .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
   }
 
   private WatcherBlockingStub watcherBlockingStub() {
     return WatcherGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(callCredentials);
   }
 

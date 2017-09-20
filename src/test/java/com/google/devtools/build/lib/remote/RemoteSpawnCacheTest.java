@@ -166,7 +166,9 @@ public class RemoteSpawnCacheTest {
     Reporter reporter = new Reporter(new EventBus());
     eventHandler = new StoredEventHandler();
     reporter.addHandler(eventHandler);
-    cache = new RemoteSpawnCache(execRoot, options, remoteCache, false, reporter);
+    cache =
+        new RemoteSpawnCache(
+            execRoot, options, remoteCache, "build-req-id", "command-id", false, reporter);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 

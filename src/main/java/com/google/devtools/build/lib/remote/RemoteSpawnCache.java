@@ -32,6 +32,7 @@ import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.Platform;
+import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.NoSuchElementException;
@@ -54,6 +55,8 @@ final class RemoteSpawnCache implements SpawnCache {
   private final Platform platform;
 
   private final RemoteActionCache remoteCache;
+  private final String buildRequestId;
+  private final String commandId;
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
@@ -61,14 +64,22 @@ final class RemoteSpawnCache implements SpawnCache {
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
 
-  RemoteSpawnCache(Path execRoot, RemoteOptions options, RemoteActionCache remoteCache,
-      boolean verboseFailures, @Nullable Reporter cmdlineReporter) {
+  RemoteSpawnCache(
+      Path execRoot,
+      RemoteOptions options,
+      RemoteActionCache remoteCache,
+      String buildRequestId,
+      String commandId,
+      boolean verboseFailures,
+      @Nullable Reporter cmdlineReporter) {
     this.execRoot = execRoot;
     this.options = options;
     this.platform = options.parseRemotePlatformOverride();
     this.remoteCache = remoteCache;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
   }
 
   @Override
@@ -91,61 +102,70 @@ final class RemoteSpawnCache implements SpawnCache {
 
     // Look up action cache, and reuse the action output if it is found.
     final ActionKey actionKey = Digests.computeActionKey(action);
-    ActionResult result =
-        this.options.remoteAcceptCached ? remoteCache.getCachedActionResult(actionKey) : null;
-    if (result != null) {
-      // We don't cache failed actions, so we know the outputs exist.
-      // For now, download all outputs locally; in the future, we can reuse the digests to
-      // just update the TreeNodeRepository and continue the build.
-      try {
-        remoteCache.download(result, execRoot, policy.getFileOutErr());
-        SpawnResult spawnResult = new SpawnResult.Builder()
-            .setStatus(Status.SUCCESS)
-            .setExitCode(result.getExitCode())
-            .build();
-        return SpawnCache.success(spawnResult);
-      } catch (CacheNotFoundException e) {
-        // There's a cache miss. Fall back to local execution.
+    Context withMetadata =
+        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
+    // Metadata will be available in context.current() until we detach.
+    // This is done via a thread-local variable.
+    Context previous = withMetadata.attach();
+    try {
+      ActionResult result =
+          this.options.remoteAcceptCached ? remoteCache.getCachedActionResult(actionKey) : null;
+      if (result != null) {
+        // We don't cache failed actions, so we know the outputs exist.
+        // For now, download all outputs locally; in the future, we can reuse the digests to
+        // just update the TreeNodeRepository and continue the build.
+        try {
+          remoteCache.download(result, execRoot, policy.getFileOutErr());
+          SpawnResult spawnResult =
+              new SpawnResult.Builder()
+                  .setStatus(Status.SUCCESS)
+                  .setExitCode(result.getExitCode())
+                  .build();
+          return SpawnCache.success(spawnResult);
+        } catch (CacheNotFoundException e) {
+          // There's a cache miss. Fall back to local execution.
+        }
       }
-    }
-    if (options.remoteUploadLocalResults) {
-      return new CacheHandle() {
-        @Override
-        public boolean hasResult() {
-          return false;
-        }
+      if (options.remoteUploadLocalResults) {
+        return new CacheHandle() {
+          @Override
+          public boolean hasResult() {
+            return false;
+          }
 
-        @Override
-        public SpawnResult getResult() {
-          throw new NoSuchElementException();
-        }
+          @Override
+          public SpawnResult getResult() {
+            throw new NoSuchElementException();
+          }
 
-        @Override
-        public boolean willStore() {
-          return true;
-        }
+          @Override
+          public boolean willStore() {
+            return true;
+          }
 
-        @Override
-        public void store(SpawnResult result, Collection<Path> files)
-            throws InterruptedException, IOException {
-          try {
+          @Override
+          public void store(SpawnResult result, Collection<Path> files)
+              throws InterruptedException, IOException {
             boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-            remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
-          } catch (IOException e) {
-            if (verboseFailures) {
-              report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
-            } else {
-              reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
+            try {
+              remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
+            } catch (IOException e) {
+              if (verboseFailures) {
+                report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
+              } else {
+                reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
+              }
             }
           }
-        }
 
-        @Override
-        public void close() {
-        }
-      };
-    } else {
-      return SpawnCache.NO_RESULT_NO_STORE;
+          @Override
+          public void close() {}
+        };
+      } else {
+        return SpawnCache.NO_RESULT_NO_STORE;
+      }
+    } finally {
+      withMetadata.detach(previous);
     }
   }
 
