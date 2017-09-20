@@ -500,7 +500,7 @@ public final class CppModel {
    */
   public static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
       CcToolchainProvider ccToolchain, ImmutableSet<String> features) {
-    return () -> ccToolchain.getUnfilteredCompilerOptionsWithSysroot(features);
+    return () -> ccToolchain.getUnfilteredCompilerOptions(features);
   }
 
   /**
