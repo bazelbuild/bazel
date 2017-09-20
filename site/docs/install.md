@@ -10,6 +10,7 @@ See the instructions for installing Bazel on:
 *   [Ubuntu Linux (16.04, 15.10, and 14.04)](install-ubuntu.md)
 *   [Mac OS X](install-os-x.md)
 *   [Windows](install-windows.md)
+*   [CentOS 7.3, 7.4](install-centos.md)
 
 For other platforms, you can try to [compile from source](install-compile-source.md).
 
