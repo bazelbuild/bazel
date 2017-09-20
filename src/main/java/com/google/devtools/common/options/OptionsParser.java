@@ -200,9 +200,16 @@ public class OptionsParser implements OptionsProvider {
     this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
   }
 
-  /** Enables the Parser to handle params files loacted insinde the provided {@link FileSystem}. */
+  /** Enables the Parser to handle params files located inside the provided {@link FileSystem}. */
   public void enableParamsFileSupport(FileSystem fs) {
-    this.impl.setArgsPreProcessor(new ParamsFilePreProcessor(fs));
+    enableParamsFileSupport(new LegacyParamsFilePreProcessor(fs));
+  }
+
+  /**
+   * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
+   */
+  public void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
+    this.impl.setArgsPreProcessor(preProcessor);
   }
 
   public void parseAndExitUponError(String[] args) {
