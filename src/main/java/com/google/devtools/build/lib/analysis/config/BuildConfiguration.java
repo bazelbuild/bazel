@@ -994,15 +994,6 @@ public final class BuildConfiguration implements BuildEvent {
     public TriState enableRunfiles;
 
     @Option(
-      name = "build_python_zip",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Build python executable zip; on on Windows, off on other platforms"
-    )
-    public TriState buildPythonZip;
-
-    @Option(
       name = "windows_exe_launcher",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1022,7 +1013,6 @@ public final class BuildConfiguration implements BuildEvent {
       host.isHost = true;
       host.configsMode = configsMode;
       host.enableRunfiles = enableRunfiles;
-      host.buildPythonZip = buildPythonZip;
       host.windowsExeLauncher = windowsExeLauncher;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
@@ -2027,17 +2017,6 @@ public final class BuildConfiguration implements BuildEvent {
         return false;
       default:
         return OS.getCurrent() != OS.WINDOWS;
-    }
-  }
-
-  public boolean buildPythonZip() {
-    switch (options.buildPythonZip) {
-      case YES:
-        return true;
-      case NO:
-        return false;
-      default:
-        return OS.getCurrent() == OS.WINDOWS;
     }
   }
 

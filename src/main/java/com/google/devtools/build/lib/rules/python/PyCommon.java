@@ -135,7 +135,7 @@ public final class PyCommon {
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addAll(srcs).add(executable);
 
-    if (ruleContext.getConfiguration().buildPythonZip()) {
+    if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       filesToBuildBuilder.add(getPythonZipArtifact(executable));
     }
 

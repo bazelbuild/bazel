@@ -18,6 +18,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.TriState;
 
 /**
  * Python-related command-line options.
@@ -33,6 +34,15 @@ public class PythonOptions extends FragmentOptions {
       super(PythonVersion.class, "Python version");
     }
   }
+
+  @Option(
+    name = "build_python_zip",
+    defaultValue = "auto",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Build python executable zip; on on Windows, off on other platforms"
+  )
+  public TriState buildPythonZip;
 
   @Option(
     name = "force_python",
@@ -70,6 +80,7 @@ public class PythonOptions extends FragmentOptions {
     } else {
       hostPythonOpts.forcePython = PythonVersion.PY2;
     }
+    hostPythonOpts.buildPythonZip = buildPythonZip;
     return hostPythonOpts;
   }
 }

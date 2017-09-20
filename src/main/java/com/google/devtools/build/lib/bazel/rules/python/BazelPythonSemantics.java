@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -135,7 +136,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     BazelPythonConfiguration config = ruleContext.getFragment(BazelPythonConfiguration.class);
     String pythonBinary = getPythonBinary(ruleContext, config);
 
-    if (!ruleContext.getConfiguration().buildPythonZip()) {
+    if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       ruleContext.registerAction(
           new TemplateExpansionAction(
               ruleContext.getActionOwner(),
@@ -225,7 +226,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       PyCommon common) throws InterruptedException {
-    if (ruleContext.getConfiguration().buildPythonZip()) {
+    if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
       Artifact executable = common.getExecutable();
       if (!ruleContext.hasErrors()) {
