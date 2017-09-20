@@ -116,25 +116,22 @@ public class DocstringUtilsTest {
             "summary\n"
                 + "\n"
                 + "Args:\n"
+                + "  param0: two spaces indentation\n"
                 + " param1: only one space indentation\n"
-                + "   only three spaces indentation\n"
+                + "  only two spaces indentation in continued line\n"
                 + "unindented line after",
             0,
             errors);
     Truth.assertThat(info.summary).isEqualTo("summary");
-    Truth.assertThat(info.parameters).hasSize(1);
-    ParameterDoc param = info.parameters.get(0);
-    Truth.assertThat(param.description)
-        .isEqualTo("only one space indentation\nonly three spaces indentation");
+    Truth.assertThat(info.parameters).hasSize(2);
+    ParameterDoc param0 = info.parameters.get(0);
+    Truth.assertThat(param0.description).isEqualTo("two spaces indentation");
+    ParameterDoc param1 = info.parameters.get(1);
+    Truth.assertThat(param1.description)
+        .isEqualTo("only one space indentation\n only two spaces indentation in continued line");
     Truth.assertThat(errors.toString())
-        .contains(
-            ":4: parameter lines have to be indented by two spaces"
-                + " (relative to the left margin of the docstring)");
-    Truth.assertThat(errors.toString())
-        .contains(
-            ":5: continued parameter lines have to be indented by four spaces"
-                + " (relative to the left margin of the docstring)");
-    Truth.assertThat(errors.toString()).contains(":6: end of 'Args' section without blank line");
+        .contains(":5: inconsistent indentation of parameter lines (before: 2; here: 1 spaces)");
+    Truth.assertThat(errors.toString()).contains(":7: end of 'Args' section without blank line");
   }
 
   @Test
@@ -185,7 +182,7 @@ public class DocstringUtilsTest {
 
     Truth.assertThat(firstParam.parameterName).isEqualTo("param1");
     Truth.assertThat(firstParam.attributes).isEmpty();
-    Truth.assertThat(firstParam.description).isEqualTo("multi-\nline");
+    Truth.assertThat(firstParam.description).isEqualTo("multi-\n  line");
 
     Truth.assertThat(secondParam.parameterName).isEqualTo("param2");
     Truth.assertThat(secondParam.attributes).isEqualTo(Arrays.asList("mutable", "unused"));
@@ -227,7 +224,7 @@ public class DocstringUtilsTest {
 
     Truth.assertThat(firstParam.parameterName).isEqualTo("param1");
     Truth.assertThat(firstParam.attributes).isEmpty();
-    Truth.assertThat(firstParam.description).isEqualTo("multi-\n\nline");
+    Truth.assertThat(firstParam.description).isEqualTo("multi-\n\n  line");
 
     Truth.assertThat(secondParam.parameterName).isEqualTo("param2");
     Truth.assertThat(secondParam.attributes).isEmpty();

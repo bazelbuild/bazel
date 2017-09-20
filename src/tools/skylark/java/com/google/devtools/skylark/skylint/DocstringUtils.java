@@ -61,15 +61,17 @@ public final class DocstringUtils {
    * to document these parameters as follows:
    *
    * Args:
-   *   parameter1: description of the first parameter
+   *   parameter1: description of the first parameter. Each parameter line
+   *     should be indented by one, preferably two, spaces (as here).
    *   parameter2: description of the second
-   *     parameter that spans two lines. Each additional line
-   *     must be indented by (at least) two spaces
+   *     parameter that spans two lines. Each additional line should have a
+   *     hanging indentation of at least one, preferably two, additional spaces (as here).
    *   another_parameter (unused, mutable): a parameter may be followed
    *     by additional attributes in parentheses
    *
    * Returns:
    *   Description of the return value.
+   *   Should be indented by at least one, preferably two spaces (as here)
    *   Can span multiple lines.
    * """
    * }</pre>
@@ -238,26 +240,32 @@ public final class DocstringUtils {
     private List<ParameterDoc> parseParameters() {
       nextLine();
       List<ParameterDoc> params = new ArrayList<>();
+      int expectedParamLineIndentation = -1;
       while (!eof()) {
         if (line.isEmpty()) {
           nextLine();
           continue;
         }
-        if (getIndentation(line) == 0) {
+        int actualIndentation = getIndentation(line);
+        if (actualIndentation == 0) {
           if (!blankLineBefore) {
             error("end of 'Args' section without blank line");
           }
           break;
         }
         String trimmedLine;
-        if (getIndentation(line) < 2) {
-          error(
-              "parameter lines have to be indented by two spaces"
-                  + " (relative to the left margin of the docstring)");
-          trimmedLine = line.substring(getIndentation(line));
-        } else {
-          trimmedLine = line.substring(2);
+        if (expectedParamLineIndentation == -1) {
+          expectedParamLineIndentation = actualIndentation;
         }
+        if (expectedParamLineIndentation != actualIndentation) {
+          error(
+              "inconsistent indentation of parameter lines (before: "
+                  + expectedParamLineIndentation
+                  + "; here: "
+                  + actualIndentation
+                  + " spaces)");
+        }
+        trimmedLine = line.substring(actualIndentation);
         Matcher matcher = paramLineMatcher.matcher(trimmedLine);
         if (!matcher.matches()) {
           error("invalid parameter documentation");
@@ -271,31 +279,24 @@ public final class DocstringUtils {
             attributesString == null
                 ? Collections.emptyList()
                 : Arrays.asList(attributesSeparator.split(attributesString));
-        parseContinuedParamDescription(description);
+        parseContinuedParamDescription(actualIndentation, description);
         params.add(new ParameterDoc(parameterName, attributes, description.toString().trim()));
       }
       return params;
     }
 
     /** Parses additional lines that can come after "param: foo" in an 'Args' section. */
-    private void parseContinuedParamDescription(StringBuilder description) {
+    private void parseContinuedParamDescription(
+        int baselineIndentation, StringBuilder description) {
       while (nextLine()) {
         if (line.isEmpty()) {
           description.append('\n');
           continue;
         }
-        if (getIndentation(line) <= 2) {
+        if (getIndentation(line) <= baselineIndentation) {
           break;
         }
-        String trimmedLine;
-        if (getIndentation(line) < 4) {
-          error(
-              "continued parameter lines have to be indented by four spaces"
-                  + " (relative to the left margin of the docstring)");
-          trimmedLine = line.substring(getIndentation(line));
-        } else {
-          trimmedLine = line.substring(4);
-        }
+        String trimmedLine = line.substring(baselineIndentation);
         description.append('\n');
         description.append(trimmedLine);
       }
