@@ -284,7 +284,11 @@ TEST_verbose="true"             # Whether or not to be verbose.  A
                                 # command; "true" or "false" are
                                 # acceptable.  The default is: true.
 
-TEST_script="$(pwd)/$0"         # Full path to test script
+TEST_script="$0"                # Full path to test script
+# Check if the script path is absolute, if not prefix the PWD.
+if [[ ! "$TEST_script" = /* ]]; then
+  TEST_script="$(pwd)/$0"
+fi
 
 #### Internal functions
 
