@@ -173,7 +173,13 @@ class RemoteSpawnRunner implements SpawnRunner {
 
       final ActionResult result;
       try {
-        result = executeRemotely(action, inputMap.size(), acceptCachedResult);
+        ExecuteRequest.Builder request =
+            ExecuteRequest.newBuilder()
+                .setInstanceName(options.remoteInstanceName)
+                .setAction(action)
+                .setSkipCacheLookup(!acceptCachedResult);
+        ExecuteResponse reply = remoteExecutor.executeRemotely(request.build());
+        result = reply.getResult();
       } catch (IOException e) {
         return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
       }
@@ -200,19 +206,6 @@ class RemoteSpawnRunner implements SpawnRunner {
         .setStatus(Status.SUCCESS)  // Even if the action failed with non-zero exit code.
         .setExitCode(result.getExitCode())
         .build();
-  }
-
-  private ActionResult executeRemotely(Action action, int numInputFiles, boolean acceptCachedResult)
-      throws IOException, InterruptedException {
-    // TODO(olaola): set BuildInfo and input total bytes as well.
-    ExecuteRequest.Builder request =
-        ExecuteRequest.newBuilder()
-            .setInstanceName(options.remoteInstanceName)
-            .setAction(action)
-            .setTotalInputFileCount(numInputFiles)
-            .setSkipCacheLookup(!acceptCachedResult);
-    ExecuteResponse reply = remoteExecutor.executeRemotely(request.build());
-    return reply.getResult();
   }
 
   private SpawnResult execLocallyOrFail(
