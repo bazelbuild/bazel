@@ -203,4 +203,9 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   public void testMinimumOsDifferentTargets() throws Exception {
     checkMinimumOsDifferentTargets(RULE_TYPE, "_lipobin", "_bin");
   }
+
+  @Test
+  public void testDrops32BitArchitecture() throws Exception {
+    verifyDrops32BitArchitecture(RULE_TYPE);
+  }
 }

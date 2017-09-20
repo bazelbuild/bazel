@@ -111,6 +111,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Before;
 
 /**
@@ -4981,6 +4982,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-mios-simulator-version-min=9.0");
   }
 
+  protected void verifyDrops32BitArchitecture(RuleType ruleType) throws Exception {
+    scratch.file("libs/BUILD",
+        "objc_library(",
+        "    name = 'objc_lib',",
+        "    srcs = ['a.m'],",
+        ")");
+
+    ruleType.scratchTarget(
+        scratch,
+        "deps", "['//libs:objc_lib']",
+        "platform_type", "'ios'",
+        "minimum_os_version", "'11.0'"); // Does not support 32-bit architectures.
+
+    useConfiguration("--ios_multi_cpus=armv7,arm64,i386,x86_64");
+
+    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
+
+    getSingleArchBinary(lipoAction, "arm64");
+    getSingleArchBinary(lipoAction, "x86_64");
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7")).isNull();
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
+  }
+
   /** Returns the full label string for labels within the main tools repository. */
   protected static String toolsRepoLabel(String label) {
     return TestConstants.TOOLS_REPOSITORY + label;
@@ -4991,5 +5015,26 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    */
   protected static String toolsRepoExecPath(String execPath) {
     return TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + execPath;
+  }
+
+  @Nullable
+  protected Artifact getSingleArchBinaryIfAvailable(Action lipoAction, String arch)
+      throws Exception {
+    for (Artifact archBinary : lipoAction.getInputs()) {
+      String execPath = archBinary.getExecPathString();
+      if (execPath.endsWith("_bin") && execPath.contains(arch)) {
+        return archBinary;
+      }
+    }
+    return null;
+  }
+
+  protected Artifact getSingleArchBinary(Action lipoAction, String arch) throws Exception {
+    Artifact result = getSingleArchBinaryIfAvailable(lipoAction, arch);
+    if (result != null) {
+      return result;
+    } else {
+      throw new AssertionError("Lipo action does not contain an input binary from arch " + arch);
+    }
   }
 }

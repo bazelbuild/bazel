@@ -1104,7 +1104,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
 
     Artifact armv7Binary = getSingleArchBinary(lipoAction, "armv7");
-    Artifact arm64Binary = getSingleArchBinary(lipoAction, "arm64");;
+    Artifact arm64Binary = getSingleArchBinary(lipoAction, "arm64");
 
     Artifact armv7ProtoLib =
         getFirstArtifactEndingWith(
@@ -1129,16 +1129,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
             getGeneratingAction(arm64ProtoObject).getInputs(), "Two.pbobjc.m");
     assertThat(getFirstArtifactEndingWith(
         getGeneratingAction(arm64ProtoObjcSource).getInputs(), "two.proto")).isNotNull();
-  }
-
-  private Artifact getSingleArchBinary(Action lipoAction, String arch) throws Exception {
-    for (Artifact archBinary : lipoAction.getInputs()) {
-      String execPath = archBinary.getExecPathString();
-      if (execPath.endsWith("bin_bin") && execPath.contains(arch)) {
-        return archBinary;
-      }
-    }
-    throw new AssertionError("Lipo action does not contain an input binary from arch " + arch);
   }
 
   private SkylarkDict<String, SkylarkDict<String, Artifact>>
@@ -1469,5 +1459,10 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     for (String expectedCommandLineFragment : expectedCommandLineFragments) {
       assertThat(linkArgs).contains(expectedCommandLineFragment);
     }
+  }
+
+  @Test
+  public void testDrops32BitArchitecture() throws Exception {
+    verifyDrops32BitArchitecture(RULE_TYPE);
   }
 }

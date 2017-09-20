@@ -73,7 +73,7 @@ public enum ApplePlatform implements SkylarkValue {
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
-          ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s");
+      ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
@@ -84,6 +84,9 @@ public enum ApplePlatform implements SkylarkValue {
       ImmutableSet.of("tvos_arm64");
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64");
+
+  private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
+      ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
 
   private final String skylarkKey;
   private final String nameInPlist;
@@ -165,11 +168,21 @@ public enum ApplePlatform implements SkylarkValue {
   }
 
   /**
+   * Returns true if the platform for the given target cpu and platform type is a known 32-bit
+   * architecture.
+   *
+   * @param platformType platform type that the given cpu value is implied for
+   * @param arch architecture representation, such as 'arm64'
+   */
+  public static boolean is32Bit(PlatformType platformType, String arch) {
+    return BIT_32_TARGET_CPUS.contains(cpuStringForTarget(platformType, arch));
+  }
+
+  /**
    * Returns the platform cpu string for the given target cpu and platform type.
    *
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
-   * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
    */
   public static String cpuStringForTarget(PlatformType platformType, String arch) {
     switch (platformType) {
