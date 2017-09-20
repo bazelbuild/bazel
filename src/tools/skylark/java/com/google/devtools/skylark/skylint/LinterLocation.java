@@ -29,6 +29,10 @@ public class LinterLocation {
 
   public static LinterLocation from(Location location) {
     LineAndColumn lac = location.getStartLineAndColumn();
+    // LineAndColumn may be null, e.g. if a BuildFileAST contains no statements:
+    if (lac == null) {
+      return new LinterLocation(1, 1);
+    }
     return new LinterLocation(lac.getLine(), lac.getColumn());
   }
 
