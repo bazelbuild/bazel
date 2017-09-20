@@ -400,19 +400,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexing;
 
-    // TODO(b/31711689): remove this flag from config files and here
-    @Option(
-      name = "host_incremental_dexing",
-      defaultValue = "false",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "This flag is deprecated in favor of applying --incremental_dexing to both host "
-              + "and target configuration.  This flag will be removed in a future release."
-    )
-    public boolean hostIncrementalDexing;
-
     // Do not use on the command line.
     // The idea is that this option lets us gradually turn on incremental dexing for different
     // binaries.  Users should rely on --noincremental_dexing to turn it off.
