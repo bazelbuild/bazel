@@ -472,8 +472,6 @@ test_suite(
         "//src/test/shell/bazel:bazel_bootstrap_distfile_test",
         "//src/test/shell/bazel:bazel_windows_example_test",
         "//src/tools/launcher:all_windows_tests",
-        # TODO(laszlocsomor): uncomment the line below after I added the
-        # corresponding target to the third_party package on GitHub.
-        # "//third_party/def_parser:all_windows_tests",
+        "//third_party/def_parser:all_windows_tests",
     ],
 )
