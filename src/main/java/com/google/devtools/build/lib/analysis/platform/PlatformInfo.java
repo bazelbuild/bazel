@@ -259,7 +259,7 @@ public class PlatformInfo extends NativeInfo {
           label, validatedConstraints, ImmutableMap.copyOf(remoteExecutionProperties), location);
     }
 
-    private ImmutableList<ConstraintValueInfo> validateConstraints(
+    public static ImmutableList<ConstraintValueInfo> validateConstraints(
         Iterable<ConstraintValueInfo> constraintValues) throws DuplicateConstraintException {
 
       // Collect the constraints by the settings.
@@ -304,7 +304,7 @@ public class PlatformInfo extends NativeInfo {
       return duplicateConstraints;
     }
 
-    private static String formatError(
+    public static String formatError(
         ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
       return String.format(
           "Duplicate constraint_values detected: %s",

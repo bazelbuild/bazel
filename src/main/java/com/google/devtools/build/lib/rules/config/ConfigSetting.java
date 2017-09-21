@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import static com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException.formatError;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.syntax.Type;
@@ -55,7 +58,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,17 +154,18 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       Map<Label, String> userDefinedFlagSettings,
       Iterable<ConstraintValueInfo> constraintValues,
       RuleErrorConsumer errors) {
-    // Check to make sure this config_setting contains and sets least one of {values, define_values,
-    // flag_value or constraint_values}.
     if (!valuesAreSet(nativeFlagSettings, userDefinedFlagSettings, constraintValues, errors)) {
       return false;
     }
 
     // The set of constraint_values in a config_setting should never contain multiple
-    // constraint_values that map to the same constraint_setting. This checks if there are
+    // constraint_values that map to the same constraint_setting. This method checks if there are
     // duplicates and records an error if so.
-    if (containsDuplicateSettings(constraintValues, errors)) {
-      return false;
+    try {
+      PlatformInfo.Builder.validateConstraints(constraintValues);
+    } catch (PlatformInfo.DuplicateConstraintException e) {
+        errors.ruleError(formatError(e.duplicateConstraints()));
+        return false;
     }
 
     return true;
@@ -173,6 +176,10 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
    */
   private static final String PARSE_ERROR_MESSAGE = "error while parsing configuration settings: ";
 
+  /**
+   * Check to make sure this config_setting contains and sets least one of {values, define_values,
+   * flag_value or constraint_values}.
+   */
   private boolean valuesAreSet(
       ImmutableMultimap<String, String> nativeFlagSettings,
       Map<Label, String> userDefinedFlagSettings,
@@ -190,34 +197,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return false;
     }
     return true;
-  }
-
-
-  /**
-   * The set of constraint_values in a config_setting should never contain multiple
-   * constraint_values that map to the same constraint_setting. This method checks if there are
-   * duplicates and records an error if so.
-   */
-  private boolean containsDuplicateSettings(
-      Iterable<ConstraintValueInfo> constraintValues, RuleErrorConsumer errors) {
-    HashMap<ConstraintSettingInfo, ConstraintValueInfo> constraints = new HashMap<>();
-    for (ConstraintValueInfo constraint : constraintValues) {
-      ConstraintSettingInfo setting = constraint.constraint();
-      if (constraints.containsKey(setting)) {
-        errors.attributeError(
-            ConfigSettingRule.TARGET_PLATFORMS_ATTRIBUTE,
-            String.format(
-                PARSE_ERROR_MESSAGE
-                    + "the target platform contains multiple values '%s' "
-                    + "and '%s' that map to the same setting '%s'",
-                constraint.label(),
-                constraints.get(setting).label(),
-                setting.label()));
-        return true;
-      }
-      constraints.put(setting, constraint);
-    }
-    return false;
   }
 
   /**
@@ -450,4 +429,3 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     }
   }
 }
-

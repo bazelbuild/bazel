@@ -1237,17 +1237,31 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void multipleValuesPerSetting() throws Exception {
-    checkError("foo", "bad",
-        "in :target_platforms attribute of config_setting rule //foo:bad: "
-            + "error while parsing configuration settings: "
-            + "the target platform contains multiple values '//foo:space_needle' "
-            + "and '//foo:empire_state' that map to the same setting '//foo:notable_building'",
+    checkError(
+        "foo",
+        "bad",
+        "in config_setting rule //foo:bad: "
+            + "Duplicate constraint_values detected: "
+            + "constraint_setting //foo:notable_building has "
+            + "[//foo:empire_state, //foo:space_needle], "
+            + "constraint_setting //foo:museum has "
+            + "[//foo:moma, //foo:sam]",
         "constraint_setting(name = 'notable_building')",
         "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
         "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
+        "constraint_value(name = 'peace_arch', constraint_setting = 'notable_building')",
+        "constraint_setting(name = 'museum')",
+        "constraint_value(name = 'moma', constraint_setting = 'museum')",
+        "constraint_value(name = 'sam', constraint_setting = 'museum')",
         "config_setting(",
         "    name = 'bad',",
-        "    constraint_values = [':empire_state', ':space_needle'],",
+        "    constraint_values = [",
+        "        ':empire_state',",
+        "        ':space_needle',",
+        "        ':moma',",
+        "        ':sam',",
+        "    ],",
         ");");
   }
 }
+
