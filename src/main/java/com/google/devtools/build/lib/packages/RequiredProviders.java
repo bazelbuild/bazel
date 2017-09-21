@@ -57,6 +57,11 @@ public final class RequiredProviders {
     return constraint.getDescription(this);
   }
 
+  @Override
+  public String toString() {
+    return getDescription();
+  }
+
   /**
    * Represents one of the constraints as desctibed in {@link RequiredProviders}
    */

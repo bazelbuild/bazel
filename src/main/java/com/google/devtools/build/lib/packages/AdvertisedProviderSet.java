@@ -87,6 +87,15 @@ public final class AdvertisedProviderSet {
         && Objects.equals(this.skylarkProviders, that.skylarkProviders);
   }
 
+  @Override
+  public String toString() {
+    if (canHaveAnyProvider()) {
+      return "Any Provider";
+    }
+    return String.format("allowed native providers=%s, allowed skylark providers=%s",
+        getNativeProviders(), getSkylarkProviders());
+  }
+
   /** Checks whether the rule can have any provider.
    *
    *  Used for alias rules.
