@@ -102,18 +102,15 @@ docs](https://docs.travis-ci.com/user/getting-started/). Then add a
 `.travis.yml` file to your repository with the following content:
 
 ```
-language:
-  - java
-jdk:
-  - oraclejdk8  # Building Bazel requires JDK8.
-before_install:
-  - wget https://github.com/bazelbuild/bazel/archive/0.3.0.zip  # Replace with desired version
-  - unzip 0.3.0.zip
-  - cd bazel-0.3.0
-  - ./compile.sh
-  - sudo cp output/bazel /usr/bin/bazel
-  - cd ..
-  - rm -rf bazel-0.3.0
+# On trusty images, the bazel apt repository can be used.
+addons:
+  apt:
+    sources:
+    - sourceline: 'deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8'
+      key_url: 'https://bazel.build/bazel-release.pub.gpg'
+    packages:
+    - bazel
+
 script:
   - bazel build //...
   - bazel test //...
