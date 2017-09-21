@@ -444,11 +444,12 @@ public class AllIncompatibleChangesExpansionTest {
     @Option(
       name = "incompatible_bad",
       category = "incompatible changes",
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false",
       help = "nohelp",
+      deprecationWarning = "wrapper options are deprecated, including this one.",
       wrapperOption = true
     )
     public boolean bad;

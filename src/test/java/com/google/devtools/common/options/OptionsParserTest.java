@@ -1890,8 +1890,10 @@ public class OptionsParserTest {
     @Option(
       name = "wrapper",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null",
+        deprecationWarning = "wrapper options are deprecated, including this one.",
       wrapperOption = true
     )
     public Void wrapperOption;
