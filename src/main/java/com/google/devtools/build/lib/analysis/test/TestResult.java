@@ -67,6 +67,42 @@ public class TestResult {
     return status == BlazeTestStatus.PASSED || status == BlazeTestStatus.FLAKY;
   }
 
+  public static ImmutableList<Pair<String, Path>> testOutputsFromPaths(
+      ResolvedPaths resolvedPaths) {
+    ImmutableList.Builder<Pair<String, Path>> builder = new ImmutableList.Builder<>();
+    if (resolvedPaths.getXmlOutputPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+    }
+    if (resolvedPaths.getSplitLogsPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+    }
+    if (resolvedPaths.getTestWarningsPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_WARNINGS,
+            resolvedPaths.getTestWarningsPath()));
+    }
+    if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
+          resolvedPaths.getUndeclaredOutputsZipPath()));
+    }
+    if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
+          resolvedPaths.getUndeclaredOutputsManifestPath()));
+    }
+    if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
+          resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+    }
+    if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.UNUSED_RUNFILES_LOG,
+          resolvedPaths.getUnusedRunfilesLogPath()));
+    }
+    if (resolvedPaths.getInfrastructureFailureFile().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
+          resolvedPaths.getInfrastructureFailureFile()));
+    }
+    return builder.build();
+  }
+
   /**
    * @return The test action.
    */
@@ -155,36 +191,7 @@ public class TestResult {
       builder.add(Pair.of(TestFileNameConstants.TEST_LOG, testAction.getTestLog().getPath()));
     }
     if (execRoot != null) {
-      ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
-      if (resolvedPaths.getXmlOutputPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
-      }
-      if (resolvedPaths.getSplitLogsPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
-      }
-      if (resolvedPaths.getTestWarningsPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getSplitLogsPath()));
-      }
-      if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
-            resolvedPaths.getUndeclaredOutputsZipPath()));
-      }
-      if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
-            resolvedPaths.getUndeclaredOutputsManifestPath()));
-      }
-      if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
-            resolvedPaths.getUndeclaredOutputsManifestPath()));
-      }
-      if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.UNUSED_RUNFILES_LOG,
-            resolvedPaths.getUnusedRunfilesLogPath()));
-      }
-      if (resolvedPaths.getInfrastructureFailureFile().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
-            resolvedPaths.getInfrastructureFailureFile()));
-      }
+      builder.addAll(testOutputsFromPaths(testAction.resolve(execRoot)));
     }
     return builder.build();
   }

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -167,11 +168,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       processLastTestAttempt(attempt, dataBuilder, data);
       ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
       if (action.getTestLog().getPath().exists()) {
-        testOutputsBuilder.add(Pair.of("test.log", action.getTestLog().getPath()));
+        testOutputsBuilder.add(
+            Pair.of(TestFileNameConstants.TEST_LOG, action.getTestLog().getPath()));
       }
-      if (resolvedPaths.getXmlOutputPath().exists()) {
-        testOutputsBuilder.add(Pair.of("test.xml", resolvedPaths.getXmlOutputPath()));
-      }
+      testOutputsBuilder.addAll(TestResult.testOutputsFromPaths(resolvedPaths));
       actionExecutionContext
           .getEventBus()
           .post(
@@ -202,21 +202,42 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Rename outputs
     String namePrefix =
         FileSystemUtils.removeExtension(action.getTestLog().getExecPath().getBaseName());
-    Path attemptsDir =
-        action.getTestLog().getPath().getParentDirectory().getChild(namePrefix + "_attempts");
+    Path testRoot = action.getTestLog().getPath().getParentDirectory();
+    Path attemptsDir = testRoot.getChild(namePrefix + "_attempts");
     attemptsDir.createDirectory();
     String attemptPrefix = "attempt_" + attempt;
     Path testLog = attemptsDir.getChild(attemptPrefix + ".log");
     if (action.getTestLog().getPath().exists()) {
       action.getTestLog().getPath().renameTo(testLog);
-      testOutputsBuilder.add(Pair.of("test.log", testLog));
+      testOutputsBuilder.add(Pair.of(TestFileNameConstants.TEST_LOG, testLog));
     }
+
+    // Get the normal test output paths, and then update them to use "attempt_N" names, and
+    // attemptDir, before adding them to the outputs.
     ResolvedPaths resolvedPaths = action.resolve(actionExecutionContext.getExecRoot());
-    if (resolvedPaths.getXmlOutputPath().exists()) {
-      Path destinationPath = attemptsDir.getChild(attemptPrefix + ".xml");
-      resolvedPaths.getXmlOutputPath().renameTo(destinationPath);
-      testOutputsBuilder.add(Pair.of("test.xml", destinationPath));
+    ImmutableList<Pair<String, Path>> testOutputs = TestResult.testOutputsFromPaths(resolvedPaths);
+    for (Pair<String, Path> testOutput : testOutputs) {
+      // e.g. /testRoot/test.dir/file, an example we follow throughout this loop's comments.
+      Path testOutputPath = testOutput.getSecond();
+
+      // e.g. test.dir/file
+      PathFragment relativeToTestDirectory = testOutputPath.relativeTo(testRoot);
+      
+      // e.g. attempt_1.dir/file
+      String destinationPathFragmentStr =
+          relativeToTestDirectory.getSafePathString().replaceFirst("test", attemptPrefix);
+      PathFragment destinationPathFragment = PathFragment.create(destinationPathFragmentStr);
+      
+      // e.g. /attemptsDir/attempt_1.dir/file
+      Path destinationPath = attemptsDir.getRelative(destinationPathFragment);
+      destinationPath.getParentDirectory().createDirectory();
+
+      // Copy to the destination.
+      testOutputPath.renameTo(destinationPath);
+
+      testOutputsBuilder.add(Pair.of(testOutput.getFirst(), destinationPath));
     }
+
     // Add the test log to the output
     dataBuilder.addFailedLogs(testLog.toString());
     dataBuilder.addTestTimes(data.getTestTimes(0));
