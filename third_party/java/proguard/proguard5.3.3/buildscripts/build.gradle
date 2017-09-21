@@ -1,0 +1,111 @@
+apply plugin: 'java'
+
+defaultTasks 'proguardJar', 'retraceJar', 'proguardguiJar'
+
+sourceCompatibility = JavaVersion.VERSION_1_6
+targetCompatibility = JavaVersion.VERSION_1_6
+
+sourceSets {
+    proguard {
+        java {
+            srcDirs = ['../src']
+            exclude 'proguard/gui/**'
+            exclude 'proguard/retrace/**'
+            exclude 'proguard/ant/**'
+            exclude 'proguard/gradle/**'
+            exclude 'proguard/wtk/**'
+        }
+    }
+
+    retrace {
+        java {
+            srcDirs = ['../src']
+            include 'proguard/retrace/**'
+        }
+    }
+
+    anttask {
+        java {
+            srcDirs = ['../src']
+            include 'proguard/ant/**'
+        }
+        resources {
+            srcDirs = ['../src']
+            include 'proguard/ant/**.properties'
+        }
+    }
+
+    gradletask {
+        java {
+            srcDirs = ['../src']
+            include 'proguard/gradle/**'
+        }
+    }
+
+    proguardgui {
+        java {
+            srcDirs = ['../src']
+            include 'proguard/gui/**'
+        }
+        resources {
+            srcDirs = ['../src']
+            include 'proguard/gui/**.properties'
+            include 'proguard/gui/**.pro'
+            include 'proguard/gui/**.png'
+            include 'proguard/gui/**.gif'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    retraceCompile     sourceSets.proguard.output
+    anttaskCompile     sourceSets.proguard.output
+    anttaskCompile     'org.apache.ant:ant:1.7.0'
+    gradletaskCompile  sourceSets.proguard.output
+    gradletaskCompile  gradleApi()
+    gradletaskCompile  localGroovy()
+    proguardguiCompile sourceSets.proguard.output
+    proguardguiCompile sourceSets.retrace.output
+}
+
+task proguardJar(type: Jar) {
+    from             sourceSets.proguard.output
+    from             sourceSets.anttask.output
+    from             sourceSets.gradletask.output
+    destinationDir = file('../lib')
+    baseName       = 'proguard'
+
+    manifest.from '../src/proguard/MANIFEST.MF'
+
+    // Delete the original jar first, otherwise the
+    // jar task will not overwrite the file.
+    file('../lib/proguard.jar').delete()
+}
+
+task retraceJar(type: Jar) {
+    from             sourceSets.retrace.output
+    destinationDir = file('../lib')
+    baseName       = 'retrace'
+
+    manifest.from '../src/proguard/retrace/MANIFEST.MF'
+
+    // Delete the original jar first, otherwise the
+    // jar task will not overwrite the file.
+    file('../lib/retrace.jar').delete()
+}
+
+task proguardguiJar(type: Jar) {
+    from             sourceSets.proguardgui.output
+    destinationDir = file('../lib')
+    baseName       = 'proguardgui'
+
+    manifest.from '../src/proguard/gui/MANIFEST.MF'
+
+    // Delete the original jar first, otherwise the
+    // jar task will not overwrite the file.
+    file('../lib/proguardgui.jar').delete()
+}

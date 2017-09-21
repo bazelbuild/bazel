@@ -1,0 +1,173 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Introduction</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/introduction.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/introduction.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Introduction</h2>
+
+<b>ProGuard</b> is a Java class file shrinker, optimizer, obfuscator, and
+preverifier. The shrinking step detects and removes unused classes, fields,
+methods, and attributes. The optimization step analyzes and optimizes the
+bytecode of the methods. The obfuscation step renames the remaining classes,
+fields, and methods using short meaningless names. These first steps make the
+code base smaller, more efficient, and harder to reverse-engineer. The final
+preverification step adds preverification information to the classes, which is
+required for Java Micro Edition and for Java 6 and higher.
+<p>
+Each of these steps is optional. For instance, ProGuard can also be used to
+just list dead code in an application, or to preverify class files for
+efficient use in Java 6.
+<p>
+
+<table class="diagram" align="center">
+
+<tr>
+<td rowspan="4" class="lightblock">Input jars</td>
+<td colspan="8" class="transparentblock"></td>
+</tr>
+
+<tr>
+<td rowspan="2" class="transparentblock"></td>
+<td rowspan="3" class="lightblock">Shrunk code</td>
+<td colspan="6" class="transparentblock"></td>
+</tr>
+
+<tr>
+<td             class="transparentblock"></td>
+<td rowspan="2" class="lightblock">Optim. code</td>
+<td colspan="3" class="transparentblock"></td>
+<td rowspan="2" class="lightblock">Output jars</td>
+</tr>
+
+<tr>
+<td             class="transparentblock">- shrink &rarr;</td>
+<td             class="transparentblock">- optimize &rarr;</td>
+<td             class="transparentblock">- obfuscate &rarr;</td>
+<td             class="lightblock">Obfusc. code</td>
+<td             class="transparentblock">- preverify &rarr;</td>
+</tr>
+
+<tr>
+<td             class="darkblock">Library jars</td>
+<td colspan="7" class="transparentblock">------------------------------- (unchanged) -------------------------------&rarr;</td>
+<td             class="darkblock">Library jars</td>
+</tr>
+
+</table>
+<p>
+
+ProGuard first reads the <b>input jars</b> (or aars, wars, ears, zips, apks,
+or directories). It then subsequently shrinks, optimizes, obfuscates, and
+preverifies them. You can optionally let ProGuard perform multiple
+optimization passes. ProGuard writes the processed results to one or
+more <b>output jars</b> (or aars, wars, ears, zips, apks, or directories). The
+input may contain resource files, whose names and contents can optionally be
+updated to reflect the obfuscated class names.
+<p>
+ProGuard requires the <b>library jars</b> (or aars, wars, ears, zips, apks, or
+directories) of the input jars to be specified. These are essentially the
+libraries that you would need for compiling the code. ProGuard uses them to
+reconstruct the class dependencies that are necessary for proper processing.
+The library jars themselves always remain unchanged. You should still put them
+in the class path of your final application.
+
+<h3>Entry points</h3>
+
+In order to determine which code has to be preserved and which code can be
+discarded or obfuscated, you have to specify one or more <i>entry points</i> to
+your code. These entry points are typically classes with main methods, applets,
+midlets, activities, etc.
+<ul>
+<li>In the <b>shrinking step</b>, ProGuard starts from these seeds and
+    recursively determines which classes and class members are used. All other
+    classes and class members are discarded.</li>
+
+<li>In the <b>optimization step</b>, ProGuard further optimizes the code.
+    Among other optimizations, classes and methods that are not entry points
+    can be made private, static, or final, unused parameters can be removed,
+    and some methods may be inlined.</li>
+
+<li>In the <b>obfuscation step</b>, ProGuard renames classes and class members
+    that are not entry points. In this entire process, keeping the entry
+    points ensures that they can still be accessed by their original names.</li>
+
+<li>The <b>preverification step</b> is the only step that doesn't have to know
+    the entry points.</li>
+</ul>
+<p>
+The <a href="usage.html">Usage section</a> of this manual describes the
+necessary <a href="usage.html#keepoptions"><code>-keep</code> options</a> and
+the <a href="examples.html">Examples section</a> provides plenty of examples.
+
+<h3>Reflection</h3>
+
+Reflection and introspection present particular problems for any automatic
+processing of code. In ProGuard, classes or class members in your code that
+are created or invoked dynamically (that is, by name) have to be specified as
+entry points too. For example, <code>Class.forName()</code> constructs may
+refer to any class at run-time. It is generally impossible to compute which
+classes have to be preserved (with their original names), since the class
+names might be read from a configuration file, for instance. You therefore
+have to specify them in your ProGuard configuration, with the same
+simple <code>-keep</code> options.
+<p>
+However, ProGuard will already detect and handle the following cases for you:
+
+<ul>
+<li><code>Class.forName("SomeClass")</code></li>
+<li><code>SomeClass.class</code></li>
+<li><code>SomeClass.class.getField("someField")</code></li>
+<li><code>SomeClass.class.getDeclaredField("someField")</code></li>
+<li><code>SomeClass.class.getMethod("someMethod", new Class[] {})</code></li>
+<li><code>SomeClass.class.getMethod("someMethod", new Class[] { A.class })</code></li>
+<li><code>SomeClass.class.getMethod("someMethod", new Class[] { A.class, B.class })</code></li>
+<li><code>SomeClass.class.getDeclaredMethod("someMethod", new Class[] {})</code></li>
+<li><code>SomeClass.class.getDeclaredMethod("someMethod", new Class[] { A.class })</code></li>
+<li><code>SomeClass.class.getDeclaredMethod("someMethod", new Class[] { A.class, B.class })</code></li>
+<li><code>AtomicIntegerFieldUpdater.newUpdater(SomeClass.class, "someField")</code></li>
+<li><code>AtomicLongFieldUpdater.newUpdater(SomeClass.class, "someField")</code></li>
+<li><code>AtomicReferenceFieldUpdater.newUpdater(SomeClass.class, SomeType.class, "someField")</code></li>
+</ul>
+
+The names of the classes and class members may of course be different, but the
+constructs should be literally the same for ProGuard to recognize them. The
+referenced classes and class members are preserved in the shrinking phase, and
+the string arguments are properly updated in the obfuscation phase.
+<p>
+Furthermore, ProGuard will offer some suggestions if keeping some classes or
+class members appears necessary. For example, ProGuard will note constructs
+like "<code>(SomeClass)Class.forName(variable).newInstance()</code>". These
+might be an indication that the class or interface <code>SomeClass</code>
+and/or its implementations may need to be preserved. You can then adapt your
+configuration accordingly.
+<p>
+For proper results, you should at least be somewhat familiar with the code
+that you are processing. Obfuscating code that performs a lot of reflection
+may require trial and error, especially without the necessary information
+about the internals of the code.
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

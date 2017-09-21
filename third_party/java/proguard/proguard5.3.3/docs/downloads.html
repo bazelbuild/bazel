@@ -1,0 +1,803 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Downloads</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="index.html#downloads.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="index.html#downloads.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Downloads</h2>
+
+<b>ProGuard</b> is distributed under the terms of the GNU General Public
+License. Please consult the <a href="license.html">license page</a> for more
+details.
+<p>
+<b>ProGuard</b> is written in Java, so it requires a Java Runtime Environment
+   (JRE 1.6 or higher).
+<p>
+You can download the latest release (containing the program jars, the
+documentation that you're reading now, examples, and the source code) from this
+location:
+<p>
+<center><a href="http://sourceforge.net/projects/proguard/files/"
+target="other">Download section at SourceForge</a></center>
+<p>
+
+The <a href="http://sourceforge.net/projects/proguard/files/proguard/"
+target="other">proguard</a> section contains major releases and updates with
+sub-minor version numbers, for applying emergency fixes. The
+<a href="http://sourceforge.net/projects/proguard/files/proguard%20beta/"
+target="other">proguard beta</a> section contains beta releases. These include
+new features and any less urgent bug fixes collected since the previous
+release.
+<p>
+If you're still working with an older version of <b>ProGuard</b>, check out
+the summary of changes below, to see if you're missing something essential.
+Better look at the up-to-date <a
+href="http://proguard.sourceforge.net/downloads.html">on-line version</a> if
+you're reading a local copy of this page. Unless noted otherwise,
+<b>ProGuard</b> remains compatible across versions, so don't be afraid to
+update.
+<p>
+If you're only interested in individual jar files for your build process, you
+can also download them from the Maven Central repository, with GroupId
+<a href="http://search.maven.org/#search|ga|1|g:%22net.sf.proguard%22"
+target="other">net.sf.proguard</a> and ArtifactIds
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-parent%22"
+target="other">proguard-parent</a>,
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-base%22"
+target="other">proguard-base</a>,
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-gui%22"
+target="other">proguard-gui</a>,
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-anttask%22"
+target="other">proguard-anttask</a>,
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-gradle%22"
+target="other">proguard-gradle</a>,
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-wtk-plugin%22"
+target="other">proguard-wtk-plugin</a>, and
+<a href="http://search.maven.org/#search|ga|1|a:%22proguard-retrace%22"
+target="other">proguard-retrace</a>.
+
+<h3><div>In progress</div> Version 5.3.x</h3>
+<ul>
+<li>[PGD-630] Fixed possible NullPointerException in optimization step.
+<li>[PGD-637] Fixed simplification of enum types in invokedynamic calls.
+<li>Fixed merging of classes sometimes resulting in final methods being
+    overridden.
+<li>Fixed simplification of enum types that are stored in arrays.
+<li>Fixed VerifyError triggered by merging classes with shrinking disabled.
+</ul>
+
+<h3><div>Sep 2016</div> Version 5.3</h3>
+<ul>
+<li>Avoiding obfuscated name clashes with library classes.
+<li>Fixed processing of generic signatures with inner classes.
+<li>Fixed processing of generic signatures with array types as bounds.
+<li>Fixed processing of wide branch instructions.
+<li>Fixed shrinking of nameless parameters attribute.
+<li>Fixed optimization of code with unreachable exception handlers.
+<li>Fixed optimization of enum types with custom fields.
+<li>Fixed optimization of enum types with custom static methods.
+<li>Fixed optimization of lambda method types.
+<li>Fixed optimization of parameter annotations.
+<li>Fixed optimization of swap/pop constructs.
+<li>Fixed adapting class access for referenced class members.
+<li>Fixed adapting invocations for referenced class members.
+<li>Preserving class member signature classes if
+    <code>includedescriptorclasses</code> is specified.
+<li>Allowing empty output jars if <code>-ignorewarnings</code> is specified.
+<li>Avoiding exceptions when inlining invalid line number instruction offsets.
+<lI>Fixed preverification of wildcard exceptions.
+<li>Fixed ReTrace for field names.
+<li>Fixed ReTrace for negative line numbers.
+<li>Improved ReTrace regular expression for Logback and Log4j.
+<li>Added Gradle build file.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jan 2015</div> Version 5.2</h3>
+<ul>
+<li>Added encoding of optimized line numbers in ProGuard.
+<li>Added decoding of optimized stack frames in ReTrace.
+<li>Added overflow checks when writing out class files.
+<li>Fixed shrinking of default methods in subinterfaces.
+<li>Fixed optimization of closures with signatures containing merged classes.
+<li>Fixed conservative optimization of instructions that may throw exceptions.
+<li>Fixed internal processing of primitive array types.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Oct 2014</div> Version 5.1</h3>
+<ul>
+<li>Fixed processing of various kinds of closures in Java 8.
+<li>Fixed shrinking of generic signatures in classes and methods.
+<li>Fixed shrinking of debug information about generic local variable types.
+<li>Fixed optimization of default implementations in interfaces.
+<li>Fixed optimization of variable initializations.
+<li>Fixed obfuscation of internal class names in strings.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Aug 2014</div> Version 5.0</h3>
+<ul>
+<li>Added support for Java 8.
+<li>Added <code>-keep</code> modifier <code>includedescriptorclasses</code>.
+<li>Added automatic suggestions for keeping attributes.
+<li>Clearing preverification information when <code>-dontpreverify</code> is
+    specified.
+<li>Extended optimization support for conservative optimization with java
+    system property <code>optimize.conservatively</code>.
+<li>Fixed occasional preverification problem.
+<li>Fixed shrinking of generic class signatures.
+<li>Fixed shrinking of generic variable signatures.
+<li>Fixed analysis of unused parameters for bootstrap methods in library
+    classes.
+<li>Fixed inlining problem of non-returning subroutines.
+<li>Fixed possible IllegalArgumentException and ArrayIndexOutOfBoundsException
+    in enum simplification.
+<li>Fixed unnecessary notes about dynamic class instantiations with constant
+    class names.
+<li>Fixed preverification of unnecessary casts of null values.
+<li>Fixed lazy resolution of output jars in Gradle task.
+<li>Fixed processing of synthetic code with alternative initializer invocations.
+<li>Improved handling of symbolic links in shell scripts.
+<li>Improved default path in Windows bat files.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2013</div> Version 4.11</h3>
+<ul>
+<li>Added simplification of basic enum types.
+<li>Added reading and writing of apk and aar archives.
+<li>Fixed criteria for class merging.
+<li>Fixed simplification of variable initializations.
+<li>Fixed simplification of redundant boolean variables.
+<li>Fixed optimization of unused stack entries in exception handlers.
+<li>Fixed correction of access flags after class merging, method inlining, and
+    class repackaging.
+<li>Refined criterion for method inlining.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jul 2013</div> Version 4.10</h3>
+<ul>
+<li>Made Gradle task resolve files lazily.
+<li>Enabled as-needed execution in Gradle task.
+<li>Using standard string interpolation for Gradle configuration.
+<li>Reduced log levels for console output in Gradle task.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Mar 2013</div> Version 4.9</h3>
+<ul>
+<li>Added Gradle task.
+<li>Added more peephole optimizations for strings.
+<li>Improved optimization of classes with static initializers.
+<li>Improved processing of finally blocks compiled with JDK 1.4 or older.
+<li>Fixed shrinking of access widening abstract methods, for the Dalvik VM.
+<li>Fixed overly aggressive shrinking of class annotations.
+<li>Fixed processing of unused classes in generic signatures.
+<li>Fixed merging of classes with similar class members.
+<li>Added java system property <code>optimize.conservatively</code> to allow
+    for instructions intentionally throwing <code>NullPointerException</code>,
+    <code>ArrayIndexOutOfBoundsException</code>, or
+    <code>ClassCastException</code> without other useful effects.
+<li>Fixed optimization of unnecessary variable initializations.
+<li>Fixed optimization of code involving NaN.
+<li>Fixed inlining of methods that are supposed to be kept.
+<li>Fixed preverification of artificially convoluted dup constructs.
+<li>Fixed quotes for java commands in .bat scripts.
+<li>Improved handling of non-sequential line number information.
+<li>Now requiring Java 5 or higher for running ProGuard.
+<li>Updated build files.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>May 2012</div> Version 4.8</h3>
+<ul>
+<li>Added more peephole optimizations for strings.
+<li>Added support for multiple external configuration files in Ant
+    configurations.
+<li>Added support for Ant properties in external configuration files.
+<li>Fixed parsing of empty file filters on input and output.
+<li>Fixed parsing of '*' wildcard for file filters and name filters.
+<li>Fixed obfuscation of private methods that are overridden in concrete
+    classes with intermediary abstract classes and interfaces (workaround
+    for Oracle bugs #6691741 and #6684387).
+<li>Fixed optimization of complex finally blocks, compiled with JDK 1.4 or
+    earlier.
+<li>Fixed optimizing signatures of methods that are marked as not having
+    side effects.
+<li>Fixed optimization of long local variables possibly causing verification
+    error for register pairs.
+<li>Fixed merging of classes defined inside methods.
+<li>Fixed stack consistency in optimization step.
+<li>No longer removing debug information about unused parameters, for
+    <code>-keepparameternames</code> or <code>-keepattributes</code>.
+<li>Fixed updating manifest files with carriage return characters.
+<li>Now removing unreachable code in preverification step.
+<li>Improved default regular expression for stack traces in ReTrace.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2011</div> Version 4.7</h3>
+<ul>
+<li>Added support for Java 7.
+<li>Parsing unquoted file names with special characters more leniently.
+<li>Added support for instance methods overriding class methods.
+<li>Added removal of unused parameterless constructors.
+<li>Added removal of empty class initializers.
+<li>Added peephole optimizations for constant strings.
+<li>Avoiding idle optimization passes.
+<li>Improved removal of unused constants after obfuscation.
+<li>Fixed removal of unused classes referenced by annotations.
+<li>Fixed simplifying parameters of constructors that should actually be
+    preserved.
+<li>Fixed simplifying parameters of large numbers of similar constructors.
+<li>Fixed exceptions in optimization of unusual obfuscated code.
+<li>Fixed NullPointerException when specifying <code>-keepclassmembers</code>
+    without specific class or class members.
+<li>Fixed potential problems with mixed-case class name dictionaries when not
+    allowing mixed-case class names.
+<li>Fixed obfuscation of classes with EnclosingMethod attributes that don't
+    specify methods.
+<li>Fixed preverification of returning try blocks with finally blocks, inside
+    try blocks, when compiled with JDK 1.4.
+<li>Fixed sorting of interfaces containing generics.
+<li>Fixed paths in shell scripts.
+<li>Fixed filling in of text fields showing class obfuscation dictionary and
+    package obfuscation dictionary from configuration in GUI.
+<li>Worked around Oracle Java 6/7 bug #7027598 that locked the GUI on Linux.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Feb 2011</div> Version 4.6</h3>
+<ul>
+<li>Added support for synthetic, bridge, and varargs modifiers in configuration.
+<li>Added detection of atomic updater construction with constant arguments.
+<li>Fixed merging of package visible classes.
+<li>Fixed optimization of fields that are only accessed by reflection.
+<li>Fixed optimization of read-only or write-only fields that are volatile.
+<li>Fixed handling of side-effects due to static initializers.
+<li>Fixed handling of bridge flags in obfuscation step.
+<li>Fixed handling of super flag when merging classes.
+<li>Fixed updating of variable tables when optimizing variables.
+<li>Fixed removal of unused parameters with 32 or more parameters.
+<li>Fixed incorrect removal of exception handler for instanceof instruction.
+<li>Fixed inlining of methods with unusual exception handlers.
+<li>Fixed optimization of unusual code causing stack underflow.
+<li>Fixed keeping of constructor parameter names.
+<li>Fixed unwanted wrapping of non-standard META-INF files.
+<li>Fixed filtering of warnings about references to array types.
+<li>Fixed overriding of warning option and note option in Ant task.
+<li>Improved detection of file name extensions for canonical paths.
+<li>Improved printing of seeds specified by <code>-keep</code> options.
+<li>Improved printing of notes about unkept classes.
+<li>Improved checking whether output is up to date.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jun 2010</div> Version 4.5</h3>
+<ul>
+<li>Added option <code>-keepparameternames</code>.
+<li><code>-dontskipnonpubliclibraryclasses</code> is now set by default. Added
+    <code>-skipnonpubliclibraryclasses</code> as an option.
+<li>Made processing independent of order of input classes to get even more
+    deterministic output.
+<li>Improved constant field propagation.
+<li>Improved renaming of resource files in subdirectories of packages.
+<li>Avoiding making fields in interfaces private.
+<li>Optimizing exception handlers for monitorexit instruction.
+<li>Reduced maximum allowed code length after inlining from 8000 bytes to
+    7000 bytes.
+<li>Fixed missing warnings about missing library classes.
+<li>Fixed shrinking of annotations with arrays of length 0.
+<li>Fixed handling of -0.0 and NaN values when simplifying expressions.
+<li>Fixed copying of exception handlers when simplifying tail recursion calls.
+<li>Fixed optimization of introspected fields.
+<li>Fixed simplification of unnecessary variable initializations.
+<li>Fixed evaluation of subroutines in pre-JDK 1.5 code.
+<li>Fixed updating of access flags in inner classes information.
+<li>Fixed disabling of field privatization.
+<li>Fixed invocations of privatized methods.
+<li>Fixed updating of local variable debug information in optimization step.
+<li>Fixed print settings without file name in GUI.
+<li>Fixed field privatization setting in GUI.
+<li>Fixed saving incorrectly quoted arguments in GUI.
+<li>Fixed handling of regular expressions with only negators.
+<li>Fixed unwanted wrapping of non-standard META-INF files.
+<li>Fixed regular expression pattern for constructors in ReTrace.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jul 2009</div> Version 4.4</h3>
+<ul>
+<li>Added new peephole optimizations.
+<li>Added option <code>-optimizations</code> for fine-grained configuration of
+    optimizations.
+<li>Added option <code>-adaptclassstrings</code> for adapting string constants
+    that correspond to obfuscated classes.
+<li>Added option <code>-keeppackagenames</code> for keeping specified package
+    names from being obfuscated.
+<li>Added option <code>-keepdirectories</code> for keeping specified directory
+    entries in output jars.
+<li>Extended options <code>-dontnote</code> and <code>-dontwarn</code> for
+    fine-grained configuration of notes and warnings. 
+<li>Added option <code>-regex</code> in ReTrace, for specifying alternative
+    regular expressions to parse stack traces.
+<li>Extended renaming of resource files based on obfuscation.
+<li>Improved inlining of constant parameters and removal of unused parameters.
+<li>Avoiding bug in IBM's JVM for JSE, in optimization step.
+<li>Avoiding ArrayIndexOutOfBoundsException in optimization step.
+<li>Fixed configuration with annotations that are not preserved themselves.
+<li>Fixed preverification of invocations of super constructors with arguments
+    containing ternary operators.
+<li>Fixed processing of unreachable exception handlers.
+<li>Fixed merging of exception classes.
+<li>Fixed repeated method inlining.
+<li>Fixed inlining of finally blocks surrounded by large try blocks, compiled
+    with JDK 1.4 or earlier.
+<li>Fixed optimization of complex finally blocks, compiled with JDK 1.4 or
+    earlier.
+<li>Fixed obfuscation of anonymous class names, if <code>EnclosingMethod</code>
+    attributes are being kept.
+<li>Fixed obfuscation of inner class names in generic types.
+<li>Fixed decoding of UTF-8 strings containing special characters.
+<li>Fixed copying of debug information and annotations when merging classes.
+<li>Fixed writing out of unknown attributes.
+<li>Fixed updating manifest files with split lines.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2008</div> Version 4.3</h3>
+<ul>
+<li>Added class merging.
+<li>Added static single assignment analysis.
+<li>Added support for annotation and enumeration class types in configuration.
+<li>Refined shrinking of fields in case of unusual
+    <code>-keepclassmembers</code> options.
+<li>Added simplification of tail recursion calls.
+<li>Added new peephole optimizations.
+<li>Fixed optimization of unused variable initializations causing negative
+    stack sizes.
+<li>Fixed optimization of unusual initialization code causing
+    NullPointerExceptions.
+<li>Fixed optimization of half-used long and double parameters.
+<li>Fixed processing of complex generics signatures.
+<li>Working around suspected java compiler bug with parameter annotations on
+    constructors of non-static inner classes.
+<li>Fixed obfuscation of classes with inner classes whose names are preserved.
+<li>Fixed access of protected methods in repackaged classes.
+<li>Added options <code>-classobfuscationdictionary</code> and
+    <code>-packageobfuscationdictionary</code>.
+<li>Adapting more types of resource file names based on obfuscation.
+<li>Extended warnings about incorrect dependencies.
+<li>Added start-up scripts and build scripts.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Mar 2008</div> Version 4.2</h3>
+<ul>
+<li>Refined data flow analysis in optimization step.
+<li>Fixed handling of exceptions when inlining subroutines.
+<li>Fixed inlining of incompatible code constructs between different java
+    versions.
+<li>Fixed computation of local variable frame size.
+<li>Fixed optimization of infinite loops.
+<li>Fixed optimization of subroutine invocations.
+<li>Fixed optimization of floating point remainder computations.
+<li>Fixed removal of unused parameters in method descriptors containing arrays
+    of longs or doubles.
+<li>Added undocumented java system properties
+    <code>maximum.inlined.code.length</code> (default is 8) and
+    <code>maximum.resulting.code.length</code> (defaults are 8000 for JSE and
+    2000 for JME), for expert users who read release notes.
+<li>Fixed processing of generic types in Signature attributes in shrinking and
+    optimization steps.
+<li>Fixed processing of inner class names in Signature attributes in obfuscation
+    step.
+<li>Improved adapting resource file names following obfuscated class names.
+<li>Fixed interpretation of package names in GUI.
+<li>Fixed default settings for Xlets in GUI.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2007</div> Version 4.1</h3>
+<ul>
+<li>Fixed shrinking of default annotation element values.
+<li>Fixed optimization of invocations of methods in same class that are
+    accessed through extensions.
+<li>Fixed optimization of invocations of synchronized methods without other
+    side-effects.
+<li>Fixed optimization of some non-returning subroutines.
+<li>Fixed handling of local variable debug information when inlining methods.
+<li>Avoiding StackOverflowErrors during optimization of complex methods.
+<li>Fixed obfuscation of potentially ambiguous non-primitive constants in
+    interfaces.
+<li>Fixed preverification of some code constructs involving String, Class, and
+    exception types.
+<li>The Ant task now allows empty <code>&lt;injars&gt;</code> and
+    <code>&lt;libraryjars&gt;</code> elements.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Sep 2007</div> Version 4.0</h3>
+<ul>
+<li>Added preverifier for Java 6 and Java Micro Edition, with new options
+    <code>-microedition</code> and <code>-dontpreverify</code>.
+<li>Added new option <code>-target</code> to modify java version of processed
+    class files.
+<li>Made <code>-keep</code> options more orthogonal and flexible, with option
+    modifiers <code>allowshrinking</code>, <code>allowoptimization</code>, and
+    <code>allowobfuscation</code>.
+<li>Added new wildcards for class member descriptors: "<code>***</code>",
+    matching any type, and "<code>...</code>", matching any number of
+    arguments.
+<li>Added support for configuration by means of annotations.
+<li>Improved shrinking of unused annotations.
+<li>Added check on modification times of input and output, to avoid unnecessary
+    processing, with new option <code>-forceprocessing</code>.
+<li>Added new options <code>-flattenpackagehierarchy</code> and
+    <code>-repackageclasses</code> (replacing <code>-defaultpackage</code>) to
+    control obfuscation of package names.
+<li>Added new options <code>-adaptresourcefilenames</code> and
+    <code>-adaptresourcefilecontents</code>, with file filters, to update
+    resource files corresponding to obfuscated class names.
+<li>Added detection of dynamically accessed fields and methods.
+<li>Now treating <code>Exceptions</code> attributes as optional.
+<li>Now respecting naming rule for nested class names
+    (<code>EnclosingClass$InnerClass</code>) in obfuscation step, if
+    <code>InnerClasses</code> attributes or <code>EnclosingMethod</code>
+    attributes are being kept.
+<li>Added new inter-procedural optimizations: method inlining and propagation
+    of constant fields, constant arguments, and constant return values.
+<li>Added optimized local variable allocation.
+<li>Added more than 250 new peephole optimizations.
+<li>Improved making classes and class members public or protected.
+<li>Now printing notes on suspiciously unkept classes in parameters of
+    specified methods.
+<li>Now printing notes for class names that don't seem to be fully qualified.
+<li>Added support for uppercase filename extensions.
+<li>Added tool tips to the GUI.
+<li>Rewritten class file I/O code.
+<li>Updated documentation and examples.
+</ul>
+Upgrade considerations:
+<ul>
+
+<li>Since ProGuard now treats the <code>Exceptions</code> attribute as
+    optional, you may have to specify <code>-keepattributes Exceptions</code>,
+    notably when processing code that is to be used as a library.
+
+<li>ProGuard now preverifies code for Java Micro Edition, if you specify the
+    option <code>-microedition</code>. You then no longer need to process the
+    code with an external preverifier.
+
+<li>You should preferably specify <code>-repackageclasses</code> instead of the
+    old option name <code>-defaultpackage</code>.
+</ul>
+
+<h3><div>Dec 2007</div> Version 3.11</h3>
+<ul>
+<li>Fixed optimization of invocations of methods in same class that are
+    accessed through extensions.
+<li>Fixed optimization of invocations of synchronized methods without other
+    side-effects.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Aug 2007</div> Version 3.10</h3>
+<ul>
+<li>Now handling mixed-case input class names when
+    <code>-dontusemixedcaseclassnames</code> is specified.
+<li>Fixed optimization of synchronization on classes, as compiled by Eclipse
+    and Jikes.
+<li>Fixed optimization of switch statements with unreachable cases.
+<li>Avoiding merging subsequent identically named files.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jun 2007</div> Version 3.9</h3>
+<ul>
+<li>Fixed processing of .class constructs in Java 6.
+<li>Fixed repeated processing of .class constructs.
+<li>Fixed possible division by 0 in optimization step.
+<li>Fixed handling of variable instructions with variable indices larger than
+    255.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Mar 2007</div> Version 3.8</h3>
+<ul>
+<li>Fixed optimization of parameters used as local variables.
+<li>Fixed obfuscation with conflicting class member names.
+<li>Fixed incremental obfuscation with incomplete mapping file for library jars.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2006</div> Version 3.7</h3>
+<ul>
+<li>Now accepting Java 6 class files.
+<li>Fixed shrinking of partially used annotations.
+<li>Improved incremental obfuscation, with new option
+    <code>-useuniqueclassmembernames</code>.
+<li>Printing more information in case of conflicting configuration and input.
+<li>Fixed optimization of repeated array length instruction.
+<li>Fixed optimization of subsequent try/catch/finally blocks with return
+    statements.
+<li>Fixed optimization of complex stack operations.
+<li>Fixed optimization of simple infinite loops.
+<li>Fixed optimization of expressions with constant doubles.
+<li>Tuned optimization to improve size reduction after preverification.
+<li>Fixed overflows of offsets in long code blocks.
+<li>Now allowing class names containing dashes.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>May 2006</div> Version 3.6</h3>
+<ul>
+<li>No longer automatically keeping classes in parameters of specified methods
+    from obfuscation and optimization (introduced in version 3.4).
+<li>Fixed inlining of interfaces that are used in .class constructs.
+<li>Fixed removal of busy-waiting loops reading volatile fields.
+<li>Fixed optimization of comparisons of known integers.
+<li>Fixed optimization of known branches.
+<li>Fixed optimization of method calls on arrays of interfaces.
+<li>Fixed optimization of method calls without side-effects.
+<li>Fixed optimization of nested try/catch/finally blocks with return
+    statements.
+<li>Fixed initialization of library classes that only appear in descriptors.
+<li>Fixed matching of primitive type wildcards in configuration.
+<li>Fixed the boilerplate specification for enumerations in the GUI.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jan 2006</div> Version 3.5</h3>
+<ul>
+<li>Fixed obfuscation of class members with complex visibility.
+<li>Fixed optimization bugs causing stack verification errors.
+<li>Fixed optimization bug causing overridden methods to be finalized.
+<li>Fixed optimization bug causing abstract method errors for retro-fitted
+    library methods.
+<li>Fixed optimization bug evaluating code with constant long values.
+<li>Fixed bug in updating of optional local variable table attributes and local
+    variable type table attributes after optimization.
+<li>Fixed interpretation of comma-separated class names without wildcards.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Oct 2005</div> Version 3.4</h3>
+<ul>
+<li>Extended optimizations: removing duplicate code within methods.
+<li>Extended regular expressions for class names to comma-separated lists.
+<li>Now automatically keeping classes in descriptors of kept class members.
+<li>Added verbose statistics for optimizations.
+<li>Added boilerplate Number optimizations in GUI.
+<li>Fixed <code>Class.forName</code> detection.
+<li>Fixed incremental obfuscation bug.
+<li>Fixed optimization bug causing stack verification errors.
+<li>Fixed optimization bugs related to removal of unused parameters.
+<li>Fixed exception when optimizing code with many local variables.
+<li>Fixed exception when saving configuration with initializers in GUI.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jun 2005</div> Version 3.3</h3>
+<ul>
+<li>Extended optimizations: making methods private and static when possible,
+    making classes static when possible, removing unused parameters.
+<li>Made file names relative to the configuration files in which they are
+    specified. Added <code>-basedirectory</code> option.
+<li>Added <code>-whyareyoukeeping</code> option to get details on why given
+    classes and class members are being kept.
+<li>Added warnings for misplaced class files.
+<li>Improved printing of notes for <code>Class.forName</code> constructs.
+<li>Implemented '<code>assumenosideeffects</code>' nested element in Ant task.
+<li>Improved processing of annotations.
+<li>Fixed reading and writing of parameter annotations.
+<li>Fixed various optimization bugs.
+<li>Fixed wildcards not matching '-' character.
+<li>Fixed wildcard bug and checkbox bugs in GUI.
+<li>Setting file chooser defaults in GUI.
+<li>Leaving room for growBox in GUI on Mac OS X.
+<li>Properly closing configuration files.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2004</div> Version 3.2</h3>
+<ul>
+<li>Fixed JDK5.0 processing bugs.
+<li>Fixed optimization bugs.
+<li>Fixed relative paths in Ant task.
+<li>Improved speed of shrinking step.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Nov 2004</div> Version 3.1</h3>
+<ul>
+<li>Improved obfuscation and shrinking of private class members.
+<li>Added inlining of interfaces with single implementations.
+<li>Added option to specify obfuscation dictionary.
+<li>Added option to read package visible library class members.
+<li>Extended support for JDK5.0 attributes.
+<li>Fixed various optimization bugs.
+<li>Modified Ant task to accept paths instead of filesets.
+<li>Fixed two Ant task bugs.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Aug 2004</div> Version 3.0</h3>
+<ul>
+<li>Added bytecode optimization step, between shrinking step and obfuscation
+    step.
+<li>Generalized filtered recursive reading and writing of jars, wars, ears,
+    zips, and directories.
+<li>Added support for grouping input and output jars, wars, ears, zips, and
+    directories.
+<li>Added support for applying mapping files to library classes.
+<li>Removed <code>-resourcejars</code> option. Resources should now be read
+    using regular <code>-injars</code> options, using filters if necessary.
+<li>Rewrote Ant task. Input and output modification dates are not checked at
+    the moment. Minor changes in XML schema:
+    <ul>
+    <li>Filters now specified using attributes.
+    <li>'<code>outjars</code>' now nested element instead of attribute.
+    <li>'<code>type</code>' attribute of <code>&lt;method&gt;</code> element no
+        longer defaults to '<code>void</code>'.
+    <li><code>&lt;</code> and <code>&gt;</code> characters now have to be
+        encoded in embedded configurations.
+    <li><code>&lt;proguardconfiguration&gt;</code> task no longer accepts
+        attributes.
+    </ul>
+<li>Updated J2ME WTK plugin, now customizable through configuration file.
+<li>Updated GUI.
+<li>Fixed various processing bugs.
+<li>Fixed ReTrace parsing bugs.
+<li>Improved jar compression.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Mar 2004</div> Version 2.1</h3>
+<ul>
+<li>Added support for JDK1.5 classes.
+<li>Added additional wildcard for matching primitive types.
+<li>Added possibility to switch off notes about duplicate class definitions.
+<li>Fixed use of multiple filters on output jars.
+<li>Fixed option to keep all attributes.
+<li>Fixed various Ant task bugs.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Dec 2003</div> Version 2.0</h3>
+<ul>
+<li>Added a graphical user interface for ProGuard and ReTrace.
+<li>Added <code>-applymapping</code> option for incremental obfuscation.
+<li>Added support for filtering input and output files.
+<li>Added support for the J++ <code>SourceDir</code> attribute.
+<li>Improved detection of <code>.class</code> constructs.
+<li>Improved handling of misplaced manifest files.
+<li>Improved implementation of ReTrace.
+<li>Worked around String UTF-8 encoding bug affecting foreign characters.
+<li>Fixed exception when ignoring warnings.
+<li>Fixed various Ant task bugs.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Aug 2003</div> Version 1.7</h3>
+<ul>
+<li>Fixed various Ant task bugs.
+<li>Fixed ClassCastException due to explicitly used abstract classes with
+    implicitly used interfaces targeted at JRE1.2 (the default in JDK1.4).
+<li>Fixed <code>-defaultpackage</code> bug for protected classes and class
+    members.
+<li>Fixed ReTrace bug when retracing without line number tables.
+<li>Worked around zip package problems with duplicate out entries and rogue
+    manifest files.
+<li>Added work-around for handling malformed legacy interface class files.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>May 2003</div> Version 1.6</h3>
+<ul>
+<li>Added support for Ant.
+<li>Added support for the J2ME Wireless Toolkit.
+<li>Added support for reading and writing directory hierarchies.
+<li>Added option for specifying resource jars and directories.
+<li>Added support for wildcards in class member specifications.
+<li>Improved handling of the <code>-defaultpackage</code> option.
+<li>Improved stack trace parsing in ReTrace tool.
+<li>Fixed processing of libraries containing public as well as non-public
+    extensions of non-public classes.
+<li>Fixed examples for processing libraries, midlets, and serializable code.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jan 2003</div> Version 1.5</h3>
+<ul>
+<li>Fixed processing of retrofitted library interfaces.
+<li>Fixed processing of <code>.class</code> constructs in internal classes
+    targeted at JRE1.2 (the default in JDK1.4).
+<li>Fixed <code>-dump</code> option when <code>-outjar</code> option is not
+    present.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Nov 2002</div> Version 1.4</h3>
+<ul>
+<li>Now copying resource files over from the input jars to the output jar.
+<li>Added option to obfuscate using lower-case class names only.
+<li>Added better option for obfuscating native methods.
+<li>Added option not to ignore non-public library classes.
+<li>Added automatic <code>.class</code> detection for classes compiled with
+    Jikes.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Sep 2002</div> Version 1.3</h3>
+<ul>
+<li>Added support for wildcards in class names.
+<li>Added tool to de-obfuscate stack traces.
+<li>Added options to print processing information to files.
+<li>Added option to rename source file attributes.
+<li>Fixed processing of implicitly used interfaces targeted at JRE1.2 (the
+    default in JDK1.4)
+<li>Fixed processing of configurations with negated access modifiers.
+<li>Fixed duplicate class entry bug.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Aug 2002</div> Version 1.2</h3>
+<ul>
+<li>Improved speed.
+<li>Fixed processing of classes targeted at JRE1.2 (the default in JDK1.4)
+    with references to their own subclasses.
+<li>Fixed processing of static initializers in J2ME MIDP applications.
+<li>Fixed processing of retrofitted interfaces (again).
+<li>Added more flexible handling of white space in configuration.
+<li>Updated documentation.
+</ul>
+
+<h3><div>Jul 2002</div> Version 1.1</h3>
+<ul>
+<li>Added automatic detection of <code>Class.forName("MyClass")</code>,
+    <code>MyClass.class</code>, and
+    <code>(MyClass)Class.forName(variable).newInstance()</code> constructs.
+    This greatly simplifies configuration.
+<li>Added options to keep class names and class member names without affecting
+    any shrinking. They are mostly useful for native methods and serializable
+    classes.
+<li>Fixed processing of retrofitted interfaces.
+<li>Added handling of missing/invalid manifest file in input jar.
+<li>Updated documentation and examples.
+</ul>
+
+<h3><div>Jun 2002</div> Version 1.0</h3>
+<ul>
+<li>First public release, based on class parsing code from Mark Welsh's
+    <b>RetroGuard</b>.
+</ul>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+
+</body>
+</html>

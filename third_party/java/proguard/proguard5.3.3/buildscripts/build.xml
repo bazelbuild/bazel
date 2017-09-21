@@ -1,0 +1,210 @@
+<!-- Ant build script for ProGuard. -->
+
+<project name    = "proguard"
+         default = "all"
+         basedir = "..">
+
+  <property file = "buildscripts/build.properties"/>
+  <property name = "src"     value = "src"/>
+  <property name = "classes" value = "classes"/>
+  <property name = "lib"     value = "lib"/>
+
+  <path id="gradle.path">
+    <fileset dir="${gradle.home}/lib">
+      <include name="plugins/gradle-plugins-*.jar"/>
+      <include name="gradle-logging-*.jar"/>
+      <include name="gradle-base-services-*.jar"/>
+      <include name="gradle-base-services-groovy-*.jar"/>
+      <include name="gradle-core-*.jar"/>
+      <include name="groovy-all-*.jar"/>
+    </fileset>
+  </path>
+  <property name = "wtk.jar"     value = "${wtk.home}/wtklib/kenv.zip"/>
+
+  <target name = "all"     depends = "basic,options"/>
+  <target name = "basic"   depends = "proguard,proguardgui,retrace"/>
+  <target name = "options" depends = "anttask,wtkplugin"/>
+
+  <target name = "proguard" depends = "classes,lib">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/ProGuard.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/*.properties"/>
+        <include name = "proguard/*.png"/>
+        <include name = "proguard/*.gif"/>
+        <include name = "proguard/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/proguard.jar"
+         manifest = "${src}/proguard/MANIFEST.MF"
+         basedir  = "${classes}"
+         includes = "proguard/**"/>
+  </target>
+
+  <target name = "proguardgui" depends = "proguard">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/gui/ProGuardGUI.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/gui/*.properties"/>
+        <include name = "proguard/gui/*.png"/>
+        <include name = "proguard/gui/*.gif"/>
+        <include name = "proguard/gui/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/proguardgui.jar"
+         manifest = "${src}/proguard/gui/MANIFEST.MF"
+         basedir  = "${classes}"
+         includes = "proguard/gui/**"/>
+  </target>
+
+  <target name = "retrace" depends = "classes,lib">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/retrace/ReTrace.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/retrace/*.properties"/>
+        <include name = "proguard/retrace/*.png"/>
+        <include name = "proguard/retrace/*.gif"/>
+        <include name = "proguard/retrace/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/retrace.jar"
+         manifest = "${src}/proguard/retrace/MANIFEST.MF"
+         basedir  = "${classes}"
+         includes = "proguard/retrace/**"/>
+  </target>
+
+  <target name = "anttask" depends = "proguard">
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "true"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/ant/ProGuardTask.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/ant/*.properties"/>
+        <include name = "proguard/ant/*.png"/>
+        <include name = "proguard/ant/*.gif"/>
+        <include name = "proguard/ant/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/proguard.jar"
+         update   = "true"
+         basedir  = "${classes}"
+         includes = "proguard/ant/**"/>
+  </target>
+
+  <target name = "gradletask" depends = "proguard">
+    <fail message="Please set the value of the property gradle.home in the file build.properties, if you want to build the optional ProGuard Gradle task.">
+      <condition>
+        <not>
+          <available classname="org.gradle.api.DefaultTask" classpathref="gradle.path"/>
+        </not>
+      </condition>
+    </fail>
+
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/gradle/ProGuardTask.java">
+      <compilerarg value = "-Xlint:none"/>
+      <classpath refid="gradle.path"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/gradle/*.properties"/>
+        <include name = "proguard/gradle/*.png"/>
+        <include name = "proguard/gradle/*.gif"/>
+        <include name = "proguard/gradle/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/proguard.jar"
+         update   = "true"
+         basedir  = "${classes}"
+         includes = "proguard/gradle/**"/>
+  </target>
+
+  <target name = "wtkplugin" depends = "proguard">
+    <fail message="Please set the value of the property wtk.home in the file build.properties, if you want to build the optional ProGuard WTK plugin.">
+      <condition>
+        <not>
+          <available file="${wtk.jar}"/>
+        </not>
+      </condition>
+    </fail>
+
+    <javac nowarn            = "true"
+           deprecation       = "false"
+           includeantruntime = "false"
+           classpath         = "${wtk.jar}"
+           srcdir            = "${src}"
+           destdir           = "${classes}"
+           includes          = "proguard/wtk/ProGuardObfuscator.java">
+      <compilerarg value = "-Xlint:none"/>
+    </javac>
+
+    <copy todir = "${classes}">
+      <fileset dir = "${src}">
+        <include name = "proguard/wtk/*.properties"/>
+        <include name = "proguard/wtk/*.png"/>
+        <include name = "proguard/wtk/*.gif"/>
+        <include name = "proguard/wtk/*.pro"/>
+      </fileset>
+    </copy>
+
+    <jar jarfile  = "${lib}/proguard.jar"
+         update   = "true"
+         basedir  = "${classes}"
+         includes = "proguard/wtk/**"/>
+  </target>
+
+  <target name = "classes">
+    <mkdir dir = "${classes}"/>
+  </target>
+
+  <target name = "lib">
+    <mkdir dir = "${lib}"/>
+  </target>
+
+  <target name = "clean">
+    <delete>
+      <fileset dir = "${classes}"/>
+      <fileset dir = "${lib}"/>
+    </delete>
+  </target>
+</project>

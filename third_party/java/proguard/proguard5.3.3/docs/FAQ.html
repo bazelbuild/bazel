@@ -1,0 +1,304 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard FAQ</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="index.html#FAQ.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="index.html#FAQ.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Frequently Asked Questions</h2>
+
+<h3>Contents</h3>
+
+<ol>
+<li><a href="#shrinking">What is shrinking?</a></li>
+<li><a href="#obfuscation">What is obfuscation?</a></li>
+<li><a href="#preverification">What is preverification?</a></li>
+<li><a href="#optimization">What kind of optimizations does <b>ProGuard</b>
+    support?</a></li>
+<li><a href="#commercial">Can I use <b>ProGuard</b> to process my commercial
+    application?</a></li>
+<li><a href="#jdk1.4">Does <b>ProGuard</b> work with Java 2, 5, ..., 8?</a></li>
+<li><a href="#jme">Does <b>ProGuard</b> work with Java Micro Edition?</a></li>
+<li><a href="#android">Does <b>ProGuard</b> work for Android apps?</a></li>
+<li><a href="#blackberry">Does <b>ProGuard</b> work for Blackberry
+    code?</a></li>
+<li><a href="#ant">Does <b>ProGuard</b> have support for Ant?</a></li>
+<li><a href="#gradle">Does <b>ProGuard</b> have support for Gradle?</a></li>
+<li><a href="#maven">Does <b>ProGuard</b> have support for Maven?</a></li>
+<li><a href="#gui">Does <b>ProGuard</b> come with a GUI?</a></li>
+<li><a href="#forname">Does <b>ProGuard</b> handle <code>Class.forName</code>
+    calls?</a></li>
+<li><a href="#resource">Does <b>ProGuard</b> handle resource files?</a></li>
+<li><a href="#encrypt">Does <b>ProGuard</b> encrypt string constants?</a></li>
+<li><a href="#flow">Does <b>ProGuard</b> perform control flow
+    obfuscation?</a></li>
+<li><a href="#incremental">Does <b>ProGuard</b> support incremental
+    obfuscation?</a></li>
+<li><a href="#keywords">Can <b>ProGuard</b> obfuscate using reserved
+    keywords?</a></li>
+<li><a href="#stacktrace">Can <b>ProGuard</b> reconstruct obfuscated stack
+    traces?</a></li>
+<li><a href="#dexguard">How is <b>DexGuard</b> different from
+    <b>ProGuard</b>?</a></li>
+</ol>
+
+<h3><a name="shrinking">What is shrinking?</a></h3>
+
+Java source code (.java files) is typically compiled to bytecode (.class
+files). Bytecode is more compact than Java source code, but it may still
+contain a lot of unused code, especially if it includes program libraries.
+Shrinking programs such as <b>ProGuard</b> can analyze bytecode and remove
+unused classes, fields, and methods. The program remains functionally
+equivalent, including the information given in exception stack traces.
+
+<h3><a name="obfuscation">What is obfuscation?</a></h3>
+
+By default, compiled bytecode still contains a lot of debugging information:
+source file names, line numbers, field names, method names, argument names,
+variable names, etc. This information makes it straightforward to decompile
+the bytecode and reverse-engineer entire programs. Sometimes, this is not
+desirable. Obfuscators such as <b>ProGuard</b> can remove the debugging
+information and replace all names by meaningless character sequences, making
+it much harder to reverse-engineer the code. It further compacts the code as a
+bonus. The program remains functionally equivalent, except for the class
+names, method names, and line numbers given in exception stack traces.
+
+<h3><a name="preverification">What is preverification?</a></h3>
+
+When loading class files, the class loader performs some sophisticated
+verification of the byte code. This analysis makes sure the code can't
+accidentally or intentionally break out of the sandbox of the virtual machine.
+Java Micro Edition and Java 6 introduced split verification. This means that
+the JME preverifier and the Java 6 compiler add preverification information to
+the class files (StackMap and StackMapTable attributes, respectively), in order
+to simplify the actual verification step for the class loader. Class files can
+then be loaded faster and in a more memory-efficient way. <b>ProGuard</b> can
+perform the preverification step too, for instance allowing to retarget older
+class files at Java 6.
+
+<h3><a name="optimization">What kind of optimizations does <b>ProGuard</b> support?</a></h3>
+
+Apart from removing unused classes, fields, and methods in the shrinking step,
+<b>ProGuard</b> can also perform optimizations at the bytecode level, inside
+and across methods. Thanks to techniques like control flow analysis, data flow
+analysis, partial evaluation, static single assignment, global value numbering,
+and liveness analysis, <b>ProGuard</b> can:
+
+<ul>
+<li>Evaluate constant expressions.</li>
+<li>Remove unnecessary field accesses and method calls.</li>
+<li>Remove unnecessary branches.</li>
+<li>Remove unnecessary comparisons and instanceof tests.</li>
+<li>Remove unused code blocks.</li>
+<li>Merge identical code blocks.</li>
+<li>Reduce variable allocation.</li>
+<li>Remove write-only fields and unused method parameters.</li>
+<li>Inline constant fields, method parameters, and return values.</li>
+<li>Inline methods that are short or only called once.</li>
+<li>Simplify tail recursion calls.</li>
+<li>Merge classes and interfaces.</li>
+<li>Make methods private, static, and final when possible.</li>
+<li>Make classes static and final when possible.</li>
+<li>Replace interfaces that have single implementations.</li>
+<li>Perform over 200 peephole optimizations, like replacing ...*2 by
+    ...&lt;&lt;1.</li>
+<li>Optionally remove logging code.</li>
+</ul>
+The positive effects of these optimizations will depend on your code and on
+the virtual machine on which the code is executed. Simple virtual machines may
+benefit more than advanced virtual machines with sophisticated JIT compilers.
+At the very least, your bytecode may become a bit smaller.
+<p>
+Some notable optimizations that aren't supported yet:
+<ul>
+<li>Moving constant expressions out of loops.</li>
+<li>Optimizations that require escape analysis
+    (<a href="http://www.guardsquare.com/dexguard" target="_top">DexGuard</a>
+    does).</li>
+</ul>
+
+<h3><a name="commercial">Can I use <b>ProGuard</b> to process my commercial application?</a></h3>
+
+Yes, you can. <b>ProGuard</b> itself is distributed under the GPL, but this
+doesn't affect the programs that you process. Your code remains yours, and
+its license can remain the same.
+
+<h3><a name="jdk1.4">Does <b>ProGuard</b> work with Java 2, 5, ..., 8?</a></h3>
+
+Yes, <b>ProGuard</b> supports all JDKs from 1.1 up to and including 8.0. Java
+2 introduced some small differences in the class file format. Java 5 added
+attributes for generics and for annotations. Java 6 introduced optional
+preverification attributes. Java 7 made preverification obligatory and
+introduced support for dynamic languages. Java 8 added more attributes and
+default methods. <b>ProGuard</b> handles all versions correctly.
+
+<h3><a name="jme">Does <b>ProGuard</b> work with Java Micro Edition?</a></h3>
+
+Yes. <b>ProGuard</b> itself runs in Java Standard Edition, but you can freely
+specify the run-time environment at which your programs are targeted,
+including Java Micro Edition. <b>ProGuard</b> then also performs the required
+preverification, producing more compact results than the traditional external
+preverifier.
+<p>
+<b>ProGuard</b> also comes with an obfuscator plug-in for the JME Wireless
+Toolkit.
+
+<h3><a name="android">Does <b>ProGuard</b> work for Android apps?</a></h3>
+
+Yes. Google's <code>dx</code> compiler converts Java bytecode into the Dalvik
+bytecode that runs on Android devices. By preprocessing the original
+bytecode, <b>ProGuard</b> can significantly reduce the file sizes and boost
+the run-time performance of the code. It is distributed as part of the Android
+SDK. <a href="http://www.guardsquare.com/dexguard"
+target="_top"><b>DexGuard</b></a>, <b>ProGuard</b>'s closed-source sibling for
+Android, offers additional optimizations and more application protection.
+
+<h3><a name="blackberry">Does <b>ProGuard</b> work for Blackberry code?</a></h3>
+
+It should. RIM's proprietary <code>rapc</code> compiler converts ordinary JME
+jar files into cod files that run on Blackberry devices. The compiler performs
+quite a few optimizations, but preprocessing the jar files with
+<b>ProGuard</b> can generally still reduce the final code size by a few
+percent. However, the <code>rapc</code> compiler also seems to contain some
+bugs. It sometimes fails on obfuscated code that is valid and accepted by other
+JME tools and VMs. Your mileage may therefore vary.
+
+<h3><a name="ant">Does <b>ProGuard</b> have support for Ant?</a></h3>
+
+Yes. <b>ProGuard</b> provides an Ant task, so that it integrates seamlessly
+into your Ant build process. You can still use configurations in
+<b>ProGuard</b>'s own readable format. Alternatively, if you prefer XML, you
+can specify the equivalent XML configuration.
+
+<h3><a name="gradle">Does <b>ProGuard</b> have support for Gradle?</a></h3>
+
+Yes. <b>ProGuard</b> also provides a Gradle task, so that it integrates into
+your Gradle build process. You can specify configurations in
+<b>ProGuard</b>'s own format or embedded in the Groovy configuration.
+
+<h3><a name="maven">Does <b>ProGuard</b> have support for Maven?</a></h3>
+
+<b>ProGuard</b>'s jar files are also distributed as artefacts from
+the <a href="http://search.maven.org/#search|ga|1|g:%22net.sf.proguard%22"
+target="other">Maven Central</a> repository. There are some third-party
+plugins that support <b>ProGuard</b>, such as the
+<a href="http://code.google.com/p/maven-android-plugin/"
+target="other">android-maven-plugin</a> and the
+<a href="http://mavenproguard.sourceforge.net/" target="other">IDFC Maven
+ProGuard Plug-in</a>.
+<a href="http://www.guardsquare.com/dexguard" target="_top"><b>DexGuard</b></a>
+also comes with a Maven plugin.
+
+<h3><a name="gui">Does <b>ProGuard</b> come with a GUI?</a></h3>
+
+Yes. First of all, <b>ProGuard</b> is perfectly usable as a command-line tool
+that can easily be integrated into any automatic build process. For casual
+users, there's also a graphical user interface that simplifies creating,
+loading, editing, executing, and saving ProGuard configurations.
+
+<h3><a name="forname">Does <b>ProGuard</b> handle <code>Class.forName</code> calls?</a></h3>
+
+Yes. <b>ProGuard</b> automatically handles constructs like
+<code>Class.forName("SomeClass")</code> and <code>SomeClass.class</code>. The
+referenced classes are preserved in the shrinking phase, and the string
+arguments are properly replaced in the obfuscation phase.
+<p>
+With variable string arguments, it's generally not possible to determine their
+possible values. They might be read from a configuration file, for instance.
+However, <b>ProGuard</b> will note a number of constructs like
+"<code>(SomeClass)Class.forName(variable).newInstance()</code>". These might
+be an indication that the class or interface <code>SomeClass</code> and/or its
+implementations may need to be preserved. The developer can adapt his
+configuration accordingly.
+
+<h3><a name="resource">Does <b>ProGuard</b> handle resource files?</a></h3>
+
+Yes. <b>ProGuard</b> copies all non-class resource files, optionally adapting
+their names and their contents to the obfuscation that has been applied.
+
+<h3><a name="encrypt">Does <b>ProGuard</b> encrypt string constants?</a></h3>
+
+No. String encryption in program code has to be perfectly reversible by
+definition, so it only improves the obfuscation level. It increases the
+footprint of the code. However, by popular demand, <b>ProGuard</b>'s
+closed-source sibling for Android, <a href="http://www.guardsquare.com/dexguard"
+target="_top"><b>DexGuard</b></a>, does provide string encryption, along with
+more protection techniques against static and dynamic analysis.
+
+<h3><a name="flow">Does <b>ProGuard</b> perform control flow obfuscation?</a></h3>
+
+Not explicitly. Control flow obfuscation injects additional branches into the
+bytecode, in an attempt to fool decompilers. <b>ProGuard</b> does not do this,
+except to some extent in its optimization techniques. <b>ProGuard</b>'s
+closed-source sibling for Android, <a href="http://www.guardsquare.com/dexguard"
+target="_top"><b>DexGuard</b></a>, does offer control flow obfuscation, as one
+of the many additional techniques to harden Android apps.
+
+<h3><a name="incremental">Does <b>ProGuard</b> support incremental obfuscation?</a></h3>
+
+Yes. This feature allows you to specify a previous obfuscation mapping file in
+a new obfuscation step, in order to produce add-ons or patches for obfuscated
+code.
+
+<h3><a name="keywords">Can <b>ProGuard</b> obfuscate using reserved keywords?</a></h3>
+
+Yes. You can specify your own obfuscation dictionary, such as a list of
+reserved key words, identifiers with foreign characters, random source files,
+or a text by Shakespeare. Note that this hardly improves the obfuscation.
+Decent decompilers can automatically replace reserved keywords, and the effect
+can be undone fairly easily, by obfuscating again with simpler names.
+
+<h3><a name="stacktrace">Can <b>ProGuard</b> reconstruct obfuscated stack traces?</a></h3>
+
+Yes. <b>ProGuard</b> comes with a companion tool, <b>ReTrace</b>, that can
+'de-obfuscate' stack traces produced by obfuscated applications. The
+reconstruction is based on the mapping file that <b>ProGuard</b> can write
+out. If line numbers have been obfuscated away, a list of alternative method
+names is presented for each obfuscated method name that has an ambiguous
+reverse mapping. Please refer to the <a href="manual/index.html">ProGuard User
+Manual</a> for more details.
+<p>
+Erik Andr&eacute; at Badoo has written a
+<a href="https://techblog.badoo.com/blog/2014/10/08/deobfuscating-hprof-memory-dumps/"
+target="other">tool to de-obfuscate HPROF memory dumps</a>.
+
+<h3><a name="dexguard">How is <b>DexGuard</b> different from <b>ProGuard</b>?</a></h3>
+
+<a href="http://www.guardsquare.com/dexguard"><b>DexGuard</b></a> is a
+commercial extension of <b>ProGuard</b>:
+<ul>
+<li><b>DexGuard</b> is specialized for Android applications and libraries: it
+    optimizes and obfuscates not just the bytecode, but also the manifest file,
+    resources, resource files, asset files, and native libraries.</li>
+<li><b>DexGuard</b> focuses on making apps self-defending against reverse
+    engineering and tampering. <b>DexGuard</b>'s techniques for obfuscation,
+    encryption, and detection are a lot stronger than <b>ProGuard</b>'s basic
+    name obfuscation.</li>
+<li><b>DexGuard</b> is backward compatible with <b>ProGuard</b>: it reads the
+    same configuration. It already comes with tuned configuration for the
+    Android runtime and for common Android libraries.</li>
+</ul>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>
