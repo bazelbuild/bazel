@@ -41,6 +41,7 @@ java_library(
 
 java_test(
     name = "SkylarkTests",
+    timeout = "long",
     srcs = glob([
         "*.java",
     ]),
