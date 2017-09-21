@@ -163,6 +163,7 @@ py_binary(
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/def_parser:srcs",
         "//third_party/ijar",
+        "//third_party/ijar:zipper",
         "//third_party/ijar:embedded_tools",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         "//third_party/java/jacoco:srcs",
@@ -170,15 +171,12 @@ py_binary(
     ] + select({
         ":darwin": [
             ":darwin_tools",
-            "//third_party/ijar:zipper",
         ],
         ":darwin_x86_64": [
             ":darwin_tools",
-            "//third_party/ijar:zipper",
         ],
         "//conditions:default": [
             ":dummy_darwin_tools",
-            "//third_party/ijar:zipper",
         ],
     }) + select({
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
