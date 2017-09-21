@@ -18,39 +18,27 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 /**
- * The value of an option with additional metadata describing its origin.
+ * The representation of a parsed option instance.
  *
- * <p>This class represents an option as the parser received it, which is distinct from the final
- * value of an option, as these values may be overridden or combined in some way.
- *
- * <p>The origin includes the form it had when parsed, its priority, a message about where it came
- * from, and whether it was set explicitly or expanded/implied by other flags.
+ * <p>An option instance is distinct from the final value of an option, as multiple instances
+ * provide values may be overridden or combined in some way.
  */
 public final class ParsedOptionDescription {
+
   private final OptionDefinition optionDefinition;
   private final String commandLineForm;
   @Nullable private final String unconvertedValue;
-  private final OptionPriority priority;
-  @Nullable private final String source;
-
-  // Whether this flag was explicitly given, as opposed to having been added by an expansion flag
-  // or an implicit dependency. Notice that this does NOT mean it was explicitly given by the
-  // user, for that to be true, it needs the right combination of explicit & priority.
-  private final boolean explicit;
+  private final OptionInstanceOrigin origin;
 
   public ParsedOptionDescription(
       OptionDefinition optionDefinition,
       String commandLineForm,
       @Nullable String unconvertedValue,
-      OptionPriority priority,
-      @Nullable String source,
-      boolean explicit) {
+      OptionInstanceOrigin origin) {
     this.optionDefinition = optionDefinition;
     this.commandLineForm = commandLineForm;
     this.unconvertedValue = unconvertedValue;
-    this.priority = priority;
-    this.source = source;
-    this.explicit = explicit;
+    this.origin = origin;
   }
 
   public OptionDefinition getOptionDefinition() {
@@ -87,15 +75,23 @@ public final class ParsedOptionDescription {
   }
 
   OptionPriority getPriority() {
-    return priority;
+    return origin.getPriority();
   }
 
   public String getSource() {
-    return source;
+    return origin.getSource();
+  }
+
+  OptionDefinition getImplicitDependent() {
+    return origin.getImplicitDependent();
+  }
+
+  OptionDefinition getExpandedFrom() {
+    return origin.getExpandedFrom();
   }
 
   public boolean isExplicit() {
-    return explicit;
+    return origin.getExpandedFrom() == null && origin.getImplicitDependent() == null;
   }
 
   public Object getConvertedValue() throws OptionsParsingException {
@@ -114,9 +110,9 @@ public final class ParsedOptionDescription {
     StringBuilder result = new StringBuilder();
     result.append("option '").append(optionDefinition.getOptionName()).append("' ");
     result.append("set to '").append(unconvertedValue).append("' ");
-    result.append("with priority ").append(priority);
-    if (source != null) {
-      result.append(" and source '").append(source).append("'");
+    result.append("with priority ").append(origin.getPriority());
+    if (origin.getSource() != null) {
+      result.append(" and source '").append(origin.getSource()).append("'");
     }
     return result.toString();
   }

@@ -223,17 +223,17 @@ class OptionsParserImpl {
     return new OptionDescription(
         optionDefinition,
         optionsData.getExpansionDataForField(optionDefinition),
-        getImplicitDependantDescriptions(
+        getImplicitDependentDescriptions(
             ImmutableList.copyOf(optionDefinition.getImplicitRequirements()),
             optionDefinition,
             priority,
             source));
   }
 
-  /** @return A list of the descriptions corresponding to the implicit dependant flags passed in. */
-  private ImmutableList<ParsedOptionDescription> getImplicitDependantDescriptions(
+  /** @return A list of the descriptions corresponding to the implicit dependent flags passed in. */
+  private ImmutableList<ParsedOptionDescription> getImplicitDependentDescriptions(
       ImmutableList<String> options,
-      OptionDefinition implicitDependant,
+      OptionDefinition implicitDependent,
       OptionPriority priority,
       String source)
       throws OptionsParsingException {
@@ -244,12 +244,17 @@ class OptionsParserImpl {
         o ->
             String.format(
                 "implicitely required for option %s (source: %s)",
-                implicitDependant.getOptionName(), source);
+                implicitDependent.getOptionName(), source);
     while (optionsIterator.hasNext()) {
       String unparsedFlagExpression = optionsIterator.next();
       ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
-              unparsedFlagExpression, optionsIterator, priority, sourceFunction, false);
+              unparsedFlagExpression,
+              optionsIterator,
+              priority,
+              sourceFunction,
+              implicitDependent,
+              null);
       builder.add(parsedOption);
     }
     return builder.build();
@@ -257,9 +262,7 @@ class OptionsParserImpl {
 
   /**
    * @return A list of the descriptions corresponding to options expanded from the flag for the
-   *     given value. These descriptions are are divorced from the command line - there is no
-   *     correct priority or source for these, as they are not actually set values. The value itself
-   *     is also a string, no conversion has taken place.
+   *     given value. The value itself is a string, no conversion has taken place.
    */
   ImmutableList<ParsedOptionDescription> getExpansionOptionValueDescriptions(
       OptionDefinition expansionFlag,
@@ -277,7 +280,12 @@ class OptionsParserImpl {
       String unparsedFlagExpression = optionsIterator.next();
       ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
-              unparsedFlagExpression, optionsIterator, priority, sourceFunction, false);
+              unparsedFlagExpression,
+              optionsIterator,
+              priority,
+              sourceFunction,
+              null,
+              expansionFlag);
       builder.add(parsedOption);
     }
     return builder.build();
@@ -317,7 +325,6 @@ class OptionsParserImpl {
       OptionDefinition expandedFrom,
       List<String> args)
       throws OptionsParsingException {
-    boolean isExplicit = expandedFrom == null && implicitDependent == null;
     List<String> unparsedArgs = new ArrayList<>();
     LinkedHashMap<OptionDefinition, List<String>> implicitRequirements = new LinkedHashMap<>();
 
@@ -337,7 +344,7 @@ class OptionsParserImpl {
 
       ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
-              arg, argsIterator, priority, sourceFunction, isExplicit);
+              arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
       OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
       // All options can be deprecated; check and warn before doing any option-type specific work.
       maybeAddDeprecationWarning(optionDefinition);
@@ -347,7 +354,7 @@ class OptionsParserImpl {
       OptionValueDescription entry =
           optionValues.computeIfAbsent(
               optionDefinition, OptionValueDescription::createOptionValueDescription);
-      entry.addOptionInstance(parsedOption, implicitDependent, expandedFrom, warnings);
+      entry.addOptionInstance(parsedOption, warnings);
 
       @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
       if (optionDefinition.isWrapperOption()) {
@@ -404,11 +411,13 @@ class OptionsParserImpl {
         ImmutableList<String> expansion =
             optionsData.getEvaluatedExpansion(optionDefinition, unconvertedValue);
 
+        String sourceFunctionApplication = sourceFunction.apply(optionDefinition);
         String sourceMessage =
-            "expanded from option --"
-                + optionDefinition.getOptionName()
-                + " from "
-                + sourceFunction.apply(optionDefinition);
+            (sourceFunctionApplication == null)
+                ? String.format("expanded from option --%s", optionDefinition.getOptionName())
+                : String.format(
+                    "expanded from option --%s from %s",
+                    optionDefinition.getOptionName(), sourceFunctionApplication);
         Function<OptionDefinition, String> expansionSourceFunction = o -> sourceMessage;
         List<String> unparsed =
             parse(priority, expansionSourceFunction, null, optionDefinition, expansion);
@@ -434,11 +443,15 @@ class OptionsParserImpl {
     // TODO(bazel-team): this should happen when the option is encountered.
     if (!implicitRequirements.isEmpty()) {
       for (Map.Entry<OptionDefinition, List<String>> entry : implicitRequirements.entrySet()) {
+        OptionDefinition optionDefinition = entry.getKey();
+        String sourceFunctionApplication = sourceFunction.apply(optionDefinition);
         String sourceMessage =
-            "implicit requirement of option --"
-                + entry.getKey()
-                + " from "
-                + sourceFunction.apply(entry.getKey());
+            (sourceFunctionApplication == null)
+                ? String.format(
+                    "implicit requirement of option --%s", optionDefinition.getOptionName())
+                : String.format(
+                    "implicit requirement of option --%s from %s",
+                    optionDefinition.getOptionName(), sourceFunctionApplication);
         Function<OptionDefinition, String> requirementSourceFunction = o -> sourceMessage;
 
         List<String> unparsed = parse(priority, requirementSourceFunction, entry.getKey(), null,
@@ -467,7 +480,8 @@ class OptionsParserImpl {
       Iterator<String> nextArgs,
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
-      boolean explicit)
+      OptionDefinition implicitDependent,
+      OptionDefinition expandedFrom)
       throws OptionsParsingException {
 
     // Store the way this option was parsed on the command line.
@@ -548,9 +562,8 @@ class OptionsParserImpl {
         optionDefinition,
         commandLineForm.toString(),
         unconvertedValue,
-        priority,
-        sourceFunction.apply(optionDefinition),
-        explicit);
+        new OptionInstanceOrigin(
+            priority, sourceFunction.apply(optionDefinition), implicitDependent, expandedFrom));
   }
 
   /**
