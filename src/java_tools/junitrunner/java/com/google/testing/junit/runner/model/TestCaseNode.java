@@ -81,9 +81,12 @@ class TestCaseNode extends TestNode
   @Override
   public void testInterrupted(long now) {
     if (compareAndSetState(State.STARTED, State.INTERRUPTED, now)) {
+      globalFailures.add(new Exception("Test interrupted"));
       return;
     }
-    compareAndSetState(INITIAL_STATES, State.CANCELLED, now);
+    if (compareAndSetState(INITIAL_STATES, State.CANCELLED, now)) {
+      globalFailures.add(new Exception("Test cancelled"));
+    }
   }
 
   @Override

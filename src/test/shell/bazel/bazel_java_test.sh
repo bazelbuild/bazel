@@ -1299,5 +1299,51 @@ EOF
   expect_log "Unable to open Zip file java/com/google/foo/a.jar: Invalid argument"
 }
 
+function test_java_test_timeout() {
+  setup_javatest_support
+  mkdir -p javatests/com/google/timeout
+  touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
+
+  cat > javatests/com/google/timeout/TimeoutTests.java << EOF
+package com.google.timeout;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.junit.Test;
+
+@RunWith(JUnit4.class)
+public class TimeoutTests {
+
+  @Test
+  public void testPasses() throws InterruptedException { }
+
+  @Test
+  public void testTimesOut() throws InterruptedException {
+    // sleep more than 1 min
+    Thread.sleep(Long.MAX_VALUE);
+  }
+}
+EOF
+
+  cat > javatests/com/google/timeout/BUILD <<EOF
+java_test(
+  name = "TimeoutTests",
+  srcs = ["TimeoutTests.java"],
+  deps = ['//third_party:junit4'],
+  timeout = "short", # 1 min
+)
+EOF
+
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5  >& "$TEST_log" && fail "Unexpected success"
+  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
+  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
+  cat "$xml_log" > "$TEST_log"
+  expect_log "failures='2'"
+  expect_log "status='INTERRUPTED"
+  expect_log "status='CANCELLED'"
+  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
+  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
+}
+
 run_suite "Java integration tests"
 
