@@ -72,6 +72,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
+  protected BlazeDirectories directories;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -89,9 +90,14 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     } else {
       ruleClassProvider = loadingMock.createRuleClassProvider();
     }
+    directories =
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            loadingMock.getProductName());
     packageFactory =
         loadingMock
-            .getPackageFactoryBuilderForTesting()
+            .getPackageFactoryBuilderForTesting(directories)
             .setEnvironmentExtensions(getEnvironmentExtensions())
             .build(ruleClassProvider, scratch.getFileSystem());
     skyframeExecutor = createSkyframeExecutor();
@@ -107,10 +113,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             packageFactory,
-            new BlazeDirectories(
-                new ServerDirectories(outputBase, outputBase),
-                rootDirectory,
-                loadingMock.getProductName()),
+            directories,
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),

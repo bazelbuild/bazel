@@ -463,15 +463,17 @@ public class IncrementalLoadingTest {
       addFile("WORKSPACE");
 
       LoadingMock loadingMock = LoadingMock.get();
+      BlazeDirectories directories =
+          new BlazeDirectories(
+              new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
+              workspace,
+              loadingMock.getProductName());
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               loadingMock
-                  .getPackageFactoryBuilderForTesting()
+                  .getPackageFactoryBuilderForTesting(directories)
                   .build(loadingMock.createRuleClassProvider(), fs),
-              new BlazeDirectories(
-                  new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
-                  workspace,
-                  loadingMock.getProductName()),
+              directories,
               null, /* BinTools */
               null, /* workspaceStatusActionFactory */
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),
