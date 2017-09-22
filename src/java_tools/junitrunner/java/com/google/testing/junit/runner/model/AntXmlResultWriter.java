@@ -49,6 +49,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ATTR_PROPERTY_VALUE = "value";
   private static final String JUNIT_ELEMENT_TESTCASE = "testcase";
   private static final String JUNIT_ELEMENT_FAILURE = "failure";
+  private static final String JUNIT_ELEMENT_STATUS = "status";
   private static final String JUNIT_ATTR_FAILURE_MESSAGE = "message";
   private static final String JUNIT_ATTR_FAILURE_TYPE = "type";
   private static final String JUNIT_ATTR_TESTCASE_NAME = "name";
@@ -162,6 +163,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
     writer.writeAttribute(JUNIT_ATTR_TESTCASE_CLASSNAME, result.getClassName());
     writer.writeAttribute(JUNIT_ATTR_TESTCASE_TIME, getFormattedRunTime(
             result.getRunTimeInterval()));
+    writer.writeAttribute(JUNIT_ELEMENT_STATUS, result.getStatus().toString());
 
     for (Throwable failure : parentFailures) {
       writeThrowableToXmlWriter(writer, failure);
