@@ -49,8 +49,9 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     this.elements = new ArrayList<>(1);
   }
 
-  // Only for use when uncompressing a GroupedList.
-  private GroupedList(int size, List<Object> elements) {
+  // Use with caution as there are no checks in place for the integrity of the resulting object
+  // (no de-duping or verifying there are no nested lists).
+  public GroupedList(int size, List<Object> elements) {
     this.size = size;
     this.elements = new ArrayList<>(elements);
   }
@@ -99,6 +100,8 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     return uniquifier;
   }
 
+  // Use with caution as there are no checks in place for the integrity of the resulting object
+  // (no de-duping).
   public void appendGroup(Collection<T> group) {
     // Do a check to make sure we don't have lists here. Note that if group is empty,
     // Iterables.getFirst will return null, and null is not instanceof List.
@@ -356,9 +359,12 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
    * <p>If it contains a single element, then that element must not be {@code null}, and that
    * element is added to {@param elements}.
    *
-   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@param item}
-   * is added as the next element of {@param elements}. (This means {@param elements} may contain
-   * both raw objects and {@link ImmutableList}s.)
+   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@param item} is
+   * added as the next element of {@param elements}. (This means {@param elements} may contain both
+   * raw objects and {@link ImmutableList}s.)
+   *
+   * <p>Use with caution as there are no checks in place for the integrity of the resulting object
+   * (no de-duping or verifying there are no nested lists).
    */
   private static void addItem(Collection<?> item, List<Object> elements) {
     switch (item.size()) {
