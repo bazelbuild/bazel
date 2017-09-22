@@ -47,6 +47,14 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
     return this.path;
   }
 
+  public Path subDirectoryOf(String... directories) throws IOException {
+    Path sub = this.path;
+    for (String directory : directories) {
+      sub = sub.resolve(directory);
+    }
+    return Files.createDirectories(sub);
+  }
+
   private void makeWritable(Path file) throws IOException {
     FileStore fileStore = Files.getFileStore(file);
     if (IS_WINDOWS && fileStore.supportsFileAttributeView(DosFileAttributeView.class)) {

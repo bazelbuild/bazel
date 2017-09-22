@@ -338,33 +338,6 @@ public class AndroidResourceOutputs {
     }
   }
 
-  /**
-   * Creates a zip file containing the provided android resources and assets.
-   *
-   * @param resourcesRoot The root containing android resources to be written.
-   * @param assetsRoot The root containing android assets to be written.
-   * @param output The path to write the zip file
-   * @param compress Whether or not to compress the content
-   * @throws IOException
-   */
-  public static void createResourcesZip(
-      Path resourcesRoot, Path assetsRoot, Path output, boolean compress) throws IOException {
-    try (final ZipBuilder zip = ZipBuilder.createFor(output)) {
-      if (Files.exists(resourcesRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, resourcesRoot, "res");
-        visitor.setCompress(compress);
-        Files.walkFileTree(resourcesRoot, visitor);
-        visitor.writeEntries();
-      }
-      if (Files.exists(assetsRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, assetsRoot, "assets");
-        visitor.setCompress(compress);
-        Files.walkFileTree(assetsRoot, visitor);
-        visitor.writeEntries();
-      }
-    }
-  }
-
   /** Creates a zip archive from all found R.java files. */
   public static void createSrcJar(Path generatedSourcesRoot, Path srcJar, boolean staticIds) {
     try {

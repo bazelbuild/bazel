@@ -327,11 +327,8 @@ public class ResourceShrinkerAction {
           null /* publicResourcesOut */,
           null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
-        AndroidResourceOutputs.createResourcesZip(
-            shrunkResources,
-            resourceFiles.resolve("assets"),
-            options.shrunkResources,
-            false /* compress */);
+        ResourcesZip.from(shrunkResources, resourceFiles.resolve("assets"))
+            .writeTo(options.shrunkResources, false /* compress */);
       }
       if (options.rTxtOutput != null) {
         AndroidResourceOutputs.copyRToOutput(

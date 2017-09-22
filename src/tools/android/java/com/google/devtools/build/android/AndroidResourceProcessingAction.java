@@ -437,7 +437,7 @@ public class AndroidResourceProcessingAction {
       }
 
       if (options.packageType == VariantType.LIBRARY) {
-        resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
+        AndroidResourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
         processedData =
             new MergedAndroidData(
                 processedData.getResourceDir(), processedData.getAssetDir(), dummyManifest);
@@ -488,11 +488,8 @@ public class AndroidResourceProcessingAction {
             generatedSources, options.rOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        AndroidResourceOutputs.createResourcesZip(
-            processedData.getResourceDir(),
-            processedData.getAssetDir(),
-            options.resourcesOutput,
-            false /* compress */);
+        ResourcesZip.from(processedData.getResourceDir(), processedData.getAssetDir())
+            .writeTo(options.resourcesOutput, false /* compress */);
       }
       logger.fine(
           String.format("Packaging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

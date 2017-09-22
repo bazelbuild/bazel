@@ -46,7 +46,7 @@ public class ResourceCompiler {
     private final Path aapt2;
     private final Revision buildToolsVersion;
 
-    public CompileTask(
+    private CompileTask(
         Path file, Path compiledResourcesOut, Path aapt2, Revision buildToolsVersion) {
       this.file = file;
       this.compiledResourcesOut = compiledResourcesOut;
@@ -56,17 +56,16 @@ public class ResourceCompiler {
 
     @Override
     public Path call() throws Exception {
-        logger.fine(
-            new AaptCommandBuilder(aapt2)
-                .forBuildToolsVersion(buildToolsVersion)
-                .forVariantType(VariantType.LIBRARY)
-                .add("compile")
-                .add("-v")
-                .add("--legacy")
-                .add("-o", compiledResourcesOut.toString())
-                .add(file.toString())
-                .execute("Compiling " + file));
-
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(VariantType.LIBRARY)
+              .add("compile")
+              .add("-v")
+              .add("--legacy")
+              .add("-o", compiledResourcesOut.toString())
+              .add(file.toString())
+              .execute("Compiling " + file));
 
       String type = file.getParent().getFileName().toString();
       String filename = file.getFileName().toString();

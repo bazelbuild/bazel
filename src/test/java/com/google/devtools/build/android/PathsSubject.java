@@ -47,7 +47,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
   }
 
   void exists() {
-    if (getSubject() == null) {
+    if (actual() == null) {
       fail("should not be null.");
     }
     if (!Files.exists(getSubject())) {
@@ -56,7 +56,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
   }
 
   void xmlContentsIsEqualTo(String... contents) {
-    if (getSubject() == null) {
+    if (actual() == null) {
       fail("should not be null.");
     }
     exists();

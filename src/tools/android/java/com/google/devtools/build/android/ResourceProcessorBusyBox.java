@@ -126,6 +126,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         Aapt2ResourcePackagingAction.main(args);
       }
+    },
+    SHRINK_AAPT2() {
+      @Override
+      void call(String[] args) throws Exception {
+        Aapt2ResourceShrinkingAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;
@@ -152,7 +158,7 @@ public class ResourceProcessorBusyBox {
           "The processing tool to execute. "
               + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "
               + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
-              + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE."
+              + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2."
     )
     public Tool tool;
   }

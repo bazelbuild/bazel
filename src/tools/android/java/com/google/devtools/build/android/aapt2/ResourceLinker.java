@@ -17,6 +17,7 @@ import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AaptCommandBuilder;
@@ -50,14 +51,15 @@ public class ResourceLinker {
   private final Path workingDirectory;
 
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
+
   private Revision buildToolsVersion;
-  private List<String> densities;
+  private List<String> densities = ImmutableList.of();
   private Path androidJar;
   private Profiler profiler = Profiler.empty();
   private List<String> uncompressedExtensions = ImmutableList.of();
   private List<String> resourceConfigs = ImmutableList.of();
   private Path baseApk;
-  private List<StaticLibrary> include;
+  private List<StaticLibrary> include = ImmutableList.of();
 
   private ResourceLinker(Path aapt2, Path workingDirectory) {
     this.aapt2 = aapt2;
@@ -65,6 +67,7 @@ public class ResourceLinker {
   }
 
   public static ResourceLinker create(Path aapt2, Path workingDirectory) {
+    Preconditions.checkArgument(Files.exists(workingDirectory));
     return new ResourceLinker(aapt2, workingDirectory);
   }
 
@@ -142,13 +145,14 @@ public class ResourceLinker {
   }
 
   public PackagedResources link(CompiledResources compiled) {
-    final Path outPath = workingDirectory.resolve("bin.apk");
-    Path rTxt = workingDirectory.resolve("R.txt");
-    Path proguardConfig = workingDirectory.resolve("proguard.cfg");
-    Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
-    Path javaSourceDirectory = workingDirectory.resolve("java");
-
     try {
+      final Path outPath = workingDirectory.resolve("bin.apk");
+      Path rTxt = workingDirectory.resolve("R.txt");
+      Path proguardConfig = workingDirectory.resolve("proguard.cfg");
+      Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
+      Path javaSourceDirectory = Files.createDirectories(workingDirectory.resolve("java"));
+      Path resourceIds = workingDirectory.resolve("ids.txt");
+
       profiler.startTask("fulllink");
       logger.finer(
           new AaptCommandBuilder(aapt2)
@@ -157,13 +161,16 @@ public class ResourceLinker {
               .add("link")
               .whenVersionIsAtLeast(new Revision(23))
               .thenAdd("--no-version-vectors")
+              // Turn off namespaced resources
               .add("--no-static-lib-packages")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
+              // Enables resource redefinition and merging
               .add("--auto-add-overlay")
               .when(densities.size() == 1)
               .thenAddRepeated("--preferred-density", densities)
+              .add("--stable-ids", compiled.getStableIds())
               .addRepeated("-A", compiled.getAssetsStrings())
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
               .addRepeated("-R", StaticLibrary.toPathStrings(include))
@@ -178,6 +185,7 @@ public class ResourceLinker {
               .when(!resourceConfigs.isEmpty())
               .thenAdd("-c", Joiner.on(',').join(resourceConfigs))
               .add("--output-text-symbols", rTxt)
+              .add("--emit-ids", resourceIds)
               .add("--java", javaSourceDirectory)
               .add("--proguard", proguardConfig)
               .add("--proguard-main-dex", mainDexProguard)
@@ -187,7 +195,7 @@ public class ResourceLinker {
       profiler.startTask("optimize");
       if (densities.size() < 2) {
         return PackagedResources.of(
-            outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
+            outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
       }
       final Path optimized = workingDirectory.resolve("optimized.apk");
       logger.finer(
@@ -201,7 +209,7 @@ public class ResourceLinker {
               .execute(String.format("Optimizing %s", compiled.getManifest())));
       profiler.recordEndOf("optimize");
       return PackagedResources.of(
-          optimized, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
+          optimized, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
     } catch (IOException e) {
       throw new LinkError(e);
     }

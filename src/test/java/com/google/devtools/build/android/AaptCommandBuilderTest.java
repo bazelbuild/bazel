@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,6 +57,7 @@ public class AaptCommandBuilderTest {
 
     tester.testConstructor(AaptCommandBuilder.class.getConstructor(Path.class));
     tester.ignore(AaptCommandBuilder.class.getMethod("execute", String.class));
+    tester.setDefault(Optional.class, Optional.empty());
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(true));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(false));
