@@ -204,8 +204,8 @@ public final class BlazeRuntime {
     for (BlazeModule module : blazeModules) {
       module.workspaceInit(this, directories, builder);
     }
-    this.workspace = builder.build(
-        this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
+    this.workspace =
+        builder.build(this, packageFactory, ruleClassProvider, eventBusExceptionHandler);
     return workspace;
   }
 

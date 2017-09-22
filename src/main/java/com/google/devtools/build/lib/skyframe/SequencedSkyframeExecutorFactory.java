@@ -41,8 +41,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      String productName) {
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     return SequencedSkyframeExecutor.create(
         pkgFactory,
         directories,
@@ -55,7 +54,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         extraPrecomputedValues,
         customDirtinessCheckers,
         PathFragment.EMPTY_FRAGMENT,
-        productName,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
         BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);

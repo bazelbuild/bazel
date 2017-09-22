@@ -273,8 +273,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues;
 
-  private final String productName;
-
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
@@ -309,7 +307,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       ExternalFileAction externalFileAction,
       PathFragment blacklistedPackagePrefixesFile,
-      String productName,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
@@ -341,7 +338,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, this.externalFileAction, directories);
-    this.productName = productName;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
@@ -718,7 +714,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected void maybeInjectPrecomputedValuesForAnalysis() {
     if (needToInjectPrecomputedValuesForAnalysis) {
-      PrecomputedValue.PRODUCT_NAME.set(injectable(), productName);
       injectBuildInfoFactories();
       injectExtraPrecomputedValues(extraPrecomputedValues);
       needToInjectPrecomputedValuesForAnalysis = false;

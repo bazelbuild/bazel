@@ -104,9 +104,6 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
-  public static final Precomputed<String> PRODUCT_NAME =
-      new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "product_name"));
-
   static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>> BAD_ACTIONS =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "bad_actions"));
 

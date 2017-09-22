@@ -34,8 +34,8 @@ public interface SkyframeExecutorFactory {
   /**
    * Creates an instance of SkyframeExecutor
    *
-   * @param pkgFactory the package factory
    * @param tsgm timestamp granularity monitor
+   * @param pkgFactory the package factory
    * @param directories Blaze directories
    * @param binTools the embedded tools
    * @param workspaceStatusActionFactory a factory for creating WorkspaceStatusAction objects
@@ -45,7 +45,6 @@ public interface SkyframeExecutorFactory {
    * @param extraSkyFunctions
    * @param extraPrecomputedValues
    * @param customDirtinessCheckers
-   * @param productName
    * @return an instance of the SkyframeExecutor
    * @throws AbruptExitException if the executor cannot be created
    */
@@ -59,7 +58,6 @@ public interface SkyframeExecutorFactory {
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      String productName)
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers)
       throws AbruptExitException;
 }

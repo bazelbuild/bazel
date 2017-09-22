@@ -68,7 +68,6 @@ public final class WorkspaceBuilder {
       BlazeRuntime runtime,
       PackageFactory packageFactory,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String productName,
       SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
@@ -78,18 +77,18 @@ public final class WorkspaceBuilder {
       allowedMissingInputs = Predicates.alwaysFalse();
     }
 
-    SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(
-        packageFactory,
-        directories,
-        binTools,
-        workspaceStatusActionFactory,
-        ruleClassProvider.getBuildInfoFactories(),
-        diffAwarenessFactories.build(),
-        allowedMissingInputs,
-        skyFunctions.build(),
-        precomputedValues.build(),
-        customDirtinessCheckers.build(),
-        productName);
+    SkyframeExecutor skyframeExecutor =
+        skyframeExecutorFactory.create(
+            packageFactory,
+            directories,
+            binTools,
+            workspaceStatusActionFactory,
+            ruleClassProvider.getBuildInfoFactories(),
+            diffAwarenessFactories.build(),
+            allowedMissingInputs,
+            skyFunctions.build(),
+            precomputedValues.build(),
+            customDirtinessCheckers.build());
     return new BlazeWorkspace(
         runtime, directories, skyframeExecutor, eventBusExceptionHandler,
         workspaceStatusActionFactory, binTools);
