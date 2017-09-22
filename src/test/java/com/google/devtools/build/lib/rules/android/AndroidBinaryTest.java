@@ -17,7 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -106,12 +106,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // --android_cpu with --android_crosstool_top also triggers the split transition.
     useConfiguration("--fat_apk_cpu=doesnotexist",
         "--android_crosstool_top=//android/crosstool:everything");
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected an error that no toolchain matched.");
-    } catch (AssertionError e) {
-      assertThat(e.getMessage()).contains("No toolchain found for cpu 'doesnotexist'");
-    }
+
+    AssertionError noToolchainError =
+        expectThrows(AssertionError.class, () -> getConfiguredTarget("//test/skylark:test"));
+    assertThat(noToolchainError)
+        .hasMessageThat()
+        .contains("No toolchain found for cpu 'doesnotexist'");
   }
 
   @Test
