@@ -236,7 +236,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       new AtomicReference<>();
   protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
 
-  private final ImmutableList<BuildInfoFactory> buildInfoFactories;
+  private final ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories;
+
   // Under normal circumstances, the artifact factory persists for the life of a Blaze server, but
   // since it is not yet created when we create the value builders, we have to use a supplier,
   // initialized when the build view is created.
@@ -322,7 +323,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(eventBus, statusReporterRef);
     this.directories = Preconditions.checkNotNull(directories);
-    this.buildInfoFactories = buildInfoFactories;
+    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
+    for (BuildInfoFactory factory : buildInfoFactories) {
+      factoryMapBuilder.put(factory.getKey(), factory);
+    }
+    this.buildInfoFactories = factoryMapBuilder.build();
     this.allowedMissingInputs = allowedMissingInputs;
     this.extraSkyFunctions = extraSkyFunctions;
     this.extraPrecomputedValues = extraPrecomputedValues;
@@ -438,7 +443,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputs));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
-        new BuildInfoCollectionFunction(artifactFactory, removeActionsAfterEvaluation));
+        new BuildInfoCollectionFunction(
+            artifactFactory, buildInfoFactories, removeActionsAfterEvaluation));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(removeActionsAfterEvaluation));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(removeActionsAfterEvaluation));
     ActionExecutionFunction actionExecutionFunction =
@@ -714,7 +720,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected void maybeInjectPrecomputedValuesForAnalysis() {
     if (needToInjectPrecomputedValuesForAnalysis) {
-      injectBuildInfoFactories();
       injectExtraPrecomputedValues(extraPrecomputedValues);
       needToInjectPrecomputedValuesForAnalysis = false;
     }
@@ -736,18 +741,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return CacheBuilder.newBuilder().build();
   }
 
-  /**
-   * Injects the build info factory map that will be used when constructing build info
-   * actions/artifacts. Unchanged across the life of the Blaze server, although it must be injected
-   * each time the evaluator is created.
-   */
-  private void injectBuildInfoFactories() {
-    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder =
-        ImmutableMap.builder();
-    for (BuildInfoFactory factory : buildInfoFactories) {
-      factoryMapBuilder.put(factory.getKey(), factory);
-    }
-    PrecomputedValue.BUILD_INFO_FACTORIES.set(injectable(), factoryMapBuilder.build());
+  public ImmutableMap<BuildInfoKey, BuildInfoFactory> getBuildInfoFactories() {
+    return buildInfoFactories;
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
