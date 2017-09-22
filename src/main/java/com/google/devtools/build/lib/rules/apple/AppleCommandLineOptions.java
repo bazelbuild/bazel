@@ -64,6 +64,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean mandatoryMinimumVersion;
 
   @Option(
+    name = "experimental_objc_provider_from_linked",
+    defaultValue = "true",
+    category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags =  { OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS },
+    help = "Whether Apple rules which control linking should propagate objc provider at the top "
+        + "level"
+  )
+  // TODO(b/32411441): This flag should be default-off and then be removed.
+  public boolean objcProviderFromLinked;
+
+  @Option(
     name = "xcode_version",
     defaultValue = "null",
     category = "build",
@@ -504,6 +516,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   void serialize(CodedOutputStream out) throws IOException, SerializationException {
     out.writeBoolNoTag(mandatoryMinimumVersion);
+    out.writeBoolNoTag(objcProviderFromLinked);
     serializeNullable(xcodeVersion, out, FastStringCodec.INSTANCE);
     serializeNullable(iosSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(watchOsSdkVersion, out, DottedVersion.CODEC);
@@ -534,6 +547,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       throws IOException, SerializationException {
     AppleCommandLineOptions result = new AppleCommandLineOptions();
     result.mandatoryMinimumVersion = in.readBool();
+    result.objcProviderFromLinked = in.readBool();
     result.xcodeVersion = deserializeNullable(in, FastStringCodec.INSTANCE);
     result.iosSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.watchOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);

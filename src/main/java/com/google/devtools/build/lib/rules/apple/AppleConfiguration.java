@@ -107,6 +107,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
+  private final boolean objcProviderFromLinked;
 
   @VisibleForTesting
   AppleConfiguration(
@@ -160,6 +161,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
     this.xcodeToolchain = options.xcodeToolchain;
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
+    this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
 
   /** Determines cpu value from apple-specific toolchain identifier. */
@@ -653,6 +655,14 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
   public boolean isMandatoryMinimumVersion() {
     return mandatoryMinimumVersion;
+  }
+
+  /**
+   * Returns true if rules which manage link actions should propagate {@link ObjcProvider} at the
+   * top level.
+   **/
+  public boolean shouldLinkingRulesPropagateObjc() {
+    return objcProviderFromLinked;
   }
 
   /** Returns true if {@link AppleCrosstoolTransition} should be applied to every apple rule. */
