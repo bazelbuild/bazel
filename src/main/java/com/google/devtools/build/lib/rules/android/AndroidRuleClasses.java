@@ -137,6 +137,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/merged.bin");
   public static final SafeImplicitOutputsFunction ANDROID_COMPILED_SYMBOLS =
       fromTemplates("%{name}_symbols/symbols.zip");
+  public static final SafeImplicitOutputsFunction ANDROID_SYMLINKED_MANIFEST =
+      fromTemplates("%{name}_symlinked_manifest/AndroidManifest.xml");
   public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
       fromTemplates("%{name}_processed_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction MOBILE_INSTALL_STUB_APPLICATION_MANIFEST =

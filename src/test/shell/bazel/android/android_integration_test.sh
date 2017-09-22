@@ -186,6 +186,19 @@ function test_android_sdk_repository_returns_null_if_env_vars_missing() {
   ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
 }
 
+function test_allow_custom_manifest_name() {
+  create_new_workspace
+  setup_android_sdk_support
+  create_android_binary
+  mv java/bazel/AndroidManifest.xml java/bazel/SomeOtherName.xml
+
+  # macOS requires an argument for the backup file extension.
+  sed -i'' -e 's/AndroidManifest/SomeOtherName/' java/bazel/BUILD
+
+  bazel build //java/bazel:bin || fail "Build failed" \
+    "Failed to build android_binary with custom Android manifest file name"
+}
+
 if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0

@@ -142,6 +142,18 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testAndroidManifestWithCustomName() throws Exception {
+    scratchConfiguredTarget(
+        "java/a",
+        "a",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'SomeOtherAndroidManifest.xml')");
+    assertNoEvents();
+  }
+
+  @Test
   public void testMainDexProguardSpecs() throws Exception {
     useConfiguration("--noincremental_dexing");
     ConfiguredTarget ct = scratchConfiguredTarget("java/a", "a",
