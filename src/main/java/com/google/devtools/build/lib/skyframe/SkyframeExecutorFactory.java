@@ -43,7 +43,6 @@ public interface SkyframeExecutorFactory {
    * @param diffAwarenessFactories
    * @param allowedMissingInputs
    * @param extraSkyFunctions
-   * @param extraPrecomputedValues
    * @param customDirtinessCheckers
    * @return an instance of the SkyframeExecutor
    * @throws AbruptExitException if the executor cannot be created
@@ -57,7 +56,6 @@ public interface SkyframeExecutorFactory {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers)
       throws AbruptExitException;
 }

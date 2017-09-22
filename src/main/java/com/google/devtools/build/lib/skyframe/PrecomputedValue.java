@@ -47,7 +47,7 @@ public final class PrecomputedValue implements SkyValue {
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.
    *
-   * @see com.google.devtools.build.lib.runtime.WorkspaceBuilder#addPrecomputedValue
+   * @see com.google.devtools.build.lib.runtime.BlazeModule#getPrecomputedValues
    */
   public static final class Injected {
     private final Precomputed<?> precomputed;

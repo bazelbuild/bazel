@@ -264,7 +264,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final BinTools binTools;
   private boolean needToInjectEmbeddedArtifacts = true;
-  private boolean needToInjectPrecomputedValuesForAnalysis = true;
   protected int modifiedFiles;
   protected int outputDirtyFiles;
   protected int modifiedFilesDuringPreviousBuild;
@@ -272,7 +271,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final ExternalFileAction externalFileAction;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
-  private final ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues;
 
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
@@ -305,7 +303,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       ExternalFileAction externalFileAction,
       PathFragment blacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
@@ -330,7 +327,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildInfoFactories = factoryMapBuilder.build();
     this.allowedMissingInputs = allowedMissingInputs;
     this.extraSkyFunctions = extraSkyFunctions;
-    this.extraPrecomputedValues = extraPrecomputedValues;
     this.externalFileAction = externalFileAction;
     this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
     this.binTools = binTools;
@@ -641,7 +637,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   private void reinjectConstantValuesLazily() {
     needToInjectEmbeddedArtifacts = true;
-    needToInjectPrecomputedValuesForAnalysis = true;
   }
 
   /**
@@ -716,13 +711,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private void setSkylarkSemantics(SkylarkSemanticsOptions skylarkSemanticsOptions) {
     PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemanticsOptions);
-  }
-
-  protected void maybeInjectPrecomputedValuesForAnalysis() {
-    if (needToInjectPrecomputedValuesForAnalysis) {
-      injectExtraPrecomputedValues(extraPrecomputedValues);
-      needToInjectPrecomputedValuesForAnalysis = false;
-    }
   }
 
   public void injectExtraPrecomputedValues(
@@ -981,7 +969,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setActive(true);
 
     this.tsgm.set(tsgm);
-    maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
     PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
     this.clientEnv.set(clientEnv);

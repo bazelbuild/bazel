@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -54,8 +52,6 @@ public final class WorkspaceBuilder {
   // is inserted.
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
       ImmutableMap.builder();
-  private final ImmutableList.Builder<PrecomputedValue.Injected> precomputedValues =
-      ImmutableList.builder();
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
 
@@ -87,7 +83,6 @@ public final class WorkspaceBuilder {
             diffAwarenessFactories.build(),
             allowedMissingInputs,
             skyFunctions.build(),
-            precomputedValues.build(),
             customDirtinessCheckers.build());
     return new BlazeWorkspace(
         runtime, directories, skyframeExecutor, eventBusExceptionHandler,
@@ -154,27 +149,6 @@ public final class WorkspaceBuilder {
   /** Add "extra" SkyFunctions for SkyValues. */
   public WorkspaceBuilder addSkyFunctions(Map<SkyFunctionName, SkyFunction> skyFunctions) {
     this.skyFunctions.putAll(Preconditions.checkNotNull(skyFunctions));
-    return this;
-  }
-
-  /**
-   * Adds an extra precomputed value to Skyframe.
-   *
-   * <p>This functionality can be used to implement precomputed values that are not constant during
-   * the lifetime of a Blaze instance (naturally, they must be constant over the course of a build).
-   *
-   * <p>The following things must be done in order to define a new precomputed values:
-   * <ul>
-   * <li> Create a public static final variable of type
-   *     {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed}.
-   * <li> Set its value by adding an {@link Injected} via this method (it can be created using the
-   *     aforementioned variable and the value or a supplier of the value).
-   * <li> Reference the value in Skyframe functions by calling the {@code get} method on the
-   *     {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed} variable.
-   * </ul>
-   */
-  public WorkspaceBuilder addPrecomputedValue(PrecomputedValue.Injected precomputedValue) {
-    this.precomputedValues.add(Preconditions.checkNotNull(precomputedValue));
     return this;
   }
 
