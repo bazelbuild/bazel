@@ -858,7 +858,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "args.add(\"--bar\")\n"
             + "args.add(bar_deps, join_with=\",\")\n"
             + "ctx.run(\n"
-            + "  arguments = args,\n"
+            + "  arguments = [args],\n"
             + "  ...\n"
             + ")\n"
             + "# Expands to [\n"
@@ -935,7 +935,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc = "The passed objects are passed through a map function. "
+          doc =
+              "The passed objects are passed through a map function. "
+                  + "For vector args the function is given a list and is expected to return a list."
         )
       },
       useLocation = true
