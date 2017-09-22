@@ -44,7 +44,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//a:lib").write();
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
-    
+
     assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
         .isEqualTo("tools/osx/crosstool");
     assertThat(cppConfig.getToolchainIdentifier())
@@ -57,13 +57,13 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//a:lib").write();
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
-    
+
     assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
         .isEqualTo("tools/osx/crosstool");
     assertThat(cppConfig.getToolchainIdentifier())
         .isEqualTo("ios_armv7");
   }
-  
+
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
     useConfiguration("--experimental_disable_jvm");
@@ -72,7 +72,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .setList("srcs", "b.cc")
         .write();
     createBinaryTargetWriter("//a:bin")
-        .setList("srcs", "a.m")
         .setList("deps", "//b:lib")
         .write();
 
@@ -89,7 +88,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CommandAction ccCompileAction = (CommandAction) getGeneratingAction(ccObjectFile);
     assertThat(ccCompileAction.getArguments()).contains("tools/osx/crosstool/iossim/wrapped_clang");
   }
-  
+
   @Test
   public void testToolchainSelectionCcDepDevice() throws Exception {
     useConfiguration("--cpu=ios_armv7");
@@ -98,7 +97,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .setList("srcs", "b.cc")
         .write();
     createBinaryTargetWriter("//a:bin")
-        .setList("srcs", "a.m")
         .setList("deps", "//b:lib")
         .write();
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
@@ -140,7 +138,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
     assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArguments())).contains("ios_arm64");
   }
-  
+
   @Test
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
     useConfiguration(
@@ -161,5 +159,5 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CppLinkAction objcLibCompileAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
     assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments())).contains("watchos_armv7k");
-  }  
+  }
 }

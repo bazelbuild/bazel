@@ -487,8 +487,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "",
         "apple_binary(",
         "    name = 'app',",
-        "    srcs = ['app.m'],",
         "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['app.m'],",
         "    deps = [':lib'],",
         ")");
   }
@@ -621,8 +625,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    jre_deps = [ '//third_party/java/j2objc:jre_io_lib' ])",
         "apple_binary(",
         "    name = 'test',",
-        "    srcs = ['test.m'],",
         "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['test.m'],",
         "    deps = [':j2'],",
         ")");
 

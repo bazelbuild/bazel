@@ -908,7 +908,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("defines", "C=bar", "D")
         .write();
     createBinaryTargetWriter("//bin:bin")
-        .setAndCreateFiles("srcs", "c.m")
         .setList("deps", "//lib2:lib2")
         .write();
 
@@ -1643,8 +1642,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "",
         "apple_binary(",
         "    name = 'objc_bin',",
-        "    srcs = ['b.m'],",
         "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['b.m'],",
         "    deps = [':cc_lib'],",
         ")");
 
