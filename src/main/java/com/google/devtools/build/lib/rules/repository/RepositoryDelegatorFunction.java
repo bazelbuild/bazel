@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -42,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -72,17 +72,21 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
 
-  private Map<String, String> clientEnvironment;
+  private final BlazeDirectories directories;
 
-  public RepositoryDelegatorFunction(ImmutableMap<String, RepositoryFunction> handlers,
-      @Nullable RepositoryFunction skylarkHandler, AtomicBoolean isFetch) {
+  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+
+  public RepositoryDelegatorFunction(
+      ImmutableMap<String, RepositoryFunction> handlers,
+      @Nullable RepositoryFunction skylarkHandler,
+      AtomicBoolean isFetch,
+      Supplier<Map<String, String>> clientEnvironmentSupplier,
+      BlazeDirectories directories) {
     this.handlers = handlers;
     this.skylarkHandler = skylarkHandler;
     this.isFetch = isFetch;
-  }
-
-  public void setClientEnvironment(Map<String, String> clientEnvironment) {
-    this.clientEnvironment = clientEnvironment;
+    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.directories = directories;
   }
 
   private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
@@ -98,7 +102,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     if (env.valuesMissing()) {
       return null;
@@ -133,7 +136,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }
 
-    handler.setClientEnvironment(clientEnvironment);
+    handler.setClientEnvironment(clientEnvironmentSupplier.get());
 
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     if (ruleSpecificData == null) {

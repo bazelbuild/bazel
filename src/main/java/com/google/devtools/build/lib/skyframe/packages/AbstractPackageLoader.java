@@ -123,6 +123,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
     protected final Path workspaceDir;
+    protected final BlazeDirectories directories;
     protected RuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected Reporter reporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
@@ -133,6 +134,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     protected Builder(Path workspaceDir) {
       this.workspaceDir = workspaceDir;
+      // The 'installBase' and 'outputBase' directories won't be meaningfully used by
+      // WorkspaceFileFunction, so we pass in a dummy Path.
+      // TODO(nharmata): Refactor WorkspaceFileFunction to make this a non-issue.
+      Path devNull = workspaceDir.getFileSystem().getPath("/dev/null");
+      directories =
+          new BlazeDirectories(new ServerDirectories(devNull, devNull), workspaceDir, "blaze");
     }
 
     public Builder setRuleClassProvider(RuleClassProvider ruleClassProvider) {
@@ -188,13 +195,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
     this.skyframeThreads = builder.skyframeThreads;
+    this.directories = builder.directories;
 
-    // The 'installBase' and 'outputBase' directories won't be meaningfully used by
-    // WorkspaceFileFunction, so we pass in a dummy Path.
-    // TODO(nharmata): Refactor WorkspaceFileFunction to make this a non-issue.
-    Path devNull = workspaceDir.getFileSystem().getPath("/dev/null");
-    this.directories =
-        new BlazeDirectories(new ServerDirectories(devNull, devNull), workspaceDir, "blaze");
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocatorRef,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,

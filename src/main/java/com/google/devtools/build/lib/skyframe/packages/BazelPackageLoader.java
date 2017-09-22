@@ -56,7 +56,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
             SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
             new LocalRepositoryLookupFunction(),
             SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryDelegatorFunction(repositoryHandlers, null, new AtomicBoolean(true)),
+            new RepositoryDelegatorFunction(
+                repositoryHandlers,
+                null,
+                new AtomicBoolean(true),
+                ImmutableMap::of,
+                builder.directories),
             SkyFunctions.REPOSITORY,
             new RepositoryLoaderFunction()));
 
