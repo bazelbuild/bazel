@@ -600,4 +600,33 @@ EOF
 diff expected_annotations "$annotations" > d || fail "$annotations differs from expected:$N$(cat d)$N"
 }
 
+function test_no_zip_annotation_manifest_when_no_undeclared_outputs() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Check that the undeclared outputs directory doesn't exist.
+  outputs_dir=bazel-testlogs/dir/test/test.outputs/
+  [ ! -d $outputs_dir ] || fail "$outputs_dir was present after test"
+
+  # Check that the undeclared outputs manifest directory doesn't exist.
+  outputs_manifest_dir=bazel-testlogs/dir/test/test.outputs_manifest/
+  [ ! -d $outputs_manifest_dir ] || fail "$outputs_manifest_dir was present after test"
+}
+
 run_suite "bazel test tests"

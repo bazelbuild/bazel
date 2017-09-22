@@ -225,21 +225,25 @@ write_xml_output_file
 
 # Add all of the files from the undeclared outputs directory to the manifest.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
-  # For each file, write a tab-separated line with name (relative to
-  # TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type to the manifest. e.g.
-  # foo.txt	9	text/plain
-  while read -r undeclared_output; do
-    rel_path="${undeclared_output#$TEST_UNDECLARED_OUTPUTS_DIR/}"
-    # stat has different flags for different systems. -c is supported by GNU,
-    # and -f by BSD (and thus OSX). Try both.
-    file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
-    file_type="$(file -L -b --mime-type "$undeclared_output")"
+  undeclared_outputs="$(find -L "$TEST_UNDECLARED_OUTPUTS_DIR" -type f | sort)"
+  # Only write the manifest if there are any undeclared outputs.
+  if [[ ! -z "$undeclared_outputs" ]]; then
+    # For each file, write a tab-separated line with name (relative to
+    # TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type to the manifest. e.g.
+    # foo.txt	9	text/plain
+    while read -r undeclared_output; do
+      rel_path="${undeclared_output#$TEST_UNDECLARED_OUTPUTS_DIR/}"
+      # stat has different flags for different systems. -c is supported by GNU,
+      # and -f by BSD (and thus OSX). Try both.
+      file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
+      file_type="$(file -L -b --mime-type "$undeclared_output")"
 
-    printf "$rel_path\t$file_size\t$file_type\n"
-  done <<< "$(find -L "$TEST_UNDECLARED_OUTPUTS_DIR" -type f | sort)" \
-    > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
-  if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
-    rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+      printf "$rel_path\t$file_size\t$file_type\n"
+    done <<< "$undeclared_outputs" \
+      > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+    if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
+      rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+    fi
   fi
 fi
 
