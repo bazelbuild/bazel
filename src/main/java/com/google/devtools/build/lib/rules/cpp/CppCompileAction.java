@@ -123,6 +123,9 @@ public class CppCompileAction extends AbstractAction
   /** A string constant for the strip action name. */
   public static final String STRIP_ACTION_NAME = "strip";
 
+  /** A string constant for the linkstamp-compile action. */
+  public static final String LINKSTAMP_COMPILE = "linkstamp-compile";
+
   /**
    * A string constant for the c compilation action.
    */

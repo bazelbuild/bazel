@@ -186,7 +186,7 @@ public class CppLinkActionBuilder {
   private NestedSet<Artifact> runtimeInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private final NestedSetBuilder<Artifact> compilationInputs = NestedSetBuilder.stableOrder();
   private final Set<Artifact> linkstamps = new LinkedHashSet<>();
-  private List<String> linkstampOptions = new ArrayList<>();
+  private ImmutableList<String> additionalLinkstampDefines = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
   private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
@@ -397,12 +397,6 @@ public class CppLinkActionBuilder {
    */
   public final Set<Artifact> getLinkstamps() {
     return this.linkstamps;
-  }
-  /**
-   * Returns linkstamp options for this link action.
-   */
-  public List<String> getLinkstampOptions() {
-    return this.linkstampOptions;
   }
 
   /**
@@ -799,7 +793,7 @@ public class CppLinkActionBuilder {
           .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
           .setLinkstamps(linkstampMap)
           .setLinkopts(ImmutableList.copyOf(linkopts))
-          .addLinkstampCompileOptions(linkstampOptions);
+          .setAdditionalLinkstampDefines(additionalLinkstampDefines);
     } else {
       List<String> opts = new ArrayList<>(linkopts);
       opts.addAll(featureConfiguration.getCommandLine("lto-indexing", buildVariables));
@@ -1236,8 +1230,9 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  public CppLinkActionBuilder addLinkstampCompilerOptions(ImmutableList<String> linkstampOptions) {
-    this.linkstampOptions = linkstampOptions;
+  public CppLinkActionBuilder setAdditionalLinkstampDefines(
+      ImmutableList<String> additionalLinkstampDefines) {
+    this.additionalLinkstampDefines = Preconditions.checkNotNull(additionalLinkstampDefines);
     return this;
   }
 

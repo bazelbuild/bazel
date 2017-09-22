@@ -88,7 +88,7 @@ public final class CompileCommandLine {
     // second: The compiler options.
     commandLine.addAll(getCompilerOptions(overwrittenVariables));
 
-    if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)) {
       // third: The file to compile!
       commandLine.add("-c");
       commandLine.add(sourceFile.getExecPathString());

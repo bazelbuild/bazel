@@ -273,6 +273,9 @@ public class CppRuleClasses {
    */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
+  /** A string constant for the includes feature. */
+  public static final String INCLUDES = "includes";
+
   /**
    * A string constant for the include_paths feature.
    */
@@ -349,6 +352,6 @@ public class CppRuleClasses {
   /** Produce artifacts for coverage in gcc coverage mapping format. */
   public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
 
-  /** A string constant for the match-clif feature. */
+  /** A string constant for the match-clif action. */
   public static final String MATCH_CLIF = "match_clif";
 }

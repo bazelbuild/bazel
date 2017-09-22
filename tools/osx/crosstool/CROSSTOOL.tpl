@@ -633,6 +633,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -641,6 +663,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -674,6 +697,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -720,6 +744,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -751,6 +776,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -1088,6 +1114,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -1109,6 +1136,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -1198,6 +1226,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -2242,6 +2288,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -2250,6 +2318,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -2283,6 +2352,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -2329,6 +2399,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -2360,6 +2431,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -2702,6 +2774,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -2723,6 +2796,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -2812,6 +2886,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -3858,6 +3950,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -3866,6 +3980,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -3899,6 +4014,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -3945,6 +4061,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -3976,6 +4093,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -4320,6 +4438,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -4341,6 +4460,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -4430,6 +4550,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -5477,6 +5615,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -5485,6 +5645,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -5518,6 +5679,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -5564,6 +5726,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -5595,6 +5758,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -5958,6 +6122,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -5979,6 +6144,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -6084,6 +6250,24 @@ toolchain {
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -7123,6 +7307,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -7131,6 +7337,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -7164,6 +7371,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -7210,6 +7418,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -7241,6 +7450,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -7583,6 +7793,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -7604,6 +7815,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -7693,6 +7905,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -8739,6 +8969,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -8747,6 +8999,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -8780,6 +9033,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -8826,6 +9080,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -8857,6 +9112,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -9189,6 +9445,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -9210,6 +9467,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -9299,6 +9557,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -10343,6 +10619,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -10351,6 +10649,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -10384,6 +10683,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -10430,6 +10730,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -10461,6 +10762,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -10795,6 +11097,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -10816,6 +11119,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -10905,6 +11209,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -11950,6 +12272,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -11958,6 +12302,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -11991,6 +12336,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -12037,6 +12383,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -12068,6 +12415,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -12421,6 +12769,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -12442,6 +12791,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -12547,6 +12897,24 @@ toolchain {
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
     implies: "unfiltered_cxx_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -13584,6 +13952,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -13592,6 +13982,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -13625,6 +14016,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -13671,6 +14063,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -13702,6 +14095,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -14034,6 +14428,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -14055,6 +14450,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -14144,6 +14540,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"
@@ -15191,6 +15605,28 @@ toolchain {
     }
   }
   feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
     name: "include_paths"
     flag_set {
       action: "preprocess-assemble"
@@ -15199,6 +15635,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "clif-match"
       action: "objc-compile"
       action: "objc++-compile"
@@ -15232,6 +15669,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "clif-match"
       flag_group {
@@ -15278,6 +15716,7 @@ toolchain {
       action: "c++-compile"
       action: "c++-module-codegen"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
@@ -15309,6 +15748,7 @@ toolchain {
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
+      action: "linkstamp-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
@@ -15641,6 +16081,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -15662,6 +16103,7 @@ toolchain {
       action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "c++-module-codegen"
+      action: "linkstamp-compile"
       action: "lto-backend"
       action: "objc-compile"
       action: "objc++-compile"
@@ -15751,6 +16193,24 @@ toolchain {
   action_config {
     config_name: "c++-compile"
     action_name: "c++-compile"
+    tool {
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
     tool {
       tool_path: "wrapped_clang"
       execution_requirement: "requires-darwin"

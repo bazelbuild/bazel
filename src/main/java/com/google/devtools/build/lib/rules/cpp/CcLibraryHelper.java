@@ -119,6 +119,7 @@ public final class CcLibraryHelper {
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
             CppCompileAction.CLIF_MATCH,
+            CppCompileAction.LINKSTAMP_COMPILE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
             // differently named outputs.
@@ -147,6 +148,7 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
+            CppCompileAction.LINKSTAMP_COMPILE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
             // differently named outputs.

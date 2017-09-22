@@ -110,6 +110,12 @@ public final class CppModel {
   public static final String MODULE_FILES_VARIABLE_NAME = "module_files";
 
   /**
+   * Name of the build variable for includes that compiler needs to include into sources to be
+   * compiled.
+   */
+  public static final String INCLUDES_VARIABLE_NAME = "includes";
+
+  /**
    * Name of the build variable for the collection of include paths.
    *
    * @see CppCompilationContext#getIncludeDirs().
