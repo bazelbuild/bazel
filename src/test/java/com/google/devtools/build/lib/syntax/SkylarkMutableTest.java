@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,59 +31,66 @@ import org.junit.runners.JUnit4;
 public final class SkylarkMutableTest {
 
   @Test
-  public void testViewsCheckMutability() throws Exception {
+  public void testListViewsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
     MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    mutability.freeze();
+
+    {
+      Iterator<?> it = list.iterator();
+      it.next();
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> it.remove());
+    }
+    {
+      Iterator<?> it = list.listIterator();
+      it.next();
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> it.remove());
+    }
+    {
+      Iterator<?> it = list.listIterator(1);
+      it.next();
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> it.remove());
+    }
+    {
+      List<Object> sublist = list.subList(1, 2);
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> sublist.set(0, 4));
+    }
+  }
+
+  @Test
+  public void testDictViewsCheckMutability() throws Exception {
+    Mutability mutability = Mutability.create("test");
     SkylarkDict<Object, Object> dict = SkylarkDict.copyOf(mutability, ImmutableMap.of(1, 2, 3, 4));
     mutability.freeze();
 
-    try {
-      Iterator<?> it = list.iterator();
-      it.next();
-      it.remove();
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
-    }
-    try {
-      Iterator<?> it = list.listIterator();
-      it.next();
-      it.remove();
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
-    }
-    try {
-      Iterator<?> it = list.listIterator(1);
-      it.next();
-      it.remove();
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
-    }
-    try {
-      List<Object> sublist = list.subList(1, 2);
-      sublist.set(0, 4);
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
-    }
-    try {
+    {
       Iterator<Entry<Object, Object>> it = dict.entrySet().iterator();
       Entry<Object, Object> entry = it.next();
-      entry.setValue(5);
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> entry.setValue(5));
     }
-    try {
+    {
       Iterator<Object> it = dict.keySet().iterator();
       it.next();
-      it.remove();
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> it.remove());
     }
-    try {
+    {
       Iterator<Object> it = dict.values().iterator();
       it.next();
-      it.remove();
-      fail("expected exception");
-    } catch (UnsupportedOperationException expected) {
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> it.remove());
     }
   }
 }
