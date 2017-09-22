@@ -18,7 +18,7 @@ def _impl(repository_ctx):
   docker = repository_ctx.which("docker")
   if docker == None and repository_ctx.attr.optional:
     repository_ctx.file("BUILD", """
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+load("@io_bazel//tools/build_defs/docker:docker.bzl", "docker_build")
 
 # an empty image to still allow building despite not having the base
 # image.
@@ -31,7 +31,7 @@ docker_build(
     return
 
   repository_ctx.file("BUILD", """
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+load("@io_bazel//tools/build_defs/docker:docker.bzl", "docker_build")
 
 docker_build(
     name = "image",

@@ -16,7 +16,7 @@ exports_files(
 py_binary(
     name = "rewrite_json",
     srcs = ["rewrite_json.py"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//third_party/py/gflags",
@@ -34,7 +34,7 @@ py_test(
 py_binary(
     name = "create_image_config",
     srcs = ["create_image_config.py"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//third_party/py/gflags",
@@ -52,7 +52,7 @@ py_test(
 py_binary(
     name = "create_image",
     srcs = ["create_image.py"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//third_party/py/gflags",
@@ -63,7 +63,7 @@ py_binary(
 py_binary(
     name = "join_layers",
     srcs = ["join_layers.py"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//third_party/py/gflags",
@@ -79,5 +79,5 @@ py_library(
 filegroup(
     name = "incremental_load_template",
     srcs = ["incremental_load.sh.tpl"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
