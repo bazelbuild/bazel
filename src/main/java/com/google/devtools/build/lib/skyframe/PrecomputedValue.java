@@ -19,7 +19,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -104,9 +103,6 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "build_info_factories"));
-
-  public static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
-      new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
   public static final Precomputed<String> PRODUCT_NAME =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "product_name"));

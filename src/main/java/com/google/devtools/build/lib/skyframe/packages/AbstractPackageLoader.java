@@ -213,15 +213,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         makePreinjectedDiff(
             pkgLocator,
             builder.defaultsPackageContents,
-            ImmutableList.copyOf(builder.extraPrecomputedValues),
-            directories);
+            ImmutableList.copyOf(builder.extraPrecomputedValues));
   }
 
   private static ImmutableDiff makePreinjectedDiff(
       PathPackageLocator pkgLocator,
       String defaultsPackageContents,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      BlazeDirectories directories) {
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
     final Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
     Injectable injectable =
         new Injectable() {
@@ -245,7 +243,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         Options.getDefaults(SkylarkSemanticsOptions.class));
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable, defaultsPackageContents);
     PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(injectable, PathFragment.EMPTY_FRAGMENT);
-    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable, directories);
     return new ImmutableDiff(ImmutableList.<SkyKey>of(), valuesToInject);
   }
 

@@ -427,8 +427,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
-    map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
-        configurationFragments, ruleClassProvider));
+    map.put(
+        SkyFunctions.CONFIGURATION_FRAGMENT,
+        new ConfigurationFragmentFunction(configurationFragments, ruleClassProvider, directories));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     map.put(
@@ -717,7 +718,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected void maybeInjectPrecomputedValuesForAnalysis() {
     if (needToInjectPrecomputedValuesForAnalysis) {
-      PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
       PrecomputedValue.PRODUCT_NAME.set(injectable(), productName);
       injectBuildInfoFactories();
       injectExtraPrecomputedValues(extraPrecomputedValues);
@@ -1069,7 +1069,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
-   * result. Also invalidates {@link PrecomputedValue#BLAZE_DIRECTORIES} if it has changed.
+   * result.
    */
   public BuildConfigurationCollection createConfigurations(
       ExtendedEventHandler eventHandler,

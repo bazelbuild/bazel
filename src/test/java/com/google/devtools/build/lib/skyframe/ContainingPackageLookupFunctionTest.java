@@ -139,7 +139,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(differencer,
         PathFragment.EMPTY_FRAGMENT);
-    PrecomputedValue.BLAZE_DIRECTORIES.set(differencer, directories);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer, ImmutableMap.<RepositoryName, PathFragment>of());
   }

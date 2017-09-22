@@ -75,13 +75,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
     delegatorFunction =
         new RepositoryDelegatorFunction(
-            ImmutableMap.of(),
-            null,
-            new AtomicBoolean(true),
-            ImmutableMap::of,
-            directories);
-    AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(
-        new PathPackageLocator(root, ImmutableList.of(root)));
+            ImmutableMap.of(), null, new AtomicBoolean(true), ImmutableMap::of, directories);
+    AtomicReference<PathPackageLocator> pkgLocator =
+        new AtomicReference<>(new PathPackageLocator(root, ImmutableList.of(root)));
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
