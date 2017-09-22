@@ -118,7 +118,7 @@ repository. To enable this, add the following to your `WORKSPACE` file:
 git_repository(
     name = "build_bazel_rules_apple",
     remote = "https://github.com/bazelbuild/rules_apple.git",
-    tag = "0.0.1",
+    commit = "7ea0557",
 )
 ```
 
