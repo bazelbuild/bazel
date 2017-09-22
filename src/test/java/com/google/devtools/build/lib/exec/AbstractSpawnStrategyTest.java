@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -83,6 +84,7 @@ public class AbstractSpawnStrategyTest {
 
     try {
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+      fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult()).isSameAs(result);
     }
@@ -139,6 +141,7 @@ public class AbstractSpawnStrategyTest {
 
     try {
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+      fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult()).isSameAs(result);
     }
