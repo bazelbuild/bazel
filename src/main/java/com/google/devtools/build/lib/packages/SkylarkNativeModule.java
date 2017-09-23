@@ -212,7 +212,7 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction packageName =
+  static final BuiltinFunction packageName =
       new BuiltinFunction("package_name") {
         public String invoke(FuncallExpression ast, Environment env)
             throws EvalException, ConversionException {
@@ -235,11 +235,11 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction repositoryName =
+  static final BuiltinFunction repositoryName =
       new BuiltinFunction("repository_name") {
         public String invoke(FuncallExpression ast, Environment env)
             throws EvalException, ConversionException {
-          env.checkLoadingPhase("native.package_name", ast.getLocation());
+          env.checkLoadingPhase("native.repository_name", ast.getLocation());
           return (String) env.lookup("REPOSITORY_NAME");
         }
       };
