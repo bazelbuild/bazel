@@ -174,6 +174,14 @@ public class Eval {
    * @throws InterruptedException may be thrown in a sub class.
    */
   public void exec(Statement st) throws EvalException, InterruptedException {
+    try {
+      execDispatch(st);
+    } catch (EvalException ex) {
+      throw st.maybeTransformException(ex);
+    }
+  }
+
+  void execDispatch(Statement st) throws EvalException, InterruptedException {
     switch (st.kind()) {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);

@@ -64,6 +64,7 @@ class Skylark {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
     try {
+      String lineSeparator = "";
       while (true) {
         String line = reader.readLine();
         if (line == null) {
@@ -72,7 +73,8 @@ class Skylark {
         if (line.isEmpty()) {
           return input.toString();
         }
-        input.append("\n").append(line);
+        input.append(lineSeparator).append(line);
+        lineSeparator = "\n";
         System.out.print(CONTINUATION_PROMPT);
       }
     } catch (IOException io) {
