@@ -539,8 +539,17 @@ public final class LinkCommandLine extends CommandLine {
       linkstampCompileCommandLine.add("-c");
       linkstampCompileCommandLine.add(sourceFile.getExecPathString());
       linkstampCompileCommandLine.add("-o");
-      linkstampCompileCommandLine.add(outputFile.getExecPathString());
-      commands.add(ShellEscaper.escapeJoinAll(linkstampCompileCommandLine.build()));
+      // outputPrefix is there only for cc_fake_binary, and it can contain env var expansions
+      // (such as $TEST_TMPDIR) and cannot be escaped. When we move linkstamping to a separate
+      // action, there will no longer be bash around the invocation and therefore no need to do
+      // shell escaping.
+      String escapedCommandWithoutOutput =
+          ShellEscaper.escapeJoinAll(linkstampCompileCommandLine.build());
+      commands.add(
+          escapedCommandWithoutOutput
+              + " "
+              + outputPrefix
+              + ShellEscaper.escapeString(outputFile.getExecPathString()));
     }
 
     return commands;
