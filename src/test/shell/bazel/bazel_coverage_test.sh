@@ -66,7 +66,8 @@ int main(void) {
 }
 EOF
 
-  bazel coverage --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
 
   ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
 
@@ -78,6 +79,63 @@ EOF
   # Check if the only branch in a() has correct coverage:
   assert_contains "^DA:5,1$" "$coverage_file_path"  # true branch should be taken
   assert_contains "^DA:7,0$" "$coverage_file_path"  # false branch should not be
+
+  # Verify the files are reported correctly in the build event protocol.
+  assert_contains 'name: "test.lcov"' bep.txt
+
+  # Verify that this is also true for cached coverage actions.
+  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+  expect_log '//:t.*cached'
+  assert_contains 'name: "test.lcov"' bep.txt
+}
+
+function test_failed_coverage() {
+  if [[ ! -x /usr/bin/lcov ]]; then
+    echo "lcov not installed. Skipping test."
+    return
+  fi
+
+  cat << EOF > BUILD
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    deps = [":a"],
+)
+EOF
+
+  cat << EOF > a.h
+int a();
+EOF
+
+  cat << EOF > a.cc
+#include "a.h"
+
+int a() {
+  return 1;
+}
+EOF
+
+  cat << EOF > t.cc
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  return a();
+}
+EOF
+
+  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log && fail "Expected test failure" || :
+
+  # Verify that coverage data is still reported.
+  assert_contains 'name: "test.lcov"' bep.txt
 }
 
 function test_java_test_coverage() {

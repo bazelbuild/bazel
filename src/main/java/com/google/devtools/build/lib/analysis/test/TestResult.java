@@ -190,6 +190,10 @@ public class TestResult {
     if (testAction.getTestLog().getPath().exists()) {
       builder.add(Pair.of(TestFileNameConstants.TEST_LOG, testAction.getTestLog().getPath()));
     }
+    if (testAction.getCoverageData() != null && testAction.getCoverageData().getPath().exists()) {
+      builder.add(
+          Pair.of(TestFileNameConstants.TEST_COVERAGE, testAction.getCoverageData().getPath()));
+    }
     if (execRoot != null) {
       builder.addAll(testOutputsFromPaths(testAction.resolve(execRoot)));
     }

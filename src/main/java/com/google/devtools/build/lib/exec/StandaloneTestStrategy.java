@@ -171,6 +171,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         testOutputsBuilder.add(
             Pair.of(TestFileNameConstants.TEST_LOG, action.getTestLog().getPath()));
       }
+      if (action.getCoverageData() != null && action.getCoverageData().getPath().exists()) {
+        testOutputsBuilder.add(
+            Pair.of(TestFileNameConstants.TEST_COVERAGE, action.getCoverageData().getPath()));
+      }
       testOutputsBuilder.addAll(TestResult.testOutputsFromPaths(resolvedPaths));
       actionExecutionContext
           .getEventBus()
@@ -210,6 +214,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (action.getTestLog().getPath().exists()) {
       action.getTestLog().getPath().renameTo(testLog);
       testOutputsBuilder.add(Pair.of(TestFileNameConstants.TEST_LOG, testLog));
+    }
+    if (action.getCoverageData() != null && action.getCoverageData().getPath().exists()) {
+      testOutputsBuilder.add(
+          Pair.of(TestFileNameConstants.TEST_COVERAGE, action.getCoverageData().getPath()));
     }
 
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
