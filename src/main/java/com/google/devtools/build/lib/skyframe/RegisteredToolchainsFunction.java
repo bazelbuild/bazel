@@ -93,17 +93,21 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
         env.getValuesOrThrow(keys, ConfiguredValueCreationException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
+    boolean valuesMissing = false;
     for (SkyKey key : keys) {
       ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
       Label toolchainLabel = configuredTargetKey.getLabel();
       try {
+        ValueOrException<ConfiguredValueCreationException> valueOrException = values.get(key);
+        if (valueOrException.get() == null) {
+          valuesMissing = true;
+          continue;
+        }
         ConfiguredTarget target =
-            ((ConfiguredTargetValue) values.get(key).get()).getConfiguredTarget();
+            ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
         DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);
+
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
@@ -113,6 +117,10 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         throw new RegisteredToolchainsFunctionException(
             new InvalidToolchainLabelException(toolchainLabel, e), Transience.PERSISTENT);
       }
+    }
+
+    if (valuesMissing) {
+      return null;
     }
     return toolchains.build();
   }
