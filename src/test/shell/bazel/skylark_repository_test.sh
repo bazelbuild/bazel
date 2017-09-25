@@ -616,13 +616,7 @@ function environ_invalidation_action_env_test_template() {
 
   # We use a counter to avoid other invalidation to hide repository
   # invalidation (e.g., --action_env will cause all action to re-run).
-  local execution_file="${TEST_TMPDIR}/execution"
-
-  # Our custom repository rule
-  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
-
-  bazel ${startup_flag} clean --expunge
-  echo 0 >"${execution_file}"
+  local execution_file="$(setup_invalidation_test)"
 
   # Set to FOO=BAZ BAR=FOO
   FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
@@ -826,6 +820,60 @@ EOF
   test -x "${output_base}/external/foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not executable"
 }
+
+function test_skylark_repository_download_args() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local download_with_sha256="${server_dir}/download_with_sha256.txt"
+  local download_no_sha256="${server_dir}/download_no_sha256.txt"
+  local download_executable_file="${server_dir}/download_executable_file.sh"
+  echo "This is one file" > "${download_no_sha256}"
+  echo "This is another file" > "${download_with_sha256}"
+  echo "echo 'I am executable'" > "${download_executable_file}"
+  file_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > bar.txt
+  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(name = 'foo',
+     urls = [
+       "http://localhost:${fileserver_port}/download_no_sha256.txt",
+       "http://localhost:${fileserver_port}/download_with_sha256.txt",
+     ],
+     output = "whatever.txt"
+)
+EOF
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(repository_ctx.attr.urls, output=repository_ctx.attr.output)
+
+repo = repository_rule(implementation=_impl,
+      local=False,
+      attrs = { "urls" : attr.string_list(), "output" : attr.string() }
+)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && shutdown_server \
+    || fail "Execution of @foo//:all failed"
+
+  output_base="$(bazel info output_base)"
+  # Test download
+  test -e "${output_base}/external/foo/whatever.txt" \
+    || fail "whatever.txt is not downloaded"
+}
+
 
 function test_skylark_repository_download_and_extract() {
   # Prepare HTTP server with Python

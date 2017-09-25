@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -463,7 +464,7 @@ public class SkylarkRepositoryContext {
         name = "url",
         allowedTypes = {
           @ParamType(type = String.class),
-          @ParamType(type = SkylarkList.class, generic1 = String.class),
+          @ParamType(type = Iterable.class, generic1 = String.class),
         },
         named = true,
         doc = "List of mirror URLs referencing the same file."
@@ -500,9 +501,8 @@ public class SkylarkRepositoryContext {
       ),
     }
   )
-  public void download(
-      Object url, Object output, String sha256, Boolean executable)
-          throws RepositoryFunctionException, EvalException, InterruptedException {
+  public void download(Object url, Object output, String sha256, Boolean executable)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
@@ -535,7 +535,7 @@ public class SkylarkRepositoryContext {
         name = "url",
         allowedTypes = {
           @ParamType(type = String.class),
-          @ParamType(type = SkylarkList.class, generic1 = String.class),
+          @ParamType(type = Iterable.class, generic1 = String.class),
         },
         named = true,
         doc = "List of mirror URLs referencing the same file."
@@ -592,7 +592,7 @@ public class SkylarkRepositoryContext {
   )
   public void downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix)
-          throws RepositoryFunctionException, InterruptedException, EvalException {
+      throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
 
@@ -644,14 +644,31 @@ public class SkylarkRepositoryContext {
     }
   }
 
-  private static List<URL> getUrls(Object urlOrList) throws RepositoryFunctionException {
+  private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+
+    for (Object o : urlList) {
+      if (!(o instanceof String)) {
+        throw new EvalException(
+            null,
+            String.format(
+                "Expected a string or sequence of strings for 'url' argument, "
+                    + "but got '%s' item in the sequence",
+                EvalUtils.getDataTypeName(o)));
+      }
+      result.add((String) o);
+    }
+
+    return result.build();
+  }
+
+  private static List<URL> getUrls(Object urlOrList)
+      throws RepositoryFunctionException, EvalException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
       urlStrings = ImmutableList.of((String) urlOrList);
     } else {
-      @SuppressWarnings("unchecked")
-      List<String> list = (List<String>) urlOrList;
-      urlStrings = list;
+      urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
     if (urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
