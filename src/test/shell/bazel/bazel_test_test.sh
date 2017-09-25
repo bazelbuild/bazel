@@ -176,6 +176,9 @@ EOF
   expect_log '1 test passes.$'
 }
 
+# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# this environment and cause --experimental_ui to be turned on, which causes
+# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
   echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
@@ -193,7 +196,7 @@ EOF
   chmod u+x scripts/hello
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
-  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+  PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
     --test_output=all >& $TEST_log && fail "Expected failure"
 
   # We need to forward the PATH to make it work.
@@ -448,6 +451,9 @@ EOF
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
+# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# this environment and cause --experimental_ui to be turned on, which causes
+# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
@@ -478,7 +484,7 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel test --spawn_strategy=standalone //:flaky &> $TEST_log \
+  bazel --nomaster_bazelrc test --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
@@ -491,7 +497,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel test //:pass &> $TEST_log \
+  bazel --nomaster_bazelrc test //:pass &> $TEST_log \
       || fail "//:pass should have passed"
   expect_log_once "PASS: //:pass"
   expect_log_once PASSED
@@ -500,7 +506,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel test //:fail &> $TEST_log \
+  bazel --nomaster_bazelrc test //:fail &> $TEST_log \
       && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
