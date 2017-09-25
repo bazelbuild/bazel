@@ -401,7 +401,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "connect_timeout_secs",
-    defaultValue = "10",
+    defaultValue = "30",
     category = "server startup",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},

@@ -86,7 +86,7 @@ StartupOptions::StartupOptions(const string &product_name,
       allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
-      connect_timeout_secs(10),
+      connect_timeout_secs(30),
       invocation_policy(NULL),
       client_debug(false),
       java_logging_formatter(
