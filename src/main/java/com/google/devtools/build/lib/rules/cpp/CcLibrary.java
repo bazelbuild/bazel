@@ -91,7 +91,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     init(semantics, context, builder, staticLinkType,
         /*neverLink =*/ false,
         linkStatic,
-        /*collectLinkstamp =*/ true,
         /*addDynamicRuntimeInputArtifactsToRunfiles =*/ false);
     return builder.build();
   }
@@ -103,7 +102,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       LinkTargetType staticLinkType,
       boolean neverLink,
       boolean linkStatic,
-      boolean collectLinkstamp,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     final CcCommon common = new CcCommon(ruleContext);
@@ -134,11 +132,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
             .setLinkType(staticLinkType)
             .setNeverLink(neverLink)
-            .addPrecompiledFiles(precompiledFiles);
-
-    if (collectLinkstamp) {
-      helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
-    }
+            .addPrecompiledFiles(precompiledFiles)
+            .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
 
     Artifact soImplArtifact = null;
     boolean supportsDynamicLinker =
