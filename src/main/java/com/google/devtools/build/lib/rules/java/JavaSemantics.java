@@ -171,12 +171,11 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
-  // TODO(b/65746853): provide a way to do this without passing the entire configuration
   LateBoundDefault<?, List<Label>> JAVA_PLUGINS =
       LateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          JavaConfiguration.class,
           ImmutableList.of(),
-          (rule, attributes, configuration) -> ImmutableList.copyOf(configuration.getPlugins()));
+          (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
   LateBoundDefault<?, Label> PROGUARD =

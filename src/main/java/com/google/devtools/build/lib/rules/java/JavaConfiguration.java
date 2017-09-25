@@ -164,6 +164,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
+  private final ImmutableList<Label> pluginList;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean legacyBazelJavaTest;
@@ -218,6 +219,7 @@ public final class JavaConfiguration extends Fragment {
       optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
     }
     this.bytecodeOptimizers = optimizersBuilder.build();
+    this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
@@ -419,5 +421,9 @@ public final class JavaConfiguration extends Fragment {
 
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
+  }
+
+  public List<Label> getPlugins() {
+    return pluginList;
   }
 }

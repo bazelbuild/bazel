@@ -520,34 +520,6 @@ public final class BuildConfiguration implements BuildEvent {
     )
     public boolean strictFilesets;
 
-    // Plugins are build using the host config. To avoid cycles we just don't propagate
-    // this option to the host config. If one day we decide to use plugins when building
-    // host tools, we can improve this by (for example) creating a compiler configuration that is
-    // used only for building plugins.
-    @Option(
-      name = "plugin",
-      converter = LabelListConverter.class,
-      allowMultiple = true,
-      defaultValue = "",
-      category = "flags",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Plugins to use in the build. Currently works with java_plugin."
-    )
-    public List<Label> pluginList;
-
-    @Option(
-      name = "plugin_copt",
-      converter = PluginOptionConverter.class,
-      allowMultiple = true,
-      category = "flags",
-      defaultValue = ":",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Plugin options"
-    )
-    public List<Map.Entry<String, String>> pluginCoptList;
-
     @Option(
       name = "stamp",
       defaultValue = "false",
@@ -1260,20 +1232,6 @@ public final class BuildConfiguration implements BuildEvent {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
     }
 
-    Set<String> plugins = new HashSet<>();
-    for (Label plugin : options.pluginList) {
-      String name = plugin.getName();
-      if (plugins.contains(name)) {
-        reporter.handle(Event.error("A build cannot have two plugins with the same name"));
-      }
-      plugins.add(name);
-    }
-    for (Map.Entry<String, String> opt : options.pluginCoptList) {
-      if (!plugins.contains(opt.getKey())) {
-        reporter.handle(Event.error("A plugin_copt must refer to an existing plugin"));
-      }
-    }
-
     if (options.outputDirectoryName != null) {
       reporter.handle(Event.error(
           "The internal '--output directory name' option cannot be used on the command line"));
@@ -1665,10 +1623,6 @@ public final class BuildConfiguration implements BuildEvent {
 
   public boolean isStrictFilesets() {
     return options.strictFilesets;
-  }
-
-  public List<Label> getPlugins() {
-    return options.pluginList;
   }
 
   public String getMainRepositoryName() {

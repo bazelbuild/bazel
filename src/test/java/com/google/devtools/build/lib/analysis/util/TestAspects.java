@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -990,12 +990,11 @@ public class TestAspects {
    * Rule with a late-bound dependency.
    */
   public static class LateBoundDepRule implements RuleDefinition {
-    // TODO(b/65746853): provide a way to do this without passing the entire configuration
     private static final LateBoundDefault<?, List<Label>> PLUGINS_LABEL_LIST =
         LateBoundDefault.fromTargetConfiguration(
-            BuildConfiguration.class,
+            JavaConfiguration.class,
             ImmutableList.of(),
-            (rule, attributes, configuration) -> configuration.getPlugins());
+            (rule, attributes, javaConfig) -> javaConfig.getPlugins());
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {

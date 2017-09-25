@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -513,6 +514,22 @@ public class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE}
   )
   public boolean disableAbsoluteJavabase;
+
+  // Plugins are built using the host config. To avoid cycles we just don't propagate
+  // this option to the host config. If one day we decide to use plugins when building
+  // host tools, we can improve this by (for example) creating a compiler configuration that is
+  // used only for building plugins.
+  @Option(
+    name = "plugin",
+    converter = LabelListConverter.class,
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Plugins to use in the build. Currently works with java_plugin."
+  )
+  public List<Label> pluginList;
 
   @Override
   public FragmentOptions getHost() {
