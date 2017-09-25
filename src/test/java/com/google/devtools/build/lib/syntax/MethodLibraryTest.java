@@ -392,6 +392,25 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testStackTraceWithAugmentedAssignment() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "File \"\", line 4"
+                + LINE_SEPARATOR
+                + "\t\tfoo()"
+                + LINE_SEPARATOR
+                + "\tFile \"\", line 3, in foo"
+                + LINE_SEPARATOR
+                + "\t\ts += \"2\""
+                + LINE_SEPARATOR
+                + "unsupported operand type(s) for +: 'int' and 'string'",
+            "def foo():",
+            "  s = 1",
+            "  s += '2'",
+            "foo()");
+  }
+
+  @Test
   public void testStackTraceSkipBuiltInOnly() throws Exception {
     // The error message should not include the stack trace when there is
     // only one built-in function.
