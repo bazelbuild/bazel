@@ -83,7 +83,6 @@ public class BuildFileModificationTest extends FoundationTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, scratch.getFileSystem()),
             directories,
-            null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),

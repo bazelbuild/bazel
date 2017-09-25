@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -122,7 +121,6 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKe
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -152,7 +150,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsClassProvider;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -262,8 +259,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
 
-  private final BinTools binTools;
-  private boolean needToInjectEmbeddedArtifacts = true;
   protected int modifiedFiles;
   protected int outputDirtyFiles;
   protected int modifiedFilesDuringPreviousBuild;
@@ -298,7 +293,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       BlazeDirectories directories,
-      BinTools binTools,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Predicate<PathFragment> allowedMissingInputs,
@@ -329,7 +323,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.extraSkyFunctions = extraSkyFunctions;
     this.externalFileAction = externalFileAction;
     this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
-    this.binTools = binTools;
 
     this.ruleClassProvider = pkgFactory.getRuleClassProvider();
     this.skyframeBuildView = new SkyframeBuildView(
@@ -614,32 +607,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new SkyframeProgressReceiver();
   }
 
-  /**
-   * Reinitializes the Skyframe evaluator, dropping all previously computed values.
-   *
-   * <p>Be careful with this method as it also deletes all injected values. You need to make sure
-   * that any necessary precomputed values are reinjected before the next build. Constants can be
-   * put in {@link #reinjectConstantValuesLazily}.
-   */
+  /** Reinitializes the Skyframe evaluator, dropping all previously computed values. */
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
     skyframeBuildView.clearLegacyData();
-    reinjectConstantValuesLazily();
   }
 
   protected abstract Differencer evaluatorDiffer();
 
   protected abstract BuildDriver getBuildDriver();
-
-  /**
-   * Values whose values are known at startup and guaranteed constant are still wiped from the
-   * evaluator when we create a new one, so they must be re-injected each time we create a new
-   * evaluator.
-   */
-  private void reinjectConstantValuesLazily() {
-    needToInjectEmbeddedArtifacts = true;
-  }
 
   /**
    * Deletes all ConfiguredTarget values from the Skyframe cache. This is done to save memory (e.g.
@@ -1907,7 +1884,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void prepareExecution(ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange)
           throws AbruptExitException, InterruptedException {
-    maybeInjectEmbeddedArtifacts();
 
     // Detect external modifications in the output tree.
     FilesystemValueChecker fsvc =
@@ -1922,35 +1898,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected abstract void invalidateDirtyActions(Iterable<SkyKey> dirtyActionValues);
-
-  @VisibleForTesting void maybeInjectEmbeddedArtifacts() throws AbruptExitException {
-    // The blaze client already ensures that the contents of the embedded binaries never change,
-    // so we just need to make sure that the appropriate artifacts are present in the skyframe
-    // graph.
-
-    if (!needToInjectEmbeddedArtifacts) {
-      return;
-    }
-
-    Preconditions.checkNotNull(artifactFactory.get());
-    Preconditions.checkNotNull(binTools);
-    Map<SkyKey, SkyValue> values = Maps.newHashMap();
-    // Blaze separately handles the symlinks that target these binaries. See BinTools#setupTool.
-    for (Artifact artifact : binTools.getAllEmbeddedArtifacts(artifactFactory.get())) {
-      FileArtifactValue fileArtifactValue;
-      try {
-        fileArtifactValue = FileArtifactValue.create(artifact);
-      } catch (IOException e) {
-        // See ExtractData in blaze.cc.
-        String message = "Error: corrupt installation: file " + artifact.getPath() + " missing. "
-            + "Please remove '" + directories.getInstallBase() + "' and try again.";
-        throw new AbruptExitException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
-      }
-      values.put(ArtifactSkyKey.key(artifact, /*isMandatory=*/ true), fileArtifactValue);
-    }
-    injectable().inject(values);
-    needToInjectEmbeddedArtifacts = false;
-  }
 
   /**
    * Mark dirty values for deletion if they've been dirty for longer than N versions.
