@@ -20,32 +20,27 @@ alias(
 
 alias(
     name = "emulator_arm",
-    actual = "tools/emulator64-arm",
+    actual = "emulator/emulator64-arm",
 )
 
 alias(
     name = "emulator_x86",
-    actual = "tools/emulator64-x86",
+    actual = "emulator/emulator64-x86",
 )
 
 filegroup(
     name = "emulator_x86_bios",
-    srcs = glob(["tools/lib/pc-bios/*"]),
+    srcs = glob(["emulator/lib/pc-bios/*"]),
 )
 
 alias(
     name = "mksd",
-    actual = "tools/mksdcard",
-)
-
-alias(
-    name = "empty_snapshot_fs",
-    actual = "tools/lib/emulator/snapshots.img",
+    actual = "emulator/mksdcard",
 )
 
 filegroup(
     name = "emulator_shared_libs",
-    srcs = glob(["tools/lib64/**"]),
+    srcs = glob(["emulator/lib64/**"]),
 )
 
 filegroup(
@@ -56,8 +51,8 @@ filegroup(
 filegroup(
     name = "qemu2_x86",
     srcs = [
-        "tools/emulator",
-        "tools/qemu/linux-x86_64/qemu-system-i386",
+        "emulator/emulator",
+        "emulator/qemu/linux-x86_64/qemu-system-i386",
     ],
 )
 
