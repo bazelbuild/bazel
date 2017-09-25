@@ -13,6 +13,7 @@
 # limitations under the License.
 """A simple cross-platform helper to create a debian package."""
 
+import gzip
 import hashlib
 import os.path
 from StringIO import StringIO
@@ -130,16 +131,17 @@ def CreateDebControl(extrafiles=None, **kwargs):
       controlfile += MakeDebianControlField(fieldname, kwargs[key], values[2])
   # Create the control.tar file
   tar = StringIO()
-  with tarfile.open('control.tar.gz', mode='w:gz', fileobj=tar) as f:
-    tarinfo = tarfile.TarInfo('control')
-    tarinfo.size = len(controlfile)
-    f.addfile(tarinfo, fileobj=StringIO(controlfile))
-    if extrafiles:
-      for name, (data, mode) in extrafiles.iteritems():
-        tarinfo = tarfile.TarInfo(name)
-        tarinfo.size = len(data)
-        tarinfo.mode = mode
-        f.addfile(tarinfo, fileobj=StringIO(data))
+  with gzip.GzipFile('control.tar.gz', mode='w', fileobj=tar, mtime=0) as gz:
+    with tarfile.open('control.tar.gz', mode='w', fileobj=gz) as f:
+      tarinfo = tarfile.TarInfo('control')
+      tarinfo.size = len(controlfile)
+      f.addfile(tarinfo, fileobj=StringIO(controlfile))
+      if extrafiles:
+        for name, (data, mode) in extrafiles.iteritems():
+          tarinfo = tarfile.TarInfo(name)
+          tarinfo.size = len(data)
+          tarinfo.mode = mode
+          f.addfile(tarinfo, fileobj=StringIO(data))
   control = tar.getvalue()
   tar.close()
   return control
