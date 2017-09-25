@@ -105,14 +105,18 @@ public final class RemoteModule extends BlazeModule {
     }
 
     try {
-      boolean restCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+      boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
 
       Retrier retrier = new Retrier(remoteOptions);
       CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
+      // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
+      // meaning.
       final RemoteActionCache cache;
-      if (restCache) {
-        cache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+      if (remoteOrLocalCache) {
+        cache =
+            new SimpleBlobStoreActionCache(
+                SimpleBlobStoreFactory.create(remoteOptions, env.getWorkingDirectory()));
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;

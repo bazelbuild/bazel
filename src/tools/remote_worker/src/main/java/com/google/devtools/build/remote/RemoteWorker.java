@@ -218,7 +218,7 @@ public final class RemoteWorker {
 
     SimpleBlobStore blobStore =
         usingRemoteCache
-            ? SimpleBlobStoreFactory.create(remoteOptions)
+            ? SimpleBlobStoreFactory.create(remoteOptions, null)
             : remoteWorkerOptions.casPath != null
                 ? new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath))
                 : new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());

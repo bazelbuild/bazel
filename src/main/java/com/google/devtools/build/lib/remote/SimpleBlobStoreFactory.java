@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.RestBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.vfs.Path;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.ClientNetworkConfig;
@@ -26,10 +30,11 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentMap;
+import javax.annotation.Nullable;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
- * SimpleBlobStoreActionCache}. Currently implemented with Hazelcast or REST.
+ * SimpleBlobStoreActionCache}. Currently implemented with Hazelcast, REST or local.
  */
 public final class SimpleBlobStoreFactory {
 
@@ -74,20 +79,34 @@ public final class SimpleBlobStoreFactory {
     return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
   }
 
-  public static SimpleBlobStore create(RemoteOptions options) throws IOException {
+  public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
+      throws IOException {
+    return new OnDiskBlobStore(
+        workingDirectory.getRelative(checkNotNull(options.experimentalLocalDiskCachePath)));
+  }
+
+  public static SimpleBlobStore create(RemoteOptions options, @Nullable Path workingDirectory)
+      throws IOException {
     if (isHazelcastOptions(options)) {
       return createHazelcast(options);
     }
     if (isRestUrlOptions(options)) {
       return createRest(options);
     }
+    if (workingDirectory != null && isLocalDiskCache(options)) {
+      return createLocalDisk(options, workingDirectory);
+    }
     throw new IllegalArgumentException(
         "Unrecognized concurrent map RemoteOptions: must specify "
-            + "either Hazelcast or Rest URL options.");
+            + "either Hazelcast, Rest URL, or local cache options.");
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isHazelcastOptions(options) || isRestUrlOptions(options);
+    return isHazelcastOptions(options) || isRestUrlOptions(options) || isLocalDiskCache(options);
+  }
+
+  public static boolean isLocalDiskCache(RemoteOptions options) {
+    return options.experimentalLocalDiskCache;
   }
 
   private static boolean isHazelcastOptions(RemoteOptions options) {

@@ -280,6 +280,13 @@ sh_test(
 )
 
 sh_test(
+    name = "local_action_cache_test",
+    size = "small",
+    srcs = ["local_action_cache_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "runfiles_test",
     size = "medium",
     srcs = ["runfiles_test.sh"],

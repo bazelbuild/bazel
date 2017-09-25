@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -228,6 +230,28 @@ public final class RemoteOptions extends OptionsBase {
         + "Enabling this flag makes Bazel ignore any setting for remote_executor."
   )
   public boolean experimentalRemoteSpawnCache;
+
+  // TODO(davido): Find a better place for this and the next option.
+  @Option(
+    name = "experimental_local_disk_cache",
+    defaultValue = "false",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Whether to use the experimental local disk cache."
+  )
+  public boolean experimentalLocalDiskCache;
+
+  @Option(
+    name = "experimental_local_disk_cache_path",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    converter = OptionsUtils.PathFragmentConverter.class,
+    help = "A file path to a local disk cache."
+  )
+  public PathFragment experimentalLocalDiskCachePath;
 
   public Platform parseRemotePlatformOverride() {
     if (experimentalRemotePlatformOverride != null) {
