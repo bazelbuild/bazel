@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -340,28 +339,12 @@ public final class CcLinkParams {
       return this;
     }
 
-    /**
-     * Processes typical dependencies a C/C++ library.
-     *
-     * <p>A helper method that processes getValues() and merges contents of
-     * getPreferredLibraries() and getLinkOpts() into the current link params
-     * object.
-     */
-    public Builder addCcLibrary(RuleContext context, boolean neverlink, List<String> linkopts,
-        CcLinkingOutputs linkingOutputs) {
+    /** Processes typical dependencies of a C/C++ library. */
+    public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
           context.getPrerequisites("deps", Mode.TARGET),
-          CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
-
-      if (!neverlink) {
-        addLibraries(linkingOutputs.getPreferredLibraries(linkingStatically,
-            linkShared || context.getFragment(CppConfiguration.class).forcePic()));
-        if (!linkingStatically) {
-          addExecutionDynamicLibraries(
-              LinkerInputs.toLibraryArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
-        }
-        addLinkOpts(linkopts);
-      }
+          CcLinkParamsInfo.TO_LINK_PARAMS,
+          CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
       return this;
     }
   }

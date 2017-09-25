@@ -762,16 +762,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean linkingStatically, boolean linkShared, List<String> linkopts) {
     CcLinkParams.Builder builder = CcLinkParams.builder(linkingStatically, linkShared);
 
-    if (isLinkShared(context)) {
-      // CcLinkingOutputs is empty because this target is not configured yet
-      builder.addCcLibrary(context, false, linkopts, CcLinkingOutputs.EMPTY);
-    } else {
-      builder.addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET),
-          CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+    builder.addCcLibrary(context);
+    if (!isLinkShared(context)) {
       builder.addTransitiveTarget(CppHelper.mallocForTarget(context));
-      builder.addLinkOpts(linkopts);
     }
+    builder.addLinkOpts(linkopts);
     return builder.build();
   }
 

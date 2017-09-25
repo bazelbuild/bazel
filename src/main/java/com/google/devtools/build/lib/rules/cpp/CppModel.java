@@ -1516,11 +1516,10 @@ public final class CppModel {
     // On Windows, we cannot build a shared library with symbols unresolved, so here we dynamically
     // link to all it's dependencies.
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-      CcLinkParams.Builder ccLinkParamsbuilder =
+      CcLinkParams.Builder ccLinkParamsBuilder =
           CcLinkParams.builder(/* linkingStatically= */ false, /* linkShared= */ true);
-      ccLinkParamsbuilder.addCcLibrary(
-          ruleContext, false, ImmutableList.of(), CcLinkingOutputs.EMPTY);
-      dynamicLinkActionBuilder.addLinkParams(ccLinkParamsbuilder.build(), ruleContext);
+      ccLinkParamsBuilder.addCcLibrary(ruleContext);
+      dynamicLinkActionBuilder.addLinkParams(ccLinkParamsBuilder.build(), ruleContext);
     }
 
     if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
