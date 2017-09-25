@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Formattable;
 import java.util.IdentityHashMap;
 import java.util.List;
 
@@ -86,9 +87,9 @@ public final class Mutability implements AutoCloseable, Serializable {
   private IdentityHashMap<Freezable, List<Location>> lockedItems;
 
   /** For error reporting; a name for the context in which this {@code Mutability} is used. */
-  private final String annotation;
+  private final Formattable annotation;
 
-  private Mutability(String annotation) {
+  private Mutability(Formattable annotation) {
     this.isFrozen = false;
     // Seems unlikely that we'll often lock more than 10 things at once.
     this.lockedItems = new IdentityHashMap<>(10);
@@ -103,13 +104,11 @@ public final class Mutability implements AutoCloseable, Serializable {
    * @param arguments are the optional {@link Printer#format} arguments to produce that string
    */
   public static Mutability create(String pattern, Object... arguments) {
-    // For efficiency, we could be lazy and use formattable instead of format,
-    // but the result is going to be serialized, anyway.
-    return new Mutability(Printer.format(pattern, arguments));
+    return new Mutability(Printer.formattable(pattern, arguments));
   }
 
   public String getAnnotation() {
-    return annotation;
+    return annotation.toString();
   }
 
   @Override
