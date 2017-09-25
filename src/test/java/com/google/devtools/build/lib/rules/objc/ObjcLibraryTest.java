@@ -1322,6 +1322,25 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 
+  // Test with ios device SDK version 9.0. Framework path differs from previous versions.
+  @Test
+  public void testCompilationActions_deviceSdk9() throws Exception {
+    useConfiguration("--cpu=ios_armv7", "--ios_minimum_os=1.0", "--ios_sdk_version=9.0");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileAction = compileAction("//objc:lib", "a.o");
+
+    // We remove spaces, since the crosstool rules do not use spaces in command line args.
+
+    String compileArgs = Joiner.on("").join(compileAction.getArguments()).replace(" ", "");
+    assertThat(compileArgs)
+        .contains("-F" + AppleToolchain.sdkDir() + AppleToolchain.SYSTEM_FRAMEWORK_PATH);
+  }
+
   @Test
   public void testCompilationActionsWithPch() throws Exception {
     ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
@@ -1589,6 +1608,43 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     BuildConfiguration config = getAppleCrosstoolConfiguration();
     assertContainsSublist(compileAction.getArguments(), ImmutableList.of(
         "-iquote", config.getGenfilesFragment().getSafePathString()));
+  }
+
+  @Test
+  public void testCompilesAssemblyAsm() throws Exception {
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.asm")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileAction = compileAction("//objc:lib", "b.o");
+
+    assertThat(compileAction.getArguments()).doesNotContain("-x");
+    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
+    assertThat(baseArtifactNames(compileAction.getOutputs())).contains("b.o");
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
+        .containsAllOf("c.h", "b.asm");
+  }
+
+  @Test
+  public void testCompilesAssemblyS() throws Exception {
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.s")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileAction = compileAction("//objc:lib", "b.o");
+
+    assertThat(compileAction.getArguments()).doesNotContain("-x");
+    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
+    assertThat(baseArtifactNames(compileAction.getOutputs())).contains("b.o");
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
+        .containsAllOf("c.h", "b.s");
+  }
+
+  @Test
+  public void testProvidesHdrsAndIncludes() throws Exception {
+    checkProvidesHdrsAndIncludes(RULE_TYPE);
   }
 
   @Test

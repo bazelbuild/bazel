@@ -68,6 +68,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     // Features are not exported by legacy actions.
   }
 
+  // Crosstool rules do not account for slashes in target names.
   @Test
   public void testLibFileIsCorrectForSlashInTargetName() throws Exception {
     ConfiguredTarget target =
@@ -203,22 +204,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     assertThat(baseArtifactNames(compileActionA.getOutputs())).containsExactly("a.o", "a.d");
     assertThat(baseArtifactNames(compileActionA.getInputs()))
         .containsExactly("a.m", "c.h", "private.h", XCRUNWRAPPER);
-  }
-
-  // Test with ios device SDK version 9.0. Framework path differs from previous versions.
-  @Test
-  public void testCompilationActions_deviceSdk9() throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--ios_minimum_os=1.0", "--ios_sdk_version=9.0");
-
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileAction = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileAction.getArguments()).containsAllOf(
-        "-F", AppleToolchain.sdkDir() + AppleToolchain.SYSTEM_FRAMEWORK_PATH).inOrder();
   }
 
   // Override required for distinct compiler path, command line args.
@@ -455,43 +440,6 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 getBinArtifact("liblib_dep.a", "//objc:lib_dep").getExecPathString()));
     assertThat(baseArtifactNames(archiveAction.getInputs()))
         .containsExactly("liblib_dep.a", "liblib.a", LIBTOOL);
-  }
-
-  @Test
-  public void testProvidesHdrsAndIncludes() throws Exception {
-    checkProvidesHdrsAndIncludes(RULE_TYPE);
-  }
-
-  @Test
-  public void testCompilesAssemblyS() throws Exception {
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.s")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileAction = compileAction("//objc:lib", "b.o");
-
-    assertThat(compileAction.getArguments()).doesNotContain("-x");
-    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
-    assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
-    assertThat(baseArtifactNames(compileAction.getInputs()))
-        .containsExactly("c.h", "b.s", XCRUNWRAPPER);
-  }
-
-  @Test
-  public void testCompilesAssemblyAsm() throws Exception {
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.asm")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileAction = compileAction("//objc:lib", "b.o");
-
-    assertThat(compileAction.getArguments()).doesNotContain("-x");
-    assertThat(compileAction.getArguments()).doesNotContain("assembler-with-cpp");
-    assertThat(baseArtifactNames(compileAction.getOutputs())).containsExactly("b.o", "b.d");
-    assertThat(baseArtifactNames(compileAction.getInputs()))
-        .containsExactly("c.h", "b.asm", XCRUNWRAPPER);
   }
 
   // Dotd pruning must be tested seperately for the legacy case, since it involves the
