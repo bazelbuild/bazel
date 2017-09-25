@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import java.util.List;
 import org.junit.Before;
@@ -850,5 +852,93 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             "package/_generated_protos/opl/package/FileA.pb.h",
             "package/_generated_protos/opl/package/dir/FileB.pb.h",
             "package/_generated_protos/opl/dep/File.pb.h");
+  }
+
+  @Test
+  public void testCompilationAction() throws Exception {
+    useConfiguration("--cpu=ios_i386");
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
+
+    ConfiguredTarget target = getConfiguredTarget("//package:opl");
+    CommandAction linkAction =
+        (CommandAction) getGeneratingAction(getBinArtifact("libopl.a", target));
+
+    CommandAction compileAction =
+        (CommandAction)
+            getGeneratingAction(
+                ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "/FileA.pb.o"));
+
+    Artifact sourceFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            getFilesToBuild(getConfiguredTarget("//package:opl")), "/FileA.pb.m");
+
+    Artifact objectFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(compileAction.getOutputs(), ".o");
+    Artifact dotdFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(compileAction.getOutputs(), ".d");
+    // We remove spaces since the crosstool rules do not use spaces in command line args.
+    String compileArgs = Joiner.on("").join(compileAction.getArguments()).replace(" ", "");
+
+    List<String> expectedArgs =
+        new ImmutableList.Builder<String>()
+            .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
+            .add("-fexceptions")
+            .add("-fasm-blocks")
+            .add("-fobjc-abi-version=2")
+            .add("-fobjc-legacy-dispatch")
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+            .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
+            .add("-arch", "i386")
+            .add("-isysroot", AppleToolchain.sdkDir())
+            .add("-F", AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
+            .add("-F", frameworkDir(platform))
+            .addAll(FASTBUILD_COPTS)
+            .addAll(
+                ObjcLibraryTest.iquoteArgs(
+                    target.get(ObjcProvider.SKYLARK_CONSTRUCTOR), getTargetConfiguration()))
+            .add("-I")
+            .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
+            .add("-fno-objc-arc")
+            .add("-c", sourceFile.getExecPathString())
+            .add("-o")
+            .add(objectFile.getExecPathString())
+            .add("-MD")
+            .add("-MF")
+            .add(dotdFile.getExecPathString())
+            .build();
+
+    for (String expectedArg : expectedArgs) {
+      assertThat(compileArgs).contains(expectedArg);
+    }
+
+    assertRequiresDarwin(compileAction);
+    assertThat(Artifact.toRootRelativePaths(compileAction.getInputs()))
+        .containsAllOf(
+            "package/_generated_protos/opl/package/FileA.pb.m",
+            "package/_generated_protos/opl/package/FileA.pb.h",
+            "package/_generated_protos/opl/package/dir/FileB.pb.h",
+            "package/_generated_protos/opl/dep/File.pb.h");
+  }
+
+  @Test
+  public void testLibraryLinkAction() throws Exception {
+    useConfiguration("--cpu=ios_armv7");
+    Artifact libFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            getFilesToBuild(getConfiguredTarget("//package:opl")), "/libopl.a");
+    CommandAction action = (CommandAction) getGeneratingAction(libFile);
+    assertThat(action.getArguments())
+        .containsAllIn(
+            ImmutableList.of(
+                "-static",
+                "-filelist",
+                getBinArtifact("opl-archive.objlist", "//package:opl").getExecPathString(),
+                "-arch_only",
+                "armv7",
+                "-syslibroot",
+                AppleToolchain.sdkDir(),
+                "-o",
+                libFile.getExecPathString()));
+    assertRequiresDarwin(action);
   }
 }
