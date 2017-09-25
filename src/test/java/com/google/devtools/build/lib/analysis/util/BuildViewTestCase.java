@@ -712,15 +712,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, using the
-   * given build configuration. If the label corresponds to a target with a top-level configuration
-   * transition, that transition is applied to the given config in the returned ConfiguredTarget.
+   * Returns the ConfiguredTarget for the specified label, using the given build configuration. If
+   * the label corresponds to a target with a top-level configuration transition, that transition is
+   * applied to the given config in the returned ConfiguredTarget.
    *
-   * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this
-   * method may return null.  In that case, use a debugger to inspect the {@link ErrorInfo}
-   * for the evaluation, which is produced by the
-   * {@link MemoizingEvaluator#getExistingValueForTesting} call in
-   * {@link SkyframeExecutor#getConfiguredTargetForTesting}.  See also b/26382502.
+   * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this method
+   * may return null. In that case, use a debugger to inspect the {@link ErrorInfo} for the
+   * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
+   * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
@@ -768,7 +767,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     invalidatePackages();
     // Need to re-initialize the workspace status.
-    getSkyframeExecutor().injectWorkspaceStatusData("test");
+    getSkyframeExecutor().maybeInvalidateWorkspaceStatusValue("test");
   }
 
   /**

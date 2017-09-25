@@ -19,7 +19,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -94,9 +93,6 @@ public final class PrecomputedValue implements SkyValue {
 
   static final Precomputed<Map<String, String>> ACTION_ENV =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "action_env"));
-
-  static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
-      new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
 
   static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
       new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "coverage_report_actions"));

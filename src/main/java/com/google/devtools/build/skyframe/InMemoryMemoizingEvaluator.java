@@ -281,7 +281,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  @Nullable public SkyValue getExistingValueForTesting(SkyKey key) {
+  @Nullable
+  public SkyValue getExistingValue(SkyKey key) {
     NodeEntry entry = getExistingEntryForTesting(key);
     try {
       return isDone(entry) ? entry.getValue() : null;

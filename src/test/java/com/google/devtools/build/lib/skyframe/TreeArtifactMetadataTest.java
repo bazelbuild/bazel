@@ -224,7 +224,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private void setGeneratingActions() {
-    if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
+    if (evaluator.getExistingValue(OWNER_KEY) == null) {
       differencer.inject(
           ImmutableMap.of(
               OWNER_KEY,

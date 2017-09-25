@@ -441,7 +441,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(
             artifactFactory, buildInfoFactories, removeActionsAfterEvaluation));
-    map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(removeActionsAfterEvaluation));
+    map.put(
+        SkyFunctions.BUILD_INFO,
+        new WorkspaceStatusFunction(removeActionsAfterEvaluation, this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(removeActionsAfterEvaluation));
     ActionExecutionFunction actionExecutionFunction =
         new ActionExecutionFunction(skyframeActionExecutor, tsgm);
@@ -695,10 +697,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
-  public void injectWorkspaceStatusData(String workspaceName) {
-    PrecomputedValue.WORKSPACE_STATUS_KEY.set(injectable(),
-        workspaceStatusActionFactory.createWorkspaceStatusAction(
-            artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId, workspaceName));
+  public void maybeInvalidateWorkspaceStatusValue(String workspaceName) {
+    WorkspaceStatusAction newWorkspaceStatusAction = makeWorkspaceStatusAction(workspaceName);
+    WorkspaceStatusAction oldWorkspaceStatusAction = getLastWorkspaceStatusAction();
+    if (oldWorkspaceStatusAction != null
+        && !newWorkspaceStatusAction.equals(oldWorkspaceStatusAction)) {
+      // TODO(janakr): don't invalidate here, just use different keys for different configs. Can't
+      // be done right now because of lack of configuration trimming and fact that everything
+      // depends on workspace status action.
+      invalidate(WorkspaceStatusValue.SKY_KEY::equals);
+    }
+  }
+
+  private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
+    return workspaceStatusActionFactory.createWorkspaceStatusAction(
+        artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId, workspaceName);
+  }
+
+  @VisibleForTesting
+  @Nullable
+  public WorkspaceStatusAction getLastWorkspaceStatusAction() {
+    WorkspaceStatusValue workspaceStatusValue =
+        (WorkspaceStatusValue) memoizingEvaluator.getExistingValue(WorkspaceStatusValue.SKY_KEY);
+    return workspaceStatusValue == null
+        ? null
+        : (WorkspaceStatusAction) workspaceStatusValue.getAction(0);
   }
 
   public void injectCoverageReportData(ImmutableList<ActionAnalysisMetadata> actions) {
@@ -805,13 +828,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
     return roots;
-  }
-
-  @VisibleForTesting
-  public WorkspaceStatusAction getLastWorkspaceStatusActionForTesting() {
-    PrecomputedValue value = (PrecomputedValue) buildDriver.getGraphForTesting()
-        .getExistingValueForTesting(PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting());
-    return (WorkspaceStatusAction) value.get();
   }
 
   @VisibleForTesting
@@ -1547,11 +1563,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       BuildConfiguration configuration,
       Attribute.Transition transition) {
-    if (memoizingEvaluator.getExistingValueForTesting(
-        PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
-      injectWorkspaceStatusData(label.getWorkspaceRoot());
-    }
-
     return Iterables.getFirst(
         getConfiguredTargets(
             eventHandler,

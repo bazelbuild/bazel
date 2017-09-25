@@ -227,7 +227,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     return new Builder() {
       private void setGeneratingActions() {
-        if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
+        if (evaluator.getExistingValue(OWNER_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(
                   OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions), false)));
@@ -253,8 +253,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         skyframeActionExecutor.prepareForExecution(
             reporter,
             executor,
-            keepGoing, /*explain=*/
-            false,
+            keepGoing,
+            /*explain=*/ false,
             new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, null),
             null);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(

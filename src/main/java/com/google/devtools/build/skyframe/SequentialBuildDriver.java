@@ -60,7 +60,7 @@ public class SequentialBuildDriver implements BuildDriver {
   @Nullable
   @Override
   public SkyValue getExistingValueForTesting(SkyKey key) {
-    return memoizingEvaluator.getExistingValueForTesting(key);
+    return memoizingEvaluator.getExistingValue(key);
   }
 
   @Nullable

@@ -326,7 +326,7 @@ public class BuildView {
 
   @VisibleForTesting
   WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() {
-    return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
+    return skyframeExecutor.getLastWorkspaceStatusAction();
   }
 
   @Override
@@ -593,7 +593,7 @@ public class BuildView {
               target.getFirst(), target.getSecond(), aspectConfigurations.get(target)));
     }
 
-    skyframeExecutor.injectWorkspaceStatusData(loadingResult.getWorkspaceName());
+    skyframeExecutor.maybeInvalidateWorkspaceStatusValue(loadingResult.getWorkspaceName());
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =

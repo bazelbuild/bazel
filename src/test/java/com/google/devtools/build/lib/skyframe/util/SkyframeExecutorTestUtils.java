@@ -50,7 +50,7 @@ public class SkyframeExecutorTestUtils {
    */
   @Nullable
   public static SkyValue getExistingValue(SkyframeExecutor skyframeExecutor, SkyKey key) {
-    return skyframeExecutor.getEvaluatorForTesting().getExistingValueForTesting(key);
+    return skyframeExecutor.getEvaluatorForTesting().getExistingValue(key);
   }
 
   /**
