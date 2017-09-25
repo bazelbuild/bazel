@@ -363,7 +363,6 @@ java_test(
     name = "MethodInfoTest",
     size = "small",
     srcs = ["MethodInfoTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:junit4",
@@ -375,7 +374,6 @@ java_test(
     name = "FieldInfoTest",
     size = "small",
     srcs = ["FieldInfoTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:junit4",
@@ -387,7 +385,6 @@ java_test(
     name = "Java7CompatibilityTest",
     size = "small",
     srcs = ["Java7CompatibilityTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:asm",
@@ -400,7 +397,6 @@ java_test(
     name = "IndexedInputsTest",
     size = "small",
     srcs = ["IndexedInputsTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:guava",
@@ -419,6 +415,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=19",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -443,6 +440,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=18",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -486,7 +484,7 @@ java_test(
 # This test sets the lambda dump directory via the system property in the command line
 # (i.e., jvm_flags). So the dump directory is expected to succeed.
 java_test(
-    name = "DesugarMainCLassTestLambdaDirectoryCorrectlySet",
+    name = "DesugarMainClassTestLambdaDirectoryCorrectlySet",
     size = "small",
     srcs = ["DesugarMainClassTest.java"],
     jvm_flags = ["-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)"],
@@ -503,7 +501,7 @@ java_test(
 # Different from the test target above, this test does not set the lambda dump directory in the
 # command line. Instead, it sets the system property in the test code, which is expected to fail.
 java_test(
-    name = "DesugarMainCLassTestLambdaDirectoryIncorrectlySet",
+    name = "DesugarMainClassTestLambdaDirectoryIncorrectlySet",
     size = "small",
     srcs = ["DesugarMainClassTest.java"],
     tags = ["no_windows"],
