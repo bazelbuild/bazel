@@ -60,23 +60,17 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // We have two registered toolchains, and one default for c++
     assertThat(value.registeredToolchains()).hasSize(3);
 
-    DeclaredToolchainInfo registeredToolchain1 = value.registeredToolchains().get(1);
-    assertThat(registeredToolchain1).isNotNull();
+    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
+        (toolchain.toolchainType().equals(testToolchainType))
+            && toolchain.execConstraints().contains(linuxConstraint)
+            && toolchain.targetConstraints().contains(macConstraint)
+            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_1")))).isTrue();
 
-    assertThat(registeredToolchain1.toolchainType()).isEqualTo(testToolchainType);
-    assertThat(registeredToolchain1.execConstraints()).containsExactly(linuxConstraint);
-    assertThat(registeredToolchain1.targetConstraints()).containsExactly(macConstraint);
-    assertThat(registeredToolchain1.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_1"));
-
-    DeclaredToolchainInfo registeredToolchain2 = value.registeredToolchains().get(2);
-    assertThat(registeredToolchain2).isNotNull();
-
-    assertThat(registeredToolchain2.toolchainType()).isEqualTo(testToolchainType);
-    assertThat(registeredToolchain2.execConstraints()).containsExactly(macConstraint);
-    assertThat(registeredToolchain2.targetConstraints()).containsExactly(linuxConstraint);
-    assertThat(registeredToolchain2.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_2"));
+    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
+        (toolchain.toolchainType().equals(testToolchainType))
+            && toolchain.execConstraints().contains(macConstraint)
+            && toolchain.targetConstraints().contains(linuxConstraint)
+            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_2")))).isTrue();
   }
 
   @Test
