@@ -524,11 +524,11 @@ function test_root_cause_early() {
   # to be reported first.
   expect_log_once '^action'
   expect_log_once '^completed'
-  expect_not_log 'success'
+  expect_not_log 'success: true'
   local naction=`grep -n '^action' $TEST_log | cut -f 1 -d :`
   local ncomplete=`grep -n '^completed' $TEST_log | cut -f 1 -d :`
   [ $naction -lt $ncomplete ] \
-      || fail "failed action not before compelted target"
+      || fail "failed action not before completed target"
 }
 
 function test_action_conf() {
@@ -602,9 +602,9 @@ function test_stdout_stderr_reported() {
   # independently in the stream) and still characteristic enough to not occur
   # in the stream by accident. Taking the first line mentioning the test name
   # is likely some form of progress report.
-  sample_line=`cat stderr.log | grep 'slow' | head -1 | tr '[]' '..'`
+  sample_line=`cat stderr.log | grep 'slow' | head -n 1 | tr '[]\r' '....'`
   echo "Sample regexp of stderr: ${sample_line}"
-  expect_log "stderr.*$sample_line"
+  expect_log "stderr.*${sample_line}"
 }
 
 function test_srcfiles() {
