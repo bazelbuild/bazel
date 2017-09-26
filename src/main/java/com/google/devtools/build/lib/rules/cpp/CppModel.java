@@ -599,8 +599,7 @@ public final class CppModel {
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.
-      buildVariables.addStringSequenceVariable(
-          MODULE_FILES_VARIABLE_NAME, ImmutableSet.<String>of());
+      buildVariables.addStringSequenceVariable(MODULE_FILES_VARIABLE_NAME, ImmutableSet.of());
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
       buildVariables.addStringSequenceVariable(

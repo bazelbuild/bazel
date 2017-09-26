@@ -457,7 +457,7 @@ public class CppLinkActionBuilder {
    * used as input to the LTO indexing step.
    */
   private ImmutableSet<LinkerInput> computeLtoIndexingObjectFileInputs() {
-    ImmutableSet.Builder<LinkerInput> objectFileInputsBuilder = ImmutableSet.<LinkerInput>builder();
+    ImmutableSet.Builder<LinkerInput> objectFileInputsBuilder = ImmutableSet.builder();
     for (LinkerInput input : objectFiles) {
       Artifact objectFile = input.getArtifact();
       objectFileInputsBuilder.add(
@@ -480,7 +480,7 @@ public class CppLinkActionBuilder {
         uniqueLibrariesBuilder.add(lib);
         continue;
       }
-      ImmutableSet.Builder<Artifact> newObjectFilesBuilder = ImmutableSet.<Artifact>builder();
+      ImmutableSet.Builder<Artifact> newObjectFilesBuilder = ImmutableSet.builder();
       for (Artifact a : lib.getObjectFiles()) {
         newObjectFilesBuilder.add(lib.getLtoBitcodeFiles().getOrDefault(a, a));
       }
@@ -599,7 +599,7 @@ public class CppLinkActionBuilder {
     final ImmutableList<Artifact> buildInfoHeaderArtifacts =
         !linkstamps.isEmpty()
             ? analysisEnvironment.getBuildInfo(ruleContext, CppBuildInfo.KEY, configuration)
-            : ImmutableList.<Artifact>of();
+            : ImmutableList.of();
 
     boolean needWholeArchive =
         wholeArchive
@@ -632,7 +632,7 @@ public class CppLinkActionBuilder {
 
     // ruleContext can only be null during testing. This is kind of ugly.
     final ImmutableSet<String> features =
-        (ruleContext == null) ? ImmutableSet.<String>of() : ruleContext.getFeatures();
+        (ruleContext == null) ? ImmutableSet.of() : ruleContext.getFeatures();
 
     final LibraryToLink outputLibrary = linkType.isExecutable()
         ? null
@@ -662,7 +662,6 @@ public class CppLinkActionBuilder {
       allLtoArtifacts = createLtoArtifacts(ltoOutputRootPrefix, originalUniqueLibraries);
     }
 
-    PathFragment linkerParamFileRootPath = null;
     @Nullable Artifact thinltoParamFile = null;
     if (allLtoArtifacts != null) {
       // Create artifact for the file that the LTO indexing step will emit
@@ -672,7 +671,7 @@ public class CppLinkActionBuilder {
       // Note that the paths emitted into this file will have their prefixes
       // replaced with the final output directory, so they will be the paths
       // of the native object files not the input bitcode files.
-      linkerParamFileRootPath =
+      PathFragment linkerParamFileRootPath =
           ParameterFile.derivePath(output.getRootRelativePath(), "lto-final");
       thinltoParamFile =
           linkArtifactFactory.create(ruleContext, configuration, linkerParamFileRootPath);
@@ -715,16 +714,16 @@ public class CppLinkActionBuilder {
         isLtoIndexing
             ? new CppLinkVariablesExtension(
                 configuration,
-                ImmutableMap.<Artifact, Artifact>of(),
+                /* linkstampMap= */ ImmutableMap.of(),
                 needWholeArchive,
                 linkerInputs,
                 runtimeLinkerInputs,
-                null,
+                /* output= */ null,
                 paramFile,
                 thinltoParamFile,
                 ltoOutputRootPrefix,
-                null,
-                null)
+                /* interfaceLibraryBuilder= */ null,
+                /* interfaceLibraryOutput= */ null)
             : new CppLinkVariablesExtension(
                 configuration,
                 linkstampMap,
@@ -734,7 +733,7 @@ public class CppLinkActionBuilder {
                 output,
                 paramFile,
                 thinltoParamFile,
-                PathFragment.EMPTY_FRAGMENT,
+                /* ltoOutputRootPrefix= */ PathFragment.EMPTY_FRAGMENT,
                 toolchain.getInterfaceSoBuilder(),
                 interfaceOutput);
     variablesExtension.addVariables(buildVariablesBuilder);
@@ -901,7 +900,7 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    ImmutableSet.Builder<String> executionRequirements = ImmutableSet.<String>builder();
+    ImmutableSet.Builder<String> executionRequirements = ImmutableSet.builder();
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       executionRequirements.addAll(
           featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements());
@@ -1432,7 +1431,7 @@ public class CppLinkActionBuilder {
       }
 
       // linkstamp
-      ImmutableSet.Builder<String> linkstampPaths = ImmutableSet.<String>builder();
+      ImmutableSet.Builder<String> linkstampPaths = ImmutableSet.builder();
       for (Artifact linkstampOutput : linkstampMap.values()) {
         linkstampPaths.add(linkstampOutput.getExecPathString());
       }
