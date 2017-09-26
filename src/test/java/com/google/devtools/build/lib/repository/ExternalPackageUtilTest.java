@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules;
+package com.google.devtools.build.lib.repository;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
@@ -60,10 +61,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -127,7 +126,6 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     // Helper Skyfunctions to call ExternalPackageUtil.
     skyFunctions.put(GET_RULE_BY_NAME_FUNCTION, new GetRuleByNameFunction());
-    skyFunctions.put(GET_RULE_BY_RULE_CLASS_FUNCTION, new GetRuleByRuleClassFunction());
     skyFunctions.put(GET_REGISTERED_TOOLCHAINS_FUNCTION, new GetRegisteredToolchainsFunction());
 
     RecordingDifferencer differencer = new RecordingDifferencer();
@@ -168,53 +166,6 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains("The rule named 'bar' could not be resolved");
-  }
-
-  @Test
-  public void getRuleByRuleClass() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "http_archive(name = 'foo', url = 'http://foo')",
-        "http_archive(name = 'bar', url = 'http://bar')");
-
-    SkyKey key = getRuleByRuleClassKey("http_archive");
-    EvaluationResult<GetRuleByRuleClassValue> result = getRuleByRuleClass(key);
-
-    assertThatEvaluationResult(result).hasNoError();
-
-    List<Rule> rules = result.get(key).rules();
-    assertThat(rules).isNotNull();
-    assertThat(rules).hasSize(2);
-
-    Set<String> names = new HashSet<>();
-    for (Rule rule : rules) {
-      names.add(rule.getName());
-    }
-
-    assertThat(names).containsExactly("foo", "bar");
-  }
-
-  @Test
-  public void getRuleByRuleClass_none() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "http_archive(name = 'foo', url = 'http://foo')",
-        "http_archive(name = 'bar', url = 'http://bar')");
-
-    SkyKey key = getRuleByRuleClassKey("new_git_repository");
-    EvaluationResult<GetRuleByRuleClassValue> result = getRuleByRuleClass(key);
-
-    assertThatEvaluationResult(result).hasNoError();
-
-    List<Rule> rules = result.get(key).rules();
-    assertThat(rules).isNotNull();
-    assertThat(rules).isEmpty();
   }
 
   @Test
@@ -281,55 +232,6 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     }
   }
 
-  // GetRuleByRuleClass.
-  SkyKey getRuleByRuleClassKey(String ruleClass) {
-    return LegacySkyKey.create(GET_RULE_BY_RULE_CLASS_FUNCTION, ruleClass);
-  }
-
-  EvaluationResult<GetRuleByRuleClassValue> getRuleByRuleClass(SkyKey key)
-      throws InterruptedException {
-    return driver.<GetRuleByRuleClassValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
-  }
-
-  private static final SkyFunctionName GET_RULE_BY_RULE_CLASS_FUNCTION =
-      SkyFunctionName.create("GET_RULE_BY_RULE_CLASS");
-
-  @AutoValue
-  abstract static class GetRuleByRuleClassValue implements SkyValue {
-    abstract ImmutableList<Rule> rules();
-
-    static GetRuleByRuleClassValue create(Iterable<Rule> rules) {
-      return new AutoValue_ExternalPackageUtilTest_GetRuleByRuleClassValue(
-          ImmutableList.copyOf(rules));
-    }
-  }
-
-  private static final class GetRuleByRuleClassFunction implements SkyFunction {
-
-    @Nullable
-    @Override
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
-      String ruleName = (String) skyKey.argument();
-
-      List<Rule> rules = ExternalPackageUtil.getRuleByRuleClass(ruleName, env);
-      if (rules == null) {
-        return null;
-      }
-      return GetRuleByRuleClassValue.create(rules);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
-  }
-
   // GetRegisteredToolchains.
   SkyKey getRegisteredToolchainsKey() {
     return LegacySkyKey.create(GET_REGISTERED_TOOLCHAINS_FUNCTION, "singleton");
@@ -363,9 +265,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      String ruleName = (String) skyKey.argument();
-
-      List<Label> registeredToolchainLabels = ExternalPackageUtil.getRegisteredToolchainLabels(env);
+      List<Label> registeredToolchainLabels =
+          RegisteredToolchainsFunction.getRegisteredToolchainLabels(env);
       if (registeredToolchainLabels == null) {
         return null;
       }

@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -551,14 +553,14 @@ public abstract class RepositoryFunction {
         // Invalidate external/<repo> if the repository overrides change.
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       }
-    } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
+    } catch (ExternalRuleNotFoundException ex) {
       // The repository we are looking for does not exist so we should depend on the whole
       // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
       // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
       // of the resolution. Therefore we are safe to ignore that Exception.
       return;
-    } catch (ExternalPackageUtil.ExternalPackageException ex) {
+    } catch (ExternalPackageException ex) {
       // This should never happen.
       throw new IllegalStateException(
           "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.ExternalPackageUtil;
-import com.google.devtools.build.lib.rules.ExternalPackageUtil.ExternalPackageException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -70,12 +70,30 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   }
 
   private Iterable<? extends Label> getWorkspaceToolchains(Environment env)
-      throws ExternalPackageException, InterruptedException {
-    List<Label> labels = ExternalPackageUtil.getRegisteredToolchainLabels(env);
+      throws InterruptedException {
+    List<Label> labels = getRegisteredToolchainLabels(env);
     if (labels == null) {
       return ImmutableList.of();
     }
     return labels;
+  }
+
+  /**
+   * Loads the external package and then returns the registered toolchain labels.
+   *
+   * @param env the environment to use for lookups
+   */
+  @Nullable @VisibleForTesting
+  public static List<Label> getRegisteredToolchainLabels(Environment env)
+      throws InterruptedException {
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER));
+    if (externalPackageValue == null) {
+      return null;
+    }
+
+    Package externalPackage = externalPackageValue.getPackage();
+    return externalPackage.getRegisteredToolchainLabels();
   }
 
   private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(

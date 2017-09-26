@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -64,13 +66,12 @@ public class MavenServerFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, RepositoryFunctionException,
-          ExternalPackageUtil.ExternalPackageException {
+      throws InterruptedException, RepositoryFunctionException, ExternalPackageException {
     String repository = (String) skyKey.argument();
     Rule repositoryRule = null;
     try {
       repositoryRule = ExternalPackageUtil.getRuleByName(repository, env);
-    } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
+    } catch (ExternalRuleNotFoundException ex) {
       // Ignored. We throw a new one below.
     }
     if (env.valuesMissing()) {

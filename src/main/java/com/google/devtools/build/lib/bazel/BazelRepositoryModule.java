@@ -176,7 +176,6 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
-      // TODO(bazel-team): Migrate away from Class<?>
       RuleDefinition ruleDefinition;
       try {
         ruleDefinition = handler.getValue().getRuleDefinition().getDeclaredConstructor()
