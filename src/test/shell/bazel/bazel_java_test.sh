@@ -1339,8 +1339,6 @@ EOF
   [[ -s $xml_log ]] || fail "$xml_log was not present after test"
   cat "$xml_log" > "$TEST_log"
   expect_log "failures='2'"
-  expect_log "status='INTERRUPTED"
-  expect_log "status='CANCELLED'"
   expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
   expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
 }
