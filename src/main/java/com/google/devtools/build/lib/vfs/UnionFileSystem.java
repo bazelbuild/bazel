@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.StringTrie;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -28,21 +26,20 @@ import javax.annotation.Nullable;
 
 /**
  * Presents a unified view of multiple virtual {@link FileSystem} instances, to which requests are
- * delegated based on a {@link PathFragment} prefix mapping.
- * If multiple prefixes apply to a given path, the *longest* (i.e. most specific) match is used.
- * The order in which the delegates are specified does not influence the mapping.
+ * delegated based on a {@link PathFragment} prefix mapping. If multiple prefixes apply to a given
+ * path, the *longest* (i.e. most specific) match is used. The order in which the delegates are
+ * specified does not influence the mapping.
  *
- * <p>Paths are preserved absolutely, contrary to how "mount" works, e.g.:
- *    /foo/bar maps to /foo/bar on the delegate, even if it is mounted at /foo.
+ * <p>Paths are preserved absolutely, contrary to how "mount" works, e.g.: /foo/bar maps to /foo/bar
+ * on the delegate, even if it is mounted at /foo.
  *
- * <p>For example:
- * "/in" maps to InFileSystem, "/" maps to OtherFileSystem.
- * Reading from "/in/base/BUILD" through the UnionFileSystem will delegate the read operation to
- * InFileSystem, which will read "/in/base/BUILD" relative to its root.
- * ("mount" behavior would remap it to "/base/BUILD" on the delegate).
+ * <p>For example: "/in" maps to InFileSystem, "/" maps to OtherFileSystem. Reading from
+ * "/in/base/BUILD" through the UnionFileSystem will delegate the read operation to InFileSystem,
+ * which will read "/in/base/BUILD" relative to its root. ("mount" behavior would remap it to
+ * "/base/BUILD" on the delegate).
  *
- * <p>Intra-filesystem symbolic links are resolved to their ultimate targets.
- * Cross-filesystem links are not currently supported.
+ * <p>Intra-filesystem symbolic links are resolved to their ultimate targets. Cross-filesystem links
+ * are not currently supported.
  */
 @ThreadSafety.ThreadSafe
 public class UnionFileSystem extends FileSystem {
@@ -50,7 +47,7 @@ public class UnionFileSystem extends FileSystem {
   // Prefix trie index, allowing children to easily inherit prefix mappings
   // of their parents.
   // This does not currently handle unicode filenames.
-  private StringTrie<FileSystem> pathDelegate;
+  private final PathTrie<FileSystem> pathDelegate;
 
   // True iff the filesystem can be modified. If false, mutating operations
   // will throw UnsupportedOperationExceptions.
@@ -61,37 +58,35 @@ public class UnionFileSystem extends FileSystem {
   private final boolean isCaseSensitive;
 
   /**
-   * Creates a new modifiable UnionFileSystem with prefix mappings
-   * specified by a map.
+   * Creates a new modifiable UnionFileSystem with prefix mappings specified by a map.
    *
    * @param prefixMapping map of path prefixes to {@link FileSystem}s
    */
-  public UnionFileSystem(Map<PathFragment, FileSystem> prefixMapping,
-                         FileSystem rootFileSystem) {
+  public UnionFileSystem(Map<PathFragment, FileSystem> prefixMapping, FileSystem rootFileSystem) {
     this(prefixMapping, rootFileSystem, /* readOnly */ false);
   }
 
   /**
-   * Creates a new modifiable or read-only UnionFileSystem with prefix mappings
-   * specified by a map.
+   * Creates a new modifiable or read-only UnionFileSystem with prefix mappings specified by a map.
    *
-   * @param prefixMapping map of path prefixes to delegate {@link FileSystem}s
+   * @param prefixMapping map of path prefixes to delegate {@link FileSystem} instances to use for
+   *     paths of that prefix. Note that all prefixes must be absolute paths.
    * @param rootFileSystem root for default requests; i.e. mapping of "/"
    * @param readOnly if true, mutating operations will throw
    */
-  public UnionFileSystem(Map<PathFragment, FileSystem> prefixMapping,
-                         FileSystem rootFileSystem, boolean readOnly) {
+  public UnionFileSystem(
+      Map<PathFragment, FileSystem> prefixMapping, FileSystem rootFileSystem, boolean readOnly) {
     super();
     Preconditions.checkNotNull(prefixMapping);
     Preconditions.checkNotNull(rootFileSystem);
     Preconditions.checkArgument(rootFileSystem != this, "Circular root filesystem.");
     Preconditions.checkArgument(
         !prefixMapping.containsKey(PathFragment.EMPTY_FRAGMENT),
-        "Attempted to specify an explicit root prefix mapping; " +
-        "please use the rootFileSystem argument instead.");
+        "Attempted to specify an explicit root prefix mapping; "
+            + "please use the rootFileSystem argument instead.");
 
     this.readOnly = readOnly;
-    this.pathDelegate = new StringTrie<>();
+    this.pathDelegate = new PathTrie<>();
     this.isCaseSensitive = rootFileSystem.isFilePathCaseSensitive();
 
     for (Map.Entry<PathFragment, FileSystem> prefix : prefixMapping.entrySet()) {
@@ -102,29 +97,24 @@ public class UnionFileSystem extends FileSystem {
       PathFragment prefixPath = prefix.getKey();
 
       // Extra slash prevents within-directory mappings, which Path can't handle.
-      String path = prefixPath.getPathString();
-      pathDelegate.put(path, delegate);
+      pathDelegate.put(prefixPath, delegate);
     }
-    pathDelegate.put(PathFragment.EMPTY_FRAGMENT.getPathString(), rootFileSystem);
+    pathDelegate.put(PathFragment.ROOT_FRAGMENT, rootFileSystem);
   }
 
   /**
-   * Retrieves the filesystem delegate of a path mapping.
-   * Does not follow symlinks (but you can call on a path preprocessed with
-   * {@link #resolveSymbolicLinks} to support this use case).
+   * Retrieves the filesystem delegate of a path mapping. Does not follow symlinks (but you can call
+   * on a path preprocessed with {@link #resolveSymbolicLinks} to support this use case).
    *
    * @param path the {@link Path} to map to a filesystem
    * @throws IllegalArgumentException if no delegate exists for the path
    */
   protected FileSystem getDelegate(Path path) {
     Preconditions.checkNotNull(path);
-
-    String pathString = path.getPathString();
-    FileSystem immediateDelegate = pathDelegate.get(pathString);
+    FileSystem immediateDelegate = pathDelegate.get(path.asFragment());
 
     // Should never actually happen if the root delegate is present.
-    Preconditions.checkArgument(immediateDelegate != null, "No delegate filesystem exists for %s",
-        pathString);
+    Preconditions.checkNotNull(immediateDelegate, "No delegate filesystem exists for %s", path);
     return immediateDelegate;
   }
 
@@ -135,8 +125,8 @@ public class UnionFileSystem extends FileSystem {
   }
 
   /**
-   * Follow a symbolic link once using the appropriate delegate filesystem, also
-   * resolving parent directory symlinks.
+   * Follow a symbolic link once using the appropriate delegate filesystem, also resolving parent
+   * directory symlinks.
    *
    * @param path {@link Path} to the symbolic link
    */
@@ -157,7 +147,7 @@ public class UnionFileSystem extends FileSystem {
   private void checkModifiable() {
     if (!supportsModifications()) {
       throw new UnsupportedOperationException(
-          "Modifications to this " + getClass().getSimpleName() + " are disabled.");
+          String.format("Modifications to this %s are disabled.", getClass().getSimpleName()));
     }
   }
 
@@ -311,9 +301,8 @@ public class UnionFileSystem extends FileSystem {
   }
 
   /**
-   * Retrieves the directory entries for the specified path under the assumption
-   * that {@code resolvedPath} is the resolved path of {@code path} in one of the
-   * underlying file systems.
+   * Retrieves the directory entries for the specified path under the assumption that {@code
+   * resolvedPath} is the resolved path of {@code path} in one of the underlying file systems.
    *
    * @param path the {@link Path} whose children are to be retrieved
    */
@@ -409,16 +398,18 @@ public class UnionFileSystem extends FileSystem {
     FileSystem sourceDelegate = getDelegate(sourcePath);
     if (!sourceDelegate.supportsModifications()) {
       throw new UnsupportedOperationException(
-          "The filesystem for the source path "
-          + sourcePath.getPathString() + " does not support modifications.");
+          String.format(
+              "The filesystem for the source path %s does not support modifications.",
+              sourcePath.getPathString()));
     }
     sourcePath = adjustPath(sourcePath, sourceDelegate);
 
     FileSystem targetDelegate = getDelegate(targetPath);
     if (!targetDelegate.supportsModifications()) {
       throw new UnsupportedOperationException(
-          "The filesystem for the target path "
-          + targetPath.getPathString() + " does not support modifications.");
+          String.format(
+              "The filesystem for the target path %s does not support modifications.",
+              targetPath.getPathString()));
     }
     targetPath = adjustPath(targetPath, targetDelegate);
 
@@ -435,8 +426,7 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
-      throws IOException {
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath) throws IOException {
     checkModifiable();
 
     FileSystem originalDelegate = getDelegate(originalPath);

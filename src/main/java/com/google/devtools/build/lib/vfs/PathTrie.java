@@ -11,52 +11,48 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.util;
+package com.google.devtools.build.lib.vfs;
+
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.util.Preconditions;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * A trie that operates on path segments of an input string instead of individual characters.
+ * A trie that operates on path segments.
  *
- * <p>Only accepts strings that contain only low-ASCII characters (0-127)
- *
- * @param <T> the type of the values
+ * @param <T> the type of the values.
  */
-public class StringTrie<T> {
-  private static final int RANGE = 128;
-
+@ThreadCompatible
+public class PathTrie<T> {
   @SuppressWarnings("unchecked")
   private static class Node<T> {
     private Node() {
-      children = new Node[RANGE];
+      children = new HashMap<>();
     }
 
     private T value;
-    private Node<T> children[];
+    private Map<String, Node<T>> children;
   }
 
   private final Node<T> root;
 
-  public StringTrie() {
+  public PathTrie() {
     root = new Node<T>();
   }
 
   /**
    * Puts a value in the trie.
+   *
+   * @param key must be an absolute path.
    */
-  public void put(CharSequence key, T value) {
+  public void put(PathFragment key, T value) {
+    Preconditions.checkArgument(key.isAbsolute(), "PathTrie only accepts absolute paths as keys.");
     Node<T> current = root;
-
-    for (int i = 0; i < key.length(); i++) {
-      char ch = key.charAt(i);
-      Preconditions.checkState(ch < RANGE);
-      Node<T> next = current.children[ch];
-      if (next == null) {
-        next = new Node<T>();
-        current.children[ch] = next;
-      }
-
-      current = next;
+    for (String segment : key.getSegments()) {
+      current.children.putIfAbsent(segment, new Node<T>());
+      current = current.children.get(segment);
     }
-
     current.value = value;
   }
 
@@ -64,21 +60,20 @@ public class StringTrie<T> {
    * Gets a value from the trie. If there is an entry with the same key, that will be returned,
    * otherwise, the value corresponding to the key that matches the longest prefix of the input.
    */
-  public T get(String key) {
+  public T get(PathFragment key) {
     Node<T> current = root;
     T lastValue = current.value;
 
-    for (int i = 0; i < key.length(); i++) {
-      char ch = key.charAt(i);
-      Preconditions.checkState(ch < RANGE);
-
-      current = current.children[ch];
-      if (current == null) {
+    for (String segment : key.getSegments()) {
+      if (current.children.containsKey(segment)) {
+        current = current.children.get(segment);
+        // Track the values of increasing matching prefixes.
+        if (current.value != null) {
+          lastValue = current.value;
+        }
+      } else {
+        // We've reached the longest prefix, no further to go.
         break;
-      }
-
-      if (current.value != null) {
-        lastValue = current.value;
       }
     }
 

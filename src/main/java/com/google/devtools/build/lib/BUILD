@@ -94,7 +94,6 @@ java_library(
     name = "base-util",
     srcs = [
         "util/StringCanonicalizer.java",
-        "util/StringTrie.java",
         "util/VarInt.java",
     ],
     deps = [

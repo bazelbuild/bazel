@@ -808,7 +808,7 @@ public final class BlazeRuntime {
     }
   }
 
-  private static FileSystem fileSystemImplementation() {
+  private static FileSystem defaultFileSystemImplementation() {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
       return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
@@ -943,7 +943,7 @@ public final class BlazeRuntime {
     }
 
     if (fs == null) {
-      fs = fileSystemImplementation();
+      fs = defaultFileSystemImplementation();
     }
 
     Path.setFileSystemForSerialization(fs);

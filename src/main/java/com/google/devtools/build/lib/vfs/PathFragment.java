@@ -58,6 +58,9 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
   /** An empty path fragment. */
   public static final PathFragment EMPTY_FRAGMENT = create("");
 
+  /** The path fragment representing the root directory. */
+  public static final PathFragment ROOT_FRAGMENT = create(ROOT_DIR);
+
   /**
    * A helper object for manipulating the various internal {@link PathFragment} implementations.
    *
