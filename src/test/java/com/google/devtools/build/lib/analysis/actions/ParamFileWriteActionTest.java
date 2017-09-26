@@ -31,11 +31,13 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import org.junit.Before;
@@ -163,5 +165,36 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     Executor executor = new TestExecutorBuilder(directories, binTools).build();
     return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
         new FileOutErr(), ImmutableMap.<String, String>of(), artifactExpander);
+  }
+
+  private enum KeyAttributes {
+    COMMANDLINE,
+    FILE_TYPE,
+    CHARSET,
+  }
+
+  @Test
+  public void testComputeKey() throws Exception {
+    final Artifact outputArtifact = getSourceArtifact("output");
+    ActionTester.runTest(
+        KeyAttributes.class,
+        attributesToFlip -> {
+          String arg = attributesToFlip.contains(KeyAttributes.COMMANDLINE) ? "foo" : "bar";
+          CommandLine commandLine = CommandLine.of(ImmutableList.of(arg));
+          ParameterFileType parameterFileType =
+              attributesToFlip.contains(KeyAttributes.FILE_TYPE)
+                  ? ParameterFileType.SHELL_QUOTED
+                  : ParameterFileType.UNQUOTED;
+          Charset charset =
+              attributesToFlip.contains(KeyAttributes.CHARSET)
+                  ? StandardCharsets.UTF_8
+                  : StandardCharsets.US_ASCII;
+          return new ParameterFileWriteAction(
+              ActionsTestUtil.NULL_ACTION_OWNER,
+              outputArtifact,
+              commandLine,
+              parameterFileType,
+              charset);
+        });
   }
 }

@@ -169,6 +169,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     f.addString(GUID);
     f.addString(String.valueOf(makeExecutable));
     f.addString(type.toString());
+    f.addString(charset.toString());
     f.addStrings(commandLine.arguments());
     return f.hexDigestAndReset();
   }
