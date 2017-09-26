@@ -17,8 +17,10 @@ package com.google.devtools.common.options;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import java.lang.reflect.Constructor;
@@ -32,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -224,7 +227,9 @@ public class OptionsParser implements OptionsProvider {
   public void parseAndExitUponError(OptionPriority priority, String source, String[] args) {
     for (String arg : args) {
       if (arg.equals("--help")) {
-        System.out.println(describeOptions(ImmutableMap.of(), HelpVerbosity.LONG));
+        System.out.println(
+            describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG));
+
         System.exit(0);
       }
     }
@@ -283,6 +288,78 @@ public class OptionsParser implements OptionsProvider {
    * Returns a description of all the options this parser can digest. In addition to {@link Option}
    * annotations, this method also interprets {@link OptionsUsage} annotations which give an
    * intuitive short description for the options. Options of the same category (see {@link
+   * OptionDocumentationCategory}) will be grouped together.
+   *
+   * @param productName the name of this product (blaze, bazel)
+   * @param helpVerbosity if {@code long}, the options will be described verbosely, including their
+   *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
+   *     {@code short}, the options are just enumerated.
+   */
+  public String describeOptions(String productName, HelpVerbosity helpVerbosity) {
+    StringBuilder desc = new StringBuilder();
+    LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
+        getOptionsSortedByCategory();
+    ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
+        OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
+    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+        optionsByCategory.entrySet()) {
+      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
+      List<OptionDefinition> categorizedOptionList = e.getValue();
+
+      // Describe the category if we're going to end up using it at all.
+      if (!categorizedOptionList.isEmpty()) {
+        desc.append("\n").append(categoryDescription).append(":\n");
+      }
+      // Describe the options in this category.
+      for (OptionDefinition optionDef : categorizedOptionList) {
+        OptionsUsage.getUsage(optionDef, desc, helpVerbosity, impl.getOptionsData(), true);
+      }
+    }
+
+    return desc.toString().trim();
+  }
+
+  /**
+   * @return all documented options loaded in this parser, grouped by categories in display order.
+   */
+  private LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
+      getOptionsSortedByCategory() {
+    OptionsData data = impl.getOptionsData();
+    if (data.getOptionsClasses().isEmpty()) {
+      return new LinkedHashMap<>();
+    }
+
+    // Get the documented options grouped by category.
+    ListMultimap<OptionDocumentationCategory, OptionDefinition> optionsByCategories =
+        ArrayListMultimap.create();
+    for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+      for (OptionDefinition optionDefinition :
+          OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
+        // Only track documented options.
+        if (optionDefinition.getDocumentationCategory()
+            != OptionDocumentationCategory.UNDOCUMENTED) {
+          optionsByCategories.put(optionDefinition.getDocumentationCategory(), optionDefinition);
+        }
+      }
+    }
+
+    // Put the categories into display order and sort the options in each category.
+    LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> sortedCategoriesToOptions =
+        new LinkedHashMap<>(OptionFilterDescriptions.documentationOrder.length, 1);
+    for (OptionDocumentationCategory category : OptionFilterDescriptions.documentationOrder) {
+      List<OptionDefinition> optionList = optionsByCategories.get(category);
+      if (optionList != null) {
+        optionList.sort(OptionDefinition.BY_OPTION_NAME);
+        sortedCategoriesToOptions.put(category, optionList);
+      }
+    }
+    return sortedCategoriesToOptions;
+  }
+
+  /**
+   * Returns a description of all the options this parser can digest. In addition to {@link Option}
+   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
+   * intuitive short description for the options. Options of the same category (see {@link
    * Option#category}) will be grouped together.
    *
    * @param categoryDescriptions a mapping from category names to category descriptions.
@@ -291,7 +368,8 @@ public class OptionsParser implements OptionsProvider {
    *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
    *     {@code short}, the options are just enumerated.
    */
-  public String describeOptions(
+  @Deprecated
+  public String describeOptionsWithDeprecatedCategories(
       Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
     OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
@@ -318,7 +396,8 @@ public class OptionsParser implements OptionsProvider {
 
         if (optionDefinition.getDocumentationCategory()
             != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsage(optionDefinition, desc, helpVerbosity, impl.getOptionsData());
+          OptionsUsage.getUsage(
+              optionDefinition, desc, helpVerbosity, impl.getOptionsData(), false);
         }
       }
     }
@@ -326,17 +405,17 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * Returns a description of all the options this parser can digest.
-   * In addition to {@link Option} annotations, this method also
-   * interprets {@link OptionsUsage} annotations which give an intuitive short
-   * description for the options.
+   * Returns a description of all the options this parser can digest. In addition to {@link Option}
+   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
+   * intuitive short description for the options.
    *
-   * @param categoryDescriptions a mapping from category names to category
-   *   descriptions.  Options of the same category (see {@link
-   *   Option#category}) will be grouped together, preceded by the description
-   *   of the category.
+   * @param categoryDescriptions a mapping from category names to category descriptions. Options of
+   *     the same category (see {@link Option#category}) will be grouped together, preceded by the
+   *     description of the category.
    */
-  public String describeOptionsHtml(Map<String, String> categoryDescriptions, Escaper escaper) {
+  @Deprecated
+  public String describeOptionsHtmlWithDeprecatedCategories(
+      Map<String, String> categoryDescriptions, Escaper escaper) {
     OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
     if (!data.getOptionsClasses().isEmpty()) {
@@ -366,8 +445,39 @@ public class OptionsParser implements OptionsProvider {
 
         if (optionDefinition.getDocumentationCategory()
             != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsageHtml(optionDefinition, desc, escaper, impl.getOptionsData());
+          OptionsUsage.getUsageHtml(optionDefinition, desc, escaper, impl.getOptionsData(), false);
         }
+      }
+      desc.append("</dl>\n");
+    }
+    return desc.toString();
+  }
+
+  /**
+   * Returns a description of all the options this parser can digest. In addition to {@link Option}
+   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
+   * intuitive short description for the options.
+   */
+  public String describeOptionsHtml(Escaper escaper, String productName) {
+    StringBuilder desc = new StringBuilder();
+    LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
+        getOptionsSortedByCategory();
+    ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
+        OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
+
+    for (Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
+        optionsByCategory.entrySet()) {
+      desc.append("<dl>");
+      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
+      List<OptionDefinition> categorizedOptionsList = e.getValue();
+
+      // Describe the category if we're going to end up using it at all.
+      if (!categorizedOptionsList.isEmpty()) {
+        desc.append(escaper.escape(categoryDescription)).append(":\n");
+      }
+      // Describe the options in this category.
+      for (OptionDefinition optionDef : categorizedOptionsList) {
+        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
       }
       desc.append("</dl>\n");
     }

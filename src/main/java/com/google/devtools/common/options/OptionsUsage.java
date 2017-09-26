@@ -21,7 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.escape.Escaper;
 import java.text.BreakIterator;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A renderer for usage messages for any combination of options classes. */
@@ -42,7 +46,7 @@ class OptionsUsage {
         new ArrayList<>(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
     optionDefinitions.sort(OptionDefinition.BY_OPTION_NAME);
     for (OptionDefinition optionDefinition : optionDefinitions) {
-      getUsage(optionDefinition, usage, OptionsParser.HelpVerbosity.LONG, data);
+      getUsage(optionDefinition, usage, OptionsParser.HelpVerbosity.LONG, data, false);
     }
   }
 
@@ -95,19 +99,33 @@ class OptionsUsage {
 
   }
 
+  // Placeholder tag "UNKNOWN" is ignored.
+  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
+    return !effectTag.equals(OptionEffectTag.UNKNOWN);
+  }
+
+  // Tags that only apply to undocumented options are excluded.
+  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
+    return !metadataTag.equals(OptionMetadataTag.HIDDEN)
+        && !metadataTag.equals(OptionMetadataTag.INTERNAL);
+  }
+
   /** Appends the usage message for a single option-field message to 'usage'. */
   static void getUsage(
       OptionDefinition optionDefinition,
       StringBuilder usage,
       OptionsParser.HelpVerbosity helpVerbosity,
-      OptionsData optionsData) {
+      OptionsData optionsData,
+      boolean includeTags) {
     String flagName = getFlagName(optionDefinition);
     String typeDescription = getTypeDescription(optionDefinition);
     usage.append("  --").append(flagName);
-    if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) { // just the name
+    if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) {
       usage.append('\n');
       return;
     }
+
+    // Add the option's type and default information. Stop there for "medium" verbosity.
     if (optionDefinition.getAbbreviation() != '\0') {
       usage.append(" [-").append(optionDefinition.getAbbreviation()).append(']');
     }
@@ -127,9 +145,12 @@ class OptionsUsage {
       usage.append(")");
     }
     usage.append("\n");
-    if (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM) { // just the name and type.
+    if (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM) {
       return;
     }
+
+    // For verbosity "long," add the full description and expansion, along with the tag
+    // information if requested.
     if (!optionDefinition.getHelpText().isEmpty()) {
       usage.append(paragraphFill(optionDefinition.getHelpText(), /*indent=*/ 4, /*width=*/ 80));
       usage.append('\n');
@@ -151,8 +172,27 @@ class OptionsUsage {
       for (String req : optionDefinition.getImplicitRequirements()) {
         requiredMsg.append(req).append(" ");
       }
-      usage.append(paragraphFill(requiredMsg.toString(), /*indent=*/ 6, /*width=*/ 80));
+      usage.append(paragraphFill(requiredMsg.toString(), 6, 80)); // (indent, width)
       usage.append('\n');
+    }
+    if (!includeTags) {
+      return;
+    }
+
+    // If we are expected to include the tags, add them for high verbosity.
+    Stream<OptionEffectTag> effectTagStream =
+        Arrays.stream(optionDefinition.getOptionEffectTags())
+            .filter(OptionsUsage::shouldEffectTagBeListed);
+    Stream<OptionMetadataTag> metadataTagStream =
+        Arrays.stream(optionDefinition.getOptionMetadataTags())
+            .filter(OptionsUsage::shouldMetadataTagBeListed);
+    String tagList =
+        Stream.concat(effectTagStream, metadataTagStream)
+            .map(tag -> tag.toString().toLowerCase())
+            .collect(Collectors.joining(", "));
+    if (!tagList.isEmpty()) {
+      usage.append(paragraphFill("Tags: " + tagList, 6, 80)); // (indent, width)
+      usage.append("\n");
     }
   }
 
@@ -161,7 +201,8 @@ class OptionsUsage {
       OptionDefinition optionDefinition,
       StringBuilder usage,
       Escaper escaper,
-      OptionsData optionsData) {
+      OptionsData optionsData,
+      boolean includeTags) {
     String plainFlagName = optionDefinition.getOptionName();
     String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
@@ -215,7 +256,10 @@ class OptionsUsage {
         Preconditions.checkArgument(!expansion.isEmpty());
         expandsMsg = new StringBuilder("Expands to:<br/>\n");
         for (String exp : expansion) {
-          // TODO(ulfjack): Can we link to the expanded flags here?
+          // TODO(ulfjack): We should link to the expanded flags, but unfortunately we don't
+          // currently guarantee that all flags are only printed once. A flag in an OptionBase that
+          // is included by 2 different commands, but not inherited through a parent command, will
+          // be printed multiple times.
           expandsMsg
               .append("&nbsp;&nbsp;<code>")
               .append(escaper.escape(exp))
@@ -223,6 +267,32 @@ class OptionsUsage {
         }
       }
       usage.append(expandsMsg.toString());
+    }
+
+    // Add effect tags, if not UNKNOWN, and metadata tags, if not empty.
+    if (includeTags) {
+      Stream<OptionEffectTag> effectTagStream =
+          Arrays.stream(optionDefinition.getOptionEffectTags())
+              .filter(OptionsUsage::shouldEffectTagBeListed);
+      Stream<OptionMetadataTag> metadataTagStream =
+          Arrays.stream(optionDefinition.getOptionMetadataTags())
+              .filter(OptionsUsage::shouldMetadataTagBeListed);
+      String tagList =
+          Stream.concat(
+                  effectTagStream.map(
+                      tag ->
+                          String.format(
+                              "<a href=\"#effect_tag_%s\"><code>%s</code></a>",
+                              tag, tag.name().toLowerCase())),
+                  metadataTagStream.map(
+                      tag ->
+                          String.format(
+                              "<a href=\"#metadata_tag_%s\"><code>%s</code></a>",
+                              tag, tag.name().toLowerCase())))
+              .collect(Collectors.joining(", "));
+      if (!tagList.isEmpty()) {
+        usage.append("<br>Tags: \n").append(tagList);
+      }
     }
 
     usage.append("</dd>\n");
@@ -263,8 +333,10 @@ class OptionsUsage {
       builder.append("={auto,yes,no}\n");
       builder.append("--no").append(flagName).append("\n");
     } else if (fieldType.isEnum()) {
-      builder.append("={")
-          .append(COMMA_JOINER.join(fieldType.getEnumConstants()).toLowerCase()).append("}\n");
+      builder
+          .append("={")
+          .append(COMMA_JOINER.join(fieldType.getEnumConstants()).toLowerCase(Locale.ENGLISH))
+          .append("}\n");
     } else if (fieldType.getSimpleName().equals("Label")) {
       // String comparison so we don't introduce a dependency to com.google.devtools.build.lib.
       builder.append("=label\n");

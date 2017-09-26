@@ -32,7 +32,7 @@ public class BuildEncyclopediaGenerator {
             + "The product name (-n), rule class provider (-p) and at least one input_dir\n"
             + "(-i) must be specified.\n");
     System.err.println(
-        parser.describeOptions(
+        parser.describeOptionsWithDeprecatedCategories(
             Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
   }
 

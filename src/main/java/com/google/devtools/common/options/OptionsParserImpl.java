@@ -90,10 +90,9 @@ class OptionsParserImpl {
         }
       };
 
-  /**
-   * Create a new parser object
-   */
+  /** Create a new parser object. Do not accept a null OptionsData object. */
   OptionsParserImpl(OptionsData optionsData) {
+    Preconditions.checkNotNull(optionsData);
     this.optionsData = optionsData;
   }
 

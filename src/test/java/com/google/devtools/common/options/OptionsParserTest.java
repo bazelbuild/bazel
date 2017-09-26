@@ -486,7 +486,7 @@ public class OptionsParserTest {
         params,
         ImmutableList.of(
             "--baz\r\n'hello\nworld'\r\n--foo\r\nhello\\\r\nworld\r\n\r\n"
-            + "--nodoc\r\n\"hello\r\nworld\""),
+                + "--nodoc\r\n\"hello\r\nworld\""),
         StandardCharsets.UTF_8,
         StandardOpenOption.CREATE);
 
@@ -1111,7 +1111,8 @@ public class OptionsParserTest {
     // that an options parser be constructed.
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
     String usage =
-        parser.describeOptions(ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
+        parser.describeOptionsWithDeprecatedCategories(
+            ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
     assertThat(usage).contains("  --expands\n      Expands to: --underlying=from_expansion");
     assertThat(usage).contains("  --expands_by_function\n      Expands to: --expands");
   }
@@ -1256,8 +1257,9 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--second=second", "--first=first");
     assertThat(parser.getWarnings())
-        .containsExactly("Option 'second' is implicitly defined by "
-                         + "option 'first'; the implicitly set value overrides the previous one");
+        .containsExactly(
+            "Option 'second' is implicitly defined by "
+                + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   @Test
@@ -1267,8 +1269,9 @@ public class OptionsParserTest {
     assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--second=second");
     assertThat(parser.getWarnings())
-        .containsExactly("A new value for option 'second' overrides a"
-                         + " previous implicit setting of that option by option 'first'");
+        .containsExactly(
+            "A new value for option 'second' overrides a"
+                + " previous implicit setting of that option by option 'first'");
   }
 
   @Test
@@ -1276,8 +1279,9 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--first=first", "--second=second");
     assertThat(parser.getWarnings())
-        .containsExactly("Option 'second' is implicitly defined by "
-                         + "option 'first'; the implicitly set value overrides the previous one");
+        .containsExactly(
+            "Option 'second' is implicitly defined by "
+                + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   @Test
@@ -1287,8 +1291,8 @@ public class OptionsParserTest {
     assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--third=third");
     assertThat(parser.getWarnings())
-        .containsExactly("Option 'second' is implicitly defined by both "
-                         + "option 'first' and option 'third'");
+        .containsExactly(
+            "Option 'second' is implicitly defined by both " + "option 'first' and option 'third'");
   }
 
   @Test
@@ -1476,9 +1480,10 @@ public class OptionsParserTest {
   public void warningForExpansionOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
     parser.parse("--underlying=underlying", "--first");
-    assertThat(parser.getWarnings()).containsExactly(
-        "The option 'first' was expanded and now overrides a "
-        + "previous explicitly specified option 'underlying'");
+    assertThat(parser.getWarnings())
+        .containsExactly(
+            "The option 'first' was expanded and now overrides a "
+                + "previous explicitly specified option 'underlying'");
   }
 
   @Test

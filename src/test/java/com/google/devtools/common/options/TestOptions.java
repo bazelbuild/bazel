@@ -141,8 +141,9 @@ public class TestOptions extends OptionsBase {
   @Option(
     name = "expanded_a",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    defaultValue = "true"
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = "true",
+    help = "A boolean flag with unknown effect to test tagless usage text."
   )
   public boolean expandedA;
 
@@ -283,8 +284,14 @@ public class TestOptions extends OptionsBase {
     name = "test_void_expansion_function",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    expansionFunction = TestVoidExpansionFunction.class
+    effectTags = {
+      OptionEffectTag.ACTION_OPTIONS,
+      OptionEffectTag.TEST_RUNNER,
+      OptionEffectTag.TERMINAL_OUTPUT
+    },
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+    expansionFunction = TestVoidExpansionFunction.class,
+    help = "Listing a ton of random tags to test the usage output."
   )
   public Void testVoidExpansionFunction;
 
