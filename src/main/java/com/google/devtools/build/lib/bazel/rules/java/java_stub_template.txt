@@ -199,7 +199,7 @@ else
     for line in "${my_array[@]}"
     do
       line_split=($line)
-      runfiles_array[${line_split[0]}]=${line_split[1]}
+      runfiles_array[${line_split[0]}]=${line_split[@]:1}
     done
   fi
 
@@ -208,7 +208,10 @@ else
       echo $1
     else
       if is_macos; then
-        echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+        # Print the rest of line after the first space
+        # First, set the first column to empty and print rest of the line
+        # Second, use a trick of awk to remove leading and trailing spaces.
+        echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ $1=""; print }' | awk '{ $1=$1; print }')
       else
         echo ${runfiles_array[$1]}
       fi
