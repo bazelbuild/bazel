@@ -1886,6 +1886,30 @@ public class OptionsParserTest {
     assertThat(canonicalize(Yesterday.class, "-h")).containsExactly("--g=1");
   }
 
+  /**
+   * Check that all forms of boolean flags are canonicalizes to the same form.
+   *
+   * The list of accepted values is from
+   * {@link com.google.devtools.common.options.Converters.BooleanConverter}, and the value-less
+   * --[no] form is controlled by {@link OptionsParserImpl#identifyOptionAndPossibleArgument}.
+   */
+  @Test
+  public void canonicalizeNormalizesBooleanFlags() throws Exception {
+    assertThat(canonicalize(Yesterday.class, "--g")).containsExactly("--g=1");
+    assertThat(canonicalize(Yesterday.class, "--g=1")).containsExactly("--g=1");
+    assertThat(canonicalize(Yesterday.class, "--g=true")).containsExactly("--g=1");
+    assertThat(canonicalize(Yesterday.class, "--g=t")).containsExactly("--g=1");
+    assertThat(canonicalize(Yesterday.class, "--g=yes")).containsExactly("--g=1");
+    assertThat(canonicalize(Yesterday.class, "--g=y")).containsExactly("--g=1");
+
+    assertThat(canonicalize(Yesterday.class, "--nog")).containsExactly("--g=0");
+    assertThat(canonicalize(Yesterday.class, "--g=0")).containsExactly("--g=0");
+    assertThat(canonicalize(Yesterday.class, "--g=false")).containsExactly("--g=0");
+    assertThat(canonicalize(Yesterday.class, "--g=f")).containsExactly("--g=0");
+    assertThat(canonicalize(Yesterday.class, "--g=no")).containsExactly("--g=0");
+    assertThat(canonicalize(Yesterday.class, "--g=n")).containsExactly("--g=0");
+  }
+
   public static class LongValueExample extends OptionsBase {
     @Option(
       name = "longval",
@@ -2050,7 +2074,7 @@ public class OptionsParserTest {
   public void testWrapperCanonicalization() throws OptionsParsingException {
     List<String> canonicalized = canonicalize(WrapperOptionExample.class,
         "--wrapper=--flag1=true", "--wrapper=--flag2=87", "--wrapper=--flag3=bar");
-    assertThat(canonicalized).isEqualTo(Arrays.asList("--flag1=true", "--flag2=87", "--flag3=bar"));
+    assertThat(canonicalized).isEqualTo(Arrays.asList("--flag1=1", "--flag2=87", "--flag3=bar"));
   }
 
   /** Dummy options that declares it uses only core types. */

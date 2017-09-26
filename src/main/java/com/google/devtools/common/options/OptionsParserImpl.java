@@ -158,12 +158,7 @@ class OptionsParserImpl {
             })
         // Ignore expansion options.
         .filter(value -> !value.getOptionDefinition().isExpansionOption())
-        .map(
-            value ->
-                "--"
-                    + value.getOptionDefinition().getOptionName()
-                    + "="
-                    + value.getUnconvertedValue())
+        .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
         .collect(toCollection(ArrayList::new));
   }
 
