@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -135,16 +137,18 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   @Override
-  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+  protected Set<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     SpawnActionContext context = getContext(actionExecutionContext);
     try {
-      context.exec(getDirectSpawn(), actionExecutionContext);
+      return context.exec(getDirectSpawn(), actionExecutionContext);
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
       try {
-        context.exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
+        return context.exec(
+            getSpawn(actionExecutionContext.getClientEnv()),
+            actionExecutionContext);
       } catch (CommandLineExpansionException commandLineExpansionException) {
         throw new UserExecException(commandLineExpansionException);
       }

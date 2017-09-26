@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Collection;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,10 +68,15 @@ public class AbstractSpawnStrategyTest {
   public void testZeroExit() throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
+    SpawnResult spawnResult = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
-        .thenReturn(new SpawnResult.Builder().setStatus(Status.SUCCESS).build());
+        .thenReturn(spawnResult);
 
-    new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
+        .exec(SIMPLE_SPAWN, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
   }
@@ -84,6 +90,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(result);
 
     try {
+      // Ignoring the Set<SpawnResult> return value.
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
       fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {
@@ -96,13 +103,15 @@ public class AbstractSpawnStrategyTest {
   @Test
   public void testCacheHit() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
-    SpawnResult result = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
+    SpawnResult spawnResult = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
     when(cache.lookup(any(Spawn.class), any(SpawnExecutionPolicy.class)))
-        .thenReturn(SpawnCache.success(result));
+        .thenReturn(SpawnCache.success(spawnResult));
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
 
-    new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
+        .exec(SIMPLE_SPAWN, actionExecutionContext);
+    assertThat(spawnResults).containsExactly(spawnResult);
     verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
   }
 
@@ -117,13 +126,18 @@ public class AbstractSpawnStrategyTest {
 
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
-    SpawnResult result = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(result);
+    SpawnResult spawnResult = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
+        .thenReturn(spawnResult);
 
-    new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
+        .exec(SIMPLE_SPAWN, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    verify(entry).store(eq(result), any(Collection.class));
+    verify(entry).store(eq(spawnResult), any(Collection.class));
   }
 
   @SuppressWarnings("unchecked")
@@ -141,6 +155,7 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(result);
 
     try {
+      // Ignoring the Set<SpawnResult> return value.
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
       fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {
@@ -161,7 +176,9 @@ public class AbstractSpawnStrategyTest {
 
     Spawn uncacheableSpawn =
         new SpawnBuilder("/bin/echo", "Hi").withExecutionInfo("no-cache", "").build();
+
     new TestedSpawnStrategy(spawnRunner).exec(uncacheableSpawn, actionExecutionContext);
+
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
     // Must not be called.
