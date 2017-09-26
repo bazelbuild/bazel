@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -28,7 +27,6 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
-import com.google.turbine.options.TurbineOptions;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TaskEvent;
@@ -43,7 +41,6 @@ import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.IOError;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -52,10 +49,8 @@ import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -80,10 +75,7 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
@@ -92,61 +84,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 
 /** Unit tests for {@link JavacTurbine}. */
 @RunWith(JUnit4.class)
-public class JavacTurbineTest {
-
-  @Rule public final TemporaryFolder temp = new TemporaryFolder();
-
-  Path sourcedir;
-  List<Path> sources;
-  Path tempdir;
-  Path output;
-  Path outputDeps;
-
-  final TurbineOptions.Builder optionsBuilder = TurbineOptions.builder();
-
-  @Before
-  public void setUp() throws IOException {
-    sourcedir = temp.newFolder().toPath();
-    tempdir = temp.newFolder("_temp").toPath();
-    output = temp.newFile("out.jar").toPath();
-    outputDeps = temp.newFile("out.jdeps").toPath();
-
-    sources = new ArrayList<>();
-
-    optionsBuilder
-        .setOutput(output.toString())
-        .setTempDir(tempdir.toString())
-        .addBootClassPathEntries(
-            Splitter.on(':')
-                .splitToList(System.getProperty("sun.boot.class.path"))
-                .stream()
-                .map(e -> Paths.get(e).toAbsolutePath().toString())
-                .collect(toImmutableList()))
-        .setOutputDeps(outputDeps.toString())
-        .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
-        .setTargetLabel("//test")
-        .setRuleKind("java_library");
-  }
-
-  private void addSourceLines(String path, String... lines) throws IOException {
-    Path source = sourcedir.resolve(path);
-    sources.add(source);
-    Files.write(source, Arrays.asList(lines), UTF_8);
-  }
-
-  void compile() throws IOException {
-    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
-    try (JavacTurbine turbine =
-        new JavacTurbine(
-            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
-            optionsBuilder.build())) {
-      assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
-    }
-  }
-
-  private Map<String, byte[]> collectOutputs() throws IOException {
-    return collectFiles(output);
-  }
+public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
   @Test
   public void hello() throws Exception {
@@ -904,86 +842,6 @@ public class JavacTurbineTest {
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
 
-  @SupportedAnnotationTypes("*")
-  public static class HostClasspathProcessor extends AbstractProcessor {
-
-    @Override
-    public SourceVersion getSupportedSourceVersion() {
-      return SourceVersion.latest();
-    }
-
-    boolean first = true;
-
-    @Override
-    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-      if (!first) {
-        return false;
-      }
-      first = false;
-
-      String message;
-      try {
-        JavacTurbine.class.toString();
-        message = "ok";
-      } catch (Throwable e) {
-        StringWriter stringWriter = new StringWriter();
-        e.printStackTrace(new PrintWriter(stringWriter));
-        message = stringWriter.toString();
-      }
-      try {
-        FileObject fileObject =
-            processingEnv
-                .getFiler()
-                .createResource(StandardLocation.CLASS_OUTPUT, "", "result.txt");
-        try (OutputStream os = fileObject.openOutputStream()) {
-          os.write(message.getBytes(UTF_8));
-        }
-      } catch (IOException e) {
-        throw new IOError(e);
-      }
-      return false;
-    }
-  }
-
-  @Test
-  public void maskProcessorClasspath() throws Exception {
-    addSourceLines("MyAnnotation.java", "public @interface MyAnnotation {}");
-    addSourceLines("Hello.java", "@MyAnnotation class Hello {}");
-
-    // create a jar containing only HostClasspathProcessor
-    Path processorJar = createClassJar("libprocessor.jar", HostClasspathProcessor.class);
-
-    optionsBuilder.addProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(ImmutableList.of(processorJar.toString()));
-    optionsBuilder.addClassPathEntries(ImmutableList.<String>of());
-
-    compile();
-
-    Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet()).contains("result.txt");
-
-    String text = new String(outputs.get("result.txt"), UTF_8);
-    assertThat(text)
-        .contains(
-            "java.lang.NoClassDefFoundError:"
-                + " com/google/devtools/build/java/turbine/javac/JavacTurbine");
-  }
-
-  private Path createClassJar(String jarName, Class<?>... classes) throws IOException {
-    Path jarPath = temp.newFile(jarName).toPath();
-    try (OutputStream os = Files.newOutputStream(jarPath);
-        JarOutputStream jos = new JarOutputStream(os)) {
-      for (Class<?> clazz : classes) {
-        String classFileName = clazz.getName().replace('.', '/') + ".class";
-        jos.putNextEntry(new JarEntry(classFileName));
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(classFileName)) {
-          ByteStreams.copy(is, jos);
-        }
-      }
-    }
-    return jarPath;
-  }
-
   @Test
   public void overlappingSourceJars() throws Exception {
     Path sourceJar1 = temp.newFile("srcs1.jar").toPath();
@@ -1187,7 +1045,12 @@ public class JavacTurbineTest {
   public void noNativeHeaderOutput() throws Exception {
 
     // deliberately exclude TransitiveDep
-    Path deps = createClassJar("libdeps.jar", JavacTurbineTest.class, DirectDep.class);
+    Path deps =
+        createClassJar(
+            "libdeps.jar",
+            AbstractJavacTurbineCompilationTest.class,
+            JavacTurbineTest.class,
+            DirectDep.class);
 
     // compilation will complete supertypes of DirectDep iff NATIVE_HEADER_OUTPUT is set
     addSourceLines(
@@ -1211,7 +1074,12 @@ public class JavacTurbineTest {
   @Test
   public void ignoreStrictDepsErrors() throws Exception {
 
-    Path lib = createClassJar("deps.jar", JavacTurbineTest.class, Lib.class);
+    Path lib =
+        createClassJar(
+            "deps.jar",
+            AbstractJavacTurbineCompilationTest.class,
+            JavacTurbineTest.class,
+            Lib.class);
 
     addSourceLines(
         "Hello.java", "import " + Lib.class.getCanonicalName() + ";", "class Hello extends Lib {}");
@@ -1426,12 +1294,4 @@ public class JavacTurbineTest {
     assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 }
-
-
-
-
-
-
-
-
 
