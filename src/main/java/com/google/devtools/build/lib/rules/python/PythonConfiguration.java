@@ -27,12 +27,17 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final boolean ignorePythonVersionAttribute;
   private final PythonVersion defaultPythonVersion;
   private final TriState buildPythonZip;
+  private final boolean buildTransitiveRunfilesTrees;
 
   PythonConfiguration(
-      PythonVersion pythonVersion, boolean ignorePythonVersionAttribute, TriState buildPythonZip) {
+      PythonVersion pythonVersion,
+      boolean ignorePythonVersionAttribute,
+      TriState buildPythonZip,
+      boolean buildTransitiveRunfilesTrees) {
     this.ignorePythonVersionAttribute = ignorePythonVersionAttribute;
     this.defaultPythonVersion = pythonVersion;
     this.buildPythonZip = buildPythonZip;
+    this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
   }
 
   /**
@@ -61,5 +66,12 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
         return OS.getCurrent() == OS.WINDOWS;
     }
   }
-}
 
+  /**
+   * Return whether to build the runfiles trees of py_binary targets that appear in the transitive
+   * data runfiles of another binary.
+   */
+  public boolean buildTransitiveRunfilesTrees() {
+    return buildTransitiveRunfilesTrees;
+  }
+}

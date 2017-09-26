@@ -83,5 +83,16 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOpts.buildPythonZip = buildPythonZip;
     return hostPythonOpts;
   }
+
+  @Option(
+    name = "experimental_build_transitive_python_runfiles",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "Build the runfiles trees of py_binary targets that appear in the transitive "
+            + "data runfiles of another binary."
+  )
+  public boolean buildTransitiveRunfilesTrees;
 }
 

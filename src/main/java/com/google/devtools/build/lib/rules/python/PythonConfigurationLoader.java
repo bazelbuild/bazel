@@ -37,7 +37,10 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
     boolean ignorePythonVersionAttribute = pythonOptions.forcePython != null;
     PythonVersion pythonVersion = pythonOptions.getPythonVersion();
     return new PythonConfiguration(
-        pythonVersion, ignorePythonVersionAttribute, pythonOptions.buildPythonZip);
+        pythonVersion,
+        ignorePythonVersionAttribute,
+        pythonOptions.buildPythonZip,
+        pythonOptions.buildTransitiveRunfilesTrees);
   }
 
   @Override

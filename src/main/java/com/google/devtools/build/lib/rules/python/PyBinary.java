@@ -98,14 +98,21 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    // Only include common runfiles and middleman. Default runfiles added by semantics are
-    // excluded. The middleman is necessary to ensure the runfiles trees are generated for all
-    // dependency binaries.
-    Runfiles dataRunfiles = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        .merge(commonRunfiles)
-        .addArtifact(runfilesSupport.getRunfilesMiddleman())
-        .build();
+    Runfiles dataRunfiles;
+    if (ruleContext.getFragment(PythonConfiguration.class).buildTransitiveRunfilesTrees()) {
+      // Only include common runfiles and middleman. Default runfiles added by semantics are
+      // excluded. The middleman is necessary to ensure the runfiles trees are generated for all
+      // dependency binaries.
+      dataRunfiles =
+          new Runfiles.Builder(
+                  ruleContext.getWorkspaceName(),
+                  ruleContext.getConfiguration().legacyExternalRunfiles())
+              .merge(commonRunfiles)
+              .addArtifact(runfilesSupport.getRunfilesMiddleman())
+              .build();
+    } else {
+      dataRunfiles = commonRunfiles;
+    }
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
 
