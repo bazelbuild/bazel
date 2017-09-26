@@ -39,8 +39,9 @@ public abstract class AbstractObjectCodecTest<T> {
   protected boolean shouldTestDeserializeBadData = true;
 
   /** Construct with the given codec and subjects. */
+  @SafeVarargs
   protected AbstractObjectCodecTest(
-      ObjectCodec<T> underTest, @SuppressWarnings("unchecked") T... subjects) {
+      ObjectCodec<T> underTest, T... subjects) {
     this.underTest = underTest;
     this.subjects = ImmutableList.copyOf(subjects);
   }
