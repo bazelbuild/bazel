@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
+import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -488,8 +489,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testListPositions() throws Exception {
     String expr = "[0,f(1),2]";
+    assertExpressionLocationCorrect(expr);
     ListLiteral list = (ListLiteral) parseExpression(expr);
-    assertThat(getText(expr, list)).isEqualTo("[0,f(1),2]");
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("0");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("2");
@@ -498,8 +499,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testDictPositions() throws Exception {
     String expr = "{1:2,2:f(1),3:4}";
+    assertExpressionLocationCorrect(expr);
     DictionaryLiteral list = (DictionaryLiteral) parseExpression(expr);
-    assertThat(getText(expr, list)).isEqualTo("{1:2,2:f(1),3:4}");
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("1:2");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("2:f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("3:4");
@@ -507,12 +508,50 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testArgumentPositions() throws Exception {
-    String stmt = "f(0,g(1,2),2)";
-    FuncallExpression f = (FuncallExpression) parseExpression(stmt);
-    assertThat(getText(stmt, f)).isEqualTo(stmt);
-    assertThat(getText(stmt, getArg(f, 0))).isEqualTo("0");
-    assertThat(getText(stmt, getArg(f, 1))).isEqualTo("g(1,2)");
-    assertThat(getText(stmt, getArg(f, 2))).isEqualTo("2");
+    String expr = "f(0,g(1,2),2)";
+    assertExpressionLocationCorrect(expr);
+    FuncallExpression f = (FuncallExpression) parseExpression(expr);
+    assertThat(getText(expr, getArg(f, 0))).isEqualTo("0");
+    assertThat(getText(expr, getArg(f, 1))).isEqualTo("g(1,2)");
+    assertThat(getText(expr, getArg(f, 2))).isEqualTo("2");
+  }
+
+  @Test
+  public void testSuffixPosition() throws Exception {
+    assertExpressionLocationCorrect("'a'.len");
+    assertExpressionLocationCorrect("'a'[0]");
+    assertExpressionLocationCorrect("'a'[0:1]");
+  }
+
+  @Test
+  public void testTuplePosition() throws Exception {
+    String input = "for a,b in []: pass";
+    ForStatement stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    assertThat(getText(input, stmt.getVariable())).isEqualTo("a,b");
+    input = "for (a,b) in []: pass";
+    stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    assertThat(getText(input, stmt.getVariable())).isEqualTo("(a,b)");
+    assertExpressionLocationCorrect("a, b");
+    assertExpressionLocationCorrect("(a, b)");
+  }
+
+  @Test
+  public void testComprehensionPosition() throws Exception {
+    assertExpressionLocationCorrect("[[] for x in []]");
+    assertExpressionLocationCorrect("{1: [] for x in []}");
+  }
+
+  @Test
+  public void testUnaryOperationPosition() throws Exception {
+    assertExpressionLocationCorrect("not True");
+  }
+
+  private void assertExpressionLocationCorrect(String exprStr) {
+    Expression expr = parseExpression(exprStr);
+    assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    expr = parseExpression(exprStr + "\n");
+    assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
   }
 
   @Test
