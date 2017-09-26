@@ -47,25 +47,41 @@ def create_android_sdk_rules(
 
   create_config_setting_rules()
 
-  # This filegroup is used to pass the contents of the SDK to the Android
-  # integration tests. We need to glob because not all of these folders ship
-  # with the Android SDK, some need to be installed through the SDK Manager.
-  # Since android_sdk_repository function generates BUILD files, we do not want
-  # to include those because the integration test would fail when it tries to
-  # regenerate those BUILD files because the Bazel Sandbox does not allow
-  # overwriting existing files.
+  windows_only_files = [
+      "build-tools/%s/aapt.exe" % build_tools_directory,
+      "build-tools/%s/aidl.exe" % build_tools_directory,
+      "build-tools/%s/zipalign.exe" % build_tools_directory,
+      "platform-tools/adb.exe",
+  ]
+
+  linux_only_files = [
+      "build-tools/%s/aapt" % build_tools_directory,
+      "build-tools/%s/aidl" % build_tools_directory,
+      "build-tools/%s/zipalign" % build_tools_directory,
+      "platform-tools/adb",
+  ] + native.glob(["extras"], exclude_directories = 0)
+
+  # This filegroup is used to pass the minimal contents of the SDK to the
+  # Android integration tests. Note that in order to work on Windows, we cannot
+  # include directories and must keep the size small.
   native.filegroup(
       name = "files",
-      srcs = native.glob([
-          "add-ons",
-          "build-tools",
-          "extras",
-          "platforms",
-          "platform-tools",
-          "sources",
-          "system-images",
-          "tools",
-      ], exclude_directories = 0),
+      srcs = [
+          "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
+          "build-tools/%s/lib/dx.jar" % build_tools_directory,
+          "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+          "tools/proguard/lib/proguard.jar",
+          "tools/support/annotations.jar",
+      ] + [
+          "platforms/android-%d/%s" % (api_level, filename)
+          for api_level in api_levels
+          for filename in ["android.jar", "framework.aidl"]
+      ] + select({
+          ":windows": windows_only_files,
+          ":windows_msvc": windows_only_files,
+          ":windows_msys": windows_only_files,
+          "//conditions:default": linux_only_files,
+      }),
   )
 
   for api_level in api_levels:
