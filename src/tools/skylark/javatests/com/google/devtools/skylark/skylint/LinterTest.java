@@ -30,6 +30,7 @@ public class LinterTest {
         String.join(
             "\n",
             "_unusedVar = function()",
+            "load(':foo.bzl', 'bar')",
             "def function():",
             "  return",
             "  'unreachable and unused string literal'");
@@ -40,6 +41,8 @@ public class LinterTest {
             .toString();
     Truth.assertThat(errorMessages).contains("unreachable statement"); // control flow checker
     Truth.assertThat(errorMessages).contains("has no module docstring"); // docstring checker
+    Truth.assertThat(errorMessages)
+        .contains("load statement should be at the top"); // load statement checker
     Truth.assertThat(errorMessages)
         .contains("should be lower_snake_case"); // naming conventions checker
     Truth.assertThat(errorMessages)
