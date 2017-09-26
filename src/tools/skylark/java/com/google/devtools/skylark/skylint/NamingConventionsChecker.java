@@ -142,6 +142,10 @@ public class NamingConventionsChecker extends AstVisitorWithNameResolution {
   @Override
   void declare(String name, ASTNode node) {
     NameInfo nameInfo = env.resolveExistingName(name);
+    if (nameInfo.kind == Kind.IMPORTED) {
+      // Users may not have control over imported names, so ignore them:
+      return;
+    }
     checkNameNotConfusing(name, node.getLocation());
     if (nameInfo.kind == Kind.PARAMETER || nameInfo.kind == Kind.FUNCTION) {
       checkLowerSnakeCase(nameInfo.name, node.getLocation());

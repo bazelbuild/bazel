@@ -80,6 +80,13 @@ public class NamingConventionsCheckerTest {
   }
 
   @Test
+  public void testImportsNoIssues() throws Exception {
+    Truth.assertThat(
+            findIssues("load(':foo.bzl', 'badName', 'BadName', 'O', 'I', 'l', '_', '__', 'fail')"))
+        .isEmpty();
+  }
+
+  @Test
   public void testNoIssues() throws Exception {
     Truth.assertThat(
             findIssues(
