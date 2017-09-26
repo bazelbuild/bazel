@@ -240,32 +240,6 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   return result.find("/WHOLEARCHIVE") != -1
 
 
-def _is_using_dynamic_crt(repository_ctx):
-  """Returns True if USE_DYNAMIC_CRT is set to 1."""
-  env = repository_ctx.os.environ
-  return "USE_DYNAMIC_CRT" in env and env["USE_DYNAMIC_CRT"] == "1"
-
-
-def _get_crt_option(repository_ctx, debug = False):
-  """Get the CRT option, default is /MT and /MTd."""
-  crt_option = "/MT"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_option = "/MD"
-  if debug:
-    crt_option += "d"
-  return crt_option
-
-
-def _get_crt_library(repository_ctx, debug = False):
-  """Get the CRT library to link, default is libcmt.lib and libcmtd.lib."""
-  crt_library = "libcmt"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_library = "msvcrt"
-  if debug:
-    crt_library += "d"
-  return crt_library + ".lib"
-
-
 def _is_use_msvc_wrapper(repository_ctx):
   """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
@@ -376,10 +350,6 @@ def configure_windows_toolchain(repository_ctx):
       "%{msvc_lib_path}": msvc_lib_path,
       "%{compilation_mode_content}": compilation_mode_content,
       "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-      "%{crt_option}": _get_crt_option(repository_ctx),
-      "%{crt_debug_option}": _get_crt_option(repository_ctx, debug=True),
-      "%{crt_library}": _get_crt_library(repository_ctx),
-      "%{crt_debug_library}": _get_crt_library(repository_ctx, debug=True),
       "%{opt_content}": "",
       "%{dbg_content}": "",
       "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),

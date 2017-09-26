@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -595,6 +596,21 @@ public final class CcCommon {
     }
     ImmutableSet<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
+    // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature
+    // according to compilation mode.
+    // If STATIC_LINK_MSVCRT feature is specified, we add STATIC_LINK_MSVCRT_* feature
+    // according to compilation mode.
+    if (ruleContext.getFeatures().contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
+      requestedFeatures.add(
+          toolchain.getCompilationMode() == CompilationMode.DBG
+              ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
+              : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
+    } else {
+      requestedFeatures.add(
+          toolchain.getCompilationMode() == CompilationMode.DBG
+              ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
+              : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
+    }
     for (String feature :
         Iterables.concat(
             ImmutableSet.of(
