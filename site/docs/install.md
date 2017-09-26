@@ -11,6 +11,7 @@ See the instructions for installing Bazel on:
 *   [Fedora 25, 26, and CentOS 7](install-redhat.md)
 *   [Mac OS X](install-os-x.md)
 *   [Windows](install-windows.md)
+*   [CentOS 7.3, 7.4](install-centos.md)
 
 For other platforms, you can try to [compile from source](install-compile-source.md).
 
