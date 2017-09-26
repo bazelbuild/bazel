@@ -20,7 +20,7 @@ You can build Bazel from source following these steps:
 
 2.  Download and unpack Bazel's distribution archive.
 
-    Download `bazel-<VERSION>-dist.zip` from the [release
+    Download `bazel-<version>-dist.zip` from the [release
     page](https://github.com/bazelbuild/bazel/releases). We recommend to also
     verify the signature made by our [release
     key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
