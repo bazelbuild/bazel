@@ -19,6 +19,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
+import java.util.List;
 
 /** Options used by {@link BuildEventServiceModule}. */
 public class BuildEventServiceOptions extends OptionsBase {
@@ -76,4 +77,17 @@ public class BuildEventServiceOptions extends OptionsBase {
     help = "Specifies the BES project identifier. Defaults to null."
   )
   public String projectId;
+
+  @Option(
+    name = "bes_keywords",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    allowMultiple = true,
+    help =
+        "Specifies a list of notification keywords to be added the default set of keywords "
+            + "published to BES (\"command_name=<command_name> \", \"protocol_name=BEP\"). "
+            + "Defaults to none."
+  )
+  public List<String> besKeywords;
 }

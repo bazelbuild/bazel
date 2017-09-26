@@ -229,7 +229,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               clock,
               pathConverter,
               commandLineReporter,
-              besOptions.projectId);
+              besOptions.projectId,
+              besOptions.besKeywords);
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }

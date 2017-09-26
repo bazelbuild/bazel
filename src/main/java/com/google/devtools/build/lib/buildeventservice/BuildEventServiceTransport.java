@@ -58,6 +58,7 @@ import com.google.protobuf.Any;
 import io.grpc.Status;
 import java.time.Duration;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -129,10 +130,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Clock clock,
       PathConverter pathConverter,
       EventHandler commandLineReporter,
-      @Nullable String projectId) {
+      @Nullable String projectId,
+      List<String> keywords) {
     this(besClient, uploadTimeout, bestEffortUpload, publishLifecycleEvents, buildRequestId,
         invocationId, command, moduleEnvironment, clock, pathConverter, commandLineReporter,
-        projectId, new JavaSleeper());
+        projectId, keywords, new JavaSleeper());
   }
 
   @VisibleForTesting
@@ -149,10 +151,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       PathConverter pathConverter,
       EventHandler commandLineReporter,
       @Nullable String projectId,
+      List<String> keywords,
       Sleeper sleeper) {
     this.besClient = besClient;
-    this.besProtoUtil =
-        new BuildEventServiceProtoUtil(buildRequestId, invocationId, projectId, command, clock);
+    this.besProtoUtil = new BuildEventServiceProtoUtil(
+        buildRequestId, invocationId, projectId, command, clock, keywords);
     this.publishLifecycleEvents = publishLifecycleEvents;
     this.moduleEnvironment = moduleEnvironment;
     this.commandLineReporter = commandLineReporter;

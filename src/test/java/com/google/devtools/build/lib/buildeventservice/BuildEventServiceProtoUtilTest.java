@@ -47,12 +47,18 @@ public class BuildEventServiceProtoUtilTest {
   private static final String BUILD_INVOCATION_ID = "feedbeef-dead-4444-beef-deaddeaddead";
   private static final String PROJECT_ID = "my_project";
   private static final String COMMAND_NAME = "test";
-  private static final ImmutableList<String> KEYWORDS =
-      ImmutableList.of("command_name=" + COMMAND_NAME, "protocol_name=BEP");
+  private static final String ADDITIONAL_KEYWORD = "keyword=foo";
+  private static final ImmutableList<String> EXPECTED_KEYWORDS =
+      ImmutableList.of("command_name=" + COMMAND_NAME, "protocol_name=BEP", ADDITIONAL_KEYWORD);
   private final ManualClock clock = new ManualClock();
   private final BuildEventServiceProtoUtil besProtocol =
       new BuildEventServiceProtoUtil(
-          BUILD_REQUEST_ID, BUILD_INVOCATION_ID, PROJECT_ID, COMMAND_NAME, clock);
+          BUILD_REQUEST_ID,
+          BUILD_INVOCATION_ID,
+          PROJECT_ID,
+          COMMAND_NAME,
+          clock,
+          ImmutableList.of(ADDITIONAL_KEYWORD));
 
   @Test
   public void testBuildEnqueued() {
@@ -160,7 +166,7 @@ public class BuildEventServiceProtoUtilTest {
     assertThat(besProtocol.bazelEvent(1, anything))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
-                .addAllNotificationKeywords(KEYWORDS)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setOrderedBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(

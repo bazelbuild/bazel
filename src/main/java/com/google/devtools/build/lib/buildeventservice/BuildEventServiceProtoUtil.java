@@ -35,6 +35,7 @@ import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
 import com.google.protobuf.Any;
 import com.google.protobuf.util.Timestamps;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -47,18 +48,21 @@ public final class BuildEventServiceProtoUtil {
   private final AtomicInteger streamSequenceNumber;
   private final String commandName;
   private final Clock clock;
+  private final List<String> additionalKeywords;
 
   public BuildEventServiceProtoUtil(
       String buildRequestId,
       String buildInvocationId,
       @Nullable String projectId,
       String commandName,
-      Clock clock) {
+      Clock clock,
+      List<String> additionalKeywords) {
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
     this.commandName = commandName;
     this.clock = clock;
+    this.additionalKeywords = additionalKeywords;
     this.streamSequenceNumber = new AtomicInteger(1);
   }
 
@@ -189,6 +193,10 @@ public final class BuildEventServiceProtoUtil {
 
   /** Keywords used by BES subscribers to filter notifications */
   private ImmutableList<String> getKeywords() {
-    return ImmutableList.of("command_name=" + commandName, "protocol_name=BEP");
+    return ImmutableList.<String>builder()
+        .add("command_name=" + commandName)
+        .add("protocol_name=BEP")
+        .addAll(additionalKeywords)
+        .build();
   }
 }
