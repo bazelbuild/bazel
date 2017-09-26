@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -285,32 +286,38 @@ public class ActionCacheChecker {
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
       reportUnconditionalExecution(handler, action);
-      return true; // must execute - unconditional execution is requested.
+      actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
+      return true;
     }
     if (entry == null) {
       reportNewAction(handler, action);
-      return true; // must execute -- no cache entry (e.g. first build)
+      actionCache.accountMiss(MissReason.NOT_CACHED);
+      return true;
     }
 
     if (entry.isCorrupted()) {
       reportCorruptedCacheEntry(handler, action);
-      return true; // cache entry is corrupted - must execute
+      actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
+      return true;
     } else if (validateArtifacts(entry, action, actionInputs, metadataHandler, true)) {
       reportChanged(handler, action);
-      return true; // files have changed
+      actionCache.accountMiss(MissReason.DIFFERENT_FILES);
+      return true;
     } else if (!entry.getActionKey().equals(action.getKey())) {
       reportCommand(handler, action);
-      return true; // must execute -- action key is different
+      actionCache.accountMiss(MissReason.DIFFERENT_ACTION_KEY);
+      return true;
     }
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     if (!entry.getUsedClientEnvDigest().equals(DigestUtils.fromEnv(usedClientEnv))) {
       reportClientEnv(handler, action, usedClientEnv);
-      return true; // different values taken from the environment -- must execute
+      actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
+      return true;
     }
 
-
     entry.getFileDigest();
-    return false; // cache hit
+    actionCache.accountHit();
+    return false;
   }
 
   private static Metadata getMetadataOrConstant(MetadataHandler metadataHandler, Artifact artifact)
@@ -460,13 +467,16 @@ public class ActionCacheChecker {
     if (entry != null) {
       if (entry.isCorrupted()) {
         reportCorruptedCacheEntry(handler, action);
+        actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
         changed = true;
       } else if (validateArtifacts(entry, action, action.getInputs(), metadataHandler, false)) {
         reportChanged(handler, action);
+        actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;
       }
     } else {
       reportChangedDeps(handler, action);
+      actionCache.accountMiss(MissReason.DIFFERENT_DEPS);
       changed = true;
     }
     if (changed) {
@@ -482,6 +492,8 @@ public class ActionCacheChecker {
     metadataHandler.setDigestForVirtualArtifact(middleman, entry.getFileDigest());
     if (changed) {
       actionCache.put(cacheKey, entry);
+    } else {
+      actionCache.accountHit();
     }
   }
 

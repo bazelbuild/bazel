@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -457,6 +459,26 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public void dump(PrintStream out) {
       out.println("In-memory action cache has " + actionCache.size() + " records");
+    }
+
+    @Override
+    public void accountHit() {
+      // Not needed for these tests.
+    }
+
+    @Override
+    public void accountMiss(MissReason reason) {
+      // Not needed for these tests.
+    }
+
+    @Override
+    public void mergeIntoActionCacheStatistics(ActionCacheStatistics.Builder builder) {
+      // Not needed for these tests.
+    }
+
+    @Override
+    public void resetStatistics() {
+      // Not needed for these tests.
     }
   }
 

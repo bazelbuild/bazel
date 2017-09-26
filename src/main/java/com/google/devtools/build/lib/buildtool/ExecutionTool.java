@@ -380,6 +380,7 @@ public class ExecutionTool {
         request.getBuildOptions().getSymlinkPrefix(productName), productName);
 
     ActionCache actionCache = getActionCache();
+    actionCache.resetStatistics();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder = createBuilder(
         request, actionCache, skyframeExecutor, modifiedOutputFiles);
@@ -734,6 +735,7 @@ public class ExecutionTool {
    */
   private void saveActionCache(ActionCache actionCache) {
     ActionCacheStatistics.Builder builder = ActionCacheStatistics.newBuilder();
+    actionCache.mergeIntoActionCacheStatistics(builder);
 
     AutoProfiler p =
         AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, logger);

@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -67,6 +70,10 @@ public interface ActionCache {
    * will continue to return same result regardless of internal data transformations).
    */
   final class Entry {
+    /** Unique instance to represent a corrupted cache entry. */
+    public static final ActionCache.Entry CORRUPTED =
+        new ActionCache.Entry(null, ImmutableMap.<String, String>of(), false);
+
     private final String actionKey;
     @Nullable
     // Null iff the corresponding action does not do input discovery.
@@ -141,7 +148,7 @@ public interface ActionCache {
      * Returns true if this cache entry is corrupted and should be ignored.
      */
     public boolean isCorrupted() {
-      return actionKey == null;
+      return this == CORRUPTED;
     }
 
     /**
@@ -194,4 +201,22 @@ public interface ActionCache {
    * Dumps action cache content into the given PrintStream.
    */
   void dump(PrintStream out);
+
+  /** Accounts one cache hit. */
+  void accountHit();
+
+  /** Accounts one cache miss for the given reason. */
+  void accountMiss(MissReason reason);
+
+  /**
+   * Populates the given builder with statistics.
+   *
+   * <p>The extracted values are not guaranteed to be a consistent snapshot of the metrics tracked
+   * by the action cache. Therefore, even if it is safe to call this function at any point in time,
+   * this should only be called once there are no actions running.
+   */
+  void mergeIntoActionCacheStatistics(ActionCacheStatistics.Builder builder);
+
+  /** Resets the current statistics to zero. */
+  void resetStatistics();
 }

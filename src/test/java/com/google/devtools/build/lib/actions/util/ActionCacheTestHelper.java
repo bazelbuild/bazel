@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.actions.util;
 
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import java.io.PrintStream;
 
 /**
@@ -46,5 +48,17 @@ public class ActionCacheTestHelper {
 
         @Override
         public void dump(PrintStream out) {}
+
+        @Override
+        public void accountHit() {}
+
+        @Override
+        public void accountMiss(MissReason reason) {}
+
+        @Override
+        public void mergeIntoActionCacheStatistics(ActionCacheStatistics.Builder builder) {}
+
+        @Override
+        public void resetStatistics() {}
       };
 }
