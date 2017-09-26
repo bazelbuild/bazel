@@ -230,9 +230,9 @@ cache.
 
 See [GitHub issue 3689] for more details.
 
-[remote caching](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/remote/README.md)
+[remote caching]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/remote/README.md
 
-[GitHub issue 3689](https://github.com/bazelbuild/bazel/issues/3689)
+[GitHub issue 3689]: https://github.com/bazelbuild/bazel/issues/3689
 
 [Build Event Protocol]:
 https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto
