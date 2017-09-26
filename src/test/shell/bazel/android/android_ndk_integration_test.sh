@@ -284,6 +284,21 @@ EOF
   expect_log "Either the path attribute of android_ndk_repository"
 }
 
+function test_android_ndk_repository_wrong_path() {
+  create_new_workspace
+  mkdir "$TEST_SRCDIR/some_dir"
+  cat > WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 25,
+    path = "$TEST_SRCDIR/some_dir",
+)
+EOF
+  bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Unable to read the Android NDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
+    " Is the path in android_ndk_repository() or \$ANDROID_NDK_HOME set correctly?"
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later

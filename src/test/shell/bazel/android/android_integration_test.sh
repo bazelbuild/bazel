@@ -160,6 +160,21 @@ EOF
   expect_log "Either the path attribute of android_sdk_repository"
 }
 
+function test_android_sdk_repository_wrong_path() {
+  create_new_workspace
+  mkdir "$TEST_SRCDIR/some_dir"
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    api_level = 25,
+    path = "$TEST_SRCDIR/some_dir",
+)
+EOF
+  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Unable to read the Android SDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
+    " Is the path in android_sdk_repository() or \$ANDROID_SDK_HOME set correctly?"
+}
+
 # Check that the build succeeds if an android_sdk is specified with --android_sdk
 function test_specifying_android_sdk_flag() {
   create_new_workspace
