@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import javax.annotation.Nullable;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -40,6 +41,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
+          null,
           null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -69,6 +71,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
           null);
 
   @Nullable private final CppConfiguration cppConfiguration;
+  private final CToolchain toolchain;
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
@@ -98,6 +101,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
+      CToolchain toolchain,
       NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
@@ -126,6 +130,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       @Nullable PathFragment sysroot) {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
+    this.toolchain = toolchain;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
     this.compile = Preconditions.checkNotNull(compile);
@@ -161,6 +166,11 @@ public final class CcToolchainProvider extends ToolchainInfo {
   )
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
+  }
+
+  /** Returns the {@link CToolchain} for this toolchain. */
+  public CToolchain getToolchain() {
+    return toolchain;
   }
 
   /**

@@ -318,14 +318,13 @@ public class CppHelper {
   }
 
   /**
-   * This almost trivial method looks up the given cc toolchain attribute on the rule context, makes
-   * sure that it refers to a rule that has a {@link CcToolchainProvider}
-   * (gives an error otherwise), and returns a reference to that {@link CcToolchainProvider}.
-   * The method only returns {@code null} if there is no such attribute
-   * (this is currently not an error).
+   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method will only
+   * return {@code null}, if the toolchain attribute is undefined for the rule class.
    */
-   @Nullable public static CcToolchainProvider getToolchain(RuleContext ruleContext,
-       String toolchainAttribute) {
+  @Nullable
+  public static CcToolchainProvider getToolchain(
+      RuleContext ruleContext, String toolchainAttribute) {
      if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
        // TODO(bazel-team): Report an error or throw an exception in this case.
        return null;
@@ -334,13 +333,8 @@ public class CppHelper {
      return getToolchain(ruleContext, dep);
    }
 
-  /**
-   * This almost trivial method makes sure that the given info collection has a {@link
-   * CcToolchainProvider} (gives an error otherwise), and returns a reference to that {@link
-   * CcToolchainProvider}. The method never returns {@code null}, even if there is no toolchain.
-   */
-  public static CcToolchainProvider getToolchain(RuleContext ruleContext,
-      TransitiveInfoCollection dep) {
+  /** Returns the c++ toolchain type, or null if it is not specified on the rule class. */
+  public static Label getToolchainTypeFromRuleClass(RuleContext ruleContext) {
     Label toolchainType;
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
     if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
@@ -349,7 +343,18 @@ public class CppHelper {
     } else {
       toolchainType = null;
     }
+    return toolchainType;
+  }
 
+  /**
+   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method never
+   * returns {@code null}, even if there is no toolchain.
+   */
+  public static CcToolchainProvider getToolchain(
+      RuleContext ruleContext, TransitiveInfoCollection dep) {
+
+    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
     if (toolchainType != null
         && ruleContext
             .getFragment(PlatformConfiguration.class)

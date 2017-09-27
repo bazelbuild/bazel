@@ -279,23 +279,46 @@ public class CrosstoolConfigurationLoader {
   }
 
   /**
-   * Selects a crosstool toolchain corresponding to the given crosstool
-   * configuration options. If all of these options are null, it returns the default
-   * toolchain specified in the crosstool release. If only cpu is non-null, it
-   * returns the default toolchain for that cpu, as specified in the crosstool
-   * release. Otherwise, all values must be non-null, and this method
-   * returns the toolchain which matches all of the values.
+   * Selects a crosstool toolchain corresponding to the given crosstool configuration options. If
+   * all of these options are null, it returns the default toolchain specified in the crosstool
+   * release. If only cpu is non-null, it returns the default toolchain for that cpu, as specified
+   * in the crosstool release. Otherwise, all values must be non-null, and this method returns the
+   * toolchain which matches all of the values.
    *
    * @throws NullPointerException if {@code release} is null
-   * @throws InvalidConfigurationException if no matching toolchain can be found, or
-   *     if the input parameters do not obey the constraints described above
+   * @throws InvalidConfigurationException if no matching toolchain can be found, or if the input
+   *     parameters do not obey the constraints described above
    */
   public static CrosstoolConfig.CToolchain selectToolchain(
-      CrosstoolConfig.CrosstoolRelease release, BuildOptions options,
+      CrosstoolConfig.CrosstoolRelease release,
+      BuildOptions options,
       Function<String, String> cpuTransformer)
-          throws InvalidConfigurationException {
+      throws InvalidConfigurationException {
     CrosstoolConfigurationIdentifier config =
         CrosstoolConfigurationIdentifier.fromOptions(options);
+    CppOptions cppOptions = options.get(CppOptions.class);
+    return selectToolchain(
+        release, config, cppOptions.getLipoMode(), cppOptions.convertLipoToThinLto, cpuTransformer);
+  }
+
+  /**
+   * Selects a crosstool toolchain corresponding to the given crosstool configuration options. If
+   * all of these options are null, it returns the default toolchain specified in the crosstool
+   * release. If only cpu is non-null, it returns the default toolchain for that cpu, as specified
+   * in the crosstool release. Otherwise, all values must be non-null, and this method returns the
+   * toolchain which matches all of the values.
+   *
+   * @throws NullPointerException if {@code release} is null
+   * @throws InvalidConfigurationException if no matching toolchain can be found, or if the input
+   *     parameters do not obey the constraints described above
+   */
+  public static CrosstoolConfig.CToolchain selectToolchain(
+      CrosstoolConfig.CrosstoolRelease release,
+      CrosstoolConfigurationIdentifier config,
+      LipoMode lipoMode,
+      boolean convertLipoToThinLto,
+      Function<String, String> cpuTransformer)
+      throws InvalidConfigurationException {
     if ((config.getCompiler() != null) || (config.getLibc() != null)) {
       ArrayList<CrosstoolConfig.CToolchain> candidateToolchains = new ArrayList<>();
       for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
@@ -328,9 +351,7 @@ public class CrosstoolConfigurationLoader {
     // We use fake CPU values to allow cross-platform builds for other languages that use the
     // C++ toolchain. Translate to the actual target architecture.
     String desiredCpu = cpuTransformer.apply(config.getCpu());
-    CppOptions cppOptions = options.get(CppOptions.class);
-    boolean needsLipo =
-        cppOptions.getLipoMode() != LipoMode.OFF && !cppOptions.convertLipoToThinLto;
+    boolean needsLipo = lipoMode != LipoMode.OFF && !convertLipoToThinLto;
     for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
       if (needsLipo && !selector.getSupportsLipo()) {
         continue;

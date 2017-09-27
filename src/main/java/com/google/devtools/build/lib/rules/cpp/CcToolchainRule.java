@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.MakeVariableInfo;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -82,10 +83,12 @@ public final class CcToolchainRule implements RuleDefinition {
     }
     return builder
         .setUndocumented()
-        .requiresConfigurationFragments(CppConfiguration.class)
+        .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(MakeVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
+        .add(attr("compiler", STRING))
+        .add(attr("libc", STRING))
         .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("compiler_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("strip_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
@@ -108,6 +111,9 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
                 .cfg(HOST)

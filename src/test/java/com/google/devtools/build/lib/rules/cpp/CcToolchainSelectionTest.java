@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import org.junit.Before;
@@ -51,7 +52,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     return compilationSteps.get(0);
   }
 
-  private static String CPP_TOOLCHAIN_TYPE =
+  private static final String CPP_TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_category";
 
   @Test
@@ -103,5 +104,66 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     ToolchainInfo toolchain =
         providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
     assertThat(toolchain.getKeys()).isEmpty();
+  }
+
+  @Test
+  public void testCToolchainSelectionFromCcToolchainAttrs() throws Exception {
+    useConfiguration(
+        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
+    ConfiguredTarget target =
+        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+            .setList("srcs", "a.cc")
+            .write();
+    ResolvedToolchainProviders providers =
+        (ResolvedToolchainProviders)
+            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
+    CcToolchainProvider toolchain =
+        (CcToolchainProvider)
+            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+    assertThat(toolchain.getToolchain().getTargetCpu()).isEqualTo("piii");
+  }
+
+  @Test
+  public void testErrorForIncompleteCcToolchain() throws Exception {
+    mockToolsConfig.create(
+        "incomplete_toolchain/BUILD",
+        "toolchain(",
+        "   name = 'incomplete_toolchain_cc-compiler-piii',",
+        "   toolchain_type = '" + CPP_TOOLCHAIN_TYPE + "',",
+        "   toolchain = ':incomplete_cc-compiler-piii',",
+        "   target_compatible_with = ['//mock_platform:mock_value']",
+        ")",
+        "cc_toolchain(",
+        "   name = 'incomplete_cc-compiler-piii',",
+        "   cpu = 'piii',",
+        "   compiler_files = 'compile-piii',",
+        "   dwp_files = 'dwp-piii',",
+        "   linker_files = 'link-piii',",
+        "   strip_files = ':dummy_filegroup',",
+        "   objcopy_files = 'objcopy-piii',",
+        "   all_files = ':dummy_filegroup',",
+        "   static_runtime_libs = ['static-runtime-libs-piii'],",
+        "   dynamic_runtime_libs = ['dynamic-runtime-libs-piii'],",
+        ")",
+        "filegroup(name = 'dummy_filegroup')");
+
+    useConfiguration(
+        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//incomplete_toolchain:incomplete_toolchain_cc-compiler-piii");
+
+    AssertionError thrown =
+        MoreAsserts.expectThrows(
+            AssertionError.class,
+            () ->
+                ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+                    .setList("srcs", "a.cc")
+                    .write());
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Using cc_toolchain target requires the attribute 'compiler' to be present");
   }
 }

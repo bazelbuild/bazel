@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -239,6 +240,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final String targetLibc;
   private final String targetOS;
   private final LipoMode lipoMode;
+  private final boolean convertLipoToThinLto;
   private final PathFragment crosstoolTopPathFragment;
 
   private final String abi;
@@ -307,6 +309,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableMap<String, String> additionalMakeVariables;
 
   private final CppOptions cppOptions;
+  private final Function<String, String> cpuTransformer;
 
   // The dynamic mode for linking.
   private final DynamicMode dynamicMode;
@@ -334,6 +337,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.desiredCpu = Preconditions.checkNotNull(params.commonOptions.cpu);
     this.targetCpu = toolchain.getTargetCpu();
     this.lipoMode = cppOptions.getLipoMode();
+    this.convertLipoToThinLto = cppOptions.convertLipoToThinLto;
     this.targetSystemName = toolchain.getTargetSystemName();
     this.targetLibc = toolchain.getTargetLibc();
     this.targetOS = toolchain.getCcTargetOs();
@@ -345,6 +349,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.useLLVMCoverageMap = params.commonOptions.useLLVMCoverageMapFormat;
     this.lipoContextCollector = cppOptions.isLipoContextCollector();
     this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
+    this.cpuTransformer = params.cpuTransformer;
 
     try {
       this.staticRuntimeLibsLabel =
@@ -840,6 +845,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /** Returns the contents of the CROSSTOOL for this configuration. */
   public CrosstoolFile getCrosstoolFile() {
     return crosstoolFile;
+  }
+
+  /** Returns the transformer that should be applied to cpu names in toolchain selection. */
+  public Function<String, String> getCpuTransformer() {
+    return cpuTransformer;
   }
 
   /**
@@ -1405,6 +1415,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public LipoMode getLipoMode() {
     return cppOptions.getLipoMode();
+  }
+
+  /** Returns true if lipo should be converted to thinlto. */
+  public boolean shouldConvertLipoToThinLto() {
+    return convertLipoToThinLto;
   }
 
   public boolean isFdo() {

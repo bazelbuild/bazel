@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -48,12 +49,14 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
@@ -369,9 +372,20 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ruleContext.ruleError(e.getMessage());
     }
 
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+
+    CToolchain toolchain = null;
+    if (platformConfig
+        .getEnabledToolchainTypes()
+        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
+    }
+
     CcToolchainProvider ccProvider =
         new CcToolchainProvider(
             cppConfiguration,
+            toolchain,
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,
@@ -449,6 +463,37 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private CToolchain getToolchainFromAttributes(
+      RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+    for (String requiredAttr : ImmutableList.of("cpu", "compiler", "libc")) {
+      if (ruleContext.attributes().get(requiredAttr, Type.STRING).isEmpty()) {
+        ruleContext.throwWithRuleError(
+            String.format(
+                "Using cc_toolchain target requires the attribute '%s' to be present.",
+                requiredAttr));
+      }
+    }
+
+    String cpu = ruleContext.attributes().get("cpu", Type.STRING);
+    String compiler = ruleContext.attributes().get("compiler", Type.STRING);
+    String libc = ruleContext.attributes().get("libc", Type.STRING);
+    CrosstoolConfigurationIdentifier config =
+        new CrosstoolConfigurationIdentifier(cpu, compiler, libc);
+
+    try {
+      return CrosstoolConfigurationLoader.selectToolchain(
+          cppConfiguration.getCrosstoolFile().getProto(),
+          config,
+          cppConfiguration.getLipoMode(),
+          cppConfiguration.shouldConvertLipoToThinLto(),
+          cppConfiguration.getCpuTransformer());
+    } catch (InvalidConfigurationException e) {
+      ruleContext.throwWithRuleError(
+          String.format("Error while using cc_toolchain: %s", e.getMessage()));
+      return null;
+    }
   }
 
   private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {

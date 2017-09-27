@@ -37,7 +37,8 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
   /** The version of libc (e.g. glibc-2.11) associated with this crosstool configuration. */
   private final String libc;
 
-  private CrosstoolConfigurationIdentifier(String cpu, String compiler, String libc) {
+  /** Creates a new {@link CrosstoolConfigurationIdentifier} with the given parameters. */
+  CrosstoolConfigurationIdentifier(String cpu, String compiler, String libc) {
     this.cpu = cpu;
     this.compiler = compiler;
     this.libc = libc;
