@@ -67,3 +67,8 @@ def compound():
   assert_eq(x, 2)
 
 compound()
+
+---
+1 / 0  ### integer division by zero
+---
+1 % 0  ### integer modulo by zero
