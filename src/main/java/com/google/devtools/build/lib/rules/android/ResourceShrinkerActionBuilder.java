@@ -48,7 +48,6 @@ public class ResourceShrinkerActionBuilder {
   private final AndroidSdkProvider sdk;
 
   private List<String> uncompressedExtensions = Collections.emptyList();
-  private List<String> assetsToIgnore = Collections.emptyList();
   private ResourceFilter resourceFilter;
 
   /** @param ruleContext The RuleContext of the owning rule. */
@@ -62,11 +61,6 @@ public class ResourceShrinkerActionBuilder {
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
       List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
-    return this;
-  }
-
-  public ResourceShrinkerActionBuilder setAssetsToIgnore(List<String> assetsToIgnore) {
-    this.assetsToIgnore = assetsToIgnore;
     return this;
   }
 
@@ -143,7 +137,7 @@ public class ResourceShrinkerActionBuilder {
     this.logOut = logOut;
     return this;
   }
-  
+
   /**
    * @param androidAaptVersion The aapt version to target with this action.
    */
@@ -180,9 +174,6 @@ public class ResourceShrinkerActionBuilder {
     if (!uncompressedExtensions.isEmpty()) {
       commandLine.addAll(
           "--uncompressedExtensions", VectorArg.join(",").each(uncompressedExtensions));
-    }
-    if (!assetsToIgnore.isEmpty()) {
-      commandLine.addAll("--assetsToIgnore", VectorArg.join(",").each(assetsToIgnore));
     }
     if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
       commandLine.add("--debug");
