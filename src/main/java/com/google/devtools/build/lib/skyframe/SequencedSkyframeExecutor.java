@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView.Options;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -82,6 +84,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
@@ -534,8 +537,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected void invalidateDirtyActions(Iterable<SkyKey> dirtyActionValues) {
-    recordingDiffer.invalidate(dirtyActionValues);
+  public void detectModifiedOutputFiles(
+      ModifiedFileSet modifiedOutputFiles, @Nullable Range<Long> lastExecutionTimeRange)
+      throws AbruptExitException, InterruptedException {
+
+    // Detect external modifications in the output tree.
+    FilesystemValueChecker fsvc =
+        new FilesystemValueChecker(Preconditions.checkNotNull(tsgm.get()), lastExecutionTimeRange);
+    BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
+    recordingDiffer.invalidate(
+        fsvc.getDirtyActionValues(
+            memoizingEvaluator.getValues(), batchStatter, modifiedOutputFiles));
+    modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
+    outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
+    modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
+    informAboutNumberOfModifiedFiles();
   }
 
   private static ImmutableSet<SkyFunctionName> LOADING_TYPES =
