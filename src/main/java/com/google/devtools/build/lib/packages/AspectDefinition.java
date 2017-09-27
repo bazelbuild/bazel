@@ -291,6 +291,15 @@ public final class AspectDefinition {
       requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }
+    
+    /**
+     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
+     * Skylark providers.
+     */
+    public Builder requireSkylarkProviders(SkylarkProviderIdentifier... skylarkProviders) {
+      requiredProviders.addSkylarkSet(ImmutableSet.copyOf(skylarkProviders));
+      return this;
+    }
 
     public Builder requireAspectsWithProviders(
         Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {

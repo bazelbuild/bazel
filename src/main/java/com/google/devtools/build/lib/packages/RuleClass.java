@@ -808,6 +808,13 @@ public class RuleClass {
       return this;
     }
 
+    public Builder advertiseSkylarkProvider(SkylarkProviderIdentifier... skylarkProviders) {
+      for (SkylarkProviderIdentifier skylarkProviderIdentifier : skylarkProviders) {
+        advertisedProviders.addSkylark(skylarkProviderIdentifier);
+      }
+      return this;
+    }
+
     /**
      * Set if the rule can have any provider. This is true for "alias" rules like
      * <code>bind</code> .
