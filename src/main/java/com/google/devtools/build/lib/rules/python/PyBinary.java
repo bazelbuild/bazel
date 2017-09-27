@@ -92,7 +92,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             defaultRunfiles,
             common.getExecutable(),
-            ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+            ruleContext.getConfigurationMakeVariableContext(
+                ImmutableList.of(new CcFlagsSupplier(ruleContext))));
 
     if (ruleContext.hasErrors()) {
       return null;

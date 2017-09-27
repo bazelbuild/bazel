@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -975,7 +974,8 @@ public final class RuleContext extends TargetContext
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
   public ImmutableList<String> getTokenizedStringListAttr(String attributeName) {
-    return getExpandedStringListAttr(attributeName, Tokenize.YES, Collections.EMPTY_LIST);
+    return getExpandedStringListAttr(
+        attributeName, Tokenize.YES, getConfigurationMakeVariableContext());
   }
 
   /**
@@ -983,12 +983,13 @@ public final class RuleContext extends TargetContext
    * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
    *
    * @param attributeName the name of the attribute to process
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @param makeVariableContext the make variable context
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
   public ImmutableList<String> getTokenizedStringListAttr(
-      String attributeName, Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
-    return getExpandedStringListAttr(attributeName, Tokenize.YES, makeVariableSuppliers);
+      String attributeName, ConfigurationMakeVariableContext makeVariableContext) {
+    return getExpandedStringListAttr(
+        attributeName, Tokenize.YES, makeVariableContext);
   }
 
   /**
@@ -998,9 +999,9 @@ public final class RuleContext extends TargetContext
    * @param attributeName the name of the attribute to process
    * @return a list of strings containing the processed values for the attribute
    */
-  public ImmutableList<String> getExpandedStringListAttr(String attributeName, Tokenize tokenize) {
+  public ImmutableList<String> getExpandedStringListAttr(String attributeName) {
     return getExpandedStringListAttr(
-        attributeName, tokenize, ImmutableList.<MakeVariableSupplier>of());
+        attributeName, Tokenize.NO, getConfigurationMakeVariableContext());
   }
 
   /**
@@ -1008,13 +1009,13 @@ public final class RuleContext extends TargetContext
    * optionally tokenizes the result.
    *
    * @param attributeName the name of the attribute to process
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @param makeVariableContext the make variable context
    * @return a list of strings containing the processed values for the attribute
    */
-  public ImmutableList<String> getExpandedStringListAttr(
+  private ImmutableList<String> getExpandedStringListAttr(
       String attributeName,
       Tokenize tokenize,
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
       // TODO(bazel-team): This should be an error.
       return ImmutableList.of();
@@ -1028,7 +1029,7 @@ public final class RuleContext extends TargetContext
         new LocationExpander(this, LocationExpander.Options.ALLOW_DATA);
 
     for (String token : original) {
-      expandValue(tokens, attributeName, token, locationExpander, tokenize, makeVariableSuppliers);
+      expandValue(tokens, attributeName, token, locationExpander, tokenize, makeVariableContext);
     }
     return ImmutableList.copyOf(tokens);
   }
@@ -1036,53 +1037,35 @@ public final class RuleContext extends TargetContext
   /**
    * Expands make variables in value and tokenizes the result into tokens.
    *
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @param makeVariableContext the make variable context
    *     <p>This methods should be called only during initialization.
    */
   public void tokenizeAndExpandMakeVars(
-      List<String> tokens,
+      List<String> result,
       String attributeName,
       String value,
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     LocationExpander locationExpander =
         new LocationExpander(this, Options.ALLOW_DATA, Options.EXEC_PATHS);
-    tokenizeAndExpandMakeVars(
-        tokens, attributeName, value, locationExpander, makeVariableSuppliers);
-  }
-
-  /**
-   * Expands make variables and $(location) tags in value and tokenizes the result into tokens.
-   *
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
-   *     <p>This methods should be called only during initialization.
-   */
-  public void tokenizeAndExpandMakeVars(
-      List<String> tokens,
-      String attributeName,
-      String value,
-      @Nullable LocationExpander locationExpander,
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     expandValue(
-        tokens, attributeName, value, locationExpander, Tokenize.YES, makeVariableSuppliers);
+        result, attributeName, value, locationExpander, Tokenize.YES,
+        makeVariableContext);
   }
 
   /**
    * Expands make variables and $(location) tags in value, and optionally tokenizes the result.
-   *
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
-   *     <p>This methods should be called only during initialization.
    */
-  public void expandValue(
+  private void expandValue(
       List<String> tokens,
       String attributeName,
       String value,
       @Nullable LocationExpander locationExpander,
       Tokenize tokenize,
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     if (locationExpander != null) {
       value = locationExpander.expandAttribute(attributeName, value);
     }
-    value = expandMakeVariables(attributeName, value, makeVariableSuppliers);
+    value = expandMakeVariables(attributeName, value, makeVariableContext);
     if (tokenize == Tokenize.YES) {
       try {
         ShellUtils.tokenize(tokens, value);
@@ -1155,25 +1138,7 @@ public final class RuleContext extends TargetContext
    * @return the expanded string.
    */
   public String expandMakeVariables(String attributeName, String expression) {
-    return expandMakeVariables(attributeName, expression, ImmutableList.<MakeVariableSupplier>of());
-  }
-
-  /**
-   * Returns the string "expression" after expanding all embedded references to "Make" variables. If
-   * any errors are encountered, they are reported, and "expression" is returned unchanged.
-   *
-   * @param attributeName the name of the attribute from which "expression" comes; used for error
-   *     reporting.
-   * @param expression the string to expand.
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
-   * @return the expansion of "expression".
-   */
-  public String expandMakeVariables(
-      String attributeName,
-      String expression,
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
-    return expandMakeVariables(
-        attributeName, expression, getConfigurationMakeVariableContext(makeVariableSuppliers));
+    return expandMakeVariables(attributeName, expression, getConfigurationMakeVariableContext());
   }
 
   /**
@@ -1188,8 +1153,8 @@ public final class RuleContext extends TargetContext
    *     lookupMakeVariable(String) method.
    * @return the expansion of "expression".
    */
-  public String expandMakeVariables(String attributeName, String expression,
-      ConfigurationMakeVariableContext context) {
+  public String expandMakeVariables(
+      String attributeName, String expression, ConfigurationMakeVariableContext context) {
     try {
       return MakeVariableExpander.expand(expression, context);
     } catch (MakeVariableExpander.ExpansionException e) {
@@ -1205,7 +1170,7 @@ public final class RuleContext extends TargetContext
     List<String> variables = new ArrayList<>();
     for (String variable : attributes().get(attrName, Type.STRING_LIST)) {
       variables.add(
-          expandMakeVariables(attrName, variable, ImmutableList.<MakeVariableSupplier>of()));
+          expandMakeVariables(attrName, variable, getConfigurationMakeVariableContext()));
     }
     return variables;
   }
@@ -1217,16 +1182,16 @@ public final class RuleContext extends TargetContext
    * @param attrName the name of the attribute from which "expression" comes; used for error
    *     reporting.
    * @param expression the string to expand.
-   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @param makeVariableContext the make variable context
    * @return the expansion of "expression", or null.
    */
+  @Nullable
   public String expandSingleMakeVariable(
       String attrName,
       String expression,
-      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     try {
-      return MakeVariableExpander.expandSingleVariable(
-          expression, getConfigurationMakeVariableContext(makeVariableSuppliers));
+      return MakeVariableExpander.expandSingleVariable(expression, makeVariableContext);
     } catch (MakeVariableExpander.ExpansionException e) {
       attributeError(attrName, e.getMessage());
       return expression;

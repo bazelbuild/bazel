@@ -395,7 +395,10 @@ public final class RunfilesSupport {
         ruleContext,
         executable,
         runfiles,
-        computeArgs(ruleContext, CommandLine.EMPTY, ImmutableList.<MakeVariableSupplier>of()));
+        computeArgs(
+            ruleContext,
+            CommandLine.EMPTY,
+            ruleContext.getConfigurationMakeVariableContext()));
   }
 
   /**
@@ -409,7 +412,9 @@ public final class RunfilesSupport {
         executable,
         runfiles,
         computeArgs(
-            ruleContext, CommandLine.of(appendingArgs), ImmutableList.<MakeVariableSupplier>of()));
+            ruleContext,
+            CommandLine.of(appendingArgs),
+            ruleContext.getConfigurationMakeVariableContext()));
   }
 
   /**
@@ -422,26 +427,26 @@ public final class RunfilesSupport {
         ruleContext,
         executable,
         runfiles,
-        computeArgs(ruleContext, appendingArgs, ImmutableList.<MakeVariableSupplier>of()));
+        computeArgs(ruleContext, appendingArgs, ruleContext.getConfigurationMakeVariableContext()));
   }
 
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext,
       Runfiles runfiles,
       Artifact executable,
-      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     return new RunfilesSupport(
         ruleContext,
         executable,
         runfiles,
-        computeArgs(ruleContext, CommandLine.EMPTY, makeVariableSuppliers));
+        computeArgs(ruleContext, CommandLine.EMPTY, makeVariableContext));
   }
 
   private static CommandLine computeArgs(
       RuleContext ruleContext,
       CommandLine additionalArgs,
-      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+      ConfigurationMakeVariableContext makeVariableContext) {
     return CommandLine.concat(
-        ruleContext.getTokenizedStringListAttr("args", makeVariableSuppliers), additionalArgs);
+        ruleContext.getTokenizedStringListAttr("args", makeVariableContext), additionalArgs);
   }
 }
