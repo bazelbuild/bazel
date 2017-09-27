@@ -58,7 +58,7 @@ public class AarImportTest extends BuildViewTestCase {
         ")",
         "android_library(",
         "    name = 'lib',",
-        "    deps = ['//a:bar'],",
+        "    exports = ['//a:bar'],",
         ")",
         "java_import(",
         "    name = 'baz',",

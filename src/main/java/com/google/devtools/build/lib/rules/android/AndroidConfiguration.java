@@ -529,7 +529,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "experimental_allow_android_library_deps_without_srcs",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

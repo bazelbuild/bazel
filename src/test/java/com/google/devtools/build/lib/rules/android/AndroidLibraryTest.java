@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -288,7 +286,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDisallowDepsWithoutSrcsError() throws Exception {
-    useConfiguration("--experimental_allow_android_library_deps_without_srcs=false");
     checkError("android/deps", "b",
         // message:
         "android_library will be deprecating the use of deps to export targets implicitly",
@@ -395,24 +392,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testSrcsLessExportsAreStillDirect() throws Exception {
-    scratch.file("java/exports/BUILD",
+  public void testSrcsLessExportsAreDisallowed() throws Exception {
+    checkError(
+        "java/deps",
+        "b",
+        "android_library will be deprecating the use of deps to export targets implicitly",
         "android_library(name = 'a', srcs = ['a.java'])",
-        "android_library(name = 'b', deps = ['a'])",
-        "android_library(name = 'c', srcs = ['c.java'], deps = [':b'])");
-
-    ConfiguredTarget bTarget = getConfiguredTarget("//java/exports:b");
-    ConfiguredTarget cTarget = getConfiguredTarget("//java/exports:c");
-
-    assertThat(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(bTarget).getArtifacts()))
-        .isEqualTo(Arrays.asList("liba.jar"));
-
-    assertThat(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(cTarget).getArtifacts()))
-        .isEqualTo(Arrays.asList("liba.jar", "libc.jar"));
-
-    assertContainsEvent(
-        "android_library will be deprecating the use of deps "
-            + "to export targets implicitly.",  ImmutableSet.of(EventKind.WARNING));
+        "android_library(name = 'b', deps = ['a'])"
+        );
   }
 
   @Test
@@ -952,32 +939,41 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNeverlinkResources_JavaCompileAction() throws Exception {
+  public void testNeverlinkResources_compileAndRuntimeJars() throws Exception {
     scratch.file("java/apps/android/BUILD",
         "android_library(name = 'foo',",
         "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':lib', ':lib_neverlink'])",
+        "                exports = [':lib', ':lib_neverlink'],)",
         "android_library(name = 'lib_neverlink',",
         "                neverlink = 1,",
-        "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':bar'])",
+        "                manifest = 'AndroidManifest.xml',)",
         "android_library(name = 'lib',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':bar'])",
-        "android_library(name = 'bar',",
-        "                manifest = 'AndroidManifest.xml')");
+        "                manifest = 'AndroidManifest.xml',)");
 
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
+    ConfiguredTarget lib = getConfiguredTarget("//java/apps/android:lib");
+    ConfiguredTarget libNeverlink = getConfiguredTarget("//java/apps/android:lib_neverlink");
+    NestedSet<Artifact> neverLinkFilesToBuild = getFilesToBuild(libNeverlink);
+    NestedSet<Artifact> libFilesToBuild = getFilesToBuild(lib);
     JavaCompilationArgsProvider argsProvider = foo.getProvider(JavaCompilationArgsProvider.class);
-    JavaCompileAction javacAction =
-        (JavaCompileAction) getGeneratingActionForLabel("//java/apps/android:libfoo.jar");
 
     assertThat(argsProvider.getJavaCompilationArgs().getCompileTimeJars())
         .contains(ActionsTestUtil.getFirstArtifactEndingWith(
-            javacAction.getInputs(), "lib_neverlink_resources.jar"));
+            actionsTestUtil().artifactClosureOf(neverLinkFilesToBuild),
+            "lib_neverlink_resources.jar"));
+    assertThat(argsProvider.getJavaCompilationArgs().getCompileTimeJars())
+        .contains(ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(libFilesToBuild),
+            "lib_resources.jar"));
+
     assertThat(argsProvider.getJavaCompilationArgs().getRuntimeJars())
         .doesNotContain(ActionsTestUtil.getFirstArtifactEndingWith(
-            javacAction.getInputs(), "lib_neverlink_resources.jar"));
+            actionsTestUtil().artifactClosureOf(neverLinkFilesToBuild),
+            "lib_neverlink_resources.jar"));
+    assertThat(argsProvider.getJavaCompilationArgs().getRuntimeJars())
+        .contains(ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(libFilesToBuild),
+            "lib_resources.jar"));
   }
 
   @Test

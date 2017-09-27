@@ -348,7 +348,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "cc_library(name = 'common_native',",
         "           srcs = ['common.cc'],)",
         "android_library(name = 'common',",
-        "                deps = [':common_native'],)");
+        "                exports = [':common_native'],)");
     scratch.file("java/android/app/BUILD",
         "cc_library(name = 'native',",
         "           srcs = ['native.cc'],)",
