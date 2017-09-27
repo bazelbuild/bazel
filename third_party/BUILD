@@ -397,7 +397,10 @@ filegroup(
 
 java_import(
     name = "jgit",
-    jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+    jars = [
+      "jgit/org.eclipse.jgit-4.8.0.201706111038-r.jar",
+      "jgit/org.eclipse.jgit.lfs-4.8.0.201706111038-r.jar",
+    ],
 )
 
 java_import(
