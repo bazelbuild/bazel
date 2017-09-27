@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Out
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,6 +58,7 @@ public final class TargetCompleteEvent
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
   private final Iterable<ArtifactsInOutputGroup> outputs;
+  private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final boolean isTest;
 
   private TargetCompleteEvent(
@@ -74,6 +77,19 @@ public final class TargetCompleteEvent
     this.postedAfter = postedAfterBuilder.build();
     this.outputs = outputs;
     this.isTest = isTest;
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        this.target.getProvider(InstrumentedFilesProvider.class);
+    if (instrumentedFilesProvider == null) {
+      this.baselineCoverageArtifacts = null;
+    } else {
+      NestedSet<Artifact> baselineCoverageArtifacts =
+          instrumentedFilesProvider.getBaselineCoverageArtifacts();
+      if (!baselineCoverageArtifacts.isEmpty()) {
+        this.baselineCoverageArtifacts = baselineCoverageArtifacts;
+      } else {
+        this.baselineCoverageArtifacts = null;
+      }
+    }
   }
 
   /** Construct a successful target completion event. */
@@ -147,6 +163,19 @@ public final class TargetCompleteEvent
     return childrenBuilder.build();
   }
 
+  // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
+  // field.
+  private static void addImportantOutputs(
+      BuildEventStreamProtos.TargetComplete.Builder builder,
+      BuildEventConverters converters,
+      Iterable<Artifact> artifacts) {
+    for (Artifact artifact : artifacts) {
+      String name = artifact.getPath().relativeTo(artifact.getRoot().getPath()).getPathString();
+      String uri = converters.pathConverter().apply(artifact.getPath());
+      builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
+    }
+  }
+
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     BuildEventStreamProtos.TargetComplete.Builder builder =
@@ -167,12 +196,11 @@ public final class TargetCompleteEvent
     // need it.
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
-        for (Artifact artifact : group.getArtifacts()) {
-          String name = artifact.getPath().relativeTo(artifact.getRoot().getPath()).getPathString();
-          String uri = converters.pathConverter().apply(artifact.getPath());
-          builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
-        }
+        addImportantOutputs(builder, converters, group.getArtifacts());
       }
+    }
+    if (baselineCoverageArtifacts != null) {
+      addImportantOutputs(builder, converters, baselineCoverageArtifacts);
     }
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();
@@ -190,6 +218,9 @@ public final class TargetCompleteEvent
         new ImmutableSet.Builder<NestedSet<Artifact>>();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs) {
       builder.add(artifactsInGroup.getArtifacts());
+    }
+    if (baselineCoverageArtifacts != null) {
+      builder.add(baselineCoverageArtifacts);
     }
     return builder.build();
   }
@@ -223,6 +254,15 @@ public final class TargetCompleteEvent
           namer.apply(
               (new NestedSetView<Artifact>(artifactsInOutputGroup.getArtifacts())).identifier()));
       groups.add(groupBuilder.build());
+    }
+    if (baselineCoverageArtifacts != null) {
+      groups.add(
+          OutputGroup.newBuilder()
+              .setName(TestFileNameConstants.BASELINE_COVERAGE)
+              .addFileSets(
+                  namer.apply(
+                      (new NestedSetView<Artifact>(baselineCoverageArtifacts).identifier())))
+              .build());
     }
     return groups.build();
   }
