@@ -360,9 +360,7 @@ public final class CcCommon {
     if (!ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
       return null;
     }
-    String nocoptsAttr =
-        ruleContext.expandMakeVariables(
-            NO_COPTS_ATTRIBUTE, ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING));
+    String nocoptsAttr = ruleContext.expandedMakeVariables(NO_COPTS_ATTRIBUTE);
     try {
       return Pattern.compile(nocoptsAttr);
     } catch (PatternSyntaxException e) {
@@ -397,11 +395,10 @@ public final class CcCommon {
    */
   public List<String> getDefines() {
     List<String> defines = new ArrayList<>();
-    for (String define :
-      ruleContext.attributes().get(DEFINES_ATTRIBUTE, Type.STRING_LIST)) {
+    for (String define : ruleContext.expandedMakeVariablesList(DEFINES_ATTRIBUTE)) {
       List<String> tokens = new ArrayList<>();
       try {
-        ShellUtils.tokenize(tokens, ruleContext.expandMakeVariables(DEFINES_ATTRIBUTE, define));
+        ShellUtils.tokenize(tokens, define);
         if (tokens.size() == 1) {
           defines.add(tokens.get(0));
         } else if (tokens.isEmpty()) {
@@ -457,8 +454,7 @@ public final class CcCommon {
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
     PathFragment packageFragment = packageIdentifier.getPathUnderExecRoot();
-    for (String includesAttr : ruleContext.attributes().get("includes", Type.STRING_LIST)) {
-      includesAttr = ruleContext.expandMakeVariables("includes", includesAttr);
+    for (String includesAttr : ruleContext.expandedMakeVariablesList("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
             "ignoring invalid absolute path '" + includesAttr + "'");

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -47,8 +46,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET);
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
-      PathFragment javaHomeAttribute = PathFragment.create(ruleContext.expandMakeVariables(
-          "java_home", ruleContext.attributes().get("java_home", Type.STRING)));
+      PathFragment javaHomeAttribute =
+          PathFragment.create(ruleContext.expandedMakeVariables("java_home"));
       if (!filesToBuild.isEmpty() && javaHomeAttribute.isAbsolute()) {
         ruleContext.ruleError("'java_home' with an absolute path requires 'srcs' to be empty.");
       }

@@ -1134,6 +1134,18 @@ public final class RuleContext extends TargetContext
    *
    * @param attributeName the name of the attribute from which "expression" comes; used for error
    *     reporting.
+   * @return the expanded string.
+   */
+  public String expandedMakeVariables(String attributeName) {
+    String expression = attributes().get(attributeName, Type.STRING);
+    return expandMakeVariables(attributeName, expression, getConfigurationMakeVariableContext());
+  }
+
+  /**
+   * Expands the make variables in {@code expression}.
+   *
+   * @param attributeName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
    * @param expression the string to expand.
    * @return the expanded string.
    */
