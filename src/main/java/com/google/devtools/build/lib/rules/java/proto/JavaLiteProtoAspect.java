@@ -267,7 +267,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               javaSemantics,
               JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
               JavaHelper.getHostJavabaseInputs(ruleContext),
-              JavaCompilationHelper.getInstrumentationJars(ruleContext));
+              JavaCompilationHelper.getInstrumentationJars(ruleContext),
+              JavaRuleOutputJarsProvider.builder());
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

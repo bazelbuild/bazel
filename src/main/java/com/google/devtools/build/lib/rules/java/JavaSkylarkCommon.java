@@ -428,19 +428,17 @@ public class JavaSkylarkCommon {
 
     NestedSet<Artifact> hostJavabaseArtifacts =
         hostJavabaseProvider == null
-            ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
             : hostJavabaseProvider.getMiddlemanArtifact();
     JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(javaToolchain);
+    JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
             javaToolchainProvider,
             hostJavabaseArtifacts,
-            SkylarkList.createImmutable(ImmutableList.<Artifact>of()));
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder().addOutputJar(
-            new JavaRuleOutputJarsProvider.OutputJar(outputJar, /* ijar */ null, sourceJars))
-        .build();
+            SkylarkList.createImmutable(ImmutableList.of()),
+            outputJarsBuilder);
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true);
     Runfiles runfiles =
@@ -458,12 +456,12 @@ public class JavaSkylarkCommon {
         ));
 
     return JavaInfo.Builder.create()
-             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-             .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
-             .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
-             .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
-             .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
-             .build();
+        .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
+        .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
+        .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
+        .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
+        .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
+        .build();
   }
 
   private static Artifact buildIjar(

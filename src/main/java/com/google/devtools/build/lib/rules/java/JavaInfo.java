@@ -259,6 +259,16 @@ public final class JavaInfo extends NativeInfo {
         providers.getProvider(JavaSourceJarsProvider.class).getSourceJars());
   }
 
+  @SkylarkCallable(
+    name = "outputs",
+    doc = "Returns information about outputs of this Java target.",
+    structField = true,
+    allowReturnNones = true
+  )
+  public JavaRuleOutputJarsProvider getOutputJars() {
+    return getProvider(JavaRuleOutputJarsProvider.class);
+  }
+
   @Override
   public boolean equals(Object otherObject) {
     if (this == otherObject) {

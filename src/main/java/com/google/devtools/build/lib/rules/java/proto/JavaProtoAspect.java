@@ -305,7 +305,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               javaSemantics,
               JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
               JavaHelper.getHostJavabaseInputs(ruleContext),
-              JavaCompilationHelper.getInstrumentationJars(ruleContext)),
+              JavaCompilationHelper.getInstrumentationJars(ruleContext),
+              JavaRuleOutputJarsProvider.builder()),
           true /* isReportedAsStrict */);
     }
 

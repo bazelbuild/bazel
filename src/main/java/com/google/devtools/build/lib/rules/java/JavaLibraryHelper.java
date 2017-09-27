@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -154,12 +155,16 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  /** Creates the compile actions. */
+  /**
+   * Creates the compile actions. Also fills in the {@link JavaRuleOutputJarsProvider.Builder} with
+   * the corresponding compilation outputs.
+   */
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
       NestedSet<Artifact> hostJavabase,
-      Iterable<Artifact> jacocoInstrumental) {
+      Iterable<Artifact> jacocoInstrumental,
+      JavaRuleOutputJarsProvider.Builder outputJarsBuilder) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
@@ -189,8 +194,13 @@ public final class JavaLibraryHelper {
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
         output, null /* manifestProtoOutput */, null /* gensrcOutputJar */, outputDepsProto);
-    helper.createCompileTimeJarAction(output, artifactsBuilder);
+    Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+
     artifactsBuilder.addRuntimeJar(output);
+
+    outputJarsBuilder
+        .addOutputJar(new OutputJar(output, iJar, sourceJars))
+        .setJdeps(outputDepsProto);
 
     return artifactsBuilder.build();
   }

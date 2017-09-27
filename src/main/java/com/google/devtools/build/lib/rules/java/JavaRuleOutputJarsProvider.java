@@ -173,6 +173,11 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
       return this;
     }
 
+    public Builder addOutputJars(Iterable<OutputJar> outputJars) {
+      this.outputJars.addAll(outputJars);
+      return this;
+    }
+
     public Builder addOutputJar(OutputJar outputJar) {
       outputJars.add(outputJar);
       return this;
