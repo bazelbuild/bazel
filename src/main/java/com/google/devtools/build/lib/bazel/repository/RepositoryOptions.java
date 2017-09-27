@@ -36,9 +36,9 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
     name = "experimental_repository_cache",
     defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.HIDDEN},
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
         "Specifies the cache location of the downloaded values obtained "
