@@ -37,7 +37,7 @@ function set_up() {
       --output xml  | grep 'name="version"' \
       | sed -E 's/.*(value=\"(([0-9]|.)+))\".*/\2/' > xcode_versions
 
-  XCODE_VERSION=$(cat xcode_versions | grep -m1 '7\|8')
+  XCODE_VERSION=$(cat xcode_versions | grep -m1 '7\|8\|9')
 
   # Allow access to //external:xcrunwrapper.
   use_bazel_workspace_file
