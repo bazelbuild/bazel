@@ -518,6 +518,13 @@ public class ExperimentalEventHandler implements EventHandler {
       buildRunning = true;
     }
     stopUpdateThread();
+    flushStdOutStdErrBuffers();
+    try {
+      terminal.resetTerminal();
+      terminal.flush();
+    } catch (IOException e) {
+      logger.warning("IO Error writing to user terminal: " + e);
+    }
   }
 
   @Subscribe
@@ -776,14 +783,6 @@ public class ExperimentalEventHandler implements EventHandler {
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();
       Uninterruptibles.joinUninterruptibly(threadToWaitFor);
-    }
-  }
-
-  public void resetTerminal() {
-    try {
-      terminal.resetTerminal();
-    } catch (IOException e) {
-      logger.warning("IO Error writing to user terminal: " + e);
     }
   }
 
