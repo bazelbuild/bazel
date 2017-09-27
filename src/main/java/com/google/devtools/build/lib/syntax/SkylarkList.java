@@ -347,15 +347,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     /**
      * Appends the given elements to the end of the list, without calling {@link #checkMutable}.
-     *
-     * <p><em>Warning:</em> This method should never be used by a caller that cares about respecting
-     * mutability restrictions. Such callers should instead use the safe {@link #addAll(Iterable,
-     * Location, Mutability)} method below. This unsafe variant is only public in order to provide
-     * an "escape hatch" for when ordinary mutability restrictions are inapplicable, e.g. for
-     * constructing lists from outside a Skylark environment and where it's impossible for multiple
-     * threads to observe the value at once.
      */
-    public void addAllUnsafe(Iterable<? extends E> elements) {
+    private void addAllUnsafe(Iterable<? extends E> elements) {
       Iterables.addAll(contents, elements);
     }
 
