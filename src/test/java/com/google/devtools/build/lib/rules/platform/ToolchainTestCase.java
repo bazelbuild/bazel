@@ -14,11 +14,22 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.RegisteredToolchainsValue;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Before;
 
 /** Utility methods for setting up platform and toolchain related tests. */
@@ -32,6 +43,22 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
   public ConstraintValueInfo macConstraint;
 
   public Label testToolchainType;
+
+  protected static IterableSubject assertToolchainLabels(
+      RegisteredToolchainsValue registeredToolchainsValue) {
+    assertThat(registeredToolchainsValue).isNotNull();
+    ImmutableList<DeclaredToolchainInfo> declaredToolchains =
+        registeredToolchainsValue.registeredToolchains();
+    List<Label> labels = collectToolchainLabels(declaredToolchains);
+    return assertThat(labels);
+  }
+
+  protected static List<Label> collectToolchainLabels(List<DeclaredToolchainInfo> toolchains) {
+    return toolchains
+        .stream()
+        .map((toolchain -> toolchain.toolchainLabel()))
+        .collect(Collectors.toList());
+  }
 
   @Before
   public void createConstraints() throws Exception {
@@ -101,5 +128,16 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         "       'data': attr.string()})");
 
     testToolchainType = makeLabel("//toolchain:test_toolchain");
+  }
+
+  protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(
+      SkyKey toolchainsKey) throws InterruptedException {
+    try {
+      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
+      return SkyframeExecutorTestUtils.evaluate(
+          getSkyframeExecutor(), toolchainsKey, /*keepGoing=*/ false, reporter);
+    } finally {
+      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(false);
+    }
   }
 }

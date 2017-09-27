@@ -19,15 +19,10 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,17 +30,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RegisteredToolchainsFunction} and {@link RegisteredToolchainsValue}. */
 @RunWith(JUnit4.class)
 public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
-
-  private EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(
-      SkyKey toolchainsKey) throws InterruptedException {
-    try {
-      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
-      return SkyframeExecutorTestUtils.evaluate(
-          getSkyframeExecutor(), toolchainsKey, /*keepGoing=*/ false, reporter);
-    } finally {
-      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(false);
-    }
-  }
 
   @Test
   public void testRegisteredToolchains() throws Exception {
@@ -100,7 +84,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
-        .containsExactly(
+        .containsAllOf(
             makeLabel("//extra:extra_toolchain_impl"), makeLabel("//toolchain:test_toolchain_1"))
         .inOrder();
   }
@@ -167,21 +151,5 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain1)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)));
-  }
-
-  private static IterableSubject assertToolchainLabels(
-      RegisteredToolchainsValue registeredToolchainsValue) {
-    assertThat(registeredToolchainsValue).isNotNull();
-    ImmutableList<DeclaredToolchainInfo> declaredToolchains =
-        registeredToolchainsValue.registeredToolchains();
-    List<Label> labels = collectToolchainLabels(declaredToolchains);
-    return assertThat(labels);
-  }
-
-  private static List<Label> collectToolchainLabels(List<DeclaredToolchainInfo> toolchains) {
-    return toolchains
-        .stream()
-        .map((toolchain -> toolchain.toolchainLabel()))
-        .collect(Collectors.toList());
   }
 }

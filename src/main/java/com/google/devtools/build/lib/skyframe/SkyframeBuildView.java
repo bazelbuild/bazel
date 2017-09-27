@@ -610,7 +610,7 @@ public final class SkyframeBuildView {
    * #createConfiguredTarget}, and false immediately after the call. Use it to fail-fast in the case
    * that a target is requested for analysis not during the analysis phase.
    */
-  void enableAnalysis(boolean enable) {
+  public void enableAnalysis(boolean enable) {
     this.enableAnalysis = enable;
   }
 
