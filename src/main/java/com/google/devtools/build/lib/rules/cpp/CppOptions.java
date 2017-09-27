@@ -157,7 +157,7 @@ public class CppOptions extends FragmentOptions {
 
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
-  // form the output directory path.
+  // from the output directory path.
   @Option(
     name = "cc_output_directory_tag",
     defaultValue = "",
