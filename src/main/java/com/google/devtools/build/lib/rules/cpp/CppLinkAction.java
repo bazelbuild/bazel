@@ -65,6 +65,7 @@ import javax.annotation.Nullable;
 @ThreadCompatible
 public final class CppLinkAction extends AbstractAction
     implements ExecutionInfoSpecifier, CommandAction {
+
   /**
    * An abstraction for creating intermediate and output artifacts for C++ linking.
    *
@@ -279,6 +280,17 @@ public final class CppLinkAction extends AbstractAction
     return linkCommandLine.getCommandLine();
   }
 
+  /**
+   * Returns a (possibly empty) mapping of (C++ source file, .o output file) pairs for source files
+   * that need to be compiled at link time.
+   *
+   * <p>This is used to embed various values from the build system into binaries to identify their
+   * provenance.
+   */
+  public ImmutableMap<Artifact, Artifact> getLinkstamps() {
+    return linkCommandLine.getLinkstamps();
+  }
+
   Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
     return allLtoBackendArtifacts;
   }
@@ -316,7 +328,7 @@ public final class CppLinkAction extends AbstractAction
       throws ActionExecutionException {
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
-    final Collection<Artifact> linkstampOutputs = getLinkCommandLine().getLinkstamps().values();
+    final Collection<Artifact> linkstampOutputs = getLinkstamps().values();
 
     // Prefix all fake output files in the command line with $TEST_TMPDIR/.
     final String outputPrefix = "$TEST_TMPDIR/";
@@ -413,9 +425,8 @@ public final class CppLinkAction extends AbstractAction
     }
     info.setLinkTargetType(getLinkCommandLine().getLinkTargetType().name());
     info.setLinkStaticness(getLinkCommandLine().getLinkStaticness().name());
-    info.addAllLinkStamp(Artifact.toExecPaths(getLinkCommandLine().getLinkstamps().values()));
-    info.addAllBuildInfoHeaderArtifact(
-        Artifact.toExecPaths(getLinkCommandLine().getBuildInfoHeaderArtifacts()));
+    info.addAllLinkStamp(Artifact.toExecPaths(getLinkstamps().values()));
+    info.addAllBuildInfoHeaderArtifact(Artifact.toExecPaths(getBuildInfoHeaderArtifacts()));
     info.addAllLinkOpt(getLinkCommandLine().getRawLinkArgv());
 
     try {
@@ -423,6 +434,11 @@ public final class CppLinkAction extends AbstractAction
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("CppLinkAction command line expansion cannot fail.");
     }
+  }
+
+  /** Returns the (ordered, immutable) list of header files that contain build info. */
+  public Iterable<Artifact> getBuildInfoHeaderArtifacts() {
+    return linkCommandLine.getBuildInfoHeaderArtifacts();
   }
 
   @Override

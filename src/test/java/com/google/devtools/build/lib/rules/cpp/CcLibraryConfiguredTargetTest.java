@@ -282,11 +282,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
         .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(
-        action.getLinkCommandLine().getLinkstamps().values());
+    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
-    Iterable<String> buildInfoHeaderArtifacts = Artifact.asExecPaths(
-        action.getLinkCommandLine().getBuildInfoHeaderArtifacts());
+    Iterable<String> buildInfoHeaderArtifacts =
+        Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
@@ -316,11 +315,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
         .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(
-        action.getLinkCommandLine().getLinkstamps().values());
+    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
-    Iterable<String> buildInfoHeaderArtifacts = Artifact.asExecPaths(
-        action.getLinkCommandLine().getBuildInfoHeaderArtifacts());
+    Iterable<String> buildInfoHeaderArtifacts =
+        Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
