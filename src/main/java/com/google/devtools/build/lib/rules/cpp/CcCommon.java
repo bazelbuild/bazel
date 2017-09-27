@@ -127,17 +127,17 @@ public final class CcCommon {
    */
   public ImmutableList<String> getLinkopts() {
     Preconditions.checkState(hasAttribute("linkopts", Type.STRING_LIST));
-    List<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
-    List<String> result = new ArrayList<>();
+    Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
+    List<String> result;
     if (ourLinkopts != null) {
       boolean allowDashStatic = !cppConfiguration.forceIgnoreDashStatic()
           && (cppConfiguration.getDynamicMode() != DynamicMode.FULLY);
-      for (String linkopt : ourLinkopts) {
-        if (linkopt.equals("-static") && !allowDashStatic) {
-          continue;
-        }
-        CppHelper.expandAttribute(ruleContext, result, "linkopts", linkopt, true);
+      if (!allowDashStatic) {
+        ourLinkopts = Iterables.filter(ourLinkopts, (v) -> !"-static".equals(v));
       }
+      result = CppHelper.expandLinkopts(ruleContext, "linkopts", ourLinkopts);
+    } else {
+      result = ImmutableList.of();
     }
 
     if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())

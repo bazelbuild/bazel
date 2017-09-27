@@ -199,20 +199,27 @@ public class CppHelper {
    * (if attemptLabelExpansion == {@code true} and it does not look like make
    * variable or flag) or tokenizes and expands make variables.
    */
-  public static void expandAttribute(RuleContext ruleContext,
-      List<String> result, String attrName, String attrValue, boolean attemptLabelExpansion) {
-    if (attemptLabelExpansion && CppHelper.isLinkoptLabel(attrValue)) {
-      if (!CppHelper.expandLabel(ruleContext, result, attrValue)) {
-        ruleContext.attributeError(attrName, "could not resolve label '" + attrValue + "'");
+  public static List<String> expandLinkopts(
+      RuleContext ruleContext, String attrName, Iterable<String> values) {
+    List<String> result = new ArrayList<>();
+    ConfigurationMakeVariableContext makeVariableContext =
+        ruleContext.getConfigurationMakeVariableContext(
+            ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+    for (String value : values) {
+      if (isLinkoptLabel(value)) {
+        if (!expandLabel(ruleContext, result, value)) {
+          ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
+        }
+      } else {
+        ruleContext
+            .tokenizeAndExpandMakeVars(
+                result,
+                attrName,
+                value,
+                makeVariableContext);
       }
-    } else {
-      ruleContext.tokenizeAndExpandMakeVars(
-          result,
-          attrName,
-          attrValue,
-          ruleContext.getConfigurationMakeVariableContext(
-              ImmutableList.of(new CcFlagsSupplier(ruleContext))));
     }
+    return result;
   }
 
   /**
