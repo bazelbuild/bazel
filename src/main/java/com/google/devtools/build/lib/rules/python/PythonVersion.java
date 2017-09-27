@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.common.collect.Iterables.transform;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 
 /**
@@ -28,12 +32,38 @@ public enum PythonVersion {
   static final PythonVersion[] ALL_VALUES =
       new PythonVersion[] { PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY };
 
-  public static PythonVersion defaultValue() {
+  static final PythonVersion[] NON_CONVERSION_VALUES =
+      new PythonVersion[] { PY2AND3, PY2ONLY, PY3ONLY };
+
+  static final PythonVersion[] TARGET_PYTHON_VALUES =
+      new PythonVersion[] { PY2, PY3 };
+
+  public static PythonVersion defaultSrcsVersion() {
+    return PY2AND3;
+  }
+
+  public static PythonVersion defaultTargetPythonVersion() {
     return PY2;
   }
 
-  public static PythonVersion[] getAllValues() {
+  private static Iterable<String> convertToStrings(PythonVersion[] values) {
+    return transform(ImmutableList.copyOf(values), Functions.toStringFunction());
+  }
+
+  public static PythonVersion[] getAllVersions() {
     return ALL_VALUES;
+  }
+
+  public static Iterable<String> getAllValues() {
+    return convertToStrings(ALL_VALUES);
+  }
+
+  public static Iterable<String> getNonConversionValues() {
+    return convertToStrings(NON_CONVERSION_VALUES);
+  }
+  
+  public static Iterable<String> getTargetPythonValues() {
+    return convertToStrings(TARGET_PYTHON_VALUES);
   }
 
   /**

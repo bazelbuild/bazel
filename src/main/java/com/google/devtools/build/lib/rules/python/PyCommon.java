@@ -96,7 +96,7 @@ public final class PyCommon {
 
   public void initCommon(PythonVersion defaultVersion) {
     this.sourcesVersion = getPythonVersionAttr(
-        ruleContext, "srcs_version", PythonVersion.getAllValues());
+        ruleContext, "srcs_version", PythonVersion.getAllVersions());
 
     this.version = ruleContext.getFragment(PythonConfiguration.class)
         .getPythonVersion(defaultVersion);
@@ -204,10 +204,11 @@ public final class PyCommon {
     if (version != null) {
       return version;
     }
+    // Should already have been disallowed in the rule.
     ruleContext.attributeError(attrName,
         "'" + stringAttr + "' is not a valid value. Expected one of: " + Joiner.on(", ")
             .join(allowed));
-    return PythonVersion.defaultValue();
+    return PythonVersion.defaultTargetPythonVersion();
   }
 
   /**
@@ -399,14 +400,11 @@ public final class PyCommon {
    */
   private void checkSourceIsCompatible(PythonVersion targetVersion, PythonVersion sourceVersion,
                                           Label source) {
-    if (targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3) {
-      if (sourceVersion == PythonVersion.PY3ONLY) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' can only be used with Python 3, and cannot be converted to Python 2");
-      } else if (sourceVersion == PythonVersion.PY3) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' need to be converted to Python 2 (not yet implemented)");
-      }
+    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
+    if ((targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3)
+        && (sourceVersion == PythonVersion.PY3 || sourceVersion == PythonVersion.PY3ONLY)) {
+      ruleContext.ruleError("Rule '" + source
+          + "' can only be used with Python 3, and cannot be converted to Python 2");
     }
     if ((targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3)
         && sourceVersion == PythonVersion.PY2ONLY) {
