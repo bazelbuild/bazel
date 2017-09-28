@@ -29,7 +29,7 @@ public class LinterTest {
     final String file =
         String.join(
             "\n",
-            "_unusedVar = function()",
+            "_unusedVar = function() + {}",
             "load(':foo.bzl', 'bar')",
             "def function():",
             "  return",
@@ -39,6 +39,7 @@ public class LinterTest {
             .setFileContentsReader(p -> file.getBytes(StandardCharsets.ISO_8859_1))
             .lint(Paths.get("foo"))
             .toString();
+    Truth.assertThat(errorMessages).contains("'+' operator is deprecated"); // bad operation checker
     Truth.assertThat(errorMessages).contains("unreachable statement"); // control flow checker
     Truth.assertThat(errorMessages).contains("has no module docstring"); // docstring checker
     Truth.assertThat(errorMessages)
