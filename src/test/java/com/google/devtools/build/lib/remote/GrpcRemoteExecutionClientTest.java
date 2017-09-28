@@ -524,33 +524,67 @@ public class GrpcRemoteExecutionClientTest {
     serviceRegistry.addService(mockExecutionImpl);
 
     WatcherImplBase mockWatcherImpl = Mockito.mock(WatcherImplBase.class);
+    Operation operationWithError =
+        Operation.newBuilder()
+            .setName(opName)
+            .setError(com.google.rpc.Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build())
+            .build();
+    Change chOperationWithError =
+        Change.newBuilder()
+            .setState(Change.State.EXISTS)
+            .setData(Any.pack(operationWithError))
+            .build();
+    ExecuteResponse executeResponseWithError =
+        ExecuteResponse.newBuilder()
+            .setStatus(
+                com.google.rpc.Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build())
+            .build();
+    Operation operationWithExecuteError =
+        Operation.newBuilder()
+            .setName(opName)
+            .setDone(true)
+            .setResponse(Any.pack(executeResponseWithError))
+            .build();
+    Change chOperationWithExecuteError =
+        Change.newBuilder()
+            .setState(Change.State.EXISTS)
+            .setData(Any.pack(operationWithExecuteError))
+            .build();
+    Operation opSuccess =
+        Operation.newBuilder()
+            .setName(opName)
+            .setDone(true)
+            .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+            .build();
+    Change chSuccess =
+        Change.newBuilder().setState(Change.State.EXISTS).setData(Any.pack(opSuccess)).build();
     Mockito.doAnswer(
             invocationOnMock -> {
-              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+              @SuppressWarnings("unchecked")
+              StreamObserver<ChangeBatch> responseObserver =
                   (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
               // Retry the execution call as well as the watch call.
               responseObserver.onNext(
-                  ChangeBatch.newBuilder()
-                      .addChanges(
-                          Change.newBuilder()
-                              .setState(Change.State.EXISTS)
-                              .setData(
-                                  Any.pack(
-                                      Operation.newBuilder()
-                                          .setName(opName)
-                                          .setError(
-                                              com.google.rpc.Status.newBuilder()
-                                                  .setCode(Code.INTERNAL.getNumber())
-                                                  .build())
-                                          .build()))
-                              .build())
-                      .build());
+                  ChangeBatch.newBuilder().addChanges(chOperationWithError).build());
+
               responseObserver.onCompleted();
               return null;
             })
         .doAnswer(
             invocationOnMock -> {
-              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+              @SuppressWarnings("unchecked")
+              StreamObserver<ChangeBatch> responseObserver =
+                  (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
+              // Retry the execution call as well as the watch call.
+              responseObserver.onNext(
+                  ChangeBatch.newBuilder().addChanges(chOperationWithExecuteError).build());
+              responseObserver.onCompleted();
+              return null;
+            })
+        .doAnswer(
+            invocationOnMock -> {
+              @SuppressWarnings("unchecked")
+              StreamObserver<ChangeBatch> responseObserver =
                   (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
               // Retry the watch call.
               responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
@@ -558,7 +592,8 @@ public class GrpcRemoteExecutionClientTest {
             })
         .doAnswer(
             invocationOnMock -> {
-              @SuppressWarnings("unchecked") StreamObserver<ChangeBatch> responseObserver =
+              @SuppressWarnings("unchecked")
+              StreamObserver<ChangeBatch> responseObserver =
                   (StreamObserver<ChangeBatch>) invocationOnMock.getArguments()[1];
               // Some optional initial state.
               responseObserver.onNext(
@@ -581,24 +616,7 @@ public class GrpcRemoteExecutionClientTest {
                               .build())
                       .build());
               // Finished executing.
-              responseObserver.onNext(
-                  ChangeBatch.newBuilder()
-                      .addChanges(
-                          Change.newBuilder()
-                              .setState(Change.State.EXISTS)
-                              .setData(
-                                  Any.pack(
-                                      Operation.newBuilder()
-                                          .setName(opName)
-                                          .setDone(true)
-                                          .setResponse(
-                                              Any.pack(
-                                                  ExecuteResponse.newBuilder()
-                                                      .setResult(actionResult)
-                                                      .build()))
-                                          .build()))
-                              .build())
-                      .build());
+              responseObserver.onNext(ChangeBatch.newBuilder().addChanges(chSuccess).build());
               responseObserver.onCompleted();
               return null;
             })
@@ -657,10 +675,10 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
-    Mockito.verify(mockExecutionImpl, Mockito.times(3))
+    Mockito.verify(mockExecutionImpl, Mockito.times(4))
         .execute(
             Mockito.<ExecuteRequest>anyObject(), Mockito.<StreamObserver<Operation>>anyObject());
-    Mockito.verify(mockWatcherImpl, Mockito.times(3))
+    Mockito.verify(mockWatcherImpl, Mockito.times(4))
         .watch(
             Mockito.<Request>anyObject(), Mockito.<StreamObserver<ChangeBatch>>anyObject());
   }
