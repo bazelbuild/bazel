@@ -296,8 +296,9 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   private static String getTestSuitePropertyName(RuleContext ruleContext)
       throws RuleErrorException {
     try {
-      return ResourceFileLoader.loadResource(
-          AndroidInstrumentationTest.class, TEST_SUITE_PROPERTY_NAME_FILE);
+      return ResourceFileLoader
+          .loadResource(AndroidInstrumentationTest.class, TEST_SUITE_PROPERTY_NAME_FILE)
+          .trim();
     } catch (IOException e) {
       ruleContext.throwWithRuleError("Cannot load test suite property name: " + e.getMessage());
       return null;

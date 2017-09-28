@@ -72,17 +72,22 @@ fixture_args="%fixture_args%"
 
 test_suite_property_name='%test_suite_property_name%'
 
+argv=$(cat <<END
+--adb="${adb}" \
+--device_broker_type="${device_broker_type}" \
+--device_script="${device_script}" \
+--data_deps="${data_deps}" \
+--test_label="${test_label}" \
+--apks_to_install="${apks_to_install}" \
+--fixture_scripts="$(printf "%s," "${!device_script_fixtures[@]}")" \
+--hermetic_server_script="${host_service_fixture}" \
+--hermetic_servers="${host_service_fixture_services}" \
+--data_deps="$(printf "%s," "${!device_script_fixtures[@]}")"
+END
+)
+
 $test_entry_point \
     --wrapper_script_flag=--jvm_flag=-D$test_suite_property_name=com.google.android.apps.common.testing.suite.AndroidDeviceTestSuite \
-    --adb="${adb}" \
-    --device_broker_type="${device_broker_type}" \
-    --device_script="${device_script}" \
-    --data_deps="${data_deps}" \
-    --test_label="${test_label}" \
-    --apks_to_install="${apks_to_install}" \
-    --fixture_scripts="$(printf "%s," "${!device_script_fixtures[@]}")" \
-    --hermetic_server_script="${host_service_fixture}" \
-    --hermetic_servers="${host_service_fixture_services}" \
-    --data_deps="$(printf "%s," "${!device_script_fixtures[@]}")" \
+    --wrapper_script_flag=--jvm_flag=-Dargv="$argv" \
     --test_filter="${ANDROID_TESTBRIDGE_TEST_ONLY}" \
     "$@"
