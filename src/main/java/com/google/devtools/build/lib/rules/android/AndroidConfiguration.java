@@ -390,6 +390,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean desugarJava8;
 
+    // This flag is intended to be flipped globally.
+    @Option(
+      name = "experimental_check_desugar_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to double-check correct desugaring at Android binary level."
+    )
+    public boolean checkDesugarDeps;
+
     @Option(
       name = "incremental_dexing",
       defaultValue = "true",
@@ -737,6 +747,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
 
       host.desugarJava8 = desugarJava8;
+      host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
@@ -791,6 +802,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
+  private final boolean checkDesugarDeps;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
@@ -830,6 +842,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
+    this.checkDesugarDeps = options.checkDesugarDeps;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
         || options.useExperimentalAndroidResourceShrinking;
@@ -928,6 +941,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean desugarJava8() {
     return desugarJava8;
+  }
+
+  public boolean checkDesugarDeps() {
+    return checkDesugarDeps;
   }
 
   public boolean useRexToCompressDexFiles() {

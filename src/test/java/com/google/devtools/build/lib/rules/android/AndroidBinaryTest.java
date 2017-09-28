@@ -293,6 +293,47 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .doesNotContain("libapp.jar");
   }
 
+  /**
+   * Tests that --experimental_check_desugar_deps causes the relevant flags to be set on desugaring
+   * and singlejar actions, and makes sure the deploy jar is built even when just building an APK.
+   */
+  @Test
+  public void testSimpleBinary_checkDesugarDepsAlwaysHappens() throws Exception {
+    useConfiguration("--experimental_check_desugar_deps");
+    ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
+    assertNoEvents();
+
+    // 1. Find app's deploy jar and make sure checking flags are set for it and its inputs
+    SpawnAction singlejar = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(binary), "/app_deploy.jar");
+    assertThat(getGeneratingSpawnActionArgs(singlejar.getPrimaryOutput()))
+        .contains("--check_desugar_deps");
+
+    SpawnAction desugar =
+        (SpawnAction)
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(singlejar.getInputs(), "/libapp.jar_desugared.jar");
+    assertThat(desugar).isNotNull();
+    assertThat(getGeneratingSpawnActionArgs(desugar.getPrimaryOutput()))
+        .contains("--emit_dependency_metadata_as_needed");
+
+    // 2. Make sure all APK outputs depend on the deploy Jar.
+    int found = 0;
+    for (Artifact built : getFilesToBuild(binary)) {
+      if (built.getExtension().equals("apk")) {
+        // If this assertion breaks then APK artifacts have stopped depending on deploy jars.
+        // If that's desired then we'll need to make sure dependency checking is done in another
+        // action that APK artifacts depend on, in addition to the check that happens when building
+        // deploy.jars, which we assert above.
+        assertThat(actionsTestUtil().artifactClosureOf(built))
+            .named("%s dependency on deploy.jar", built.getFilename())
+            .contains(singlejar.getPrimaryOutput());
+        ++found;
+      }
+    }
+    assertThat(found).isEqualTo(2 /* signed and unsigned apks */);
+  }
+
   // regression test for #3169099
   @Test
   public void testBinarySrcs() throws Exception {

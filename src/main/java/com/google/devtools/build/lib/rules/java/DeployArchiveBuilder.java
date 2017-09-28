@@ -64,6 +64,7 @@ public class DeployArchiveBuilder {
   private ImmutableList<String> deployManifestLines = ImmutableList.of();
   @Nullable private Artifact launcher;
   @Nullable private Function<Artifact, Artifact> derivedJars = null;
+  private boolean checkDesugarDeps;
 
   /**
    * Type of compression to apply to output archive.
@@ -161,6 +162,12 @@ public class DeployArchiveBuilder {
 
   public DeployArchiveBuilder setDerivedJarFunction(Function<Artifact, Artifact> derivedJars) {
     this.derivedJars = derivedJars;
+    return this;
+  }
+
+  /** Whether singlejar should process META-INF/desugar_deps files and fail upon inconsistencies. */
+  public DeployArchiveBuilder setCheckDesugarDeps(boolean checkDesugarDeps) {
+    this.checkDesugarDeps = checkDesugarDeps;
     return this;
   }
 
@@ -290,6 +297,9 @@ public class DeployArchiveBuilder {
             includeBuildData,
             compression,
             launcher);
+    if (checkDesugarDeps) {
+      commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
+    }
 
     List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
     ResourceSet resourceSet =

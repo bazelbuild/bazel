@@ -371,13 +371,15 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ImmutableList<Artifact> bootclasspath,
       NestedSet<Artifact> classpath,
       Artifact result) {
-    CustomCommandLine args =
-        new Builder()
+    CustomCommandLine.Builder args =
+        new CustomCommandLine.Builder()
             .addExecPath("--input", jar)
             .addExecPath("--output", result)
             .addExecPaths(VectorArg.addBefore("--classpath_entry").each(classpath))
-            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
-            .build();
+            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath));
+    if (getAndroidConfig(ruleContext).checkDesugarDeps()) {
+      args.add("--emit_dependency_metadata_as_needed");
+    }
 
     // Just use params file, since classpaths can get long
     Artifact paramFile =
@@ -387,7 +389,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new ParameterFileWriteAction(
             ruleContext.getActionOwner(),
             paramFile,
-            args,
+            args.build(),
             ParameterFile.ParameterFileType.UNQUOTED,
             ISO_8859_1));
     ruleContext.registerAction(

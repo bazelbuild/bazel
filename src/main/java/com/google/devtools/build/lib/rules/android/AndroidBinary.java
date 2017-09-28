@@ -125,8 +125,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   /**
    * Checks expected rule invariants, throws rule errors if anything is set wrong.
    */
-  private static void validateRuleContext(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+  private static void validateRuleContext(RuleContext ruleContext) throws RuleErrorException {
     if (getMultidexMode(ruleContext) != MultidexMode.LEGACY
         && ruleContext.attributes().isAttributeValueExplicitlySpecified(
             "main_dex_proguard_specs")) {
@@ -747,6 +746,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setAttributes(attributes)
         .addRuntimeJars(common.getRuntimeJars())
         .setDerivedJarFunction(derivedJarFunction)
+        .setCheckDesugarDeps(AndroidCommon.getAndroidConfig(ruleContext).checkDesugarDeps())
         .build();
     return deployJar;
   }
@@ -845,7 +845,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /** Returns {@code true} if resource shrinking should be performed. */
-  private static boolean shouldShrinkResources(RuleContext ruleContext) throws RuleErrorException {
+  private static boolean shouldShrinkResources(RuleContext ruleContext) {
     TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
     if (state == TriState.AUTO) {
       boolean globalShrinkResources =

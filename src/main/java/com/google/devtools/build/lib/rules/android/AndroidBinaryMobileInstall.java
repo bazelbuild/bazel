@@ -380,6 +380,7 @@ public final class AndroidBinaryMobileInstall {
         .setOutputJar(stubDeployJar)
         .setAttributes(attributes)
         .setDerivedJarFunction(desugaredJars)
+        .setCheckDesugarDeps(AndroidCommon.getAndroidConfig(ruleContext).checkDesugarDeps())
         .build();
 
     Artifact stubDex =
