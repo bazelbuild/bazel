@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -104,6 +105,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean linkStatic,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
+    ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
+
     final CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
     FdoSupportProvider fdoSupport = common.getFdoSupport();

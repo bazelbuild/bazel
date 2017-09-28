@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -57,6 +56,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
 
   static RuleConfiguredTargetBuilder init(RuleContext ruleContext, PythonSemantics semantics,
       PyCommon common) throws InterruptedException {
+    ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
     CcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
 
     List<Artifact> srcs = common.validateSrcs();
@@ -91,9 +91,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         RunfilesSupport.withExecutable(
             ruleContext,
             defaultRunfiles,
-            common.getExecutable(),
-            ruleContext.getConfigurationMakeVariableContext(
-                ImmutableList.of(new CcFlagsSupplier(ruleContext))));
+            common.getExecutable());
 
     if (ruleContext.hasErrors()) {
       return null;

@@ -150,8 +150,6 @@ public final class CcCommon {
   }
 
   public ImmutableList<String> getCopts() {
-    Preconditions.checkState(hasAttribute("copts", Type.STRING_LIST));
-
     if (!getCoptsFilter(ruleContext).apply("-Wno-future-warnings")) {
       ruleContext.attributeWarning(
           "nocopts",
@@ -164,8 +162,8 @@ public final class CcCommon {
     }
 
     return ImmutableList.<String>builder()
-        .addAll(getPackageCopts(ruleContext))
-        .addAll(CppHelper.getAttributeCopts(ruleContext, "copts"))
+        .addAll(CppHelper.getPackageCopts(ruleContext))
+        .addAll(CppHelper.getAttributeCopts(ruleContext))
         .build();
   }
 
@@ -334,11 +332,6 @@ public final class CcCommon {
           CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME,
           getMakeVariable(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
     }
-  }
-
-  private static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
-    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
-    return ImmutableList.copyOf(CppHelper.expandMakeVariables(ruleContext, "copts", unexpanded));
   }
 
   /** Returns copts filter built from the make variable expanded nocopts attribute. */

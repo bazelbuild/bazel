@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -166,6 +167,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake)
       throws InterruptedException, RuleErrorException {
     ruleContext.checkSrcsSamePackage(true);
+    ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
+
     CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
     FdoSupportProvider fdoSupport = common.getFdoSupport();
