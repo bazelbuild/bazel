@@ -172,8 +172,6 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
    *
    * <p>Just a wrapper around its class.
    */
-  // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
-  // we will need to serialize this somehow.
   @Immutable
   public static final class NativeKey extends Key {
     private final String name;
