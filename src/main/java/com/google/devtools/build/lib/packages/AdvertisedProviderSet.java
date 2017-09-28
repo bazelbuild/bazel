@@ -33,7 +33,6 @@ import java.util.Objects;
  * our current dependency structure does not allow a reference to that class here.
  * </p>
  */
-// todo(dslomov,vladmos): support declared providers
 @Immutable
 public final class AdvertisedProviderSet {
   private final boolean canHaveAnyProvider;
