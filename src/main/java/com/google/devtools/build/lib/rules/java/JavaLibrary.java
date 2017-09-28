@@ -126,7 +126,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
 
-    helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, outputDepsProto);
+    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
+        outputDepsProto, javaArtifactsBuilder);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;

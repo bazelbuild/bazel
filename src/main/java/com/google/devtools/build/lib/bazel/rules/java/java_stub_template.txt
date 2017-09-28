@@ -254,8 +254,6 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 # We need to make the metadata jar with uninstrumented classes available for generating
 # the lcov-compatible coverage report, and we don't want it on the classpath.
 %set_jacoco_metadata%
-%set_jacoco_main_class%
-%set_jacoco_java_runfiles_root%
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}

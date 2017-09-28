@@ -20,8 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 import javax.annotation.Nullable;
 
 /**
@@ -47,7 +49,9 @@ public abstract class JavaCompilationArtifacts {
   public abstract ImmutableList<Artifact> getRuntimeJars();
   public abstract ImmutableList<Artifact> getCompileTimeJars();
   abstract ImmutableList<Artifact> getFullCompileTimeJars();
+  public abstract ImmutableList<Artifact> getInstrumentationMetadata();
   @Nullable public abstract Artifact getCompileTimeDependencyArtifact();
+  @Nullable public abstract Artifact getInstrumentedJar();
 
   /** Returns a builder for a {@link JavaCompilationArtifacts}. */
   public static Builder builder() {
@@ -61,7 +65,9 @@ public abstract class JavaCompilationArtifacts {
     private final Set<Artifact> runtimeJars = new LinkedHashSet<>();
     private final Set<Artifact> compileTimeJars = new LinkedHashSet<>();
     private final Set<Artifact> fullCompileTimeJars = new LinkedHashSet<>();
+    private final Set<Artifact> instrumentationMetadata = new LinkedHashSet<>();
     private Artifact compileTimeDependencies;
+    private Artifact instrumentedJar;
 
     public JavaCompilationArtifacts build() {
       Preconditions.checkState(fullCompileTimeJars.size() == compileTimeJars.size());
@@ -69,7 +75,9 @@ public abstract class JavaCompilationArtifacts {
           ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
           ImmutableList.copyOf(fullCompileTimeJars),
-          compileTimeDependencies);
+          ImmutableList.copyOf(instrumentationMetadata),
+          compileTimeDependencies,
+          instrumentedJar);
     }
 
     public Builder addRuntimeJar(Artifact jar) {
@@ -104,8 +112,18 @@ public abstract class JavaCompilationArtifacts {
       return this;
     }
 
+    public Builder addInstrumentationMetadata(Artifact instrumentationMetadata) {
+      this.instrumentationMetadata.add(instrumentationMetadata);
+      return this;
+    }
+
     public Builder setCompileTimeDependencies(@Nullable Artifact compileTimeDependencies) {
       this.compileTimeDependencies = compileTimeDependencies;
+      return this;
+    }
+
+    public Builder setInstrumentedJar(@Nullable Artifact instrumentedJar) {
+      this.instrumentedJar = instrumentedJar;
       return this;
     }
   }

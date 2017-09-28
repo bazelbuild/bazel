@@ -81,6 +81,7 @@ public class JavaTargetAttributes {
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
     private final List<Artifact> messages = new ArrayList<>();
+    private final List<Artifact> instrumentationMetadata = new ArrayList<>();
     private final List<Artifact> sourceJars = new ArrayList<>();
 
     private final List<Artifact> classPathResources = new ArrayList<>();
@@ -140,6 +141,7 @@ public class JavaTargetAttributes {
       Preconditions.checkArgument(!built);
       addCompileTimeClassPathEntries(context.getCompileTimeJars());
       addRuntimeClassPathEntries(context.getRuntimeJars());
+      addInstrumentationMetadataEntries(context.getInstrumentationMetadata());
       return this;
     }
 
@@ -250,6 +252,12 @@ public class JavaTargetAttributes {
     public Builder addCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
       Preconditions.checkArgument(!built);
       compileTimeDependencyArtifacts.addTransitive(dependencyArtifacts);
+      return this;
+    }
+
+    public Builder addInstrumentationMetadataEntries(Iterable<Artifact> metadataEntries) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(instrumentationMetadata, metadataEntries);
       return this;
     }
 
@@ -390,6 +398,12 @@ public class JavaTargetAttributes {
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
+    }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getInstrumentationMetadata} */
+    @Deprecated
+    public List<Artifact> getInstrumentationMetadata() {
+      return instrumentationMetadata;
     }
 
     /** @deprecated prefer {@link JavaTargetAttributes#hasSourceJars} */

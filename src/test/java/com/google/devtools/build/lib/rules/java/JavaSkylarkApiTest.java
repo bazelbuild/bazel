@@ -1008,6 +1008,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         args.getCompileTimeJars(), otherArgs.getCompileTimeJars())) {
       return false;
     }
+    if (!nestedSetsOfArtifactHaveTheSameParent(
+        args.getInstrumentationMetadata(), otherArgs.getInstrumentationMetadata())) {
+      return false;
+    }
     if (!nestedSetsOfArtifactHaveTheSameParent(args.getRuntimeJars(), otherArgs.getRuntimeJars())) {
       return false;
     }
