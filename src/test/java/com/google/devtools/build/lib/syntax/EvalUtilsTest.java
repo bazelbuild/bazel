@@ -38,11 +38,11 @@ import org.junit.runners.JUnit4;
 public class EvalUtilsTest extends EvaluationTestCase {
 
   private static MutableList<Object> makeList(Environment env) {
-    return MutableList.<Object>of(env, 1, 2, 3);
+    return MutableList.of(env, 1, 2, 3);
   }
 
   private static SkylarkDict<Object, Object> makeDict(Environment env) {
-    return SkylarkDict.<Object, Object>of(env, 1, 1, 2, 2);
+    return SkylarkDict.of(env, 1, 1, 2, 2);
   }
 
   @Test

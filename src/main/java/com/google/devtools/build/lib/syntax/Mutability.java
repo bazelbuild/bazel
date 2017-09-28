@@ -31,13 +31,19 @@ import java.util.List;
  * {@code Mutability} instance. Once the {@code Environment} is done evaluating, its {@code
  * Mutability} is irreversibly closed ("frozen"). At that point, it is no longer possible to change
  * either the bindings in that {@code Environment} or the state of its objects. This protects each
- * {@code Environment} from unintentional and unsafe modification. Before freezing, only a single
- * thread may use the contents of the {@code Environment}, but after freezing, any number of threads
- * may access it.
+ * {@code Environment} from unintentional and unsafe modification.
  *
- * <p>It is illegal for an evaluation in one {@code Environment} to affect another {@code
- * Environment}, even if the second {@code Environment} has not yet been frozen. In practice, the
- * only unfrozen values that any {@code Environment} should be able to access are its own.
+ * <p>{@code Mutability}s enforce isolation between {@code Environment}s; it is illegal for an
+ * evaluation in one {@code Environment} to affect the bindings or values of another. In particular,
+ * the {@code Environment} for any Skylark module is frozen before its symbols can be imported for
+ * use by another module. Each individual {@code Environment}'s evaluation is single-threaded, so
+ * this isolation also translates to thread safety. Any number of threads may simultaneously access
+ * frozen data.
+ *
+ * <p>Although the mutability pointer of a {@code Freezable} contains some debugging information
+ * about its context, this should not affect the {@code Freezable}'s semantics. From a behavioral
+ * point of view, the only thing that matters is whether the {@code Mutability} is frozen, not what
+ * particular {@code Mutability} object is pointed to.
  *
  * <p>A {@code Mutability} also tracks which {@code Freezable} objects in its {@code Environment}
  * are temporarily locked from mutation. This is used to prevent modification of iterables during
@@ -45,7 +51,7 @@ import java.util.List;
  * iterable). Locking an object does not prohibit mutating its deeply contained values, such as in
  * the case of a list of lists.
  *
- * We follow two disciplines to ensure safety. First, all mutation methods of a {@code Freezable}
+ * <p>We follow two disciplines to ensure safety. First, all mutation methods of a {@code Freezable}
  * must take in a {@code Mutability} as a parameter, and confirm that
  * <ol>
  *   <li>the {@code Freezable} is not yet frozen,
@@ -67,9 +73,23 @@ import java.util.List;
  * block, relying on the try-with-resource construct to ensure that everything gets frozen before
  * the result is used. The only code that should create a {@code Mutability} without using
  * try-with-resource is test code that is not part of the Bazel jar.
+ *
+ * We keep some (unchecked) invariants regarding where {@code Mutability} objects may appear in a
+ * compound value.
+ * <ol>
+ *   <li>There is always at most one unfrozen {@code Mutability}, corresponding to the current
+ *       {@code Environment}'s evaluation.
+ *   <li>Whenever a new mutable Skylark value is created, its {@code Mutability} is either the
+ *       current {@code Environment}'s {@code Mutability}, or else it is the special static
+ *       instance, {@link #IMMUTABLE}, which represents that a value is at least shallowly
+ *       immutable.
+ * </ol>
+ * It follows that an unfrozen value can never appear as the child of a frozen value unless the
+ * frozen value's {@code Mutability} is {@code IMMUTABLE}. This can be used to prune traversals that
+ * check whether a value is deeply immutable.
  */
-// TODO(bazel-team): This safe usage pattern can be enforced through the use of a higher-order
-// function.
+// TODO(bazel-team): The safe try-with-resources usage pattern can be enforced through the use of a
+// higher-order function.
 public final class Mutability implements AutoCloseable, Serializable {
 
   /**
@@ -280,6 +300,24 @@ public final class Mutability implements AutoCloseable, Serializable {
     }
   }
 
-  /** A singular instance for permanently immutable things. */
+  /**
+   * An instance indicating that a value is shallowly immutable. Its children may or may not be
+   * mutable.
+   *
+   * <p>This instance is treated specially with regard to the {@code Mutability} invariant. Usually
+   * an immutable value cannot directly or indirectly contain a mutable one. But an immutable value
+   * with this {@code Mutability} may.
+   *
+   * <p>In practice, this instance is used as the {@code Mutability} for tuples. It may also be used
+   * for certain lists and dictionaries that are immutable from creation -- though in general we
+   * prefer to use tuples rather than always-frozen lists.
+   */
+  // TODO(bazel-team): We might be able to remove this instance, and instead have tuples and other
+  // always-immutable things store the same Mutability as other values in that environment. Then we
+  // can simplify the Mutability invariant, and implement deep-immutability checking in constant
+  // time.
+  //
+  // This would also affect structs (SkylarkInfo). Maybe they would implement an interface similar
+  // to SkylarkMutable, or the relevant methods could be worked into SkylarkValue.
   public static final Mutability IMMUTABLE = create("IMMUTABLE").freeze();
 }

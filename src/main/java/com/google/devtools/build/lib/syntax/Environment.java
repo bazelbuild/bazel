@@ -40,24 +40,25 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
- * An Environment is the main entry point to evaluating code in the BUILD language or Skylark. It
- * embodies all the state that is required to evaluate such code, except for the current instruction
- * pointer, which is an {@link ASTNode} whose {@link Statement#exec exec} or {@link Expression#eval
- * eval} method is invoked with this Environment, in a straightforward direct-style AST-walking
- * interpreter. {@link Continuation}-s are explicitly represented, but only partly, with another
- * part being implicit in a series of try-catch statements, to maintain the direct style. One
- * notable trick is how a {@link UserDefinedFunction} implements returning values as the function
- * catching a {@link ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the
- * body.
+ * An {@code Environment} is the main entry point to evaluating Skylark code. It embodies all the
+ * state that is required to evaluate such code, except for the current instruction pointer, which
+ * is an {@link ASTNode} that is evaluated (for expressions) or executed (for statements) with
+ * respect to this {@code Environment}.
  *
- * <p>Every Environment has a {@link Mutability} field, and must be used within a function that
- * creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
- * Mutability} is also used when initializing mutable objects within that Environment; when closed
- * at the end of the computation freezes the Environment and all those objects that then become
- * forever immutable. The pattern enforces the discipline that there should be no dangling mutable
- * Environment, or concurrency between interacting Environment-s. It is also an error to try to
- * mutate an Environment and its objects from another Environment, before the {@link Mutability} is
- * closed.
+ * <p>{@link Continuation}-s are explicitly represented, but only partly, with another part being
+ * implicit in a series of try-catch statements, to maintain the direct style. One notable trick is
+ * how a {@link UserDefinedFunction} implements returning values as the function catching a {@link
+ * ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the body.
+ *
+ * <p>Every {@code Environment} has a {@link Mutability} field, and must be used within a function
+ * that creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
+ * Mutability} is also used when initializing mutable objects within that {@code Environment}. When
+ * the {@code Mutability} is closed at the end of the computation, it freezes the {@code
+ * Environment} along with all of those objects. This pattern enforces the discipline that there
+ * should be no dangling mutable {@code Environment}, or concurrency between interacting {@code
+ * Environment}s. It is a Skylark-level error to attempt to mutate a frozen {@code Environment} or
+ * its objects, but it is a Java-level error to attempt to mutate an unfrozen {@code Environment} or
+ * its objects from within a different {@code Environment}.
  *
  * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
  * #setup}, {@link #setupDynamic} and sometimes {@link #setupOverride}, before to evaluate code in
