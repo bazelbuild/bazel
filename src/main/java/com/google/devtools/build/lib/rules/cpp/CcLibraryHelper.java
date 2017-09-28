@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
@@ -933,13 +932,6 @@ public final class CcLibraryHelper {
    * @throws RuleErrorException
    */
   public Info build() throws RuleErrorException, InterruptedException {
-    // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
-    // in lipo optimization.
-    Preconditions.checkState(
-        // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
-        ruleContext.getRule().getRuleClass().equals("cc_inc_library")
-            || ruleContext.isAttrDefined(":lipo_context_collector", BuildType.LABEL));
-
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
           AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {

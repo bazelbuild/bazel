@@ -216,14 +216,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//tools/j2objc:j2objc_proto_blacklist"))))
         .add(attr(":j2objc_cc_toolchain", LABEL).value(ObjcRuleClasses.APPLE_TOOLCHAIN))
-        .add(
-            // Objc builds do not use a lipo context collector, but must specify the attribute as
-            // a late-bound attribute to match with the similar attribute on the cc rules.
-            // TODO(b/28084560): Allow :lipo_context_collector not to be set instead of having a
-            // null instance.
-            attr(":lipo_context_collector", LABEL)
-                .value(LateBoundDefault.alwaysNull())
-                .skipPrereqValidatorCheck())
         .build();
   }
 
