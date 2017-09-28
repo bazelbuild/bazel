@@ -42,9 +42,16 @@ brew install bazel
 ```
 
 You are all set. You can confirm Bazel is installed successfully by running
-`bazel version`.
 
-You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
+```bash
+bazel version
+```
+
+Once installed, you can upgrade to a newer version of Bazel with:
+
+```bash
+brew upgrade bazel
+```
 
 ## <a name="install-with-installer-mac-os-x"></a>Install using binary installer
 
@@ -104,15 +111,12 @@ this directory to your default paths, as follows:
 export PATH="$PATH:$HOME/bin"
 ```
 
-You can also add this command to your `~/.bashrc` file.
+You can also add this command to your `~/.bashrc` or `~/.profile` file.
 
 You are all set. You can confirm Bazel is installed successfully by running
 ```bash
 bazel version
 ```
 
-Once installed, you can upgrade to a newer version of Bazel with:
-
-```bash
-brew upgrade bazel
-```
+When Bazel is installed using the binary installer, updating Bazel is only
+possible by downloading and installing a new release.
