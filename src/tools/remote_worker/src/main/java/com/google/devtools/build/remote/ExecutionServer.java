@@ -80,6 +80,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // experimental_remote_platform_override in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
+  private static final String DOCKER_IMAGE_PREFIX = "docker://";
 
   // How long to wait for the uid command.
   private static final Duration uidTimeout = Duration.ofMillis(30);
@@ -318,6 +319,15 @@ final class ExecutionServer extends ExecutionImplBase {
                   "Multiple entries for %s in action.Platform", CONTAINER_IMAGE_ENTRY_NAME));
         }
         result = property.getValue();
+        if (!result.startsWith(DOCKER_IMAGE_PREFIX)) {
+          throw StatusUtils.invalidArgumentError(
+              "platform", // Field name.
+              String.format(
+                  "%s: Docker images must be stored in gcr.io with an image spec in the form "
+                      + "'docker://gcr.io/{IMAGE_NAME}'",
+                  CONTAINER_IMAGE_ENTRY_NAME));
+        }
+        result = result.substring(DOCKER_IMAGE_PREFIX.length());
       }
     }
     return result;
