@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -47,12 +48,11 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testLegacyConstructorDeprecation() throws Exception {
     env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
-    try {
-      eval("s = set([1, 2, 3], order='postorder')");
-      fail("`set` should have failed");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("The `set` constructor for depsets is deprecated");
-    }
+    EvalException e = expectThrows(
+        EvalException.class,
+        () -> eval("s = set([1, 2, 3], order='postorder')")
+    );
+    assertThat(e).hasMessageThat().contains("The `set` constructor for depsets is deprecated");
   }
 
   @Test
@@ -66,12 +66,34 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    try {
-      get("s").getSet(Integer.class);
-      fail("getSet() with wrong type should have raised IllegalArgumentException");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").getSet(Integer.class)
+    );
   }
+
+  @Test
+  public void testGetSetDirect() throws Exception {
+    eval("s = depset(direct = ['a', 'b'])");
+    assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").getSet(Integer.class)
+    );
+  }
+
+  @Test
+  public void testGetSetItems() throws Exception {
+    eval("s = depset(items = ['a', 'b'])");
+    assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").getSet(Integer.class)
+    );
+  }
+
 
   @Test
   public void testToCollection() throws Exception {
@@ -79,16 +101,51 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    try {
-      get("s").toCollection(Integer.class);
-      fail("toCollection() with wrong type should have raised IllegalArgumentException");
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").toCollection(Integer.class)
+    );
+  }
+
+  @Test
+  public void testToCollectionDirect() throws Exception {
+    eval("s = depset(direct = ['a', 'b'])");
+    assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").toCollection(Integer.class)
+    );
+  }
+
+  @Test
+  public void testToCollectionItems() throws Exception {
+    eval("s = depset(items = ['a', 'b'])");
+    assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> get("s").toCollection(Integer.class)
+    );
   }
 
   @Test
   public void testOrder() throws Exception {
     eval("s = depset(['a', 'b'], order='postorder')");
+    assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
+  }
+
+  @Test
+  public void testOrderDirect() throws Exception {
+    eval("s = depset(direct = ['a', 'b'], order='postorder')");
+    assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
+  }
+
+  @Test
+  public void testOrderItems() throws Exception {
+    eval("s = depset(items = ['a', 'b'], order='postorder')");
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
   }
 
@@ -99,13 +156,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
 
     env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
-    try {
-      eval("s = depset(['a', 'b'], order='compile')");
-      fail("Should have not accepted a deprecated order name");
-    } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains(
+    Exception e = expectThrows(
+        Exception.class,
+        () -> eval("s = depset(['a', 'b'], order='compile')")
+    );
+    assertThat(e).hasMessageThat().contains(
           "Order name 'compile' is deprecated, use 'postorder' instead");
-    }
   }
 
   @Test
@@ -113,6 +169,20 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     new BothModesTest().testIfExactError(
         "Invalid order: non_existing",
         "depset(['a'], order='non_existing')");
+  }
+
+  @Test
+  public void testBadOrderDirect() throws Exception {
+    new BothModesTest().testIfExactError(
+        "Invalid order: non_existing",
+        "depset(direct = ['a'], order='non_existing')");
+  }
+
+  @Test
+  public void testBadOrderItems() throws Exception {
+    new BothModesTest().testIfExactError(
+        "Invalid order: non_existing",
+        "depset(items = ['a'], order='non_existing')");
   }
 
   @Test
@@ -128,10 +198,108 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testHomogeneousGenericTypeDirect() throws Exception {
+    eval("s = depset(['a', 'b', 'c'], transitive = [])");
+    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.of(String.class));
+  }
+
+  @Test
+  public void testHomogeneousGenericTypeItems() throws Exception {
+    eval("s = depset(items = ['a', 'b', 'c'], transitive = [])");
+    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.of(String.class));
+  }
+
+  @Test
+  public void testHomogeneousGenericTypeTransitive() throws Exception {
+    eval("s = depset(['a', 'b', 'c'], transitive = [depset(['x'])])");
+    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.of(String.class));
+  }
+
+  @Test
+  public void testTransitiveIncompatibleOrder() throws Exception {
+    checkEvalError(
+        "Order 'postorder' is incompatible with order 'topological'",
+        "depset(['a', 'b'], order='postorder',",
+        "       transitive = [depset(['c', 'd'], order='topological')])");
+  }
+
+  @Test
   public void testBadGenericType() throws Exception {
     new BothModesTest().testIfExactError(
         "cannot add an item of type 'int' to a depset of 'string'",
         "depset(['a', 5])");
+  }
+
+  @Test
+  public void testBadGenericTypeDirect() throws Exception {
+    new BothModesTest().testIfExactError(
+        "cannot add an item of type 'int' to a depset of 'string'",
+        "depset(direct = ['a', 5])");
+  }
+
+  @Test
+  public void testBadGenericTypeItems() throws Exception {
+    new BothModesTest().testIfExactError(
+        "cannot add an item of type 'int' to a depset of 'string'",
+        "depset(items = ['a', 5])");
+  }
+
+  @Test
+  public void testBadGenericTypeTransitive() throws Exception {
+    new BothModesTest().testIfExactError(
+        "cannot add an item of type 'int' to a depset of 'string'",
+        "depset(['a', 'b'], transitive=[depset([1])])");
+  }
+
+  @Test
+  public void testLegacyAndNewApi() throws Exception {
+    new BothModesTest().testIfExactError(
+        "Do not pass both 'direct' and 'items' argument to depset constructor.",
+        "depset(['a', 'b'], direct = ['c', 'd'])");
+  }
+
+  @Test
+  public void testItemsAndTransitive() throws Exception {
+    new BothModesTest().testIfExactError(
+        "expected type 'sequence' for items but got type 'depset' instead",
+        "depset(items = depset(), transitive = [depset()])");
+  }
+
+  @Test
+  public void testTooManyPositionals() throws Exception {
+    new BothModesTest().testIfExactError(
+        "too many (3) positional arguments in call to "
+            + "depset(items = [], order: string = \"default\", *, "
+            + "direct: sequence or NoneType = None, "
+            + "transitive: sequence of depsets or NoneType = None)",
+        "depset([], 'default', [])");
+  }
+
+
+  @Test
+  public void testTransitiveOrder() throws Exception {
+    assertContainsInOrder("depset([], transitive=[depset(['a', 'b', 'c'])])", "a", "b", "c");
+    assertContainsInOrder("depset(['a'], transitive = [depset(['b', 'c'])])", "b", "c", "a");
+    assertContainsInOrder("depset(['a', 'b'], transitive = [depset(['c'])])", "c", "a", "b");
+    assertContainsInOrder("depset(['a', 'b', 'c'], transitive = [depset([])])", "a", "b", "c");
+  }
+
+  @Test
+  public void testTransitiveOrderItems() throws Exception {
+    assertContainsInOrder("depset(items=[], transitive=[depset(['a', 'b', 'c'])])", "a", "b", "c");
+    assertContainsInOrder("depset(items=['a'], transitive = [depset(['b', 'c'])])", "b", "c", "a");
+    assertContainsInOrder("depset(items=['a', 'b'], transitive = [depset(['c'])])", "c", "a", "b");
+    assertContainsInOrder("depset(items=['a', 'b', 'c'], transitive = [depset([])])",
+        "a", "b", "c");
+  }
+
+  @Test
+  public void testTransitiveOrderDirect() throws Exception {
+    assertContainsInOrder("depset(direct=[], transitive=[depset(['a', 'b', 'c'])])", "a", "b", "c");
+    assertContainsInOrder("depset(direct=['a'], transitive = [depset(['b', 'c'])])", "b", "c", "a");
+    assertContainsInOrder("depset(direct=['a', 'b'], transitive = [depset(['c'])])", "c", "a", "b");
+    assertContainsInOrder("depset(direct=['a', 'b', 'c'], transitive = [depset([])])",
+        "a", "b", "c");
   }
 
   @Test
@@ -145,8 +313,8 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testUnionWithDepset() throws Exception {
     assertContainsInOrder("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
-    assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "a", "b", "c");
-    assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "a", "b", "c");
+    assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "b", "c", "a");
+    assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "c", "a", "b");
     assertContainsInOrder("depset(['a', 'b', 'c']).union(depset([]))", "a", "b", "c");
   }
 
@@ -159,10 +327,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertContainsInOrder("depset(['a', 'a', 'a']).union(depset(['a', 'a']))", "a");
   }
 
+
   private void assertContainsInOrder(String statement, Object... expectedElements)
       throws Exception {
     assertThat(((SkylarkNestedSet) eval(statement)).toCollection())
-        .containsExactly(expectedElements);
+        .containsExactly(expectedElements)
+        .inOrder();
   }
 
   @Test
