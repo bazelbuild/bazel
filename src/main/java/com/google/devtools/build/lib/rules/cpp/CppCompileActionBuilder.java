@@ -657,8 +657,9 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public void setShouldScanIncludes(boolean shouldScanIncludes) {
+  public CppCompileActionBuilder setShouldScanIncludes(boolean shouldScanIncludes) {
     this.shouldScanIncludes = shouldScanIncludes;
+    return this;
   }
 
   public boolean getShouldScanIncludes() {
@@ -669,7 +670,8 @@ public class CppCompileActionBuilder {
     return ccToolchain;
   }
 
-  public void setCoptsFilter(Predicate<String> coptsFilter) {
+  public CppCompileActionBuilder setCoptsFilter(Predicate<String> coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
+    return this;
   }
 }
