@@ -1,3 +1,111 @@
+## Release 0.6.0 (2017-09-28)
+
+```
+Baseline: 87cc92e5df35d02a7c9bc50b229c513563dc1689
+
+Cherry picks:
+   + a615d288b008c36c659fdc17965207bb62d95d8d:
+     Rollback context.actions.args() functionality.
+   + 7b091c1397a82258e26ab5336df6c8dae1d97384:
+     Add a global failure when a test is interrupted/cancelled.
+   + 95b0467e3eb42a8ce8d1179c0c7e1aab040e8120:
+     Cleanups for Skylark tracebacks
+   + cc9c2f07127a832a88f27f5d72e5508000b53429:
+     Remove the status xml attribute from AntXmlResultWriter
+```
+
+Incompatible changes:
+
+  - Noop flag --deprecated_generate_xcode_project deleted.
+  - Objects in Skylark are converted to strings in a more descriptive
+    and less harmful way (they don't leak information that shouldn't
+    be accessed by Skylark code, e.g. nondeterministic memory addresses
+    of objects).
+  - `set` is deprecated in BUILD and .bzl files, please use `depset`
+    instead. Ordering names have also been changed, please use
+    "default", "postorder", "preorder", and "topological" instead of
+    "stable", "compile", "naive_link", and "link" correspondingly.
+  - Integer overflow (on signed 32 bit numbers) in BUILD/bzl files is
+    an error.
+  - Keyword-only syntax in a function definition is now forbidden
+      e.g. `def foo(a, *, b)` or `def foo(a, *b, c)`
+  - --incompatible_comprehension_variables_do_not_leak defaults to
+    "true."
+      Iteration variable becomes inaccessible after a list/dict
+    comprehension.
+
+New features:
+
+  - There is now a 'siblings' query function. See the query
+    documentation for more details.
+  - Added the print_action command, which outputs the
+    actions needed to build a given target in the form of an
+    ExtraActionSummary proto in text format.
+  - android_binary now supports proguard_apply_dictionary to specify
+    a custom dictionary to use for choosing names to obfuscate
+    classes and members to.
+
+Important changes:
+
+  - 'strip' action is now configured via feature configuration
+  - Flags from action_config get added first to the command line
+    first,
+    before the flags from features.
+  - `bazel info output_path` no longer relies on the root directory
+    filename being equal to the workspace name.
+  - The `print` function now prints debug messages instead of
+    warnings.
+  - speedup of incremental dexing tools
+  - --announce_rc now controls whether bazelrc startup options are
+    printed to stderr.
+  - Removing a few unused objc_provider keys.
+  - Improved logging when workers have to be restarted due to its
+    files having changed.
+  - Top-level `if` statements are now forbidden.
+  - Java protos are compiled to Java 7 bytecode.
+  - All Android builds now use the desugar tool to support some Java
+    8 features by default. To disable, use the
+    --nodesugar_for_android flag.
+  - Skylark-related options may now appear as "common" command
+    options in the .bazelrc
+  - Python is now required to build bazel.
+  - When the lvalue of an augmented assignment is a list, we now
+    throw an error
+      before evaluating the code (e.g. `a, b += 2, 3`).
+  - New --build_runfile_manifests flag controls production of
+    runfiles manifests.
+  - Enable debug info for Java builds
+  - Allow java_lite_proto_library in the deps of android rules.
+  - .so files in APKs will be memory-page aligned when
+    android_binary.nocompress_extensions contains ".so" and
+    --experimental_android_use_nocompress_extensions_on_apk is
+    specified.
+  - Skylark providers can specify allowed fields and their
+    documentation.
+  - Support ctx.actions.args() for more efficient Skylark command
+    line construction.
+  - The remote HTTP/1.1 caching client (--remote_rest_cache) now
+    distinquishes between action cache and CAS. The request URL for
+    the action cache is prefixed with 'ac' and the URL for the CAS
+    is prefixed with 'cas'.
+  - `JavaInfo` is a preferred alias to `java_common.provider`.
+  - J2ObjC version updated to 2.0.3.
+  - A new Java coverage implementation is available. Makes possible
+    coverage for Skylark JVM rules.
+  - Make proguard_apply_dictionary also apply to class and package
+    obfuscation, not just class members.
+  - When using the dictionary literal syntax, it is now an error to
+    have duplicated keys (e.g.  {'ab': 3, 'ab': 5}).
+  - android_binary.nocompress_extensions now applies to all files in
+    the APK, not just resources and assets.
+  - The apple_genrule rule that is distributed with Bazel has been
+    deleted. Users who wish to use genrules with Xcode's
+    DEVELOPER_DIR set should use the rules in
+    https://github.com/bazelbuild/rules_apple instead.
+  - The swift_library rule that is distributed with Bazel has been
+    deleted. Users who wish to compile Swift should use the rules in
+    https://github.com/bazelbuild/rules_apple instead.
+
 ## Release 0.5.4 (2017-08-25)
 
 ```
@@ -1676,6 +1784,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
