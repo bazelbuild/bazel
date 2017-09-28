@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -760,5 +763,65 @@ public class CppHelper {
 
     return getArtifactNameForCategory(
         ruleContext, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+  }
+
+  /**
+   * Returns true when {@link CppRuleClasses#WINDOWS_EXPORT_ALL_SYMBOLS} feature is enabled and
+   * {@link CppRuleClasses#NO_WINDOWS_EXPORT_ALL_SYMBOLS} feature is not enabled.
+   */
+  public static boolean shouldUseDefFile(FeatureConfiguration featureConfiguration) {
+    return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
+        && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS);
+  }
+
+  /**
+   * Create actions for parsing object files to generate a DEF file, should only be used when
+   * targeting Windows.
+   *
+   * @param defParser The tool we use to parse object files for generating the DEF file.
+   * @param objectFiles A list of object files to parse
+   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
+   *     at runtime
+   * @return The DEF file artifact.
+   */
+  public static Artifact createDefFileActions(
+      RuleContext ruleContext,
+      Artifact defParser,
+      ImmutableList<Artifact> objectFiles,
+      String dllName) {
+    Artifact defFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + ".def");
+    CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
+    for (Artifact objectFile : objectFiles) {
+      argv.addDynamicString(objectFile.getExecPathString());
+    }
+
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(defFile.getRootRelativePath()), defFile.getRoot());
+
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFile,
+            argv.build(),
+            ParameterFile.ParameterFileType.SHELL_QUOTED,
+            UTF_8));
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(paramFile)
+            .addInputs(objectFiles)
+            .addOutput(defFile)
+            .setExecutable(defParser)
+            .useDefaultShellEnvironment()
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath(defFile)
+                    .addDynamicString(dllName)
+                    .addPrefixedExecPath("@", paramFile)
+                    .build())
+            .setMnemonic("DefParser")
+            .build(ruleContext));
+    return defFile;
   }
 }

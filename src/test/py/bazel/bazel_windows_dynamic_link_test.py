@@ -333,6 +333,112 @@ class BazelWindowsDynamicLinkTest(test_base.TestBase):
     self.assertIn('/MTd', ''.join(stderr))
     self.assertIn('/DEFAULTLIB:libcmtd.lib', ''.join(stderr))
 
+  def testBuildSharedLibraryFromCcBinaryWithStaticLink(self):
+    self.createProjectFiles()
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'cc_binary(',
+            '  name = "main.so",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["//:B"],',  # Transitively depends on //:A
+            '  linkstatic = 1,'
+            '  linkshared = 1,'
+            '  features=["windows_export_all_symbols"]',
+            ')',
+        ])
+    bazel_bin = self.getBazelInfo('bazel-bin')
+
+    exit_code, _, stderr = self.RunBazel([
+        'build', '//main:main.so', '--output_groups=default,interface_library'
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    main_library = os.path.join(bazel_bin, 'main/main.so')
+    main_interface = os.path.join(bazel_bin, 'main/main.ifso')
+    def_file = os.path.join(bazel_bin, 'main/main.so.def')
+    self.assertTrue(os.path.exists(main_library))
+    self.assertTrue(os.path.exists(main_interface))
+    self.assertTrue(os.path.exists(def_file))
+    # libA.so and libB.so should not be copied.
+    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'main/libA.so')))
+    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'main/libB.so')))
+    self.AssertFileContentContains(def_file, 'hello_A')
+    self.AssertFileContentContains(def_file, 'hello_B')
+    self.AssertFileContentContains(def_file, 'hello_C')
+
+  def testBuildSharedLibraryFromCcBinaryWithDynamicLink(self):
+    self.createProjectFiles()
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'cc_binary(',
+            '  name = "main.so",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["//:B"],',  # Transitively depends on //:A
+            '  linkstatic = 0,'
+            '  linkshared = 1,'
+            '  features=["windows_export_all_symbols"]',
+            ')',
+        ])
+    bazel_bin = self.getBazelInfo('bazel-bin')
+
+    exit_code, _, stderr = self.RunBazel([
+        'build', '//main:main.so', '--output_groups=default,interface_library'
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    main_library = os.path.join(bazel_bin, 'main/main.so')
+    main_interface = os.path.join(bazel_bin, 'main/main.ifso')
+    def_file = os.path.join(bazel_bin, 'main/main.so.def')
+    self.assertTrue(os.path.exists(main_library))
+    self.assertTrue(os.path.exists(main_interface))
+    self.assertTrue(os.path.exists(def_file))
+    # libA.so and libB.so should be copied.
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/libA.so')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/libB.so')))
+    # hello_A and hello_B should not be exported.
+    self.AssertFileContentNotContains(def_file, 'hello_A')
+    self.AssertFileContentNotContains(def_file, 'hello_B')
+    self.AssertFileContentContains(def_file, 'hello_C')
+
+  def testGetDefFileOfSharedLibraryFromCcBinary(self):
+    self.createProjectFiles()
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'cc_binary(',
+            '  name = "main.so",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["//:B"],',  # Transitively depends on //:A
+            '  linkstatic = 1,'
+            '  linkshared = 1,'
+            ')',
+        ])
+    bazel_bin = self.getBazelInfo('bazel-bin')
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//main:main.so', '--output_groups=def_file'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Although windows_export_all_symbols is not specified for this target,
+    # we should still be able to get the DEF file by def_file output group.
+    def_file = os.path.join(bazel_bin, 'main/main.so.def')
+    self.assertTrue(os.path.exists(def_file))
+    self.AssertFileContentContains(def_file, 'hello_A')
+    self.AssertFileContentContains(def_file, 'hello_B')
+    self.AssertFileContentContains(def_file, 'hello_C')
+
+  def AssertFileContentContains(self, file_path, entry):
+    f = open(file_path, 'r')
+    if entry not in f.read():
+      self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+
+  def AssertFileContentNotContains(self, file_path, entry):
+    f = open(file_path, 'r')
+    if entry in f.read():
+      self.fail('File "%s" does contain "%s"' % (file_path, entry))
+
 
 if __name__ == '__main__':
   unittest.main()
