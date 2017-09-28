@@ -77,8 +77,6 @@ public class AppleBinaryRule implements RuleDefinition {
    */
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-    MultiArchSplitTransitionProvider splitTransitionProvider =
-        new MultiArchSplitTransitionProvider();
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class,
@@ -131,8 +129,6 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))
-        .override(builder.copy("deps").cfg(splitTransitionProvider))
-        .override(builder.copy("non_propagated_deps").cfg(splitTransitionProvider))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
@@ -150,8 +146,7 @@ public class AppleBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class,
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
             ObjcRuleClasses.DylibDependingRule.class)
         .build();
   }

@@ -399,7 +399,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
   @Test
   public void testHasDefaultInfoplistForXcTest() throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     scratch.file("x/BUILD",
         "ios_test(",
         "    name = 'x',",
@@ -428,7 +428,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
   @Test
   public void testErrorForNoSources() throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "hdr.h")
@@ -444,7 +444,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
   private void checkTestScript(Map<String, String> templateArguments, String... extraAttrs)
       throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     scratch.file("x/BUILD",
         "ios_test(",
         "    name = 'x',",

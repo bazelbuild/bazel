@@ -589,7 +589,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
           builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
-          builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
+          builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
           builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
           builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());

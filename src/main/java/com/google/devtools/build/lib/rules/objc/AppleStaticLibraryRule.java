@@ -60,7 +60,6 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         .requiresConfigurationFragments(
             ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class,
             CppConfiguration.class)
-        .override(builder.copy("deps").cfg(splitTransitionProvider))
         /* <!-- #BLAZE_RULE(apple_static_library).ATTRIBUTE(avoid_deps) -->
         <p>A list of targets which should not be included (nor their transitive dependencies
         included) in the outputs of this rule -- even if they are otherwise transitively depended
@@ -102,8 +101,8 @@ public class AppleStaticLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_static_library")
         .factoryClass(AppleStaticLibrary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
+            ObjcRuleClasses.SimulatorRule.class)
         .build();
   }
 }

@@ -135,9 +135,13 @@ cc_library(
 )
 apple_binary(
     name = "main_binary",
+    deps = [":main_lib"],
+    platform_type = "ios",
+)
+objc_library(
+    name = "main_lib",
     deps = [":lib_a", ":lib_b"],
     srcs = ["main.m"],
-    platform_type = "ios",
 )
 genrule(
   name = "lipo_run",
@@ -189,9 +193,13 @@ genrule(
 
 apple_binary(
     name = "main_binary",
+    deps = [":main_lib"],
+    platform_type = "watchos",
+)
+objc_library(
+    name = "main_lib",
     srcs = ["main.m"],
     deps = [":lib_a"],
-    platform_type = "watchos",
 )
 cc_library(
     name = "cc_lib",

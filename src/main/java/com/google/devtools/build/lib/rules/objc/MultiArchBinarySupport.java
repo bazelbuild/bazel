@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
 import java.util.Map;
@@ -168,11 +167,10 @@ public class MultiArchBinarySupport {
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
       ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
-      CompilationArtifacts compilationArtifacts =
-          CompilationSupport.compilationArtifacts(
-              ruleContext,
-              ObjcRuleClasses.intermediateArtifacts(
-                  ruleContext, dependencySpecificConfiguration.config()));
+      CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
+          .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(
+                  ruleContext, dependencySpecificConfiguration.config()))
+          .build();
 
       CompilationSupport compilationSupport =
           new CompilationSupport.Builder()
@@ -260,8 +258,6 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProvider> additionalDepProviders =
           Iterables.concat(
               dylibObjcProviders,
-              ruleContext.getPrerequisites("bundles", Mode.TARGET,
-                  ObjcProvider.SKYLARK_CONSTRUCTOR),
               protosObjcProvider.asSet());
 
       ObjcCommon common =
@@ -295,15 +291,9 @@ public class MultiArchBinarySupport {
       List<ObjcProvider> nonPropagatedObjcDeps,
       Iterable<ObjcProvider> additionalDepProviders) {
 
-    CompilationArtifacts compilationArtifacts =
-        CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
-
     ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext, buildConfiguration)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .setCompilationArtifacts(compilationArtifacts)
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
-        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .addDeps(propagatedDeps)
         .addDepObjcProviders(additionalDepProviders)
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
