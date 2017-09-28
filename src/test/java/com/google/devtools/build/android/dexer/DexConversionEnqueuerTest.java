@@ -23,6 +23,7 @@ import com.android.dex.Dex;
 import com.android.dx.command.dexer.DxContext;
 import com.android.dx.dex.DexOptions;
 import com.android.dx.dex.cf.CfOptions;
+import com.android.dx.dex.code.PositionList;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -149,10 +150,16 @@ public class DexConversionEnqueuerTest {
 
     Dex dex = new Dex(dexcode);
     assertThat(dex.classDefs()).hasSize(1);
-    assertThat(cache.getIfPresent(DexingKey.create(false, false, bytecode))).isSameAs(dexcode);
-    assertThat(cache.getIfPresent(DexingKey.create(true, false, bytecode))).isNull();
-    assertThat(cache.getIfPresent(DexingKey.create(false, true, bytecode))).isNull();
-    assertThat(cache.getIfPresent(DexingKey.create(true, true, bytecode))).isNull();
+    assertThat(cache.getIfPresent(DexingKey.create(false, false, PositionList.LINES, bytecode)))
+        .isSameAs(dexcode);
+    assertThat(cache.getIfPresent(DexingKey.create(false, false, PositionList.NONE, bytecode)))
+        .isNull();
+    assertThat(cache.getIfPresent(DexingKey.create(true, false, PositionList.LINES, bytecode)))
+        .isNull();
+    assertThat(cache.getIfPresent(DexingKey.create(false, true, PositionList.LINES, bytecode)))
+        .isNull();
+    assertThat(cache.getIfPresent(DexingKey.create(true, true, PositionList.LINES, bytecode)))
+        .isNull();
     return dexcode;
   }
 
