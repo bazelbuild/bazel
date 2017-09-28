@@ -235,8 +235,9 @@ public final class ActionsTestUtil {
         public Label getLabel() {
           return NULL_LABEL;
         }
-  };
+      };
 
+  /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
     public UncheckedActionConflictException(ActionConflictException e) {
       super(e);
@@ -266,9 +267,12 @@ public final class ActionsTestUtil {
 
     @Override
     public void execute(ActionExecutionContext actionExecutionContext) {
+
     }
 
-    @Override protected String computeKey() { return "action"; }
+    @Override protected String computeKey() {
+      return "action";
+    }
 
     @Override
     public String getMnemonic() {

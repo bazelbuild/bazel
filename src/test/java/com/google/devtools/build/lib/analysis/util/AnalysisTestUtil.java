@@ -190,6 +190,7 @@ public final class AnalysisTestUtil {
     }
   }
 
+  /** A dummy WorkspaceStatusAction. */
   @Immutable
   public static final class DummyWorkspaceStatusAction extends WorkspaceStatusAction {
     private final String key;
@@ -254,6 +255,7 @@ public final class AnalysisTestUtil {
     }
   }
 
+  /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
   @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
     @Override
@@ -304,6 +306,7 @@ public final class AnalysisTestUtil {
 
   public static final AnalysisEnvironment STUB_ANALYSIS_ENVIRONMENT = new StubAnalysisEnvironment();
 
+  /** An AnalysisEnvironment with stubbed-out methods. */
   public static class StubAnalysisEnvironment implements AnalysisEnvironment {
     @Override
     public void registerAction(ActionAnalysisMetadata... action) {

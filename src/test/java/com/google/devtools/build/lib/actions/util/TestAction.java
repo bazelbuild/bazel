@@ -97,8 +97,8 @@ public class TestAction extends AbstractAction {
       // used by tests to specify artifacts that may or may not be missing.
       // This is used, e.g., to test Blaze behavior when action has missing
       // input artifacts but still is successfully executed.
-      if (!artifact.getPath().exists() &&
-          !artifact.getExecPath().getBaseName().endsWith(".optional")) {
+      if (!artifact.getPath().exists()
+          && !artifact.getExecPath().getBaseName().endsWith(".optional")) {
         throw new IllegalStateException("action's input file does not exist: "
             + artifact.getPath());
       }
@@ -114,7 +114,7 @@ public class TestAction extends AbstractAction {
     }
 
     try {
-      for (Artifact artifact: getOutputs()) {
+      for (Artifact artifact : getOutputs()) {
         FileSystemUtils.touchFile(artifact.getPath());
       }
     } catch (IOException e) {
@@ -131,7 +131,9 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  public String getMnemonic() { return "Test"; }
+  public String getMnemonic() {
+    return "Test";
+  }
 
   /** No-op action that has exactly one output, and can be a middleman action. */
   public static class DummyAction extends TestAction {

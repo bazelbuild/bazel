@@ -75,10 +75,14 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public String getMnemonic() { return "SolibSymlink"; }
+  public String getMnemonic() {
+    return "SolibSymlink";
+  }
 
   @Override
-  protected String getRawProgressMessage() { return null; }
+  protected String getRawProgressMessage() {
+    return null;
+  }
 
   /**
    * Replaces shared library artifact with mangled symlink and creates related

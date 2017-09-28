@@ -163,8 +163,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.baseDir = cacheStatus.getExecPath().getParentDirectory();
 
     int totalShards = executionSettings.getTotalShards();
-    Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
-                                (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
+    Preconditions.checkState((totalShards == 0 && shardNum == 0)
+                             || (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
     this.testExitSafe = baseDir.getChild("test.exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1

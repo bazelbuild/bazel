@@ -360,8 +360,8 @@ public final class CppLinkAction extends AbstractAction
 
       s.append(getOutputFile().getBaseName()).append(": ");
       for (Artifact linkstamp : linkstampOutputs) {
-        s.append("mkdir -p " + outputPrefix +
-            linkstamp.getExecPath().getParentDirectory() + " && ");
+        s.append("mkdir -p " + outputPrefix
+            + linkstamp.getExecPath().getParentDirectory() + " && ");
       }
       Joiner.on(' ').appendTo(s,
           ShellEscaper.escapeAll(linkCommandLine.finalizeAlreadyEscapedWithLinkstampCommands(
@@ -376,8 +376,8 @@ public final class CppLinkAction extends AbstractAction
         FileSystemUtils.touchFile(linkstamp.getPath());
       }
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create fake link command for rule '" +
-                                         getOwner().getLabel() + ": " + e.getMessage(),
+      throw new ActionExecutionException("failed to create fake link command for rule '"
+                                         + getOwner().getLabel() + ": " + e.getMessage(),
                                          this, false);
     }
   }
@@ -670,7 +670,7 @@ public final class CppLinkAction extends AbstractAction
     }
     
     /**
-     * Returns true if the linking of this target is used for a native dependecy library.
+     * Returns true if the linking of this target is used for a native dependency library.
      */
     public boolean isNativeDeps() {
       return this.isNativeDeps;

@@ -37,7 +37,7 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final Artifact inputManifest;
   private final Artifact outputManifest;
   private final boolean filesetTree;
-  private final ImmutableMap<String, String> shellEnviroment;
+  private final ImmutableMap<String, String> shellEnvironment;
   private final boolean enableRunfiles;
 
   /**
@@ -66,7 +66,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;
     this.filesetTree = filesetTree;
-    this.shellEnviroment = shellEnvironment;
+    this.shellEnvironment = shellEnvironment;
     this.enableRunfiles = enableRunfiles;
   }
 
@@ -117,6 +117,6 @@ public final class SymlinkTreeAction extends AbstractAction {
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext
         .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(this, actionExecutionContext, shellEnviroment, enableRunfiles);
+        .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles);
   }
 }

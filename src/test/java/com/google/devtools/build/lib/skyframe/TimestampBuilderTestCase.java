@@ -422,6 +422,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
   }
 
+  /** In-memory {@link ActionCache} backed by a HashMap */
   protected static class InMemoryActionCache implements ActionCache {
 
     private final Map<String, Entry> actionCache = new HashMap<>();
