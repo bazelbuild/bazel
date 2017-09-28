@@ -179,8 +179,7 @@ class DexFileMerger {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, Dexing.DexingOptions.class);
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.parseAndExitUponError(args);
 
     buildMergedDexFiles(optionsParser.getOptions(Options.class));
