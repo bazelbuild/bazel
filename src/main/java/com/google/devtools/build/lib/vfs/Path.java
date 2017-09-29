@@ -698,12 +698,9 @@ public class Path implements Comparable<Path>, Serializable {
   private Path getCanonicalPath(String segment) {
     if (segment.equals(".") || segment.isEmpty()) {
       return this; // that's a noop
-    } else if (segment.equals("..")) {
-      // top-level directory's parent is root, when canonicalising:
-      return isTopLevelDirectory() ? this : parent;
-    } else {
+    } else switch(segment) { /*switch-string refactor*/ case ".." : { return isTopLevelDirectory() ? this : parent; }  default : {
       return getCachedChildPath(segment);
-    }
+    } }
   }
 
   /**
@@ -758,13 +755,11 @@ public class Path implements Comparable<Path>, Serializable {
     // Fast path for valid base names.
     if ((path.length() == 0) || (path.equals("."))) {
       return this;
-    } else if (path.equals("..")) {
-      return isTopLevelDirectory() ? this : parent;
-    } else if (PathFragment.containsSeparator(path)) {
+    } else switch(path) { /*switch-string refactor*/ case ".." : { return isTopLevelDirectory() ? this : parent; }  default : if (PathFragment.containsSeparator(path)) {
       return getRelative(PathFragment.create(path));
     } else {
       return getCachedChildPath(path);
-    }
+    } }
   }
 
   protected final String[] getSegments() {

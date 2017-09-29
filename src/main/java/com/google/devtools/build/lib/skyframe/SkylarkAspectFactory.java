@@ -117,9 +117,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       Info struct = (Info) aspectSkylarkObject;
       Location loc = struct.getCreationLoc();
       for (String key : struct.getKeys()) {
-        if (key.equals("output_groups")) {
-          addOutputGroups(struct.getValue(key), loc, builder);
-        } else if (key.equals("providers")) {
+        switch(key) { /*switch-string refactor*/ case "output_groups" : { addOutputGroups(struct.getValue(key), loc, builder); }  default : if (key.equals("providers")) {
           Object value = struct.getValue(key);
           Iterable providers =
               SkylarkType.cast(
@@ -132,7 +130,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           addDeclaredProviders(builder, providers);
         } else {
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
-        }
+        } }
       }
     }
 

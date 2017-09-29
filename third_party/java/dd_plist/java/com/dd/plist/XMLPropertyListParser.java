@@ -217,20 +217,19 @@ public class XMLPropertyListParser {
                 array.setValue(i, parseObject(children.get(i)));
             }
             return array;
-        } else if (type.equals("true")) {
-            return new NSNumber(true);
-        } else if (type.equals("false")) {
-            return new NSNumber(false);
-        } else if (type.equals("integer")) {
-            return new NSNumber(getNodeTextContents(n));
-        } else if (type.equals("real")) {
-            return new NSNumber(getNodeTextContents(n));
-        } else if (type.equals("string")) {
-            return new NSString(getNodeTextContents(n));
-        } else if (type.equals("data")) {
-            return new NSData(getNodeTextContents(n));
-        } else if (type.equals("date")) {
-            return new NSDate(getNodeTextContents(n));
+        } else switch(type) { /*switch-string refactor*/ 
+            case "true" : { return new NSNumber(true); }  
+            case "false" : { return new NSNumber(false); break; } 
+            case "integer" : { return new NSNumber(getNodeTextContents(n)); break; } 
+            case "real" : { return new NSNumber(getNodeTextContents(n)); break; } 
+            case "string" : { return new NSString(getNodeTextContents(n)); break; } 
+            case "data" : { return new NSData(getNodeTextContents(n)); break; } 
+            case "date" : { 
+                {
+                return new NSDate(getNodeTextContents(n));
+                } 
+            break; 
+            } 
         }
         return null;
     }

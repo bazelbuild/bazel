@@ -145,11 +145,9 @@ final class TestXmlOutputParser {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
 
-      if (name.equals("name")) {
-        builder.setName(value);
-      } else if (name.equals("time")) {
+      switch(name) { /*switch-string refactor*/ case "name" : { builder.setName(value); }  case "time" : { {
         builder.setRunDurationMillis(parseTime(value));
-      }
+      } break; } }
     }
 
     parseContainedElements(parser, elementName, builder);
@@ -190,11 +188,9 @@ final class TestXmlOutputParser {
       String value = parser.getAttributeValue(i);
 
       builder.setName(name);
-      if (name.equals("classname")) {
-        builder.setClassName(value);
-      } else if (name.equals("time")) {
+      switch(name) { /*switch-string refactor*/ case "classname" : { builder.setClassName(value); }  case "time" : { {
         builder.setRunDurationMillis(parseTime(value));
-      }
+      } break; } }
     }
 
     parseContainedElements(parser, "testdecorator", builder);
@@ -310,11 +306,9 @@ final class TestXmlOutputParser {
           builder.setResult(value);
           break;
         case "status":
-          if (value.equals("notrun")) {
-            builder.setRun(false);
-          } else if (value.equals("run")) {
+          switch(value) { /*switch-string refactor*/ case "notrun" : { builder.setRun(false); }  case "run" : { {
             builder.setRun(true);
-          }
+          } break; } }
           break;
         default:
           // fall through
