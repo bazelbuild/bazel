@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeDirectoriesCodec;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 
 /** Tests for {@link BlazeDirectoriesCodec}. */
 public class BlazeDirectoriesCodecTest extends AbstractObjectCodecTest<BlazeDirectories> {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -20,11 +20,11 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 /** Common FileSystem related items for serialization tests. */
-class FsUtils {
+public class FsUtils {
 
-  static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
+  public static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
 
-  static final RootedPath TEST_ROOT =
+  public static final RootedPath TEST_ROOT =
       RootedPath.toRootedPath(
           TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")),
           PathFragment.create("all/at/anywhere"));
@@ -32,7 +32,7 @@ class FsUtils {
   private FsUtils() {}
 
   /** Returns path relative to {@link #TEST_ROOT}. */
-  static PathFragment rootPathRelative(String path) {
+  public static PathFragment rootPathRelative(String path) {
     return TEST_ROOT.getRelativePath().getRelative(path);
   }
 }

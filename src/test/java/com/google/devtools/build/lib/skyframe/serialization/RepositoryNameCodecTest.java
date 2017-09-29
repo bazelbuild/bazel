@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;

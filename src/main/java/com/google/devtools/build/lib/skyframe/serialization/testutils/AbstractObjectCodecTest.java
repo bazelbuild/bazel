@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,9 +41,8 @@ public abstract class AbstractObjectCodecTest<T> {
   protected boolean shouldTestDeserializeBadData = true;
 
   /** Construct with the given codec and subjects. */
-  @SafeVarargs
   protected AbstractObjectCodecTest(
-      ObjectCodec<T> underTest, T... subjects) {
+      ObjectCodec<T> underTest, @SuppressWarnings("unchecked") T... subjects) {
     this.underTest = underTest;
     this.subjects = ImmutableList.copyOf(subjects);
   }

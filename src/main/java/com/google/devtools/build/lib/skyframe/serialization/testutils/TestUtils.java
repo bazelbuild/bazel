@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.Environment.Frame;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -23,12 +25,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /** Helpers for serialization tests. */
-class TestUtils {
+public class TestUtils {
 
   private TestUtils() {}
 
   /** Serialize a value to a new byte array. */
-  static <T> byte[] toBytes(ObjectCodec<T> codec, T value)
+  public static <T> byte[] toBytes(ObjectCodec<T> codec, T value)
       throws IOException, SerializationException {
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
@@ -38,7 +40,7 @@ class TestUtils {
   }
 
   /** Deserialize a value from a byte array. */
-  static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
+  public static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
     return codec.deserialize(CodedInputStream.newInstance(bytes));
   }
@@ -47,7 +49,7 @@ class TestUtils {
    * Asserts that two {@link Frame}s have the same structure. Needed because {@link Frame} doesn't
    * override {@link Object#equals}.
    */
-  static void assertFramesEqual(Frame frame1, Frame frame2) {
+  public static void assertFramesEqual(Frame frame1, Frame frame2) {
     assertThat(frame1.mutability().getAnnotation())
         .isEqualTo(frame2.mutability().getAnnotation());
     assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());

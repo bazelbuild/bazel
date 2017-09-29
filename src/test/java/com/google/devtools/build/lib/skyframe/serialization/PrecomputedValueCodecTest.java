@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValueCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Tests for {@link PrecomputedValueCodec}. */
