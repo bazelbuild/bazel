@@ -664,7 +664,9 @@ function test_alias() {
   # there would be no event for alias:it. So we can check the correct reporting
   # by checking for aborted events.
   expect_not_log 'aborted'
-  (echo 'g/^completed/?label?p'; echo 'q') | ed "${TEST_log}" > completed_labels
+
+  (echo 'g/^completed/?label?p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > completed_labels
+  cat completed_labels
   grep -q '//alias:it' completed_labels || fail "//alias:it not completed"
   grep -q '//alias/actual:it' completed_labels \
       || fail "//alias/actual:it not completed"
