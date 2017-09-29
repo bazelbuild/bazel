@@ -409,7 +409,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       fail();
     } catch (ViewCreationFailedException e) {
       assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
-      assertContainsEvent("Unable to expand make variables: $(BUG)");
+      assertContainsEvent("$(BUG) not defined");
     }
   }
 
