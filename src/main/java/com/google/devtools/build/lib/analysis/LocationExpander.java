@@ -131,7 +131,7 @@ public class LocationExpander {
    * Expands attribute's location and locations tags based on the target and
    * location map.
    *
-   * @param attrName  name of the attribute
+   * @param attrName  name of the attribute; only used for error reporting
    * @param attrValue initial value of the attribute
    * @return attribute value with expanded location tags or original value in
    *         case of errors

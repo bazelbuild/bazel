@@ -101,7 +101,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     // adjusted to be relative to the workspace name.
     packageFragment = PathFragment.create(ruleContext.getWorkspaceName())
         .getRelative(packageFragment);
-    for (String importsAttr : ruleContext.expandedMakeVariablesList("imports")) {
+    for (String importsAttr : ruleContext.getExpander().list("imports")) {
       if (importsAttr.startsWith("/")) {
         ruleContext.attributeWarning("imports",
             "ignoring invalid absolute path '" + importsAttr + "'");

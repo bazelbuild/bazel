@@ -213,7 +213,7 @@ public final class ApplicationManifest {
 
     for (String variable : manifestValues.keySet()) {
       manifestValues.put(
-          variable, context.expandMakeVariables("manifest_values", manifestValues.get(variable)));
+          variable, context.getExpander().expand("manifest_values", manifestValues.get(variable)));
     }
     return ImmutableMap.copyOf(manifestValues);
   }
@@ -805,7 +805,7 @@ public final class ApplicationManifest {
     ResourceFilter resourceFilter = ResourceFilter.fromRuleContext(ruleContext);
 
     List<String> uncompressedExtensions =
-        ruleContext.getTokenizedStringListAttr("nocompress_extensions");
+        ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions");
 
     ImmutableList.Builder<String> additionalAaptOpts = ImmutableList.builder();
 

@@ -270,10 +270,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    */
   protected String resolveCommand(String command, final RuleContext ruleContext,
       final NestedSet<Artifact> resolvedSrcs, final NestedSet<Artifact> filesToBuild) {
-    return ruleContext.expandMakeVariables(
-        "cmd",
-        command,
-        new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
+    return ruleContext
+        .getExpander(new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild))
+        .expand("cmd", command);
   }
 
   /**

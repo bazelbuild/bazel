@@ -253,11 +253,11 @@ final class CompilationAttributes {
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        builder.addCopts(ruleContext.getTokenizedStringListAttr("copts"));
+        builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-        builder.addLinkopts(ruleContext.getTokenizedStringListAttr("linkopts"));
+        builder.addLinkopts(ruleContext.getExpander().withDataLocations().tokenized("linkopts"));
       }
     }
 

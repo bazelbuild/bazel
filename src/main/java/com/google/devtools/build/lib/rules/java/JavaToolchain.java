@@ -54,7 +54,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext, "extclasspath", Mode.HOST);
     String encoding = ruleContext.attributes().get("encoding", Type.STRING);
     List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
-    List<String> misc = ruleContext.getTokenizedStringListAttr("misc");
+    List<String> misc = ruleContext.getExpander().withDataLocations().tokenized("misc");
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);

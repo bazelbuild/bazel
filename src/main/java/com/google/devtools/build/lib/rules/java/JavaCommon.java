@@ -461,7 +461,7 @@ public class JavaCommon {
     return Streams.concat(
             JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions().stream(),
             Streams.stream(extraJavacOpts),
-            ruleContext.getTokenizedStringListAttr("javacopts").stream())
+            ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());
   }
 
@@ -569,7 +569,7 @@ public class JavaCommon {
   public static List<String> getJvmFlags(RuleContext ruleContext) {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
-    jvmFlags.addAll(ruleContext.getExpandedStringListAttr("jvm_flags"));
+    jvmFlags.addAll(ruleContext.getExpander().withDataLocations().list("jvm_flags"));
     return jvmFlags;
   }
 

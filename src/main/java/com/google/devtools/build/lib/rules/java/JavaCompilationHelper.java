@@ -721,7 +721,7 @@ public final class JavaCompilationHelper {
     return ImmutableList.copyOf(
         Iterables.concat(
             JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
-            ruleContext.getTokenizedStringListAttr("javacopts")));
+            ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
   public void setTranslations(Collection<Artifact> translations) {

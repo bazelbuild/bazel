@@ -52,7 +52,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidHostServiceFixtureInfoProvider(
                 executable.getExecutable(),
-                ruleContext.getTokenizedStringListAttr("service_names"),
+                ruleContext.getExpander().withDataLocations().tokenized("service_names"),
                 AndroidCommon.getSupportApks(ruleContext),
                 ruleContext.attributes().get("provides_test_args", Type.BOOLEAN),
                 ruleContext.attributes().get("daemon", Type.BOOLEAN)))

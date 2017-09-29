@@ -246,7 +246,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
               ResourceFilter.fromRuleContext(ruleContext),
-              ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+              ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
               createMainDexProguardSpec(ruleContext),
@@ -266,7 +266,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ruleContext,
                   getDxArtifact(ruleContext, "android_instant_run.ap_"),
                   resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"));
       ruleContext.assertNoErrors();
@@ -894,7 +894,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .setTargetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
               .setResourceFilter(ResourceFilter.fromRuleContext(ruleContext))
               .setUncompressedExtensions(
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"))
               .build();
       filesBuilder.add(ruleContext.getImplicitOutputArtifact(
           AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG));
@@ -938,7 +938,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Function<Artifact, Artifact> derivedJarFunction,
       @Nullable  Artifact proguardOutputMap)
       throws InterruptedException, RuleErrorException {
-    List<String> dexopts = ruleContext.getTokenizedStringListAttr("dexopts");
+    List<String> dexopts = ruleContext.getExpander().withDataLocations().tokenized("dexopts");
     MultidexMode multidexMode = getMultidexMode(ruleContext);
     if (!supportsMultidexMode(ruleContext, multidexMode)) {
       ruleContext.throwWithRuleError("Multidex mode \"" + multidexMode.getAttributeValue()
@@ -1456,7 +1456,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .addExecPath(mainDexList)
                     .addExecPath(strippedJar)
                     .addExecPath(jar)
-                    .addAll(ruleContext.getTokenizedStringListAttr("main_dex_list_opts"))
+                    .addAll(
+                        ruleContext
+                            .getExpander().withDataLocations().tokenized("main_dex_list_opts"))
                     .build())
             .build(ruleContext));
     return mainDexList;

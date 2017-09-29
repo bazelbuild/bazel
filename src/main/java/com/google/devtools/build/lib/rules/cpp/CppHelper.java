@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -155,23 +156,22 @@ public class CppHelper {
         !ruleContext.getFeatures().contains("no_copts_tokenization");
 
     List<String> tokens = new ArrayList<>();
+    Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String token : input) {
-      try {
-        // Legacy behavior: tokenize all items.
-        if (tokenization) {
-          ruleContext.tokenizeAndExpandMakeVars(tokens, attributeName, token);
-        } else {
-          String exp =
-              ruleContext.expandSingleMakeVariable(attributeName, token);
-          if (exp != null) {
+      // Legacy behavior: tokenize all items.
+      if (tokenization) {
+        expander.tokenizeAndExpandMakeVars(tokens, attributeName, token);
+      } else {
+        String exp = expander.expandSingleMakeVariable(attributeName, token);
+        if (exp != null) {
+          try {
             ShellUtils.tokenize(tokens, exp);
-          } else {
-            tokens.add(
-                ruleContext.expandMakeVariables(attributeName, token));
+          } catch (ShellUtils.TokenizationException e) {
+            ruleContext.attributeError(attributeName, e.getMessage());
           }
+        } else {
+          tokens.add(expander.expand(attributeName, token));
         }
-      } catch (ShellUtils.TokenizationException e) {
-        ruleContext.attributeError(attributeName, e.getMessage());
       }
     }
     return ImmutableList.copyOf(tokens);
@@ -202,13 +202,14 @@ public class CppHelper {
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values) {
     List<String> result = new ArrayList<>();
+    Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String value : values) {
       if (isLinkoptLabel(value)) {
         if (!expandLabel(ruleContext, result, value)) {
           ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
         }
       } else {
-        ruleContext
+        expander
             .tokenizeAndExpandMakeVars(
                 result,
                 attrName,

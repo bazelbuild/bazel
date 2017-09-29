@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
-import com.google.devtools.build.lib.analysis.LocationExpander.Options;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -80,7 +79,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -972,96 +970,12 @@ public final class RuleContext extends TargetContext
     initConfigurationMakeVariableContext(ImmutableList.copyOf(makeVariableSuppliers));
   }
 
-  /** Indicates whether a string list attribute should be tokenized. */
-  public enum Tokenize {
-    YES,
-    NO
+  public Expander getExpander(ConfigurationMakeVariableContext makeVariableContext) {
+    return new Expander(this, makeVariableContext);
   }
 
-  /**
-   * Gets an attribute of type STRING_LIST expanding Make variables, $(location) tags into the
-   * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
-   *
-   * @param attributeName the name of the attribute to process
-   * @return a list of strings containing the expanded and tokenized values for the attribute
-   */
-  public ImmutableList<String> getTokenizedStringListAttr(String attributeName) {
-    return getExpandedStringListAttr(attributeName, Tokenize.YES);
-  }
-
-  /**
-   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags, and
-   * optionally tokenizes the result. Doesn't register any {@link MakeVariableSupplier}.
-   *
-   * @param attributeName the name of the attribute to process
-   * @return a list of strings containing the processed values for the attribute
-   */
-  public ImmutableList<String> getExpandedStringListAttr(String attributeName) {
-    return getExpandedStringListAttr(attributeName, Tokenize.NO);
-  }
-
-  /**
-   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags, and
-   * optionally tokenizes the result.
-   *
-   * @param attributeName the name of the attribute to process
-   * @return a list of strings containing the processed values for the attribute
-   */
-  private ImmutableList<String> getExpandedStringListAttr(
-      String attributeName,
-      Tokenize tokenize) {
-    if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
-      // TODO(bazel-team): This should be an error.
-      return ImmutableList.of();
-    }
-    List<String> original = attributes().get(attributeName, Type.STRING_LIST);
-    if (original.isEmpty()) {
-      return ImmutableList.of();
-    }
-    List<String> tokens = new ArrayList<>();
-    LocationExpander locationExpander =
-        new LocationExpander(this, LocationExpander.Options.ALLOW_DATA);
-
-    for (String token : original) {
-      expandValue(tokens, attributeName, token, locationExpander, tokenize);
-    }
-    return ImmutableList.copyOf(tokens);
-  }
-
-  /**
-   * Expands make variables in value and tokenizes the result into tokens.
-   */
-  public void tokenizeAndExpandMakeVars(
-      List<String> result,
-      String attributeName,
-      String value) {
-    LocationExpander locationExpander =
-        new LocationExpander(this, Options.ALLOW_DATA, Options.EXEC_PATHS);
-    expandValue(result, attributeName, value, locationExpander, Tokenize.YES);
-  }
-
-  /**
-   * Expands make variables and $(location) tags in value, and optionally tokenizes the result.
-   */
-  private void expandValue(
-      List<String> tokens,
-      String attributeName,
-      String value,
-      @Nullable LocationExpander locationExpander,
-      Tokenize tokenize) {
-    if (locationExpander != null) {
-      value = locationExpander.expandAttribute(attributeName, value);
-    }
-    value = expandMakeVariables(attributeName, value);
-    if (tokenize == Tokenize.YES) {
-      try {
-        ShellUtils.tokenize(tokens, value);
-      } catch (ShellUtils.TokenizationException e) {
-        attributeError(attributeName, e.getMessage());
-      }
-    } else {
-      tokens.add(value);
-    }
+  public Expander getExpander() {
+    return new Expander(this, getConfigurationMakeVariableContext());
   }
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
@@ -1093,83 +1007,6 @@ public final class RuleContext extends TargetContext
       initConfigurationMakeVariableContext(ImmutableList.<MakeVariableSupplier>of());
     }
     return configurationMakeVariableContext;
-  }
-
-  /**
-   * Expands the make variables in {@code expression}.
-   *
-   * @param attributeName the name of the attribute from which "expression" comes; used for error
-   *     reporting.
-   * @return the expanded string.
-   */
-  public String expandedMakeVariables(String attributeName) {
-    String expression = attributes().get(attributeName, Type.STRING);
-    return expandMakeVariables(attributeName, expression);
-  }
-
-  /**
-   * Expands the make variables in {@code expression}.
-   *
-   * @param attributeName the name of the attribute from which "expression" comes; used for error
-   *     reporting.
-   * @param expression the string to expand.
-   * @return the expanded string.
-   */
-  public String expandMakeVariables(String attributeName, String expression) {
-    return expandMakeVariables(attributeName, expression, getConfigurationMakeVariableContext());
-  }
-
-  /**
-   * Returns the string "expression" after expanding all embedded references to
-   * "Make" variables.  If any errors are encountered, they are reported, and
-   * "expression" is returned unchanged.
-   *
-   * @param attributeName the name of the attribute from which "expression" comes;
-   *     used for error reporting.
-   * @param expression the string to expand.
-   * @param context the ConfigurationMakeVariableContext which can have a customized
-   *     lookupMakeVariable(String) method.
-   * @return the expansion of "expression".
-   */
-  public String expandMakeVariables(
-      String attributeName, String expression, ConfigurationMakeVariableContext context) {
-    try {
-      return MakeVariableExpander.expand(expression, context);
-    } catch (MakeVariableExpander.ExpansionException e) {
-      attributeError(attributeName, e.getMessage());
-      return expression;
-    }
-  }
-
-  /**
-   * Gets the value of the STRING_LIST attribute expanding all make variables.
-   */
-  public List<String> expandedMakeVariablesList(String attrName) {
-    List<String> variables = new ArrayList<>();
-    for (String variable : attributes().get(attrName, Type.STRING_LIST)) {
-      variables.add(expandMakeVariables(attrName, variable));
-    }
-    return variables;
-  }
-
-  /**
-   * If the string consists of a single variable, returns the expansion of that variable. Otherwise,
-   * returns null. Syntax errors are reported.
-   *
-   * @param attrName the name of the attribute from which "expression" comes; used for error
-   *     reporting.
-   * @param expression the string to expand.
-   * @return the expansion of "expression", or null.
-   */
-  @Nullable
-  public String expandSingleMakeVariable(String attrName, String expression) {
-    try {
-      return MakeVariableExpander
-          .expandSingleVariable(expression, getConfigurationMakeVariableContext());
-    } catch (MakeVariableExpander.ExpansionException e) {
-      attributeError(attrName, e.getMessage());
-      return expression;
-    }
   }
 
   @Nullable

@@ -428,6 +428,7 @@ public final class RunfilesSupport {
       RuleContext ruleContext,
       CommandLine additionalArgs) {
     return CommandLine.concat(
-        ruleContext.getTokenizedStringListAttr("args"), additionalArgs);
+        ruleContext.getExpander().withDataLocations().tokenized("args"),
+        additionalArgs);
   }
 }

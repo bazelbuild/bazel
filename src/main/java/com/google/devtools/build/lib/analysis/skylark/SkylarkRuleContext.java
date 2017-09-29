@@ -1019,9 +1019,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public String expandMakeVariables(String attributeName, String command,
       final Map<String, String> additionalSubstitutions) throws EvalException {
     checkMutable("expand_make_variables");
-    return ruleContext.expandMakeVariables(
-        attributeName,
-        command,
+    ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             // TODO(lberki): This should be removed. But only after either verifying that no one
             // uses it or providing an alternative.
@@ -1036,7 +1034,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
               return super.lookupMakeVariable(variableName);
             }
           }
-        });
+        };
+    return ruleContext.getExpander(makeVariableContext).expand(attributeName, command);
   }
 
 

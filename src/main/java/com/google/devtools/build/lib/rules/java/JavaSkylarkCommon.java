@@ -512,7 +512,8 @@ public class JavaSkylarkCommon {
         (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
     JavaToolchainProvider toolchain = getJavaToolchainProvider(javaToolchainConfigTarget);
     return ImmutableList.copyOf(Iterables.concat(
-        toolchain.getJavacOptions(), ruleContext.getTokenizedStringListAttr("javacopts")));
+        toolchain.getJavacOptions(),
+        ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
   @SkylarkCallable(

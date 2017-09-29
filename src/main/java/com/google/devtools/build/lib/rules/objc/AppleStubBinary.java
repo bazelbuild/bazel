@@ -194,7 +194,8 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
           AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, PATH_NOT_NORMALIZED_ERROR);
     }
 
-    return ruleContext.expandMakeVariables(
-        AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, pathString, makeVariableContext);
+    return ruleContext
+        .getExpander(makeVariableContext)
+        .expand(AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, pathString);
   }
 }

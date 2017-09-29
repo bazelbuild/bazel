@@ -78,7 +78,7 @@ public final class AndroidBinaryMobileInstall {
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
                   resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
       ruleContext.assertNoErrors();
@@ -90,7 +90,7 @@ public final class AndroidBinaryMobileInstall {
                   ruleContext,
                   getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
                   resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
       ruleContext.assertNoErrors();

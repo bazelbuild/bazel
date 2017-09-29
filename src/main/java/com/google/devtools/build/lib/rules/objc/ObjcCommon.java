@@ -645,7 +645,7 @@ public final class ObjcCommon {
   static Iterable<String> getNonCrosstoolCopts(RuleContext ruleContext) {
     return Iterables.concat(
         ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
-        ruleContext.getTokenizedStringListAttr("copts"));
+        ruleContext.getExpander().withDataLocations().tokenized("copts"));
   }
 
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
