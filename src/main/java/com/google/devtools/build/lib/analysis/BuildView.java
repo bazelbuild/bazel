@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -95,7 +94,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -107,7 +105,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -348,7 +345,7 @@ public class BuildView {
     private final ImmutableSet<ConfiguredTarget> exclusiveTests;
     @Nullable private final TopLevelArtifactContext topLevelContext;
     private final ImmutableList<AspectValue> aspects;
-    private final ImmutableMap<PackageIdentifier, Path> packageRoots;
+    private final PackageRoots packageRoots;
     private final String workspaceName;
 
     private AnalysisResult(
@@ -362,7 +359,7 @@ public class BuildView {
         Collection<ConfiguredTarget> parallelTests,
         Collection<ConfiguredTarget> exclusiveTests,
         TopLevelArtifactContext topLevelContext,
-        ImmutableMap<PackageIdentifier, Path> packageRoots,
+        PackageRoots packageRoots,
         String workspaceName) {
       this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
       this.aspects = ImmutableList.copyOf(aspects);
@@ -385,11 +382,8 @@ public class BuildView {
       return targetsToBuild;
     }
 
-    /**
-     * The map from package names to the package root where each package was found; this is used to
-     * set up the symlink tree.
-     */
-    public ImmutableMap<PackageIdentifier, Path> getPackageRoots() {
+    /** @see PackageRoots */
+    public PackageRoots getPackageRoots() {
       return packageRoots;
     }
 
@@ -1023,19 +1017,8 @@ public class BuildView {
    * paths with unknown roots to artifacts.
    */
   @VisibleForTesting // for BuildViewTestCase
-  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
-    Map<Path, Root> rootMap = new HashMap<>();
-    Map<PackageIdentifier, Root> realPackageRoots = new HashMap<>();
-    for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
-      Root root = rootMap.get(entry.getValue());
-      if (root == null) {
-        root = Root.asSourceRoot(entry.getValue(), entry.getKey().getRepository().isMain());
-        rootMap.put(entry.getValue(), root);
-      }
-      realPackageRoots.put(entry.getKey(), root);
-    }
-    // Source Artifact roots:
-    getArtifactFactory().setPackageRoots(realPackageRoots);
+  public void setArtifactRoots(PackageRoots packageRoots) {
+    getArtifactFactory().setPackageRoots(packageRoots.getPackageRootLookup());
   }
 
   /**

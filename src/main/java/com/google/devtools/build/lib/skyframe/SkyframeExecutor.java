@@ -653,6 +653,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return true;
   }
 
+  @Nullable
+  protected Path getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
+    return null;
+  }
+
   @VisibleForTesting
   protected abstract Injectable injectable();
 

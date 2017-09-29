@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Action to create a symbolic link.
@@ -34,7 +35,9 @@ public class SymlinkAction extends AbstractAction {
 
   private static final String GUID = "349675b5-437c-4da8-891a-7fb98fba6ab5";
 
-  private final PathFragment inputPath;
+  /** Null when {@link #getPrimaryInput} is the target of the symlink. */
+  @Nullable private final PathFragment inputPath;
+
   private final Artifact output;
   private final String progressMessage;
 
@@ -50,7 +53,10 @@ public class SymlinkAction extends AbstractAction {
       String progressMessage) {
     // These actions typically have only one input and one output, which
     // become the sole and primary in their respective lists.
-    this(owner, input.getExecPath(), input, output, progressMessage);
+    super(owner, ImmutableList.of(input), ImmutableList.of(output));
+    this.inputPath = null;
+    this.output = Preconditions.checkNotNull(output);
+    this.progressMessage = progressMessage;
   }
 
   /**
@@ -93,7 +99,7 @@ public class SymlinkAction extends AbstractAction {
   }
 
   public PathFragment getInputPath() {
-    return inputPath;
+    return inputPath == null ? getPrimaryInput().getExecPath() : inputPath;
   }
 
   public Path getOutputPath() {
@@ -103,9 +109,14 @@ public class SymlinkAction extends AbstractAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
+    Path srcPath;
+    if (inputPath == null) {
+      srcPath = getPrimaryInput().getPath();
+    } else {
+      srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
+    }
     try {
-      getOutputPath()
-          .createSymbolicLink(actionExecutionContext.getExecRoot().getRelative(inputPath));
+      getOutputPath().createSymbolicLink(srcPath);
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create symbolic link '"
           + Iterables.getOnlyElement(getOutputs()).prettyPrint()
@@ -120,7 +131,9 @@ public class SymlinkAction extends AbstractAction {
     f.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be
     // different from the actual input artifact.
-    f.addPath(inputPath);
+    if (inputPath != null) {
+      f.addPath(inputPath);
+    }
     return f.hexDigestAndReset();
   }
 

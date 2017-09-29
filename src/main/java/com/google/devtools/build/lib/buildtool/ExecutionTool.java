@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -107,6 +108,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -321,19 +323,23 @@ public class ExecutionTool {
   }
 
   /**
-   * Performs the execution phase (phase 3) of the build, in which the Builder
-   * is applied to the action graph to bring the targets up to date. (This
-   * function will return prior to execution-proper if --nobuild was specified.)
+   * Performs the execution phase (phase 3) of the build, in which the Builder is applied to the
+   * action graph to bring the targets up to date. (This function will return prior to
+   * execution-proper if --nobuild was specified.)
+   *
    * @param buildId UUID of the build id
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
    * @param packageRoots package roots collected from loading phase and BuildConfigurationCollection
-   * creation
+   *     creation. May be empty if {@link
+   *     SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation} is false.
    */
-  void executeBuild(UUID buildId, AnalysisResult analysisResult,
+  void executeBuild(
+      UUID buildId,
+      AnalysisResult analysisResult,
       BuildResult buildResult,
       BuildConfigurationCollection configurations,
-      ImmutableMap<PackageIdentifier, Path> packageRoots,
+      PackageRoots packageRoots,
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
@@ -516,15 +522,19 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(ImmutableMap<PackageIdentifier, Path> packageRoots)
-      throws ExecutorInitException {
+  private void prepare(PackageRoots packageRoots) throws ExecutorInitException {
+    Optional<ImmutableMap<PackageIdentifier, Path>> packageRootMap =
+        packageRoots.getPackageRootsMap();
+    if (!packageRootMap.isPresent()) {
+      return;
+    }
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
     // Plant the symlink forest.
     try {
       new SymlinkForest(
-          packageRoots, getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
+              packageRootMap.get(), getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
           .plantSymlinkForest();
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
