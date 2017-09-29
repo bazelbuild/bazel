@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -134,10 +135,14 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
+    Label label = getTarget().getLabel();
+    if (target instanceof AliasConfiguredTarget) {
+      label = ((AliasConfiguredTarget) target).getOriginalLabel();
+    }
     BuildConfiguration config = getTarget().getConfiguration();
     BuildEventId configId =
         config == null ? BuildEventId.nullConfigurationId() : config.getEventId();
-    return BuildEventId.targetCompleted(getTarget().getLabel(), configId);
+    return BuildEventId.targetCompleted(label, configId);
   }
 
   @Override

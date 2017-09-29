@@ -139,6 +139,10 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     return actual;
   }
 
+  public Label getOriginalLabel() {
+    return label;
+  }
+
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");

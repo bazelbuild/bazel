@@ -169,6 +169,21 @@ genrule(
     cmd = "$(location :tool) > $@",
 )
 EOF
+mkdir -p alias/actual
+cat > alias/actual/BUILD <<'EOF'
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  cmd = "touch $@",
+  visibility = ["//:__subpackages__"],
+)
+EOF
+cat > alias/BUILD <<'EOF'
+alias(
+  name = "it",
+  actual = "//alias/actual:it",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -640,6 +655,26 @@ function test_no_tests_found_build_failure() {
   expect_log 'last_message: true'
   expect_log 'yet testing was requested'
   expect_log 'BUILD_FAILURE'
+}
+
+function test_alias() {
+  bazel build --build_event_text_file=$TEST_log alias/... \
+    || fail "build failed"
+  # If alias:it would be reported as the underlying alias/actual:it, then
+  # there would be no event for alias:it. So we can check the correct reporting
+  # by checking for aborted events.
+  expect_not_log 'aborted'
+  (echo 'g/^completed/?label?p'; echo 'q') | ed "${TEST_log}" > completed_labels
+  grep -q '//alias:it' completed_labels || fail "//alias:it not completed"
+  grep -q '//alias/actual:it' completed_labels \
+      || fail "//alias/actual:it not completed"
+  [ `cat completed_labels | wc -l` -eq 2 ] \
+      || fail "more than two targets completed"
+  rm -f completed_labels
+  bazel build --build_event_text_file=$TEST_log alias:it \
+    || fail "build failed"
+  expect_log 'label: "//alias:it"'
+  expect_not_log 'label: "//alias/actual'
 }
 
 run_suite "Integration tests for the build event stream"
