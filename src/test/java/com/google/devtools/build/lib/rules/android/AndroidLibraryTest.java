@@ -1560,4 +1560,32 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .getPath()
         .toString()).contains("processed_manifest");
   }
+
+  @Test
+  public void testAndroidLibrary_SrcsLessDepsHostConfigurationNoOverride() throws Exception {
+    scratch.file(
+        "java/srclessdeps/BUILD",
+        "android_library(name = 'dep_for_foo',",
+        "                srcs = ['a.java'],",
+        "              )",
+        "android_library(name = 'foo',",
+        "                deps = [':dep_for_foo'],",
+        "              )",
+        "genrule(name = 'some_genrule',",
+        "        tools = [':foo'],",
+        "        outs = ['some_outs'],",
+        "        cmd = '$(location :foo) do_something $@',",
+        "        )");
+
+    useConfiguration("--experimental_allow_android_library_deps_without_srcs");
+    // genrule builds its tools using the host configuration.
+    ConfiguredTarget genruleTarget = getConfiguredTarget("//java/srclessdeps:some_genrule");
+    ConfiguredTarget target = getDirectPrerequisite(genruleTarget, "//java/srclessdeps:foo");
+    assertThat(
+            target
+                .getConfiguration()
+                .getFragment(AndroidConfiguration.class)
+                .allowSrcsLessAndroidLibraryDeps())
+        .isTrue();
+  }
 }

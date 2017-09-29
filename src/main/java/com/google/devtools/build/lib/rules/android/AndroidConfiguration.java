@@ -759,6 +759,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.androidAaptVersion = androidAaptVersion;
+      host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       return host;
     }
 
