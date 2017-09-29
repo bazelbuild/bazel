@@ -289,6 +289,12 @@ esac
 
 # OS X has a limit in the pipe length, so force the root to a shorter one
 bazel_root="${TEST_TMPDIR}/root"
+
+# Delete stale installation directory from previously failed tests. On Windows
+# we regularly get the same TEST_TMPDIR but a failed test may only partially
+# clean it up, and the next time the test runs, Bazel reports a corrupt
+# installation error. See https://github.com/bazelbuild/bazel/issues/3618
+rm -rf "${bazel_root}"
 mkdir -p "${bazel_root}"
 
 bazel_javabase="${jdk_dir}"
@@ -463,10 +469,10 @@ function cleanup() {
         break
       fi
       if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
-        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
+        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} after $i seconds"
         echo "(Timeout in $((120-i)) seconds.)"
-        sleep 1
       fi
+      sleep 1
     done
   fi
 }
