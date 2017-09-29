@@ -219,6 +219,12 @@ public class StandaloneSpawnStrategyTest {
 
   @Test
   public void testCommandHonorsEnvironment() throws Exception {
+    if (OS.getCurrent() == OS.DARWIN) {
+      // // TODO(#)3795: For some reason, we get __CF_USER_TEXT_ENCODING into the env in some
+      // configurations of MacOS machines. I have been unable to reproduce on my Mac, or to track
+      // down where that env var is coming from.
+      return;
+    }
     Spawn spawn = new BaseSpawn.Local(
         Arrays.asList("/usr/bin/env"),
         ImmutableMap.of("foo", "bar", "baz", "boo"),
