@@ -641,7 +641,6 @@ toolchain {
     name: 'input_param_flags'
     flag_set {
       expand_if_all_available: 'interface_library_output_path'
-      action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
         flag: "/IMPLIB:%{interface_library_output_path}"
