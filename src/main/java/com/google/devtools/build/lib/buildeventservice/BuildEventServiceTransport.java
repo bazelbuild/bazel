@@ -174,6 +174,10 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     this.sleeper = sleeper;
   }
 
+  public boolean isStreaming() {
+    return besClient.isStreamActive();
+  }
+
   @Override
   public ListenableFuture<Void> close() {
     return close(/*now=*/false);
