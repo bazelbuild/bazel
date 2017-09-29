@@ -84,6 +84,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
             .exec()
             .value(env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
         .removeAttribute("data")
+        .advertiseProvider(ApkProvider.class)
         .build();
   }
 
