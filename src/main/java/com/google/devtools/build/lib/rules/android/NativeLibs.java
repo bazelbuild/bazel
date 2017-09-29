@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
 import com.google.devtools.build.lib.util.Pair;
@@ -56,7 +57,8 @@ public final class NativeLibs {
       String nativeDepsFileName,
       Multimap<String, TransitiveInfoCollection> depsByArchitecture,
       Map<String, CcToolchainProvider> toolchainMap,
-      Map<String, BuildConfiguration> configurationMap)
+      Map<String, BuildConfiguration> configurationMap,
+      CppSemantics cppSemantics)
       throws InterruptedException {
     Map<String, NestedSet<Artifact>> result = new LinkedHashMap<>();
     String nativeDepsLibraryBasename = null;
@@ -73,7 +75,8 @@ public final class NativeLibs {
               ruleContext,
               linkParams,
               configurationMap.get(entry.getKey()),
-              toolchainMap.get(entry.getKey()));
+              toolchainMap.get(entry.getKey()),
+              cppSemantics);
 
       NestedSetBuilder<Artifact> librariesBuilder = NestedSetBuilder.stableOrder();
       if (nativeDepsLibrary != null) {

@@ -258,7 +258,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
                 outputArchive,
                 ccToolchain,
                 fdoSupport,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider))
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -312,7 +314,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     LinkTargetType linkType = (objcProvider.is(Flag.USES_CPP))
         ? LinkTargetType.OBJCPP_EXECUTABLE
         : LinkTargetType.OBJC_EXECUTABLE;
-    
+
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -334,7 +336,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
                 binaryToLink,
                 toolchain,
                 fdoSupport,
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider))
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+                createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -423,14 +427,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
                 Streams.stream(compilationArtifacts.getAdditionalHdrs()))
             .collect(toImmutableSortedSet(naturalOrder()));
     Artifact pchHdr = getPchFile().orNull();
-    ObjcCppSemantics semantics =
-        new ObjcCppSemantics(
-            objcProvider,
-            createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
-            ruleContext.getFragment(ObjcConfiguration.class),
-            isHeaderThinningEnabled(),
-            intermediateArtifacts,
-            buildConfiguration);
+    ObjcCppSemantics semantics = createObjcCppSemantics(objcProvider, privateHdrs, pchHdr);
     CcLibraryHelper result =
         new CcLibraryHelper(
                 ruleContext,
@@ -480,6 +477,17 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       result.doNotGenerateModuleMap();
     }
     return result;
+  }
+
+  private ObjcCppSemantics createObjcCppSemantics(
+      ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
+    return new ObjcCppSemantics(
+        objcProvider,
+        createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
+        ruleContext.getFragment(ObjcConfiguration.class),
+        isHeaderThinningEnabled(),
+        intermediateArtifacts,
+        buildConfiguration);
   }
 
   private FeatureConfiguration getFeatureConfiguration(

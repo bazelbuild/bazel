@@ -163,6 +163,7 @@ public class CppLinkActionBuilder {
   @Nullable private final RuleContext ruleContext;
   private final AnalysisEnvironment analysisEnvironment;
   private final Artifact output;
+  private final CppSemantics unusedCppSemantics;
   @Nullable private String mnemonic;
 
   // can be null for CppLinkAction.createTestBuilder()
@@ -215,13 +216,15 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param toolchain the C++ toolchain provider
    * @param fdoSupport the C++ FDO optimization support
+   * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
       Artifact output,
       CcToolchainProvider toolchain,
       FdoSupportProvider fdoSupport,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration,
+      CppSemantics cppSemantics) {
     this(
         ruleContext,
         output,
@@ -229,7 +232,8 @@ public class CppLinkActionBuilder {
         ruleContext.getAnalysisEnvironment(),
         toolchain,
         fdoSupport,
-        featureConfiguration);
+        featureConfiguration,
+        cppSemantics);
   }
 
   /**
@@ -240,6 +244,7 @@ public class CppLinkActionBuilder {
    * @param configuration build configuration
    * @param toolchain C++ toolchain provider
    * @param fdoSupport the C++ FDO optimization support
+   * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
@@ -247,7 +252,8 @@ public class CppLinkActionBuilder {
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
       FdoSupportProvider fdoSupport,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration,
+      CppSemantics cppSemantics) {
     this(
         ruleContext,
         output,
@@ -255,7 +261,8 @@ public class CppLinkActionBuilder {
         ruleContext.getAnalysisEnvironment(),
         toolchain,
         fdoSupport,
-        featureConfiguration);
+        featureConfiguration,
+        cppSemantics);
   }
 
   /**
@@ -267,6 +274,7 @@ public class CppLinkActionBuilder {
    *     options
    * @param toolchain the C++ toolchain provider
    * @param fdoSupport the C++ FDO optimization support
+   * @param cppSemantics to be used for linkstamp compiles
    */
   private CppLinkActionBuilder(
       @Nullable RuleContext ruleContext,
@@ -275,7 +283,8 @@ public class CppLinkActionBuilder {
       AnalysisEnvironment analysisEnvironment,
       CcToolchainProvider toolchain,
       FdoSupportProvider fdoSupport,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration,
+      CppSemantics cppSemantics) {
     this.ruleContext = ruleContext;
     this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
     this.output = Preconditions.checkNotNull(output);
@@ -287,6 +296,7 @@ public class CppLinkActionBuilder {
       runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
     this.featureConfiguration = featureConfiguration;
+    this.unusedCppSemantics = Preconditions.checkNotNull(cppSemantics);
   }
 
   /**
@@ -299,6 +309,7 @@ public class CppLinkActionBuilder {
    * @param configuration build configuration
    * @param toolchain the C++ toolchain provider
    * @param fdoSupport the C++ FDO optimization support
+   * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
@@ -307,7 +318,8 @@ public class CppLinkActionBuilder {
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
       FdoSupportProvider fdoSupport,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration,
+      CppSemantics cppSemantics) {
     // These Builder-only fields get set in the constructor:
     //   ruleContext, analysisEnvironment, outputPath, configuration, runtimeSolibDir
     this(
@@ -317,7 +329,8 @@ public class CppLinkActionBuilder {
         ruleContext.getAnalysisEnvironment(),
         toolchain,
         fdoSupport,
-        featureConfiguration);
+        featureConfiguration,
+        cppSemantics);
     Preconditions.checkNotNull(linkContext);
 
     // All linkContext fields should be transferred to this Builder.

@@ -320,7 +320,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         : staticOutputFile,
                     CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
                     CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-                    featureConfiguration) {};
+                    featureConfiguration,
+                    MockCppSemantics.INSTANCE) {};
             builder.addCompilationInputs(
                 attributesToFlip.contains(NonStaticAttributes.COMPILATION_INPUTS)
                     ? ImmutableList.of(oFile)
@@ -381,7 +382,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         : dynamicOutputFile,
                     CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
                     CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-                    featureConfiguration) {};
+                    featureConfiguration,
+                    MockCppSemantics.INSTANCE) {};
             builder.addCompilationInputs(
                 attributes.contains(StaticKeyAttributes.COMPILATION_INPUTS)
                     ? ImmutableList.of(oFile)
@@ -413,7 +415,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             output,
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
             CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-            FeatureConfiguration.EMPTY);
+            FeatureConfiguration.EMPTY,
+            MockCppSemantics.INSTANCE);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
@@ -506,7 +509,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ruleContext.getConfiguration(),
                 CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
                 CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-                featureConfiguration)
+                featureConfiguration,
+                MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)

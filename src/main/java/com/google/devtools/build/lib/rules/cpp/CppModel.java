@@ -1520,7 +1520,7 @@ public final class CppModel {
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
-            ruleContext, outputArtifact, ccToolchain, fdoSupport, featureConfiguration)
+            ruleContext, outputArtifact, ccToolchain, fdoSupport, featureConfiguration, semantics)
         .setCrosstoolInputs(ccToolchain.getLink())
         .addNonCodeInputs(context.getTransitiveCompilationPrerequisites());
   }

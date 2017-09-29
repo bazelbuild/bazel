@@ -261,7 +261,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             fake,
             binary,
             linkParams,
-            linkCompileOutputSeparately);
+            linkCompileOutputSeparately,
+            semantics);
     linkActionBuilder.setUseTestOnlyFlags(ruleContext.isTestTarget());
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       linkActionBuilder.setRuntimeInputs(
@@ -525,10 +526,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean fake,
       Artifact binary,
       CcLinkParams linkParams,
-      boolean linkCompileOutputSeparately)
+      boolean linkCompileOutputSeparately,
+      CppSemantics cppSemantics)
       throws InterruptedException {
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(context, binary, toolchain, fdoSupport, featureConfiguration)
+        new CppLinkActionBuilder(
+                context, binary, toolchain, fdoSupport, featureConfiguration, cppSemantics)
             .setCrosstoolInputs(toolchain.getLink())
             .addNonCodeInputs(compilationPrerequisites);
 
