@@ -21,6 +21,7 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -56,6 +57,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -141,30 +143,35 @@ public class GrpcRemoteCache implements RemoteActionCache {
       TreeNodeRepository repository, Path execRoot, TreeNode root, Command command)
       throws IOException, InterruptedException {
     repository.computeMerkleDigests(root);
+    Digest commandDigest = Digests.computeDigest(command);
     // TODO(olaola): avoid querying all the digests, only ask for novel subtrees.
-    ImmutableSet<Digest> missingDigests = getMissingDigests(repository.getAllDigests(root));
+    ImmutableSet<Digest> missingDigests =
+        getMissingDigests(
+            Iterables.concat(repository.getAllDigests(root), ImmutableList.of(commandDigest)));
 
+    List<Chunker> toUpload = new ArrayList<>();
     // Only upload data that was missing from the cache.
     ArrayList<ActionInput> missingActionInputs = new ArrayList<>();
     ArrayList<Directory> missingTreeNodes = new ArrayList<>();
-    repository.getDataFromDigests(missingDigests, missingActionInputs, missingTreeNodes);
+    HashSet<Digest> missingTreeDigests = new HashSet<>(missingDigests);
+    missingTreeDigests.remove(commandDigest);
+    repository.getDataFromDigests(missingTreeDigests, missingActionInputs, missingTreeNodes);
 
+    if (missingDigests.contains(commandDigest)) {
+      toUpload.add(new Chunker(command.toByteArray()));
+    }
     if (!missingTreeNodes.isEmpty()) {
-      List<Chunker> toUpload = new ArrayList<>(missingTreeNodes.size());
       for (Directory d : missingTreeNodes) {
         toUpload.add(new Chunker(d.toByteArray()));
       }
-      uploader.uploadBlobs(toUpload);
     }
-    uploadBlob(command.toByteArray());
     if (!missingActionInputs.isEmpty()) {
-      List<Chunker> inputsToUpload = new ArrayList<>();
       MetadataProvider inputFileCache = repository.getInputFileCache();
       for (ActionInput actionInput : missingActionInputs) {
-        inputsToUpload.add(new Chunker(actionInput, inputFileCache, execRoot));
+        toUpload.add(new Chunker(actionInput, inputFileCache, execRoot));
       }
-      uploader.uploadBlobs(inputsToUpload);
     }
+    uploader.uploadBlobs(toUpload);
   }
 
   /**
