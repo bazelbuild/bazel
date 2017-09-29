@@ -142,7 +142,7 @@ public final class DiffAwarenessManager {
       if (newDiffAwareness != null) {
         logger.info(
             "Using " + newDiffAwareness.name() + " DiffAwareness strategy for " + pathEntry);
-        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*previousView=*/null);
+        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*baselineView=*/null);
         currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
         return diffAwarenessState;
       }

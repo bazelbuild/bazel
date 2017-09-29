@@ -484,7 +484,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         @Nullable
         @Override
         public SkyKey apply(@Nullable Artifact artifact) {
-          return ArtifactSkyKey.key(artifact, /*mandatory=*/ false);
+          return ArtifactSkyKey.key(artifact, /*isMandatory=*/ false);
         }
       };
 

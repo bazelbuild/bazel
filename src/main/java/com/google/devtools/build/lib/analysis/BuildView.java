@@ -1245,7 +1245,7 @@ public class BuildView {
         new CachingAnalysisEnvironment(getArtifactFactory(),
             new ConfiguredTargetKey(target.getLabel(), targetConfig),
             /*isSystemEnv=*/false, targetConfig.extendedSanityChecks(), eventHandler,
-            /*skyframeEnv=*/null, targetConfig.isActionsEnabled());
+            /*env=*/null, targetConfig.isActionsEnabled());
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 

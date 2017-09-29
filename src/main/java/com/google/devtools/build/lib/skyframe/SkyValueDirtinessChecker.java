@@ -57,7 +57,7 @@ public abstract class SkyValueDirtinessChecker {
      * graph.
      */
     public static DirtyResult notDirty(SkyValue oldValue) {
-      return new DirtyResult(/*dirty=*/false, oldValue,  /*newValue=*/null);
+      return new DirtyResult(/*isDirty=*/false, oldValue,  /*newValue=*/null);
     }
 
     /**
@@ -65,7 +65,7 @@ public abstract class SkyValueDirtinessChecker {
      * graph, but this new value is not known.
      */
     public static DirtyResult dirty(@Nullable SkyValue oldValue) {
-      return new DirtyResult(/*dirty=*/true, oldValue, /*newValue=*/null);
+      return new DirtyResult(/*isDirty=*/true, oldValue, /*newValue=*/null);
     }
 
     /**
@@ -73,7 +73,7 @@ public abstract class SkyValueDirtinessChecker {
      * different from the value in the graph,
      */
     public static DirtyResult dirtyWithNewValue(@Nullable SkyValue oldValue, SkyValue newValue) {
-      return new DirtyResult(/*dirty=*/true, oldValue, newValue);
+      return new DirtyResult(/*isDirty=*/true, oldValue, newValue);
     }
 
     private final boolean isDirty;
