@@ -28,6 +28,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /** Performs resource validation and static linking for compiled android resources. */
 public class ValidateAndLinkResourcesAction {
@@ -47,6 +48,19 @@ public class ValidateAndLinkResourcesAction {
     // TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
     @Deprecated
     public Path compiled;
+
+    @Option(
+        name = "compiledDep",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "",
+        converter = Converters.PathListConverter.class,
+        category = "input",
+        allowMultiple = true,
+        help = "Compiled resource dependencies to link."
+    )
+    public List<Path> compiledDeps;
+
 
     @Option(
       name = "manifest",
@@ -172,6 +186,9 @@ public class ValidateAndLinkResourcesAction {
       ResourceLinker.create(aapt2Options.aapt2, scopedTmp.getPath())
           .profileUsing(profiler)
           .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
+          .include(options.compiledDeps.stream()
+              .map(CompiledResources::from)
+              .collect(Collectors.toList()))
           .buildVersion(aapt2Options.buildToolsVersion)
           .linkStatically(resources)
           .copyLibraryTo(options.staticLibraryOut)

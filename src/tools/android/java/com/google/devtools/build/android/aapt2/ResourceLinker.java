@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs;
 import com.google.devtools.build.android.Profiler;
@@ -31,7 +30,6 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.zip.ZipFile;
 
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
@@ -59,7 +57,8 @@ public class ResourceLinker {
   private List<String> uncompressedExtensions = ImmutableList.of();
   private List<String> resourceConfigs = ImmutableList.of();
   private Path baseApk;
-  private List<StaticLibrary> include = ImmutableList.of();
+  private List<CompiledResources> include = ImmutableList.of();
+  private List<Path> assetDirs = ImmutableList.of();
 
   private ResourceLinker(Path aapt2, Path workingDirectory) {
     this.aapt2 = aapt2;
@@ -82,9 +81,13 @@ public class ResourceLinker {
     return this;
   }
 
-  /** Dependent static libraries to be included in the binary. */
-  public ResourceLinker include(List<StaticLibrary> include) {
+  /** Dependent compiled resources to be included in the binary. */
+  public ResourceLinker include(List<CompiledResources> include) {
     this.include = include;
+    return this;
+  }
+  public ResourceLinker withAssets(List<Path> assetDirs) {
+    this.assetDirs = assetDirs;
     return this;
   }
 
@@ -127,9 +130,12 @@ public class ResourceLinker {
               .add("--no-static-lib-packages")
               .whenVersionIsAtLeast(new Revision(23))
               .thenAdd("--no-version-vectors")
-              .addRepeated("-R", unzipCompiledResources(resources.getZip()))
+              .add("-R", resources.getZip())
+              .addRepeated("-R",
+                  include.stream()
+                      .map(compiledResources -> compiledResources.getZip().toString())
+                      .collect(Collectors.toList()))
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
-              .add("--java", javaSourceDirectory)
               .add("--auto-add-overlay")
               .add("-o", outPath)
               .add("--java", javaSourceDirectory)
@@ -171,16 +177,18 @@ public class ResourceLinker {
               .when(densities.size() == 1)
               .thenAddRepeated("--preferred-density", densities)
               .add("--stable-ids", compiled.getStableIds())
-              .addRepeated("-A", compiled.getAssetsStrings())
+              .addRepeated("-A",
+                  assetDirs.stream().map(Path::toString).collect(Collectors.toList()))
               .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
-              .addRepeated("-R", StaticLibrary.toPathStrings(include))
-              .addParameterableRepeated(
-                  "-R", unzipCompiledResources(compiled.getZip()), workingDirectory)
+              .addRepeated("-R",
+                  include.stream()
+                      .map(compiledResources -> compiledResources.getZip().toString())
+                      .collect(Collectors.toList()))
+              .add("-R", compiled.getZip())
               // Never compress apks.
               .add("-0", "apk")
               // Add custom no-compress extensions.
               .addRepeated("-0", uncompressedExtensions)
-              .addRepeated("-A", StaticLibrary.toAssetPaths(include))
               // Filter by resource configuration type.
               .when(!resourceConfigs.isEmpty())
               .thenAdd("-c", Joiner.on(',').join(resourceConfigs))
@@ -213,24 +221,6 @@ public class ResourceLinker {
     } catch (IOException e) {
       throw new LinkError(e);
     }
-  }
-
-  private List<String> unzipCompiledResources(Path resourceZip) throws IOException {
-    final ZipFile zipFile = new ZipFile(resourceZip.toFile());
-    return zipFile
-        .stream()
-        .map(
-            entry -> {
-              final Path resolve = workingDirectory.resolve(entry.getName());
-              try {
-                Files.createDirectories(resolve.getParent());
-                return Files.write(resolve, ByteStreams.toByteArray(zipFile.getInputStream(entry)));
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .map(Path::toString)
-        .collect(Collectors.toList());
   }
 
   public ResourceLinker storeUncompressed(List<String> uncompressedExtensions) {

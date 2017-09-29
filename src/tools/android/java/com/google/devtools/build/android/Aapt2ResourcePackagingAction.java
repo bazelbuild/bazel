@@ -147,18 +147,25 @@ public class Aapt2ResourcePackagingAction {
           AndroidResourceOutputs.copyManifestToOutput(compiled, options.manifestOutput);
         }
 
-        List<StaticLibrary> dependencies =
+        List<CompiledResources> compiledResourceDeps =
             // Last defined dependencies will overwrite previous one, so always place direct
             // after transitive.
             concat(options.transitiveData.stream(), options.directData.stream())
-                .map(DependencyAndroidData::getStaticLibrary)
+                .map(DependencyAndroidData::getCompiledSymbols)
                 .collect(toList());
+
+        List<Path> assetDirs =
+            concat(options.transitiveData.stream(), options.directData.stream())
+                .flatMap(dep -> dep.assetDirs.stream())
+                .collect(toList());
+        assetDirs.addAll(options.primaryData.assetDirs);
 
         final PackagedResources packagedResources =
             ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
                 .profileUsing(profiler)
                 .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
-                .include(dependencies)
+                .include(compiledResourceDeps)
+                .withAssets(assetDirs)
                 .buildVersion(aaptConfigOptions.buildToolsVersion)
                 .filterToDensity(densitiesToFilter)
                 .link(compiled)

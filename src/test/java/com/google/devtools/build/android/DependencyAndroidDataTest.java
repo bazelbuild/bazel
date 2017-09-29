@@ -18,7 +18,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Truth;
-import com.google.devtools.build.android.aapt2.StaticLibrary;
+import com.google.devtools.build.android.aapt2.CompiledResources;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,13 +41,13 @@ public class DependencyAndroidDataTest {
   private Path assets;
   private Path otherAssets;
   private Path symbols;
-  private StaticLibrary staticLibrary;
+  private CompiledResources compiledResources;
 
   @Before public void setUp() throws Exception {
     fileSystem = Jimfs.newFileSystem();
     root = Files.createDirectories(fileSystem.getPath(""));
     rTxt = Files.createFile(root.resolve("r.txt"));
-    staticLibrary = StaticLibrary.from(Files.createFile(root.resolve("static.library.ap_")));
+    compiledResources = CompiledResources.from(Files.createFile(root.resolve("symbols.zip")));
     symbols = Files.createFile(root.resolve("symbols.bin"));
     manifest = Files.createFile(root.resolve("AndroidManifest.xml"));
     res = Files.createDirectories(root.resolve("res"));
@@ -59,7 +59,7 @@ public class DependencyAndroidDataTest {
   @Test public void flagFullParse() throws Exception{
     Truth.assertThat(
             DependencyAndroidData.valueOf(
-                "res#otherres:assets#otherassets:AndroidManifest.xml:r.txt:static.library.ap_:symbols.bin",
+                "res#otherres:assets#otherassets:AndroidManifest.xml:r.txt:symbols.zip:symbols.bin",
                 fileSystem))
         .isEqualTo(
             new DependencyAndroidData(
@@ -68,7 +68,7 @@ public class DependencyAndroidDataTest {
                 manifest,
                 rTxt,
                 symbols,
-                staticLibrary));
+                compiledResources));
   }
 
   @Test public void flagParseWithNoSymbolsFile() throws Exception{
