@@ -3241,7 +3241,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(apkAction.getInputs())
         .contains(
-            getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+            getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
 
     SpawnAction classAction = getGeneratingSpawnAction(classJar);
     assertThat(classAction.getInputs())

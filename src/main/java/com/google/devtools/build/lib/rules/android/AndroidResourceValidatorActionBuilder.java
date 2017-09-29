@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -160,16 +159,8 @@ public class AndroidResourceValidatorActionBuilder {
 
     builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
 
-    FluentIterable<Artifact> libraries =
-        FluentIterable.from(resourceDeps.getResources()).transform(
-            ResourceContainer::getStaticLibrary).append(sdk.getAndroidJar());
-
-    builder
-        .add("--libraries")
-        .addExecPaths(
-            VectorArg.join(context.getConfiguration().getHostPathSeparator())
-                .each(libraries.toList()));
-    inputs.addAll(libraries);
+    builder.add("--libraries").addExecPath(sdk.getAndroidJar());
+    inputs.add(sdk.getAndroidJar());
 
     builder.addExecPath("--compiled", compiledSymbols);
     inputs.add(compiledSymbols);
@@ -181,6 +172,15 @@ public class AndroidResourceValidatorActionBuilder {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
       builder.add("--packageForR", customJavaPackage);
+    }
+
+    if (!resourceDeps.getTransitiveCompiledSymbols().isEmpty()) {
+      builder
+          .addExecPaths(
+              "--compiledDep",
+              VectorArg.join(context.getConfiguration().getHostPathSeparator())
+                  .each(resourceDeps.getTransitiveCompiledSymbols()));
+      inputs.addAll(resourceDeps.getTransitiveCompiledSymbols());
     }
 
     builder.addExecPath("--sourceJarOut", aapt2SourceJarOut);

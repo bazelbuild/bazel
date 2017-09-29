@@ -1508,7 +1508,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             sdk.getProvider(AndroidSdkProvider.class).getAndroidJar(),
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
             getImplicitOutputArtifact(
-                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAllOf(
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),

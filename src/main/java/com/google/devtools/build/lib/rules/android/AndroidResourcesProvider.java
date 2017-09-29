@@ -33,6 +33,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
       NestedSet<Artifact> transitiveSymbolsBin,
+      NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
       NestedSet<Artifact> transitiveRTxt,
       boolean isResourcesOnly) {
@@ -44,6 +45,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
         transitiveManifests,
         transitiveAapt2RTxt,
         transitiveSymbolsBin,
+        transitiveCompiledSymbols,
         transitiveStaticLib,
         transitiveRTxt,
         isResourcesOnly);
@@ -65,6 +67,8 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
   public abstract NestedSet<Artifact> getTransitiveAapt2RTxt();
 
   public abstract NestedSet<Artifact> getTransitiveSymbolsBin();
+
+  public abstract NestedSet<Artifact> getTransitiveCompiledSymbols();
 
   public abstract NestedSet<Artifact> getTransitiveStaticLib();
 
