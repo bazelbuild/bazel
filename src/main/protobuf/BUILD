@@ -15,6 +15,7 @@ FILES = [
     "command_server",
     "crosstool_config",
     "deps",
+    "desugar_deps",
     "extra_actions_base",
     "invocation_policy",
     "java_compilation",
