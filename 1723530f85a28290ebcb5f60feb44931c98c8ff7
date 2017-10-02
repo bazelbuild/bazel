@@ -1,0 +1,2 @@
+Important changes:
+ - Only compute hostname once per server lifetime
