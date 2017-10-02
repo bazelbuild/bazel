@@ -484,6 +484,12 @@ java_import(
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
 )
 
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "tomcat_annotations_api-jars",
+    srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+)
+
 # Testing
 
 java_import(
