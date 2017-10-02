@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -137,14 +136,6 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
 
   private static ImmutableList<String> getJvmOpts(
       RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
-    // LocationExpander is used directly instead of e.g. getExpandedStringListAttr because the
-    // latter hard-codes list of attributes that can provide prerequisites.
-    LocationExpander expander =
-        new LocationExpander(ruleContext, locations, /*allowDataAttributeEntriesInLabel=*/ false);
-    ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (String option : ruleContext.attributes().get("jvm_opts", Type.STRING_LIST)) {
-      result.add(expander.expand(option));
-    }
-    return result.build();
+    return ruleContext.getExpander().withExecLocations(locations).list("jvm_opts");
   }
 }

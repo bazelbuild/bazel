@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.Options;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
@@ -74,6 +78,16 @@ public final class Expander {
    */
   public Expander withDataExecLocations() {
     return withLocations(Options.ALLOW_DATA, Options.EXEC_PATHS);
+  }
+
+  /**
+   * Returns a new instance that also expands locations, passing the given location map, as well as
+   * {@link Options#EXEC_PATHS} to the underlying {@link LocationExpander}.
+   */
+  public Expander withExecLocations(ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
+    LocationExpander newLocationExpander =
+        new LocationExpander(ruleContext, locations, Options.EXEC_PATHS);
+    return new Expander(ruleContext, makeVariableContext, newLocationExpander);
   }
 
   /**

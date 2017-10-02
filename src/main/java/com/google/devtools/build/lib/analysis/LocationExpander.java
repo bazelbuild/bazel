@@ -95,6 +95,21 @@ public class LocationExpander {
   }
 
   /**
+   * Creates location expander helper bound to specific target and with default location map.
+   *
+   * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts.
+   * @param options the list of options, see {@link Options}
+   */
+  public LocationExpander(
+      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
+      Options... options) {
+    this.ruleContext = ruleContext;
+    this.options = ImmutableSet.copyOf(options);
+    this.labelMap = labelMap;
+  }
+
+  /**
    * Creates location expander helper bound to specific target.
    *
    * @param ruleContext the BUILD rule's context
