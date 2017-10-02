@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.analysis;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,18 +40,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Stream;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /**
- * Expands $(location) tags inside target attributes.
- * You can specify something like this in the BUILD file:
+ * Expands $(location) and $(locations) tags inside target attributes. You can specify something
+ * like this in the BUILD file:
  *
+ * <pre>
  * somerule(name='some name',
  *          someopt = [ '$(location //mypackage:myhelper)' ],
  *          ...)
+ * </pre>
  *
  * and location will be substituted with //mypackage:myhelper executable output.
- * Note that //mypackage:myhelper should have just one output.
+ *
+ * <p>Note that this expander will always expand labels in srcs, deps, and tools attributes, with
+ * data being optional.
  *
  * <p>DO NOT USE DIRECTLY! Use RuleContext.getExpander() instead.
  */
@@ -62,18 +72,53 @@ public class LocationExpander {
     ALLOW_DATA,
   }
 
-  private static final int MAX_PATHS_SHOWN = 5;
   private static final String LOCATION = "$(location";
 
-  private final RuleContext ruleContext;
-  private final ImmutableSet<Options> options;
+  private final RuleErrorConsumer ruleErrorConsumer;
+  private final Function<String, String> locationFunction;
+  private final Function<String, String> locationsFunction;
+
+  @VisibleForTesting
+  LocationExpander(
+      RuleErrorConsumer ruleErrorConsumer,
+      Function<String, String> locationFunction,
+      Function<String, String> locationsFunction) {
+    this.ruleErrorConsumer = ruleErrorConsumer;
+    this.locationFunction = locationFunction;
+    this.locationsFunction = locationsFunction;
+  }
+
+  private LocationExpander(
+      RuleErrorConsumer ruleErrorConsumer,
+      Label root,
+      Supplier<Map<Label, Collection<Artifact>>> locationMap,
+      boolean execPaths) {
+    this(
+        ruleErrorConsumer,
+        new LocationFunction(root, locationMap, execPaths, false),
+        new LocationFunction(root, locationMap, execPaths, true));
+  }
 
   /**
-   * This is a Map, not a Multimap, because we need to distinguish between the cases of "empty
-   * value" and "absent key."
+   * Creates location expander helper bound to specific target and with default location map.
+   *
+   * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts.
+   * @param options options
    */
-  private Map<Label, Collection<Artifact>> locationMap;
-  private ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap;
+  private LocationExpander(
+      RuleContext ruleContext,
+      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
+      ImmutableSet<Options> options) {
+    this(
+        ruleContext,
+        ruleContext.getLabel(),
+        // Use a memoizing supplier to avoid eagerly building the location map.
+        Suppliers.memoize(
+            () -> LocationExpander.buildLocationMap(
+                ruleContext, labelMap, options.contains(Options.ALLOW_DATA))),
+        options.contains(Options.EXEC_PATHS));
+  }
 
   /**
    * Creates location expander helper bound to specific target and with default location map.
@@ -85,9 +130,7 @@ public class LocationExpander {
   public LocationExpander(
       RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
       Options... options) {
-    this.ruleContext = ruleContext;
-    this.options = ImmutableSet.copyOf(options);
-    this.labelMap = labelMap;
+    this(ruleContext, Preconditions.checkNotNull(labelMap), ImmutableSet.copyOf(options));
   }
 
   /**
@@ -97,19 +140,11 @@ public class LocationExpander {
    * @param options the list of options, see {@link Options}.
    */
   public LocationExpander(RuleContext ruleContext, Options... options) {
-    this.ruleContext = ruleContext;
-    this.options = ImmutableSet.copyOf(options);
-  }
-
-  private Map<Label, Collection<Artifact>> getLocationMap() {
-    if (locationMap == null) {
-      locationMap = buildLocationMap(ruleContext, labelMap, options.contains(Options.ALLOW_DATA));
-    }
-    return locationMap;
+    this(ruleContext, null, ImmutableSet.copyOf(options));
   }
 
   public String expand(String input) {
-    return expand(input, new RuleErrorReporter());
+    return expand(input, new RuleErrorReporter(ruleErrorConsumer));
   }
 
   /**
@@ -122,7 +157,7 @@ public class LocationExpander {
    *         case of errors
    */
   public String expandAttribute(String attrName, String attrValue) {
-    return expand(attrValue, new AttributeErrorReporter(attrName));
+    return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
   private String expand(String value, ErrorReporter reporter) {
@@ -132,58 +167,47 @@ public class LocationExpander {
     StringBuilder result = new StringBuilder(value.length());
 
     while (true) {
-      // (1) find '$(location ' or '$(locations '
-      String message = "$(location)";
-      boolean multiple = false;
+      // (1) Find '$(location ' or '$(locations '.
+      Function<String, String> func = locationFunction;
       int start = value.indexOf(LOCATION, restart);
       int scannedLength = LOCATION.length();
       if (start == -1 || start + scannedLength == attrLength) {
         result.append(value.substring(restart));
         break;
       }
-
       if (value.charAt(start + scannedLength) == 's') {
         scannedLength++;
         if (start + scannedLength == attrLength) {
           result.append(value.substring(restart));
           break;
         }
-        message = "$(locations)";
-        multiple = true;
+        func = locationsFunction;
       }
-
       if (value.charAt(start + scannedLength) != ' ') {
         result.append(value, restart, start + scannedLength);
         restart = start + scannedLength;
         continue;
       }
+
+      result.append(value, restart, start);
       scannedLength++;
 
       int end = value.indexOf(')', start + scannedLength);
       if (end == -1) {
-        reporter.report(ruleContext, "unterminated " + message + " expression");
+        reporter.report(
+            String.format(
+                "unterminated $(%s) expression",
+                value.substring(start + 2, start + scannedLength - 1)));
         return value;
       }
 
-      message = String.format(" in %s expression", message);
-
-      // (2) parse label
-      String labelText = value.substring(start + scannedLength, end).trim();
-      Label label = parseLabel(labelText, message, reporter);
-
-      if (label == null) {
-        // Error was already reported in parseLabel()
-        return value;
-      }
-
-      // (3) expand label; stop this operation if there is an error
+      // (2) Call appropriate function to obtain string replacement.
+      String functionValue = value.substring(start + scannedLength, end).trim();
       try {
-        Collection<String> paths = resolveLabel(label, message, multiple);
-        result.append(value, restart, start);
-
-        appendPaths(result, paths, multiple);
+        String replacement = func.apply(functionValue);
+        result.append(replacement);
       } catch (IllegalStateException ise) {
-        reporter.report(ruleContext, ise.getMessage());
+        reporter.report(ise.getMessage());
         return value;
       }
 
@@ -193,70 +217,109 @@ public class LocationExpander {
     return result.toString();
   }
 
-  private Label parseLabel(String labelText, String message, ErrorReporter reporter) {
-    try {
-      return ruleContext.getLabel().getRelative(labelText);
-    } catch (LabelSyntaxException e) {
-      reporter.report(ruleContext, String.format("invalid label%s: %s", message, e.getMessage()));
-      return null;
-    }
-  }
+  @VisibleForTesting
+  static final class LocationFunction implements Function<String, String> {
+    private static final int MAX_PATHS_SHOWN = 5;
 
-  /**
-   * Returns all possible target location(s) of the given label
-   * @param message Original message, for error reporting purposes only
-   * @param hasMultipleTargets Describes whether the label has multiple target locations
-   * @return The collection of all path strings
-   */
-  private Collection<String> resolveLabel(
-      Label unresolved, String message, boolean hasMultipleTargets) throws IllegalStateException {
-    // replace with singleton artifact, iff unique.
-    Collection<Artifact> artifacts = getLocationMap().get(unresolved);
+    private final Label root;
+    private final Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier;
+    private final boolean execPaths;
+    private final boolean multiple;
 
-    if (artifacts == null) {
-      throw new IllegalStateException(
-          "label '" + unresolved + "'" + message + " is not a declared prerequisite of this rule");
+    LocationFunction(
+        Label root,
+        Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
+        boolean execPaths,
+        boolean multiple) {
+      this.root = root;
+      this.locationMapSupplier = locationMapSupplier;
+      this.execPaths = execPaths;
+      this.multiple = multiple;
     }
 
-    Set<String> paths = getPaths(artifacts, options.contains(Options.EXEC_PATHS));
-
-    if (paths.isEmpty()) {
-      throw new IllegalStateException(
-          "label '" + unresolved + "'" + message + " expression expands to no files");
+    @Override
+    public String apply(String arg) {
+      Label label;
+      try {
+        label = root.getRelative(arg);
+      } catch (LabelSyntaxException e) {
+        throw new IllegalStateException(
+            String.format(
+                "invalid label in %s expression: %s", functionName(), e.getMessage()), e);
+      }
+      Collection<String> paths = resolveLabel(label);
+      return joinPaths(paths);
     }
 
-    if (!hasMultipleTargets && paths.size() > 1) {
-      throw new IllegalStateException(
-          String.format(
-              "label '%s'%s expands to more than one file, "
-                  + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
-              unresolved,
-              message,
-              unresolved,
-              MAX_PATHS_SHOWN,
-              Iterables.limit(paths, MAX_PATHS_SHOWN)));
+    /**
+     * Returns all target location(s) of the given label.
+     */
+    private Collection<String> resolveLabel(Label unresolved) throws IllegalStateException {
+      Collection<Artifact> artifacts = locationMapSupplier.get().get(unresolved);
+
+      if (artifacts == null) {
+        throw new IllegalStateException(
+            String.format(
+                "label '%s' in %s expression is not a declared prerequisite of this rule",
+                unresolved, functionName()));
+      }
+
+      Set<String> paths = getPaths(artifacts, execPaths);
+      if (paths.isEmpty()) {
+        throw new IllegalStateException(
+            String.format(
+                "label '%s' in %s expression expands to no files",
+                unresolved, functionName()));
+      }
+
+      if (!multiple && paths.size() > 1) {
+        throw new IllegalStateException(
+            String.format(
+                "label '%s' in $(location) expression expands to more than one file, "
+                    + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
+                unresolved,
+                unresolved,
+                MAX_PATHS_SHOWN,
+                Iterables.limit(paths, MAX_PATHS_SHOWN)));
+      }
+      return paths;
     }
 
-    return paths;
-  }
-
-  private void appendPaths(StringBuilder result, Collection<String> paths, boolean multiple) {
-    Stream<String> stream = paths.stream();
-    if (!multiple) {
-      stream = stream.limit(1);
+    /**
+     * Extracts list of all executables associated with given collection of label
+     * artifacts.
+     *
+     * @param artifacts to get the paths of
+     * @param takeExecPath if false, the root relative path will be taken
+     * @return all associated executable paths
+     */
+    private Set<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
+      TreeSet<String> paths = Sets.newTreeSet();
+      for (Artifact artifact : artifacts) {
+        PathFragment execPath =
+            takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
+        if (execPath != null) {  // omit middlemen etc
+          paths.add(execPath.getCallablePathString());
+        }
+      }
+      return paths;
     }
 
-    String pathString = stream.map(LocationExpander::quotePath).collect(joining(" "));
-
-    result.append(pathString);
-  }
-
-  private static String quotePath(String path) {
-    // TODO(jcater): Handle more cases where escaping is needed.
-    if (path.contains(" ")) {
-      path = "'" + path + "'";
+    private String joinPaths(Collection<String> paths) {
+      return paths.stream().map(LocationFunction::quotePath).collect(joining(" "));
     }
-    return path;
+
+    private static String quotePath(String path) {
+      // TODO(ulfjack): Use existing ShellEscaper instead.
+      if (path.contains(" ")) {
+        path = "'" + path + "'";
+      }
+      return path;
+    }
+
+    private String functionName() {
+      return multiple ? "$(locations)" : "$(location)";
+    }
   }
 
   /**
@@ -322,27 +385,6 @@ public class LocationExpander {
   }
 
   /**
-   * Extracts list of all executables associated with given collection of label
-   * artifacts.
-   *
-   * @param artifacts to get the paths of
-   * @param takeExecPath if false, the root relative path will be taken
-   * @return all associated executable paths
-   */
-  private static Set<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
-    TreeSet<String> paths = Sets.newTreeSet();
-
-    for (Artifact artifact : artifacts) {
-      PathFragment execPath =
-          takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
-      if (execPath != null) {  // omit middlemen etc
-        paths.add(execPath.getCallablePathString());
-      }
-    }
-    return paths;
-  }
-
-  /**
    * Returns the value in the specified map corresponding to 'key', creating and
    * inserting an empty container if absent. We use Map not Multimap because
    * we need to distinguish the cases of "empty value" and "absent key".
@@ -361,26 +403,34 @@ public class LocationExpander {
   }
 
   private static interface ErrorReporter {
-    void report(RuleContext ctx, String error);
+    void report(String error);
   }
 
   private static final class AttributeErrorReporter implements ErrorReporter {
+    private final RuleErrorConsumer delegate;
     private final String attrName;
 
-    public AttributeErrorReporter(String attrName) {
+    public AttributeErrorReporter(RuleErrorConsumer delegate, String attrName) {
+      this.delegate = delegate;
       this.attrName = attrName;
     }
 
     @Override
-    public void report(RuleContext ctx, String error) {
-      ctx.attributeError(attrName, error);
+    public void report(String error) {
+      delegate.attributeError(attrName, error);
     }
   }
 
   private static final class RuleErrorReporter implements ErrorReporter {
+    private final RuleErrorConsumer delegate;
+
+    public RuleErrorReporter(RuleErrorConsumer delegate) {
+      this.delegate = delegate;
+    }
+
     @Override
-    public void report(RuleContext ctx, String error) {
-      ctx.ruleError(error);
+    public void report(String error) {
+      delegate.ruleError(error);
     }
   }
 }
