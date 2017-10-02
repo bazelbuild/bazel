@@ -103,6 +103,17 @@ public class RemoteRetrierTest {
   }
 
   @Test
+  public void testNonRetriableError() throws Exception {
+    Supplier<Backoff> s =
+        () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
+    RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(s, (e) -> false,
+        Retrier2.ALLOW_ALL_CALLS, Mockito.mock(Sleeper.class)));
+    when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
+    assertThrows(retrier, 1);
+    Mockito.verify(fooMock, Mockito.times(1)).foo();
+  }
+
+  @Test
   public void testRepeatedRetriesReset() throws Exception {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);

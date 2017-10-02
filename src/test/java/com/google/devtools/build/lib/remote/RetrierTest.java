@@ -95,6 +95,20 @@ public class RetrierTest {
   }
 
   @Test
+  public void testNonRetriableError() throws Exception {
+    Retrier retrier =
+        Mockito.spy(
+            new Retrier(
+                Retrier.Backoff.exponential(
+                    Duration.ofSeconds(1), Duration.ofSeconds(10), 2, 0, 2),
+                Retrier.DEFAULT_IS_RETRIABLE));
+    Mockito.doNothing().when(retrier).sleep(Mockito.anyLong());
+    when(fooMock.foo()).thenThrow(Status.Code.NOT_FOUND.toStatus().asRuntimeException());
+    assertThrows(retrier, 1);
+    Mockito.verify(fooMock, Mockito.times(1)).foo();
+  }
+
+  @Test
   public void testRepeatedRetriesReset() throws Exception {
     Retrier retrier =
         Mockito.spy(

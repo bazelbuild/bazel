@@ -233,14 +233,14 @@ class Retrier2 {
           throw new CircuitBreakerException("Call failed in circuit breaker half open state.", 0,
               e);
         }
+        int attempts = backoff.getRetryAttempts();
         if (!shouldRetry.test(e)) {
-          throw new RetryException2("Call failed with not retriable error.",
-              backoff.getRetryAttempts(), e);
+          throw new RetryException2("Call failed with not retriable error.", attempts, e);
         }
         final long delayMillis = backoff.nextDelayMillis();
         if (delayMillis < 0) {
-          throw new RetryException2("Call failed after exhausting retry attempts: "
-              + backoff.getRetryAttempts(), backoff.getRetryAttempts(), e);
+          throw new RetryException2(
+              "Call failed after exhausting retry attempts: " + attempts, attempts, e);
         }
         sleeper.sleep(delayMillis);
       }

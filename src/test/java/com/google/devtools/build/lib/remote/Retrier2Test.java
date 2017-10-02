@@ -47,6 +47,7 @@ public class Retrier2Test {
   private CircuitBreaker alwaysOpen;
 
   private static final Predicate<Exception> RETRY_ALL = (e) -> true;
+  private static final Predicate<Exception> RETRY_NONE = (e) -> false;
 
   @Before
   public void setup() {
@@ -71,6 +72,26 @@ public class Retrier2Test {
     }
 
     verify(alwaysOpen, times(3)).recordFailure();
+    verify(alwaysOpen, never()).recordSuccess();
+  }
+
+  @Test
+  public void retryShouldWorkNoRetries_failure() throws Exception {
+    // Test that a non-retriable error is not retried.
+    // All calls fail.
+
+    Supplier<Backoff> s  = () -> new ZeroBackoff(/*maxRetries=*/2);
+    Retrier2 r = new Retrier2(s, RETRY_NONE, alwaysOpen);
+    try {
+      r.execute(() -> {
+        throw new Exception("call failed");
+      });
+      fail("exception expected.");
+    } catch (RetryException2 e) {
+      assertThat(e.getAttempts()).isEqualTo(1);
+    }
+
+    verify(alwaysOpen, times(1)).recordFailure();
     verify(alwaysOpen, never()).recordSuccess();
   }
 
