@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
@@ -356,7 +357,7 @@ public class ParserTest extends EvaluationTestCase {
 
     assertLocation(5, 29, arg1val.getLocation());
     assertThat(expr.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
-    assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(30);
+    assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(29);
 
     IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
     assertThat((int) arg2.getValue()).isEqualTo(3);
@@ -477,6 +478,14 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(parseFile("ctx.actions.declare_file('hello')").toString())
         .isEqualTo("[ctx.actions.declare_file(\"hello\")\n]");
     assertThat(parseFile("new_file(\"hello\")").toString()).isEqualTo("[new_file(\"hello\")\n]");
+  }
+
+  @Test
+  public void testEndLineAndColumnIsInclusive() {
+    AssignmentStatement stmt =
+        (AssignmentStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, "a = b");
+    assertThat(stmt.getLValue().getLocation().getEndLineAndColumn())
+        .isEqualTo(new LineAndColumn(1, 1));
   }
 
   @Test
