@@ -58,6 +58,7 @@ apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
     platform_type = "ios",
+    minimum_os_version = "10.0",
 )
 genrule(
   name = "lipo_run",
@@ -137,6 +138,7 @@ apple_binary(
     name = "main_binary",
     deps = [":main_lib"],
     platform_type = "ios",
+    minimum_os_version = "10.0",
 )
 objc_library(
     name = "main_lib",
