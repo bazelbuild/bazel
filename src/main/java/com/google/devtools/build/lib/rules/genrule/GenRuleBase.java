@@ -153,8 +153,10 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    String baseCommand = commandHelper.resolveCommandAndExpandLabels(
-        ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN), false);
+    String baseCommand = commandHelper.resolveCommandAndHeuristicallyExpandLabels(
+        ruleContext.attributes().get("cmd", Type.STRING),
+        "cmd",
+        ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN));
 
     // Adds the genrule environment setup script before the actual shell command
     String command = String.format("source %s; %s",

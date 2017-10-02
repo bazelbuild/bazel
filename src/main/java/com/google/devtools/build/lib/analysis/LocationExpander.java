@@ -47,6 +47,8 @@ import java.util.stream.Stream;
  *
  * and location will be substituted with //mypackage:myhelper executable output.
  * Note that //mypackage:myhelper should have just one output.
+ *
+ * <p>DO NOT USE DIRECTLY! Use RuleContext.getExpander() instead.
  */
 public class LocationExpander {
 
@@ -78,27 +80,6 @@ public class LocationExpander {
    *
    * @param ruleContext BUILD rule
    * @param labelMap A mapping of labels to build artifacts.
-   * @param allowDataAttributeEntriesInLabel set to true if the <code>data</code> attribute should
-   *        be used too.
-   */
-  public LocationExpander(
-      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      boolean allowDataAttributeEntriesInLabel) {
-    this.ruleContext = ruleContext;
-    ImmutableSet.Builder<Options> builder = ImmutableSet.builder();
-    builder.add(Options.EXEC_PATHS);
-    if (allowDataAttributeEntriesInLabel) {
-      builder.add(Options.ALLOW_DATA);
-    }
-    this.options = builder.build();
-    this.labelMap = labelMap;
-  }
-
-  /**
-   * Creates location expander helper bound to specific target and with default location map.
-   *
-   * @param ruleContext BUILD rule
-   * @param labelMap A mapping of labels to build artifacts.
    * @param options the list of options, see {@link Options}
    */
   public LocationExpander(
@@ -107,17 +88,6 @@ public class LocationExpander {
     this.ruleContext = ruleContext;
     this.options = ImmutableSet.copyOf(options);
     this.labelMap = labelMap;
-  }
-
-  /**
-   * Creates location expander helper bound to specific target.
-   *
-   * @param ruleContext the BUILD rule's context
-   * @param options the list of options, see {@link Options}.
-   */
-  public LocationExpander(RuleContext ruleContext, ImmutableSet<Options> options) {
-    this.ruleContext = ruleContext;
-    this.options = options;
   }
 
   /**

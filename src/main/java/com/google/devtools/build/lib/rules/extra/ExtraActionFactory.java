@@ -54,7 +54,8 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 
-    String command = commandHelper.resolveCommandAndExpandLabels(false, true);
+    String command = commandHelper.resolveCommandAndExpandLabels(
+        context.attributes().get("cmd", Type.STRING), "cmd", /*allowDataInLabel=*/true);
     // This is a bit of a hack. We want to run the MakeVariableExpander first, so we expand $ on
     // variables that are expanded below with $$, which gets reverted to $ by the
     // MakeVariableExpander. This allows us to expand package-specific make variables in the
