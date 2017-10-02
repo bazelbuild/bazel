@@ -911,7 +911,7 @@ public class ObjcRuleClasses {
               attr(PLATFORM_TYPE_ATTR_NAME, STRING)
                   .mandatory()
                   .nonconfigurable("Determines the configuration transition on deps"))
-          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os) -->
+          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os_version) -->
           The minimum OS version that this target and its dependencies should be built for.
 
           This should be a dotted version string such as "7.3".
