@@ -224,4 +224,44 @@ public class VanillaJavaBuilderTest {
     assertThat(outputEntries.keySet())
         .containsExactly("META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class");
   }
+
+  // suppress unpopular deferred diagnostic notes for sunapi, deprecation, and unchecked
+  @Test
+  public void testDeferredDiagnostics() throws Exception {
+    Path b = temporaryFolder.newFile("B.java").toPath();
+    Path a = temporaryFolder.newFile("A.java").toPath();
+    Path output = temporaryFolder.newFile("out.jar").toPath();
+    Files.write(
+        b,
+        ImmutableList.of(
+            "@Deprecated", //
+            "class B {}"),
+        UTF_8);
+    Files.write(
+        a,
+        ImmutableList.of(
+            "import java.util.*;", //
+            "public class A {",
+            "  sun.misc.Unsafe theUnsafe;",
+            "  B b;",
+            "  List l = new ArrayList<>();",
+            "}"),
+        UTF_8);
+
+    VanillaJavaBuilderResult result =
+        run(
+            ImmutableList.of(
+                "--sources",
+                a.toString(),
+                b.toString(),
+                "--output",
+                output.toString(),
+                "--bootclasspath",
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
+                "--classdir",
+                temporaryFolder.newFolder().toString()));
+
+    assertThat(result.output()).isEmpty();
+    assertThat(result.ok()).isTrue();
+  }
 }
