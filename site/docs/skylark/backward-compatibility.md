@@ -220,14 +220,18 @@ def my_macro(name, srcs):
   for src in srcs:
     # do something with src
 
-my_macro("foo")  # equivalent to: my_macro(["f", "o", "o"])
+# equivalent to: my_macro("hello", ["f", "o", "o", ".", "c", "c"])
+my_macro(
+  name = "hello",
+  srcs = "foo.cc",
+)
 ```
 
 String indexing and `len` are still allowed. If you need to iterate over a
 string, you may explicitly use:
 
 ``` python
-my_string="hello world"
+my_string = "hello world"
 for i in range(len(my_string)):
   char = my_string[i]
   # do something with char
