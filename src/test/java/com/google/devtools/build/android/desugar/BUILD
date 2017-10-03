@@ -11,6 +11,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
@@ -1839,6 +1840,7 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar/dependencies:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
