@@ -51,3 +51,9 @@ config_setting(
     values = {"host_cpu": "x64_windows_msys"},
     visibility = ["//visibility:public"],
 )
+
+config_setting(
+    name = "remote",
+    values = {"define": "EXECUTOR=remote"},
+    visibility = ["//visibility:public"],
+)

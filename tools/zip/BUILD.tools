@@ -2,5 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "zipper",
-    srcs = glob(["zipper/*"]),
+    srcs = select({
+        "//src:remote": ["//third_party/ijar:zipper"],
+        "//conditions:default": glob(["zipper/*"]),
+   }),
 )
