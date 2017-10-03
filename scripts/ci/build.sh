@@ -36,7 +36,7 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${EMAIL_TEMPLATE_RC:=${SCRIPT_DIR}/rc_email.txt}
 : ${EMAIL_TEMPLATE_RELEASE:=${SCRIPT_DIR}/release_email.txt}
 
-: ${RELEASE_CANDIDATE_URL:="${GCS_BASE_URL}/${GCS_BUCKET}/%release_name%/rc%rc%/index.html"}
+: ${RELEASE_CANDIDATE_URL:="https://releases.bazel.build/%release_name%/rc%rc%/index.html"}
 : ${RELEASE_URL="${GIT_REPOSITORY_URL}/releases/tag/%release_name%"}
 
 : ${BOOTSTRAP_BAZEL:=bazel}
