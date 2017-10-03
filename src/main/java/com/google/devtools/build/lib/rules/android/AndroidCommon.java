@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * A helper class for android rules.
@@ -885,14 +884,6 @@ public class AndroidCommon {
 
   public ImmutableList<String> getJavacOpts() {
     return javaCommon.getJavacOpts();
-  }
-
-  public Artifact getGenClassJar() {
-    return genClassJar;
-  }
-
-  @Nullable public Artifact getGenSourceJar() {
-    return genSourceJar;
   }
 
   public ImmutableList<Artifact> getRuntimeJars() {
