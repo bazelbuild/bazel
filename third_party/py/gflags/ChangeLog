@@ -1,3 +1,7 @@
+Mon Jan 30 00:00:01 2017  Google Inc. <google-gflags@googlegroups.com>
+  * python-gflags: version 3.1.1.
+  * Added PEP8 style method/function aliases.
+
 Tue Nov 01 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
   * python-gflags: version 3.1.0.
   * Python3 compatibility

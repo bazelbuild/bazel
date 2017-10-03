@@ -889,3 +889,12 @@ MarkFlagAsRequired = mark_flag_as_required
 MarkFlagsAsRequired = mark_flags_as_required
 MarkFlagsAsMutualExclusive = mark_flags_as_mutual_exclusive
 # pylint: enable=invalid-name
+
+# New PEP8 style functions.
+get_help_width = GetHelpWidth
+text_wrap = TextWrap
+flag_dict_to_args = FlagDictToArgs
+doc_to_help = DocToHelp
+declare_key_flag = DECLARE_key_flag
+adopt_module_key_flags = ADOPT_module_key_flags
+disclaim_key_flags = DISCLAIM_key_flags
