@@ -69,7 +69,7 @@ public final class CommandEnvironment {
   private final BlazeDirectories directories;
 
   private UUID commandId;  // Unique identifier for the command being run
-  private UUID buildRequestId;  // Unique identifier for the build being run
+  private String buildRequestId;  // Unique identifier for the build being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
@@ -246,7 +246,7 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  private UUID getFromEnvOrGenerate(String varName) {
+  private UUID getUuidFromEnvOrGenerate(String varName) {
     // Try to set the clientId from the client environment.
     String uuidString = clientEnv.getOrDefault(varName, "");
     if (!uuidString.isEmpty()) {
@@ -261,6 +261,14 @@ public final class CommandEnvironment {
     return UUID.randomUUID();
   }
 
+  private String getFromEnvOrGenerate(String varName) {
+    String id = clientEnv.getOrDefault(varName, "");
+    if (id.isEmpty()) {
+      id = UUID.randomUUID().toString();
+    }
+    return id;
+  }
+
   private void updateClientEnv(List<Map.Entry<String, String>> clientEnvList) {
     Preconditions.checkState(clientEnv.isEmpty());
 
@@ -269,7 +277,7 @@ public final class CommandEnvironment {
       clientEnv.put(entry.getKey(), entry.getValue());
     }
     if (commandId == null) {
-      commandId = getFromEnvOrGenerate("BAZEL_INTERNAL_INVOCATION_ID");
+      commandId = getUuidFromEnvOrGenerate("BAZEL_INTERNAL_INVOCATION_ID");
     }
     if (buildRequestId == null) {
       buildRequestId = getFromEnvOrGenerate("BAZEL_INTERNAL_BUILD_REQUEST_ID");
@@ -312,9 +320,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the UUID that Blaze uses to identify everything logged from the current build request.
+   * Returns the ID that Blaze uses to identify everything logged from the current build request.
+   * TODO(olaola): this should be a UUID, but some existing clients still use arbitrary strings.
    */
-  public UUID getBuildRequestId() {
+  public String getBuildRequestId() {
     return Preconditions.checkNotNull(buildRequestId);
   }
 
