@@ -43,6 +43,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private final ClassReaderFactory classpath;
   private final ClassReaderFactory bootclasspath;
   private final ClassLoader targetLoader;
+  private final DependencyCollector depsCollector;
   private final HashSet<String> instanceMethods = new HashSet<>();
 
   private boolean isInterface;
@@ -55,12 +56,14 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   public DefaultMethodClassFixer(
       ClassVisitor dest,
       ClassReaderFactory classpath,
+      DependencyCollector depsCollector,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader) {
     super(Opcodes.ASM5, dest);
     this.classpath = classpath;
     this.bootclasspath = bootclasspath;
     this.targetLoader = targetLoader;
+    this.depsCollector = depsCollector;
   }
 
   @Override
@@ -310,8 +313,17 @@ public class DefaultMethodClassFixer extends ClassVisitor {
    */
   private boolean defaultMethodsDefined(ImmutableList<String> interfaces) {
     for (String implemented : interfaces) {
+      if (bootclasspath.isKnown(implemented)) {
+        continue;
+      }
       ClassReader bytecode = classpath.readIfKnown(implemented);
-      if (bytecode != null && !bootclasspath.isKnown(implemented)) {
+      if (bytecode == null) {
+        // Interface isn't on the classpath, which indicates incomplete classpaths. Record missing
+        // dependency so we can check it later.  If we don't check then we may get runtime failures
+        // or wrong behavior from default methods that should've been stubbed in.
+        // TODO(kmb): Print a warning so people can start fixing their deps?
+        depsCollector.missingImplementedInterface(internalName, implemented);
+      } else {
         // Class in classpath and bootclasspath is a bad idea but in any event, assume the
         // bootclasspath will take precedence like in a classloader.
         // We can skip code attributes as we just need to find default methods to stub.
@@ -321,10 +333,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
           return true;
         }
       }
-      // Else interface isn't on the classpath, which indicates incomplete classpaths. For now
-      // we'll just assume the missing interfaces don't declare default methods but if they do
-      // we'll end up with concrete classes that don't implement an abstract method, which can
-      // cause runtime failures.  The classpath needs to be fixed in this case.
     }
     return false;
   }
@@ -405,6 +413,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // definitions conflict, but see stubMissingDefaultMethods() for how we deal with default
         // methods redefined in interfaces extending another.
         recordIfInstanceMethod(access, name, desc);
+        depsCollector.assumeCompanionClass(
+            internalName, InterfaceDesugaring.getCompanionClassName(interfaceName));
 
         // Add this method to the class we're desugaring and stub in a body to call the default
         // implementation in the interface's companion class. ijar omits these methods when setting
@@ -423,7 +433,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         }
         stubMethod.visitMethodInsn(
             Opcodes.INVOKESTATIC,
-            interfaceName + InterfaceDesugaring.COMPANION_SUFFIX,
+            InterfaceDesugaring.getCompanionClassName(interfaceName),
             name,
             InterfaceDesugaring.companionDefaultMethodDescriptor(interfaceName, desc),
             /*itf*/ false);
@@ -434,6 +444,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         return null;
       } else if (shouldStubAsBridgeDefaultMethod(access, name, desc)) {
         recordIfInstanceMethod(access, name, desc);
+        depsCollector.assumeCompanionClass(
+            internalName, InterfaceDesugaring.getCompanionClassName(interfaceName));
         // For bridges we just copy their bodies instead of going through the companion class.
         // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
         // interface methods are correctly handled.
