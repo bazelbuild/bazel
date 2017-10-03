@@ -57,13 +57,13 @@ import warnings
 
 import six
 
-import _helpers
-import argument_parser
-import exceptions
+from gflags import _helpers
+from gflags import argument_parser
+from gflags import exceptions
 # _flag alias is to avoid 'redefined outer name' warnings.
-import flag as _flag
-import flagvalues
-import validators as gflags_validators
+from gflags import flag as _flag
+from gflags import flagvalues
+from gflags import validators as gflags_validators
 
 
 # Add current module to disclaimed module ids.

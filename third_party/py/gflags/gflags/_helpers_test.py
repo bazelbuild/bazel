@@ -33,7 +33,7 @@ import sys
 
 import unittest
 
-import _helpers
+from gflags import _helpers
 from gflags.flags_modules_for_testing import module_bar
 from gflags.flags_modules_for_testing import module_foo
 
@@ -104,7 +104,7 @@ class GetCallingModuleTest(unittest.TestCase):
     # all code resides in one of the imported modules: Python is a
     # really dynamic language, where we can dynamically construct some
     # code and execute it.
-    code = ('import _helpers\n'
+    code = ('from gflags import _helpers\n'
             'module_name = _helpers.GetCallingModule()')
     exec(code)  # pylint: disable=exec-used
 

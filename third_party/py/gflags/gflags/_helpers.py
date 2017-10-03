@@ -47,7 +47,7 @@ except ImportError:
   termios = None
 
 # pylint: disable=g-import-not-at-top
-import third_party.pep257 as pep257
+import gflags.third_party.pep257 as pep257
 import six
 
 

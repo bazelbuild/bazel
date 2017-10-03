@@ -2,7 +2,7 @@
 import unittest
 
 import gflags
-import _helpers
+from gflags import _helpers
 
 FLAGS = gflags.FLAGS
 

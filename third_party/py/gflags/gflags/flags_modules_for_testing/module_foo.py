@@ -37,7 +37,7 @@ for gflags.py involve more than one module.
 __author__ = 'salcianu@google.com (Alex Salcianu)'
 
 import gflags
-import _helpers
+from gflags import _helpers
 from gflags.flags_modules_for_testing import module_bar
 
 FLAGS = gflags.FLAGS

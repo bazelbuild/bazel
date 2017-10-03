@@ -44,9 +44,9 @@ from xml.dom import minidom
 
 import six
 
-import _helpers
-import exceptions
-import flag as _flag
+from gflags import _helpers
+from gflags import exceptions
+from gflags import flag as _flag
 
 # Add flagvalues module to disclaimed module ids.
 _helpers.disclaim_module_ids.add(id(sys.modules[__name__]))
