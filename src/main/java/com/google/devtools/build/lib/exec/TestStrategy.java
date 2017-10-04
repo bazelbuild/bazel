@@ -102,6 +102,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
     ERRORS, // Print output from failed tests to the stderr after the test failure.
@@ -116,6 +117,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formatting styles of test summaries. */
   public enum TestSummaryFormat {
     SHORT, // Print information only about tests.
     TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
