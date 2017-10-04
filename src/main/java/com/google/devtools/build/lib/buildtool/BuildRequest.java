@@ -241,7 +241,6 @@ public class BuildRequest implements OptionsClassProvider {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EAGERNESS_TO_EXIT,
         OptionEffectTag.AFFECTS_OUTPUTS
       },
       help =
@@ -258,7 +257,6 @@ public class BuildRequest implements OptionsClassProvider {
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {
         OptionEffectTag.EXECUTION,
-        OptionEffectTag.EAGERNESS_TO_EXIT,
         OptionEffectTag.AFFECTS_OUTPUTS
       },
       help =

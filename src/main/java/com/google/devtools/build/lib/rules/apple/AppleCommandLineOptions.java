@@ -345,7 +345,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
             + "that ship with Xcode are supported. For example, in addition to the default "

@@ -22,18 +22,19 @@ public class OptionFilterDescriptions {
 
   /** The order that the categories should be listed in. */
   static OptionDocumentationCategory[] documentationOrder = {
-    OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    OptionDocumentationCategory.EXECUTION_STRATEGY,
-    OptionDocumentationCategory.TOOLCHAIN,
-    OptionDocumentationCategory.OUTPUT_SELECTION,
-    OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    OptionDocumentationCategory.SIGNING,
-    OptionDocumentationCategory.TESTING,
-    OptionDocumentationCategory.QUERY,
-    OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    OptionDocumentationCategory.LOGGING,
-    OptionDocumentationCategory.GENERIC_INPUTS,
-    OptionDocumentationCategory.UNCATEGORIZED
+      OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      OptionDocumentationCategory.EXECUTION_STRATEGY,
+      OptionDocumentationCategory.TOOLCHAIN,
+      OptionDocumentationCategory.OUTPUT_SELECTION,
+      OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      OptionDocumentationCategory.INPUT_STRICTNESS,
+      OptionDocumentationCategory.SIGNING,
+      OptionDocumentationCategory.TESTING,
+      OptionDocumentationCategory.QUERY,
+      OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      OptionDocumentationCategory.LOGGING,
+      OptionDocumentationCategory.GENERIC_INPUTS,
+      OptionDocumentationCategory.UNCATEGORIZED
   };
 
   static ImmutableMap<OptionDocumentationCategory, String> getOptionCategoriesEnumDescription(
@@ -64,6 +65,10 @@ public class OptionFilterDescriptions {
             OptionDocumentationCategory.OUTPUT_PARAMETERS,
             "Options that let the user configure the intended output, affecting its value, as "
                 + "opposed to its existence")
+        .put(
+            OptionDocumentationCategory.INPUT_STRICTNESS,
+            "Options that affect how strictly Bazel enforces valid build inputs (rule definitions, "
+                + " flag combinations, etc.)")
         .put(
             OptionDocumentationCategory.SIGNING,
             "Options that affect the signing outputs of a build")
@@ -140,7 +145,7 @@ public class OptionFilterDescriptions {
             OptionEffectTag.TERMINAL_OUTPUT,
             "This option affects " + productName + "'s terminal output.")
         .put(
-            OptionEffectTag.ACTION_OPTIONS,
+            OptionEffectTag.ACTION_COMMAND_LINES,
             "This option changes the command line arguments of one or more build actions.")
         .put(
             OptionEffectTag.TEST_RUNNER,

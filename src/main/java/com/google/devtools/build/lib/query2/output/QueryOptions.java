@@ -250,7 +250,7 @@ public class QueryOptions extends OptionsBase {
     defaultValue = "false",
     category = "query",
     documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If true, the tests() expression gives an error if it encounters a test_suite containing "
             + "non-test targets."

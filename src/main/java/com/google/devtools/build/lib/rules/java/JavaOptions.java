@@ -233,8 +233,8 @@ public class JavaOptions extends FragmentOptions {
     defaultValue = "default",
     converter = StrictDepsConverter.class,
     category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If true, checks that a Java target explicitly declares all directly used "
             + "targets as dependencies.",
@@ -462,7 +462,7 @@ public class JavaOptions extends FragmentOptions {
     name = "strict_deps_java_protos",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "When 'strict-deps' is on, .java files that depend on classes not declared in their rule's "
             + "'deps' fail to build. In other words, it's forbidden to depend on classes obtained "

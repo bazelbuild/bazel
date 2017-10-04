@@ -123,8 +123,8 @@ public class ProtoConfiguration extends Fragment {
       defaultValue = "strict",
       converter = BuildConfiguration.StrictDepsConverter.class,
       category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, checks that a proto_library target explicitly declares all directly "

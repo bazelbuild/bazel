@@ -285,7 +285,7 @@ public class TestOptions extends OptionsBase {
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {
-      OptionEffectTag.ACTION_OPTIONS,
+      OptionEffectTag.ACTION_COMMAND_LINES,
       OptionEffectTag.TEST_RUNNER,
       OptionEffectTag.TERMINAL_OUTPUT
     },

@@ -706,7 +706,7 @@ public final class OptionsUsageTest {
             "  --test_void_expansion_function\n"
                 + "    Listing a ton of random tags to test the usage output.\n"
                 + "      Expands to: --expanded_d void expanded \n"
-                + "      Tags: action_options, test_runner, terminal_output, experimental\n");
+                + "      Tags: action_command_lines, test_runner, terminal_output, experimental\n");
   }
 
   @Test
@@ -733,7 +733,8 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code>--expanded_d</code><br/>\n"
                 + "&nbsp;&nbsp;<code>void expanded</code><br/>\n"
                 + "<br>Tags: \n"
-                + "<a href=\"#effect_tag_ACTION_OPTIONS\"><code>action_options</code></a>, "
+                + "<a href=\"#effect_tag_ACTION_COMMAND_LINES\"><code>action_command_lines</code>"
+                + "</a>, "
                 + "<a href=\"#effect_tag_TEST_RUNNER\"><code>test_runner</code></a>, "
                 + "<a href=\"#effect_tag_TERMINAL_OUTPUT\"><code>terminal_output</code></a>, "
                 + "<a href=\"#metadata_tag_EXPERIMENTAL\"><code>experimental</code></a>"

@@ -121,7 +121,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Additional options to pass to Objective C compilation."
   )
   public List<String> copts;
@@ -131,7 +131,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "false",
     category = "misc",
     documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Enable checking for memory leaks in ios_test targets."
   )
   public boolean runMemleaks;
@@ -153,7 +153,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "-O0,-DDEBUG=1",
     converter = CommaSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Uses these strings as objc fastbuild compiler options."
   )
   public List<String> fastbuildOptions;
@@ -162,7 +162,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     name = "experimental_objc_enable_module_maps",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Enables module map generation and interpretation."
   )
   public boolean enableModuleMaps;
@@ -172,7 +172,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "false",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
             + "strippings will be performed if both this flag and --compilationMode=opt are "
@@ -185,7 +185,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "false",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Whether to generate debug symbol(.dSYM) file(s)."
   )
   public boolean appleGenerateDsym;
@@ -195,7 +195,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "Certificate name to use for iOS signing. If not set will fall back to provisioning "
             + "profile. May be the certificate's keychain identity preference or (substring) of "
@@ -207,7 +207,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     name = "objc_debug_with_GLIBCXX",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
             + " GLIBCXX_DEBUG_PEDANTIC and GLIBCPP_CONCEPT_CHECKS."
