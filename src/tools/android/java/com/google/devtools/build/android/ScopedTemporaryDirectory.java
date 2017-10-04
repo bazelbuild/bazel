@@ -74,13 +74,17 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
 
   @Override
   public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-    makeWritable(dir);
+    if (IS_WINDOWS) {
+      makeWritable(dir);
+    }
     return FileVisitResult.CONTINUE;
   }
 
   @Override
   public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-    makeWritable(file);
+    if (IS_WINDOWS) {
+      makeWritable(file);
+    }
     Files.delete(file);
     return FileVisitResult.CONTINUE;
   }
