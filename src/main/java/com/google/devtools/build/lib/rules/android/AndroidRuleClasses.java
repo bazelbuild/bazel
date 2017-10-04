@@ -662,6 +662,19 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes()
                   .aspect(androidNeverlinkAspect)
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_key) -->
+          File containing the debug keystore to be used to sign the debug apk. Usually you do not
+          want to use a key other than the default key, so this attribute should be omitted.
+          <p><em class="harmful">WARNING: Do not use your production keys, they should be
+          strictly safeguarded and not kept in your source tree</em>.</p>
+          <p>This keystore must contain a single key named "AndroidDebugKey", and
+          have a keystore password of "android".
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_key", LABEL)
+                  .cfg(HOST)
+                  .legacyAllowAnyFileType()
+                  .value(env.getToolsLabel("//tools/android:debug_keystore")))
           .add(
               attr("feature_of", LABEL)
                   .allowedRuleClasses("android_binary")

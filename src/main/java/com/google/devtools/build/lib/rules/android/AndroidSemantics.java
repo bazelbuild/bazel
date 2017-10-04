@@ -84,11 +84,6 @@ public interface AndroidSemantics {
       Artifact proguardMap)
       throws InterruptedException;
 
-  /**
-   * Returns the artifact for the debug key for signing the APK.
-   */
-  Artifact getApkDebugSigningKey(RuleContext ruleContext);
-
   /** Given an Android {@code manifest}, returns a list of relevant Proguard specs. */
   ImmutableList<Artifact> getProguardSpecsForManifest(RuleContext ruleContext, Artifact manifest);
 

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -91,11 +90,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       SpawnAction.Builder builder,
       CustomCommandLine.Builder commandLine,
       Artifact proguardMap) {}
-
-  @Override
-  public Artifact getApkDebugSigningKey(RuleContext ruleContext) {
-    return ruleContext.getPrerequisiteArtifact("$debug_keystore", Mode.HOST);
-  }
 
   @Override
   public ImmutableList<Artifact> getProguardSpecsForManifest(

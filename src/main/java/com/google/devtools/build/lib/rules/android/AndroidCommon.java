@@ -402,6 +402,11 @@ public class AndroidCommon {
         || (attributeValue == TriState.AUTO && exportsManifestDefault);
   }
 
+  /** Returns the artifact for the debug key for signing the APK. */
+  static Artifact getApkDebugSigningKey(RuleContext ruleContext) {
+    return ruleContext.getHostPrerequisiteArtifact("debug_key");
+  }
+
   private void compileResources(
       JavaSemantics javaSemantics,
       ResourceApk resourceApk,

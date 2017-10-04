@@ -241,4 +241,37 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return Sets.difference(
         ImmutableSet.copyOf(action.getInputs()), ImmutableSet.copyOf(action.getTools()));
   }
+
+  protected void checkDebugKey(String debugKeyFile, boolean hasDebugKeyTarget) throws Exception {
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    String defaultKeyStoreFile =
+        ruleClassProvider.getToolsRepository() + "//tools/android:debug_keystore";
+
+    if (hasDebugKeyTarget) {
+      assertWithMessage("Debug key file target missing.")
+          .that(checkKeyPresence(binary, debugKeyFile, defaultKeyStoreFile))
+          .isTrue();
+    } else {
+      assertWithMessage("Debug key file is default, although different target specified.")
+          .that(checkKeyPresence(binary, defaultKeyStoreFile, debugKeyFile))
+          .isTrue();
+    }
+  }
+
+  private boolean checkKeyPresence(
+      ConfiguredTarget binary, String shouldHaveKey, String shouldNotHaveKey) throws Exception {
+    boolean hasKey = false;
+    boolean doesNotHaveKey = false;
+
+    for (ConfiguredTarget debugKeyTarget : getDirectPrerequisites(binary)) {
+      if (debugKeyTarget.getLabel().toString().equals(shouldHaveKey)) {
+        hasKey = true;
+      }
+      if (debugKeyTarget.getLabel().toString().equals(shouldNotHaveKey)) {
+        doesNotHaveKey = true;
+      }
+    }
+
+    return hasKey && !doesNotHaveKey;
+  }
 }

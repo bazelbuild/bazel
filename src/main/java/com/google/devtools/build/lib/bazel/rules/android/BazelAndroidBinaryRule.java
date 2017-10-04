@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -47,11 +46,6 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             CppConfiguration.class)
         .override(
             attr("manifest", BuildType.LABEL).mandatory().allowedFileTypes(FileType.of(".xml")))
-        .add(
-            attr("$debug_keystore", BuildType.LABEL)
-                .cfg(HOST)
-                .singleArtifact()
-                .value(environment.getToolsLabel("//tools/android:debug_keystore")))
         .add(
             attr(":cc_toolchain_split", BuildType.LABEL)
                 .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
