@@ -496,6 +496,18 @@ public class JavaOptions extends FragmentOptions {
   public OneVersionEnforcementLevel enforceOneVersion;
 
   @Option(
+    name = "experimental_allow_runtime_deps_on_neverlink",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = { OptionEffectTag.BUILD_FILE_SEMANTICS },
+    metadataTags = { OptionMetadataTag.EXPERIMENTAL },
+    help =
+        "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
+            + " Java archives. The depot needs to be cleaned up to roll this out by default."
+  )
+  public boolean allowRuntimeDepsOnNeverLink;
+
+  @Option(
     name = "jplPropagateCcLinkParamsStore",
     defaultValue = "false",
     category = "rollout",
@@ -556,6 +568,7 @@ public class JavaOptions extends FragmentOptions {
     host.strictJavaDeps = strictJavaDeps;
 
     host.enforceOneVersion = enforceOneVersion;
+    host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 

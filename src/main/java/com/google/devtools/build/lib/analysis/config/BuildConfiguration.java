@@ -502,18 +502,6 @@ public final class BuildConfiguration implements BuildEvent {
     public boolean extendedSanityChecks;
 
     @Option(
-      name = "experimental_allow_runtime_deps_on_neverlink",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = { OptionEffectTag.BUILD_FILE_SEMANTICS },
-      metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-      help =
-          "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-              + " Java archives. The depot needs to be cleaned up to roll this out by default."
-    )
-    public boolean allowRuntimeDepsOnNeverLink;
-
-    @Option(
       name = "strict_filesets",
       defaultValue = "false",
       category = "semantics",
@@ -1048,9 +1036,6 @@ public final class BuildConfiguration implements BuildEvent {
 
       // === Fileset ===
       host.skyframeNativeFileset = skyframeNativeFileset;
-
-      // === Allow runtime_deps to depend on neverlink Java libraries.
-      host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
       // === Pass on C++ compiler features.
       host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
@@ -1655,10 +1640,6 @@ public final class BuildConfiguration implements BuildEvent {
         ? middlemanDirectoryForMainRepository
         : OutputDirectory.MIDDLEMAN.getRoot(
             repositoryName, outputDirName, directories, mainRepositoryName);
-  }
-
-  public boolean getAllowRuntimeDepsOnNeverLink() {
-    return options.allowRuntimeDepsOnNeverLink;
   }
 
   public boolean isStrictFilesets() {

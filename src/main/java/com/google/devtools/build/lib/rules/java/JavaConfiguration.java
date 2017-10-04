@@ -150,6 +150,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final OneVersionEnforcementLevel enforceOneVersion;
+  private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
@@ -194,6 +195,7 @@ public final class JavaConfiguration extends Fragment {
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
+    this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
@@ -413,6 +415,10 @@ public final class JavaConfiguration extends Fragment {
    */
   public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
     return enforceOneVersion;
+  }
+
+  public boolean getAllowRuntimeDepsOnNeverLink() {
+    return allowRuntimeDepsOnNeverLink;
   }
 
   public boolean strictDepsJavaProtos() {

@@ -321,7 +321,8 @@ public class JavaCommon {
       if (neverLinkedness == null) {
         continue;
       }
-      boolean reportError = !ruleContext.getConfiguration().getAllowRuntimeDepsOnNeverLink();
+      boolean reportError =
+          !ruleContext.getFragment(JavaConfiguration.class).getAllowRuntimeDepsOnNeverLink();
       if (neverLinkedness.isNeverlink()) {
         String msg = String.format("neverlink dep %s not allowed in runtime deps", c.getLabel());
         if (reportError) {
