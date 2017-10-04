@@ -145,7 +145,8 @@ public final class MockObjcSupport {
         "  name = 'version5_8',",
         "  version = '5.8',",
         ")",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])",
+        "alias(name = 'protobuf_lib', actual = '//objcproto:protobuf_lib')");
     // If the bazel tools repository is not in the workspace, also create a workspace tools/objc
     // package with a few lingering dependencies.
     // TODO(b/64537078): Move these dependencies underneath the tools workspace.
@@ -219,10 +220,6 @@ public final class MockObjcSupport {
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'ProtocolBuffers_lib',",
-        "  srcs = ['empty.m'],",
-        ")",
         "objc_library(",
         "  name = 'protobuf_lib',",
         "  srcs = ['empty.m'],",

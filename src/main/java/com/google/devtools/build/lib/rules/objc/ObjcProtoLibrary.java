@@ -31,18 +31,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-
-    ProtoAttributes attributes = new ProtoAttributes(ruleContext);
-    attributes.validate();
-
-    if (attributes.requiresProtobuf()) {
-      return createProtobufTarget(ruleContext);
-    } else {
-      ruleContext.ruleWarning("The usage of objc_proto_library without the portable_proto_filters "
-          + "attribute has been deprecated with a deadline to migrate set to June 30th. Please "
-          + "refer to b/37274743 for more information.");
-      return createProtocolBuffers2Target(ruleContext);
-    }
+    new ProtoAttributes(ruleContext).validate();
+    return createProtobufTarget(ruleContext);
   }
 
   private ConfiguredTarget createProtobufTarget(RuleContext ruleContext)
@@ -95,20 +85,5 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     return portableProtoFilters.build();
-  }
-
-  private ConfiguredTarget createProtocolBuffers2Target(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
-    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-
-    ProtocolBuffers2Support protoSupport =
-        new ProtocolBuffers2Support(ruleContext)
-            .registerGenerationActions()
-            .registerCompilationActions()
-            .addFilesToBuild(filesToBuild);
-
-    return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addNativeDeclaredProvider(protoSupport.getObjcProvider())
-        .build();
   }
 }

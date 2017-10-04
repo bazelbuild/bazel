@@ -155,7 +155,6 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "objc_proto_library(",
         "  name = 'objc_proto',",
         "  deps = [':protos'],",
-        "  uses_protobuf = 1,",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
     ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
@@ -187,7 +186,6 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "objc_proto_library(",
         "  name = 'objc_proto_all',",
         "  deps = [':objc_proto_1', ':objc_proto_2'],",
-        "  uses_protobuf = 1,",
         ")",
         "objc_proto_library(",
         "  name = 'objc_proto_1',",
@@ -197,7 +195,6 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "objc_proto_library(",
         "  name = 'objc_proto_2',",
         "  deps = [':protos'],",
-        "  uses_protobuf = 1,",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
     ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);

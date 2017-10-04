@@ -62,11 +62,10 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     ProtoAttributes attributes = new ProtoAttributes(ruleContext);
 
-    // If the rule has the portable_proto_filters or uses_protobuf, it must be an objc_proto_library
-    // configured to use the third party protobuf library, in contrast with the PB2 internal
-    // library. Only the third party library is enabled to propagate the protos with this aspect.
-    // Validation for the correct target attributes is done in ProtoSupport.java.
-    if (attributes.requiresProtobuf()) {
+    // If this current target is an objc_proto_library, only then read the protos and portable
+    // filters it has configured in the attributes and add them to the ObjcProtoProvider.Builder
+    // instance. Validation for the correct target attributes is already done in ProtoSupport.java.
+    if (attributes.isObjcProtoLibrary()) {
 
       // Gather up all the dependency protos depended by this target.
       Iterable<ProtoSourcesProvider> protoProviders =

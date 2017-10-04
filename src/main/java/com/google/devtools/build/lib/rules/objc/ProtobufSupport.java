@@ -528,10 +528,9 @@ final class ProtobufSupport {
   }
 
   private boolean isLinkingTarget() {
-    // Since this is the ProtobufSupport helper class, check whether the current target has
-    // configured the protobuf attributes. If not, it's not an objc_proto_library rule, so it must
-    // be a linking rule (e.g. apple_binary).
-    return !attributes.requiresProtobuf();
+    // Since this is the ProtobufSupport helper class, check whether the current target is
+    // an objc_proto_library. If not, it must be a linking rule (e.g. apple_binary).
+    return !attributes.isObjcProtoLibrary();
   }
 
   /**
