@@ -149,6 +149,7 @@ bootstrap_java_library(
         "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
         "//third_party/grpc:bootstrap-grpc-jars",
+        "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     tags = ["manual"],
