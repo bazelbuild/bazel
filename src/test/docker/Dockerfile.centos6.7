@@ -7,10 +7,10 @@ RUN yum -y install \
     zip unzip tar gzip zlib-devel \
     clang gcc gcc-c++ \
     java java-devel java-1.8.0-openjdk-devel \
-    python
+    python; yum clean all
 
 RUN wget http://people.centos.org/tru/devtools-2/devtools-2.repo -O /etc/yum.repos.d/devtools-2.repo
-RUN yum -y install devtoolset-2-gcc devtoolset-2-gcc-c++ devtoolset-2-binutils
+RUN yum -y install devtoolset-2-gcc devtoolset-2-gcc-c++ devtoolset-2-binutils; yum clean all
 
 ENV JAVA_HOME /usr/lib/jvm/java-1.8.0
 ENV CC /opt/rh/devtoolset-2/root/usr/bin/gcc
