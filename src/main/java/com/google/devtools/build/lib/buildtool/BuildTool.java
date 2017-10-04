@@ -85,10 +85,6 @@ import java.util.regex.Pattern;
  *
  * <p>The main entry point is {@link #buildTargets}.
  *
- * <p>This class is always instantiated and managed as a singleton, being constructed and held by
- * {@link BlazeRuntime}. This is so multiple kinds of build commands can share this single
- * instance.
- *
  * <p>Most of analysis is handled in {@link BuildView}, and execution in {@link ExecutionTool}.
  */
 public final class BuildTool {
