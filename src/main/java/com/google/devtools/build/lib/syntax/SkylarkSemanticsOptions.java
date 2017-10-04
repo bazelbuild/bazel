@@ -26,86 +26,47 @@ import java.io.Serializable;
  * Contains options that affect Skylark's semantics.
  *
  * <p>These are injected into Skyframe when a new build invocation occurs. Changing these options
- * between builds will trigger a reevaluation of everything that depends on the Skylark
- * interpreter &mdash; in particular, processing BUILD and .bzl files.
+ * between builds will trigger a reevaluation of everything that depends on the Skylark interpreter
+ * &mdash; in particular, processing BUILD and .bzl files.
  *
  * <p>Because these options are stored in Skyframe, they must be immutable and serializable, and so
  * are subject to the restrictions of {@link UsesOnlyCoreTypes}: No {@link Option#allowMultiple}
  * options, and no options with types not handled by the default converters. (Technically all
  * options classes are mutable because their fields are public and non-final, but we assume no one
  * is manipulating these fields by the time parsing is complete.)
+ *
+ * <p><em>To add a new option, update the following:</em>
+ * <ul>
+ *   <li>Add a new abstract method (which is interpreted by {@code AutoValue} as a field) to {@link
+ *       SkylarkSemantics} and {@link SkylarkSemantics.Builder}. Set its default value in {@link
+ *       SkylarkSemantics#DEFAULT_SEMANTICS}.
+ *
+ *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
+ *       should be the same as in {@link SkylarkSemantics}, and the option name in the annotation
+ *       should be that name written in snake_case. Add a line to set the new field in {@link
+ *       #toSkylarkSemantics}.
+ *
+ *   <li>Add a line to read and write the new field in {@link SkylarkSemanticsCodec#serialize} and
+ *       {@link SkylarkSemanticsCodec#deserialize}.
+ *
+ *   <li>Add a line to set the new field in both {@link
+ *       SkylarkSemanticsOptionsTest#buildRandomOptions} and {@link
+ *       SkylarkSemanticsOptions#buildRandomSemantics}.
+ *
+ *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
+ *       to update this when flipping a flag's default value.
+ * </ul>
+ * For both readability and correctness, the relative order of the options in all of these locations
+ * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
+ * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
+// TODO(brandjon): Do not store these options in Skyframe. Instead store SkylarkSemantics objects.
+// Eliminate use of UsesOnlyCoreTypes, and then we can remove UsesOnlyCoreTypes from the options
+// parser entirely.
 @UsesOnlyCoreTypes
 public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
 
-  /** Used in an integration test to confirm that flags are visible to the interpreter. */
-  @Option(
-    name = "internal_skylark_flag_test_canary",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN}
-  )
-  public boolean internalSkylarkFlagTestCanary;
-
-  /**
-   * Used in testing to produce a truly minimalistic Extension object for certain evaluation
-   * contexts. This flag is Bazel-specific.
-   */
-  // TODO(bazel-team): A pending incompatible change will make it so that load()ed and built-in
-  // symbols do not get re-exported, making this flag obsolete.
-  @Option(
-    name = "internal_do_not_export_builtins",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN}
-  )
-  public boolean internalDoNotExportBuiltins;
-
-  @Option(
-    name = "incompatible_disallow_set_constructor",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set to true, disables the deprecated `set` constructor for depsets."
-  )
-  public boolean incompatibleDisallowSetConstructor;
-
-  @Option(
-    name = "incompatible_disallow_keyword_only_args",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set to true, disables the keyword-only argument syntax in function definition."
-  )
-  public boolean incompatibleDisallowKeywordOnlyArgs;
-
-  @Option(
-    name = "incompatible_list_plus_equals_inplace",
-    defaultValue = "false",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, `+=` on lists works like the `extend` method mutating the original "
-            + "list. Otherwise it copies the original list without mutating it."
-  )
-  public boolean incompatibleListPlusEqualsInplace;
-
-  @Option(
-    name = "incompatible_disallow_dict_plus",
-    defaultValue = "false",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set to true, the `+` becomes disabled for dicts."
-  )
-  public boolean incompatibleDisallowDictPlus;
+  // <== Add new options here in alphabetic order ==>
 
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
@@ -121,30 +82,15 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
-    name = "incompatible_load_argument_is_label",
-    defaultValue = "false",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, the first argument of 'load' statements is a label (not a path). "
-            + "It must start with '//' or ':'."
-  )
-  public boolean incompatibleLoadArgumentIsLabel;
-
-  @Option(
-    name = "incompatible_disallow_toplevel_if_statement",
+    name = "incompatible_checked_arithmetic",
     defaultValue = "true",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, 'if' statements are forbidden at the top-level "
-            + "(outside a function definition)"
+    help = "If set to true, arithmetic operations throw an error in case of overflow/underflow."
   )
-  public boolean incompatibleDisallowToplevelIfStatement;
+  public boolean incompatibleCheckedArithmetic;
 
   @Option(
     name = "incompatible_comprehension_variables_do_not_leak",
@@ -176,17 +122,18 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
-    name = "incompatible_string_is_not_iterable",
-    defaultValue = "false",
+    name = "incompatible_descriptive_string_representations",
+    defaultValue = "true",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
-        "If set to true, iterating over a string will throw an error. String indexing and `len` "
-            + "are still allowed."
+        "If set to true, objects are converted to strings by `str` and `repr` functions using the "
+            + "new style representations that are designed to be more descriptive and not to leak "
+            + "information that's not supposed to be exposed."
   )
-  public boolean incompatibleStringIsNotIterable;
+  public boolean incompatibleDescriptiveStringRepresentations;
 
   @Option(
     name = "incompatible_dict_literal_has_no_duplicates",
@@ -198,6 +145,78 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     help = "If set to true, the dictionary literal syntax doesn't allow duplicated keys."
   )
   public boolean incompatibleDictLiteralHasNoDuplicates;
+
+  @Option(
+    name = "incompatible_disallow_dict_plus",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, the `+` becomes disabled for dicts."
+  )
+  public boolean incompatibleDisallowDictPlus;
+
+  @Option(
+    name = "incompatible_disallow_keyword_only_args",
+    defaultValue = "true",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, disables the keyword-only argument syntax in function definition."
+  )
+  public boolean incompatibleDisallowKeywordOnlyArgs;
+
+  @Option(
+    name = "incompatible_disallow_set_constructor",
+    defaultValue = "true",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, disables the deprecated `set` constructor for depsets."
+  )
+  public boolean incompatibleDisallowSetConstructor;
+
+  @Option(
+    name = "incompatible_disallow_toplevel_if_statement",
+    defaultValue = "true",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, 'if' statements are forbidden at the top-level "
+            + "(outside a function definition)"
+  )
+  public boolean incompatibleDisallowToplevelIfStatement;
+
+  @Option(
+    name = "incompatible_list_plus_equals_inplace",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, `+=` on lists works like the `extend` method mutating the original "
+            + "list. Otherwise it copies the original list without mutating it."
+  )
+  public boolean incompatibleListPlusEqualsInplace;
+
+  @Option(
+    name = "incompatible_load_argument_is_label",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, the first argument of 'load' statements is a label (not a path). "
+            + "It must start with '//' or ':'."
+  )
+  public boolean incompatibleLoadArgumentIsLabel;
 
   @Option(
       name = "incompatible_new_actions_api",
@@ -212,27 +231,61 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNewActionsApi;
 
   @Option(
-    name = "incompatible_checked_arithmetic",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set to true, arithmetic operations throw an error in case of overflow/underflow."
-  )
-  public boolean incompatibleCheckedArithmetic;
-
-  @Option(
-    name = "incompatible_descriptive_string_representations",
-    defaultValue = "true",
+    name = "incompatible_string_is_not_iterable",
+    defaultValue = "false",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
-        "If set to true, objects are converted to strings by `str` and `repr` functions using the "
-            + "new style representations that are designed to be more descriptive and not to leak "
-            + "information that's not supposed to be exposed."
+        "If set to true, iterating over a string will throw an error. String indexing and `len` "
+            + "are still allowed."
   )
-  public boolean incompatibleDescriptiveStringRepresentations;
+  public boolean incompatibleStringIsNotIterable;
+
+  /**
+   * Used in testing to produce a truly minimalistic Extension object for certain evaluation
+   * contexts. This flag is Bazel-specific.
+   */
+  // TODO(bazel-team): A pending incompatible change will make it so that load()ed and built-in
+  // symbols do not get re-exported, making this flag obsolete.
+  @Option(
+    name = "internal_do_not_export_builtins",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN}
+  )
+  public boolean internalDoNotExportBuiltins;
+
+  /** Used in an integration test to confirm that flags are visible to the interpreter. */
+  @Option(
+    name = "internal_skylark_flag_test_canary",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN}
+  )
+  public boolean internalSkylarkFlagTestCanary;
+
+  /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
+  public SkylarkSemantics toSkylarkSemantics() {
+    return SkylarkSemantics.builder()
+        // <== Add new options here in alphabetic order ==>
+        .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
+        .incompatibleCheckedArithmetic(incompatibleCheckedArithmetic)
+        .incompatibleComprehensionVariablesDoNotLeak(incompatibleComprehensionVariablesDoNotLeak)
+        .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
+        .incompatibleDescriptiveStringRepresentations(incompatibleDescriptiveStringRepresentations)
+        .incompatibleDictLiteralHasNoDuplicates(incompatibleDictLiteralHasNoDuplicates)
+        .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
+        .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)
+        .incompatibleDisallowSetConstructor(incompatibleDisallowSetConstructor)
+        .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
+        .incompatibleListPlusEqualsInplace(incompatibleListPlusEqualsInplace)
+        .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
+        .incompatibleNewActionsApi(incompatibleNewActionsApi)
+        .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
+        .internalDoNotExportBuiltins(internalDoNotExportBuiltins)
+        .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+        .build();
+  }
 }
