@@ -165,13 +165,13 @@ EOF
   mkdir -p tools/defaults
   touch tools/defaults/BUILD
 
-  mkdir -p third_party/py/gflags
-  cat > third_party/py/gflags/BUILD <<EOF
+  mkdir -p third_party/py/abseil
+  cat > third_party/py/abseil/BUILD <<EOF
 licenses(["notice"])
 package(default_visibility = ["//visibility:public"])
 
 py_library(
-    name = "gflags",
+    name = "abseil",
 )
 EOF
 }

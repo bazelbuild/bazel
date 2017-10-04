@@ -27,14 +27,14 @@ import sys
 import zipfile
 
 from tools.android import junction
-from third_party.py import gflags
+import absl.flags as gflags
 
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string("input_aar", None, "Input AAR")
-gflags.MarkFlagAsRequired("input_aar")
+gflags.mark_flag_as_required("input_aar")
 gflags.DEFINE_string("output_res_dir", None, "Output resources directory")
-gflags.MarkFlagAsRequired("output_res_dir")
+gflags.mark_flag_as_required("output_res_dir")
 gflags.DEFINE_string("output_assets_dir", None, "Output assets directory")
 
 

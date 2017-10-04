@@ -27,7 +27,7 @@ Writes the old application class into the file designated by the third argument.
 import sys
 from xml.etree import ElementTree
 
-from third_party.py import gflags
+import absl.flags as gflags
 
 
 gflags.DEFINE_string("main_manifest", None, "The main manifest of the app")

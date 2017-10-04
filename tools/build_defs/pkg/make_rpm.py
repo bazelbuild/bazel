@@ -26,8 +26,7 @@ import subprocess
 import sys
 from tempfile import mkdtemp
 
-# pylint: disable=g-direct-third-party-import
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
 gflags.DEFINE_string('version', '',

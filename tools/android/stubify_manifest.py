@@ -29,7 +29,7 @@ from __future__ import print_function
 import sys
 from xml.etree import ElementTree
 
-from third_party.py import gflags
+import absl.flags as gflags
 
 
 gflags.DEFINE_string("mode", "mobile_install",

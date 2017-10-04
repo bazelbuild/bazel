@@ -25,14 +25,14 @@ import sys
 
 from tools.build_defs.docker import utils
 from tools.build_defs.pkg import archive
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')
-gflags.MarkFlagAsRequired('output')
+gflags.mark_flag_as_required('output')
 
-gflags.DEFINE_multistring('layer', [], 'The tar files for layers to join.')
+gflags.DEFINE_multi_string('layer', [], 'The tar files for layers to join.')
 
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'tags', [],
     'An associative list of fully qualified tag names and the layer they tag. '
     'e.g. ubuntu=deadbeef,gcr.io/blah/debian=baadf00d')

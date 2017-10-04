@@ -29,21 +29,21 @@ import tempfile
 import time
 import zipfile
 
-from third_party.py import gflags
+import absl.flags as gflags
 from third_party.py.concurrent import futures
 
 
 gflags.DEFINE_string("split_main_apk", None, "The main APK for split install")
-gflags.DEFINE_multistring("split_apk", [], "Split APKs to install")
+gflags.DEFINE_multi_string("split_apk", [], "Split APKs to install")
 gflags.DEFINE_string("dexmanifest", None, "The .dex manifest")
-gflags.DEFINE_multistring("native_lib", None, "Native libraries to install")
+gflags.DEFINE_multi_string("native_lib", None, "Native libraries to install")
 gflags.DEFINE_string("resource_apk", None, "The resource .apk")
 gflags.DEFINE_string("apk", None, "The app .apk. If not specified, "
                      "do incremental deployment")
 gflags.DEFINE_string("adb", None, "ADB to use")
 gflags.DEFINE_string("stub_datafile", None, "The stub data file")
 gflags.DEFINE_string("output_marker", None, "The output marker file")
-gflags.DEFINE_multistring("extra_adb_arg", [], "Extra arguments to adb")
+gflags.DEFINE_multi_string("extra_adb_arg", [], "Extra arguments to adb")
 gflags.DEFINE_string("execroot", ".", "The exec root")
 gflags.DEFINE_integer("adb_jobs", 2,
                       "The number of instances of adb to use in parallel to "

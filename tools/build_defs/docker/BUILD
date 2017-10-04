@@ -19,7 +19,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -37,7 +37,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -55,7 +55,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
         "//tools/build_defs/pkg:archive",
     ],
 )
@@ -66,7 +66,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
         "//tools/build_defs/pkg:archive",
     ],
 )

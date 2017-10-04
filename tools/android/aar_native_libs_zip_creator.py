@@ -27,17 +27,17 @@ import re
 import sys
 import zipfile
 
+import absl.flags as gflags
 from tools.android import junction
-from third_party.py import gflags
 
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string("input_aar", None, "Input AAR")
-gflags.MarkFlagAsRequired("input_aar")
+gflags.mark_flag_as_required("input_aar")
 gflags.DEFINE_string("cpu", None, "CPU architecture to include")
-gflags.MarkFlagAsRequired("cpu")
+gflags.mark_flag_as_required("cpu")
 gflags.DEFINE_string("output_zip", None, "Output ZIP of native libs")
-gflags.MarkFlagAsRequired("output_zip")
+gflags.mark_flag_as_required("output_zip")
 
 
 class UnsupportedArchitectureException(Exception):

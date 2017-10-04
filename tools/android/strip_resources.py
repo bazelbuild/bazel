@@ -24,7 +24,7 @@ invoke aapt, then extract AndroidManifest.xml from its output.
 import sys
 import zipfile
 
-from third_party.py import gflags
+import absl.flags as gflags
 
 
 gflags.DEFINE_string("input_resource_apk", None, "The input resource .apk")

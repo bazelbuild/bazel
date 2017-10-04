@@ -20,7 +20,7 @@ import os.path
 import sys
 
 from tools.build_defs.docker import utils
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string(
     'name', None, 'The name of the current layer')

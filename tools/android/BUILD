@@ -7,7 +7,7 @@ py_binary(
         "merge_manifests.py",
     ],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -38,7 +38,7 @@ py_binary(
     name = "build_split_manifest",
     srcs = ["build_split_manifest.py"],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -55,7 +55,7 @@ py_binary(
     srcs = ["incremental_install.py"],
     deps = [
         "//third_party/py/concurrent:futures",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -71,7 +71,9 @@ py_test(
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        "//third_party/py/abseil",
+    ],
 )
 
 sh_test(
@@ -91,7 +93,7 @@ py_binary(
     ],
     deps = [
         ":junction_lib",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -109,7 +111,7 @@ py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -126,7 +128,7 @@ py_binary(
     srcs = ["aar_embedded_jars_extractor.py"],
     deps = [
         ":junction_lib",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -141,7 +143,7 @@ py_binary(
     srcs = ["aar_resources_extractor.py"],
     deps = [
         ":junction_lib",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 

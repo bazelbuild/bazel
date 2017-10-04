@@ -20,14 +20,14 @@ import os.path
 import sys
 
 from tools.build_defs.docker import utils
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string('base', None, 'The parent image')
 
 gflags.DEFINE_string('output', None, 'The output file to generate')
-gflags.MarkFlagAsRequired('output')
+gflags.mark_flag_as_required('output')
 
-gflags.DEFINE_multistring('layer', [],
+gflags.DEFINE_multi_string('layer', [],
                           'Layer sha256 hashes that make up this image')
 
 gflags.DEFINE_list('entrypoint', None,

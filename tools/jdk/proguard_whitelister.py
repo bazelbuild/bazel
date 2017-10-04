@@ -24,7 +24,7 @@ binary through a library dependency.
 import re
 import sys
 
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string('path', None, 'Path to the proguard config to validate')
 gflags.DEFINE_string('output', None, 'Where to put the validated config')

@@ -22,18 +22,18 @@ import sys
 import xml.dom.minidom
 
 from tools.android import android_permissions
-from third_party.py import gflags
+import absl.flags as gflags
 
 FLAGS = gflags.FLAGS
 EXCLUDE_ALL_ARG = 'all'
 
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'exclude_permission', None,
     'Permissions to be excluded, e.g.: "android.permission.READ_LOGS".'
     'This is a multistring, so multiple of those flags can be provided.'
     'Pass "%s" to exclude all permissions contributed by mergees.'
     % EXCLUDE_ALL_ARG)
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'mergee', None,
     'Mergee manifest that will be merged to merger manifest.'
     'This is a multistring, so multiple of those flags can be provided.')

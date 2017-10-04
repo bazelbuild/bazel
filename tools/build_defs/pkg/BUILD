@@ -51,7 +51,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -62,7 +62,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
@@ -72,7 +72,7 @@ py_binary(
     srcs = ["make_rpm.py"],
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 

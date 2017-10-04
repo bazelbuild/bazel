@@ -22,7 +22,7 @@ import tarfile
 import textwrap
 import time
 
-from third_party.py import gflags
+import absl.flags as gflags
 
 # list of debian fields : (name, mandatory, wrap[, default])
 # see http://www.debian.org/doc/debian-policy/ch-controlfields.html
@@ -48,14 +48,14 @@ DEBIAN_FIELDS = [
 ]
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')
-gflags.MarkFlagAsRequired('output')
+gflags.mark_flag_as_required('output')
 
 gflags.DEFINE_string('changes', None, 'The changes output file, mandatory.')
-gflags.MarkFlagAsRequired('changes')
+gflags.mark_flag_as_required('changes')
 
 gflags.DEFINE_string('data', None,
                      'Path to the data tarball, mandatory')
-gflags.MarkFlagAsRequired('data')
+gflags.mark_flag_as_required('data')
 
 gflags.DEFINE_string('preinst', None,
                      'The preinst script (prefix with @ to provide a path).')
@@ -69,7 +69,7 @@ gflags.DEFINE_string('postrm', None,
 
 # see
 # https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'conffile', None,
     'List of conffiles (prefix item with @ to provide a path)')
 
@@ -80,13 +80,13 @@ def MakeGflags():
     msg = 'The value for the %s content header entry.' % field[0]
     if len(field) > 3:
       if type(field[3]) is list:
-        gflags.DEFINE_multistring(fieldname, field[3], msg)
+        gflags.DEFINE_multi_string(fieldname, field[3], msg)
       else:
         gflags.DEFINE_string(fieldname, field[3], msg)
     else:
       gflags.DEFINE_string(fieldname, None, msg)
     if field[1]:
-      gflags.MarkFlagAsRequired(fieldname)
+      gflags.mark_flag_as_required(fieldname)
 
 
 def AddArFileEntry(fileobj, filename,

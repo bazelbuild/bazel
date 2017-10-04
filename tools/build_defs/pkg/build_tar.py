@@ -20,28 +20,28 @@ import tarfile
 import tempfile
 
 from tools.build_defs.pkg import archive
-from third_party.py import gflags
+import absl.flags as gflags
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')
-gflags.MarkFlagAsRequired('output')
+gflags.mark_flag_as_required('output')
 
-gflags.DEFINE_multistring('file', [], 'A file to add to the layer')
+gflags.DEFINE_multi_string('file', [], 'A file to add to the layer')
 
 gflags.DEFINE_string(
     'mode', None, 'Force the mode on the added files (in octal).')
 
-gflags.DEFINE_multistring('empty_file', [], 'An empty file to add to the layer')
+gflags.DEFINE_multi_string('empty_file', [], 'An empty file to add to the layer')
 
-gflags.DEFINE_multistring('empty_dir', [], 'An empty dir to add to the layer')
+gflags.DEFINE_multi_string('empty_dir', [], 'An empty dir to add to the layer')
 
-gflags.DEFINE_multistring('tar', [], 'A tar file to add to the layer')
+gflags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
 
-gflags.DEFINE_multistring('deb', [], 'A debian package to add to the layer')
+gflags.DEFINE_multi_string('deb', [], 'A debian package to add to the layer')
 
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'link', [],
     'Add a symlink a inside the layer ponting to b if a:b is specified')
-gflags.RegisterValidator(
+gflags.register_validator(
     'link',
     lambda l: all(value.find(':') > 0 for value in l),
     message='--link value should contains a : separator')
@@ -52,12 +52,12 @@ gflags.DEFINE_string(
 gflags.DEFINE_string(
     'compression', None, 'Compression (`gz` or `bz2`), default is none.')
 
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'modes', None,
     'Specific mode to apply to specific file (from the file argument),'
     ' e.g., path/to/file=0455.')
 
-gflags.DEFINE_multistring('owners', None,
+gflags.DEFINE_multi_string('owners', None,
                           'Specify the numeric owners of individual files, '
                           'e.g. path/to/file=0.0.')
 
@@ -68,7 +68,7 @@ gflags.DEFINE_string('owner', '0.0',
 gflags.DEFINE_string('owner_name', None,
                      'Specify the owner name of all files, e.g. root.root.')
 
-gflags.DEFINE_multistring('owner_names', None,
+gflags.DEFINE_multi_string('owner_names', None,
                           'Specify the owner names of individual files, e.g. '
                           'path/to/file=root.root.')
 

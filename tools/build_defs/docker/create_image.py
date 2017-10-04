@@ -20,7 +20,7 @@ import tarfile
 
 from tools.build_defs.docker import utils
 from tools.build_defs.pkg import archive
-from third_party.py import gflags
+import absl.flags as gflags
 
 # Hardcoded docker versions that we are claiming to be.
 DATA_FORMAT_VERSION = '1.0'
@@ -28,20 +28,20 @@ DATA_FORMAT_VERSION = '1.0'
 gflags.DEFINE_string(
     'output', None,
     'The output file, mandatory')
-gflags.MarkFlagAsRequired('output')
+gflags.mark_flag_as_required('output')
 
-gflags.DEFINE_multistring(
+gflags.DEFINE_multi_string(
     'layer', [],
     'Layer tar files and their identifiers that make up this image')
 
 gflags.DEFINE_string(
     'id', None,
     'The hex identifier of this image (hexstring or @filename), mandatory.')
-gflags.MarkFlagAsRequired('id')
+gflags.mark_flag_as_required('id')
 
 gflags.DEFINE_string('config', None,
                      'The JSON configuration file for this image, mandatory.')
-gflags.MarkFlagAsRequired('config')
+gflags.mark_flag_as_required('config')
 
 gflags.DEFINE_string('base', None, 'The base image file for this image.')
 
@@ -63,7 +63,7 @@ gflags.DEFINE_string(
     'name', None,
     'The symbolic name of this image.')
 
-gflags.DEFINE_multistring('tag', None,
+gflags.DEFINE_multi_string('tag', None,
                           'The repository tags to apply to the image')
 
 FLAGS = gflags.FLAGS
