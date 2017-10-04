@@ -82,6 +82,11 @@ java_library_srcs(
 )
 
 cc_proto_library(
+    name = "desugar_deps_cc_proto",
+    deps = [":desugar_deps_proto"],
+)
+
+cc_proto_library(
     name = "worker_protocol_cc_proto",
     deps = [":worker_protocol_proto"],
 )
