@@ -31,7 +31,7 @@ image with an install wizard.
 Installing Homebrew is a one-time setup:
 
 ```bash
-/usr/bin/ruby -e "$(curl -fsSL
+/usr/bin/ruby -e "$(curl -fsSL \
 https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
