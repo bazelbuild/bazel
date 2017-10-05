@@ -267,7 +267,7 @@ public class BazelLibrary {
       new BuiltinFunction("to_list") {
         @SuppressWarnings("unused")
         public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
-          return new MutableList<>(input.toCollection(), env);
+          return MutableList.copyOf(env, input.toCollection());
         }
       };
 

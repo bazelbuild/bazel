@@ -287,18 +287,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     private MutableList(Iterable<? extends E> contents, @Nullable Mutability mutability) {
-      this(contents, 0, mutability);
-    }
-
-    /**
-     * Constructs from the given items and the {@link Mutability} belonging to the given {@link
-     * Environment}. If {@code env} is null, the list is immutable.
-     *
-     * @deprecated prefer using {@link #copyOf}
-     */
-    @Deprecated
-    public MutableList(Iterable<? extends E> contents, @Nullable Environment env) {
-      this(contents, 0, env == null ? null : env.mutability());
+      this(contents, /*capacity=*/ 0, mutability);
     }
 
     /**
@@ -333,7 +322,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      */
     public static <T> MutableList<T> copyOf(
         @Nullable Environment env, Iterable<? extends T> contents) {
-      return new MutableList<>(contents, env.mutability());
+      return new MutableList<>(contents, env == null ? null : env.mutability());
     }
 
     /**

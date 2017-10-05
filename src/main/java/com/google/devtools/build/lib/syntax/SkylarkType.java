@@ -722,7 +722,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return new MutableList<>((List<?>) object, env);
+      return MutableList.copyOf(env, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {
       return object;

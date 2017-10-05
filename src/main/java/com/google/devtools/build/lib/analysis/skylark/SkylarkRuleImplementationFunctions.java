@@ -732,8 +732,8 @@ public class SkylarkRuleImplementationFunctions {
           List<String> argv =
               helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
           return Tuple.<Object>of(
-              new MutableList(inputs, env),
-              new MutableList(argv, env),
+              MutableList.copyOf(env, inputs),
+              MutableList.copyOf(env, argv),
               helper.getToolsRunfilesSuppliers());
         }
       };

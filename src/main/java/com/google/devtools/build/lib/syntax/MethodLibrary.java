@@ -396,7 +396,7 @@ public class MethodLibrary {
       result.addFirst(input.substring(0, remainingLength));
     }
 
-    return new MutableList<>(result, env);
+    return MutableList.copyOf(env, result);
   }
 
   @SkylarkSignature(name = "partition", objectType = StringModule.class,
@@ -1134,9 +1134,9 @@ public class MethodLibrary {
         public MutableList<?> invoke(Object self, Location loc, Environment env)
             throws EvalException {
           try {
-            return new MutableList<>(
-                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)),
-                env);
+            return MutableList.copyOf(
+                env,
+                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1176,7 +1176,7 @@ public class MethodLibrary {
           for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
             tmpList.addFirst(element);
           }
-          return new MutableList<>(tmpList, env);
+          return MutableList.copyOf(env, tmpList);
         }
       };
 
@@ -1500,7 +1500,7 @@ public class MethodLibrary {
   private static final BuiltinFunction values =
       new BuiltinFunction("values") {
         public MutableList<?> invoke(SkylarkDict<?, ?> self, Environment env) throws EvalException {
-          return new MutableList<>(self.values(), env);
+          return MutableList.copyOf(env, self.values());
         }
       };
 
@@ -1523,7 +1523,7 @@ public class MethodLibrary {
           for (Map.Entry<?, ?> entries : self.entrySet()) {
             list.add(Tuple.of(entries.getKey(), entries.getValue()));
           }
-          return new MutableList<>(list, env);
+          return MutableList.copyOf(env, list);
         }
       };
 
@@ -1545,7 +1545,7 @@ public class MethodLibrary {
       for (Map.Entry<?, ?> entries : self.entrySet()) {
         list.add(entries.getKey());
       }
-      return new MutableList(list, env);
+      return MutableList.copyOf(env, list);
     }
   };
 
@@ -1601,7 +1601,7 @@ public class MethodLibrary {
   private static final BuiltinFunction list =
       new BuiltinFunction("list") {
         public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return new MutableList<>(EvalUtils.toCollection(x, loc, env), env);
+          return MutableList.copyOf(env, EvalUtils.toCollection(x, loc, env));
         }
       };
 
@@ -1872,7 +1872,7 @@ public class MethodLibrary {
             result.add(Tuple.of(count, obj));
             count++;
           }
-          return new MutableList<>(result, env);
+          return MutableList.copyOf(env, result);
         }
       };
 
@@ -1966,7 +1966,7 @@ public class MethodLibrary {
               start += step;
             }
           }
-          return new MutableList<>(result, env);
+          return MutableList.copyOf(env, result);
         }
       };
 
@@ -2078,7 +2078,7 @@ public class MethodLibrary {
           }
           fields.addAll(Runtime.getFunctionNames(object.getClass()));
           fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
-          return new MutableList<>(fields, env);
+          return MutableList.copyOf(env, fields);
         }
       };
 
@@ -2204,7 +2204,7 @@ public class MethodLibrary {
               result.add(Tuple.copyOf(elem));
             }
           } while (allHasNext);
-          return new MutableList<>(result, env);
+          return MutableList.copyOf(env, result);
         }
       };
 
