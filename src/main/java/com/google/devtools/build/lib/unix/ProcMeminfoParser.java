@@ -81,43 +81,18 @@ public class ProcMeminfoParser {
   }
 
   /**
-   * Return the inactive memory.
-   */
-  public long getInactiveKb() {
-    return getRamKb("Inactive");
-  }
-
-  /**
-   * Return the active memory.
-   */
-  public long getActiveKb() {
-    return getRamKb("Active");
-  }
-
-  /**
-   * Return the slab memory.
-   */
-  public long getSlabKb() {
-    return getRamKb("Slab");
-  }
-
-  /**
    * Convert KB to MB.
    */
   public static double kbToMb(long kb) {
-    return kb / 1E3;
+    return kb >> 10;
   }
 
   /**
-   * Calculates amount of free RAM from /proc/meminfo content by using
-   * MemTotal - (Active + 0.3*InActive + 0.8*Slab) formula.
-   * Assumption here is that we allow Blaze to use all memory except when
-   * used by active pages, 30% of the inactive pages (since they may become
-   * active at any time) and 80% of memory used by kernel slab heap (since we
-   * want to keep most of the slab heap in the memory but do not want it to
-   * consume all available free memory).
+   * Reads the amount of *available* memory as reported by the kernel. See https://goo.gl/ABn283 for
+   * why this is better than trying to figure it out ourselves. This corresponds to the MemAvailable
+   * line in /proc/meminfo.
    */
   public long getFreeRamKb() {
-    return getTotalKb() - getActiveKb() - (long)(getInactiveKb() * 0.3) - (long)(getSlabKb() * 0.8);
+    return getRamKb("MemAvailable");
   }
 }
