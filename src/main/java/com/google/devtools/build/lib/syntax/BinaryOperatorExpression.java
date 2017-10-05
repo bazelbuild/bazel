@@ -85,7 +85,7 @@ public final class BinaryOperatorExpression extends Expression {
   /** Implements the "in" operator. */
   private static boolean in(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
-    if (env.getSemantics().incompatibleDepsetIsNotIterable && rval instanceof SkylarkNestedSet) {
+    if (env.getSemantics().incompatibleDepsetIsNotIterable() && rval instanceof SkylarkNestedSet) {
       throw new EvalException(
           location,
           "argument of type '"
@@ -270,7 +270,7 @@ public final class BinaryOperatorExpression extends Expression {
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic) {
+      if (env.getSemantics().incompatibleCheckedArithmetic()) {
         return Math.addExact((Integer) lval, (Integer) rval);
       } else {
         return ((Integer) lval).intValue() + ((Integer) rval).intValue();
@@ -293,7 +293,7 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
-      if (isAugmented && env.getSemantics().incompatibleListPlusEqualsInplace) {
+      if (isAugmented && env.getSemantics().incompatibleListPlusEqualsInplace()) {
         @SuppressWarnings("unchecked")
         MutableList<Object> list = (MutableList) lval;
         list.addAll((MutableList<?>) rval, location, env.mutability());
@@ -304,7 +304,7 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {
-      if (env.getSemantics().incompatibleDisallowDictPlus) {
+      if (env.getSemantics().incompatibleDisallowDictPlus()) {
         throw new EvalException(
             location,
             "The `+` operator for dicts is deprecated and no longer supported. Please use the "
@@ -344,7 +344,7 @@ public final class BinaryOperatorExpression extends Expression {
   private static Object minus(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic) {
+      if (env.getSemantics().incompatibleCheckedArithmetic()) {
         return Math.subtractExact((Integer) lval, (Integer) rval);
       } else {
         return ((Integer) lval).intValue() - ((Integer) rval).intValue();
@@ -369,7 +369,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (number != null) {
       if (otherFactor instanceof Integer) {
-        if (env.getSemantics().incompatibleCheckedArithmetic) {
+        if (env.getSemantics().incompatibleCheckedArithmetic()) {
           return Math.multiplyExact(number, (Integer) otherFactor);
         } else {
           return number * ((Integer) otherFactor);

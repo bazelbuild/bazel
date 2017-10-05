@@ -334,7 +334,7 @@ public final class EvalUtils {
 
   private static Collection<?> nestedSetToCollection(
       SkylarkNestedSet set, Location loc, @Nullable Environment env) throws EvalException {
-    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable) {
+    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable()) {
       throw new EvalException(
           loc,
           "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
@@ -403,7 +403,7 @@ public final class EvalUtils {
 
   private static ImmutableList<String> split(String value, Location loc, @Nullable Environment env)
       throws EvalException {
-    if (env != null && env.getSemantics().incompatibleStringIsNotIterable) {
+    if (env != null && env.getSemantics().incompatibleStringIsNotIterable()) {
       throw new EvalException(
           loc,
           "type 'string' is not iterable. You may still use `len` and string indexing. Use "

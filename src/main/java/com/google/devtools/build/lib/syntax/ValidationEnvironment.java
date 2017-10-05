@@ -56,7 +56,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  private final SkylarkSemanticsOptions semantics;
+  private final SkylarkSemantics semantics;
   private Block block;
   private int loopCount;
 
@@ -137,7 +137,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(AbstractComprehension node) {
-    if (semantics.incompatibleComprehensionVariablesDoNotLeak) {
+    if (semantics.incompatibleComprehensionVariablesDoNotLeak()) {
       openBlock();
       super.visit(node);
       closeBlock();
@@ -165,7 +165,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(IfStatement node) {
-    if (semantics.incompatibleDisallowToplevelIfStatement && isTopLevel()) {
+    if (semantics.incompatibleDisallowToplevelIfStatement() && isTopLevel()) {
       throw new ValidationException(
           node.getLocation(),
           "if statements are not allowed at the top level. You may move it inside a function "
@@ -257,7 +257,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   /** Validates the AST and runs static checks. */
   private void validateAst(List<Statement> statements) {
     // Check that load() statements are on top.
-    if (semantics.incompatibleBzlDisallowLoadAfterStatement) {
+    if (semantics.incompatibleBzlDisallowLoadAfterStatement()) {
       checkLoadAfterStatement(statements);
     }
 

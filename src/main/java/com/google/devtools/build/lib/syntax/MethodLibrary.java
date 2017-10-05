@@ -1616,7 +1616,8 @@ public class MethodLibrary {
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
         public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
-          if (env.getSemantics().incompatibleDepsetIsNotIterable && x instanceof SkylarkNestedSet) {
+          if (env.getSemantics().incompatibleDepsetIsNotIterable()
+              && x instanceof SkylarkNestedSet) {
             throw new EvalException(
                 loc,
                 EvalUtils.getDataTypeName(x)
@@ -2154,7 +2155,7 @@ public class MethodLibrary {
           // As part of the integration test "skylark_flag_test.sh", if the
           // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
           // the output.
-          if (env.getSemantics().internalSkylarkFlagTestCanary) {
+          if (env.getSemantics().internalSkylarkFlagTestCanary()) {
             msg += "<== skylark flag test ==>";
           }
           env.handleEvent(Event.debug(loc, msg));

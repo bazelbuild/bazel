@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -181,7 +182,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   private FragmentCollection fragments;
   private FragmentCollection hostFragments;
   private AspectDescriptor aspectDescriptor;
-  private final SkylarkSemanticsOptions skylarkSemantics;
+  private final SkylarkSemantics skylarkSemantics;
 
   private SkylarkDict<String, String> makeVariables;
   private SkylarkRuleAttributesCollection attributesCollection;
@@ -198,17 +199,19 @@ public final class SkylarkRuleContext implements SkylarkValue {
    *        if it is for a rule.
    * @throws InterruptedException
    */
+  // TODO(brandjon): Take in SkylarkSemantics instead of SkylarkSemanticsOptions.
   public SkylarkRuleContext(RuleContext ruleContext,
       @Nullable AspectDescriptor aspectDescriptor,
       SkylarkSemanticsOptions skylarkSemantics)
       throws EvalException, InterruptedException {
-    this.actionFactory = new SkylarkActionFactory(this, skylarkSemantics, ruleContext);
+    this.actionFactory = new SkylarkActionFactory(
+        this, skylarkSemantics.toSkylarkSemantics(), ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
     this.aspectDescriptor = aspectDescriptor;
-    this.skylarkSemantics = skylarkSemantics;
+    this.skylarkSemantics = skylarkSemantics.toSkylarkSemantics();
 
     if (aspectDescriptor == null) {
       this.isForAspect = false;

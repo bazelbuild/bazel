@@ -77,7 +77,7 @@ public class Printer {
    * @return new BasePrinter
    */
   static BasePrinter getPrinter(Environment env, Appendable buffer) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
+    if (env.getSemantics().incompatibleDescriptiveStringRepresentations()) {
       return new BasePrinter(buffer);
     } else {
       return new LegacyPrinter(buffer);
@@ -91,7 +91,7 @@ public class Printer {
    * @return new BasePrinter
    */
   static BasePrinter getPrinter(Environment env) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
+    if (env.getSemantics().incompatibleDescriptiveStringRepresentations()) {
       return new BasePrinter();
     } else {
       return new LegacyPrinter();

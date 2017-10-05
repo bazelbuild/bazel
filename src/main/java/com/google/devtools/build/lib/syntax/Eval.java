@@ -98,7 +98,7 @@ public class Eval {
     }
 
     FunctionSignature sig = node.getSignature().getSignature();
-    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs
+    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs()
         && sig.getShape().getMandatoryNamedOnly() > 0) {
       throw new EvalException(
           node.getLocation(),
@@ -129,7 +129,7 @@ public class Eval {
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
-    if (env.getSemantics().incompatibleLoadArgumentIsLabel) {
+    if (env.getSemantics().incompatibleLoadArgumentIsLabel()) {
       String s = node.getImport().getValue();
       if (!s.startsWith("//") && !s.startsWith(":") && !s.startsWith("@")) {
         throw new EvalException(
