@@ -553,6 +553,38 @@ void SigPrintf(const char *format, ...) {
   }
 }
 
+static int setlk(int fd, struct flock *lock) {
+#ifdef __linux__
+// If we're building with glibc <2.20, or another libc which predates
+// OFD locks, define the constant ourselves.  This assumes that the libc
+// and kernel definitions for struct flock are identical.
+#ifndef F_OFD_SETLK
+#define F_OFD_SETLK 37
+#endif
+#endif
+#ifdef F_OFD_SETLK
+  // Prefer OFD locks if available.  POSIX locks can be lost "accidentally"
+  // due to any close() on the lock file, and are not reliably preserved
+  // across execve() on Linux, which we need for --batch mode.
+  if (fcntl(fd, F_OFD_SETLK, lock) == 0) return 0;
+  if (errno != EINVAL) {
+    if (errno != EACCES && errno != EAGAIN) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "unexpected result from F_OFD_SETLK");
+    }
+    return -1;
+  }
+  // F_OFD_SETLK was added in Linux 3.15.  Older kernels return EINVAL.
+  // Fall back to F_SETLK in that case.
+#endif
+  if (fcntl(fd, F_SETLK, lock) == 0) return 0;
+  if (errno != EACCES && errno != EAGAIN) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "unexpected result from F_SETLK");
+  }
+  return -1;
+}
+
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
   string lockfile = blaze_util::JoinPath(output_base, "lock");
@@ -571,7 +603,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
   }
 
-  struct flock lock;
+  struct flock lock = {};
   lock.l_type = F_WRLCK;
   lock.l_whence = SEEK_SET;
   lock.l_start = 0;
@@ -590,33 +622,33 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   // should help troubleshoot those scenarios in case there really is a bug
   // somewhere.
   size_t attempts = 0;
-  pid_t other_pid = 0;
+  string owner;
   const uint64_t start_time = GetMillisecondsMonotonic();
-  while (fcntl(lockfd, F_SETLK, &lock) == -1) {
-    if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_SETLK");
+  while (setlk(lockfd, &lock) == -1) {
+    string buffer(4096, 0);
+    ssize_t r = pread(lockfd, &buffer[0], buffer.size(), 0);
+    if (r < 0) {
+      fprintf(stderr, "warning: pread() lock file: %s\n", strerror(errno));
+      r = 0;
+    }
+    buffer.resize(r);
+    if (owner != buffer) {
+      // Each time we learn a new lock owner, print it out.
+      owner = buffer;
+      if (attempts > 0) {
+        fprintf(stderr, " client lock owner changed\n");
+      }
+      fprintf(stderr, "Another command holds the client lock: \n%s\n",
+              owner.c_str());
+      if (block) {
+        fprintf(stderr, "Waiting for it to complete...");
+        fflush(stderr);
+      }
     }
 
-    struct flock probe = lock;
-    probe.l_pid = 0;
-    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_GETLK");
-    }
     if (!block) {
       die(blaze_exit_code::BAD_ARGV,
-          "Another command is running (pid=%d). Exiting immediately.",
-          probe.l_pid);
-    }
-    if (other_pid != probe.l_pid) {
-      if (attempts > 0) {
-        fprintf(stderr, " lock taken by another command\n");
-      }
-      fprintf(stderr, "Another command (pid=%d) is running.  "
-              "Waiting for it to complete on the client...", probe.l_pid);
-      fflush(stderr);
-      other_pid = probe.l_pid;
+          "Exiting because the lock is held and --noblock_for_lock was given.");
     }
 
     TrySleep(500);
@@ -634,12 +666,19 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   const uint64_t wait_time = attempts == 0 ? 0 : end_time - start_time;
 
   // Identify ourselves in the lockfile.
+  // The contents are printed for human consumption when another client
+  // fails to take the lock, but not parsed otherwise.
   (void) ftruncate(lockfd, 0);
-  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=launcher\npid="
-      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // The contents are currently meant only for debugging.
-  (void) write(lockfd, msg.data(), msg.size());
+  lseek(lockfd, 0, SEEK_SET);
+  // Arguably we should ensure this fits in the 4KB we lock.  In practice no one
+  // will have a cwd long enough to overflow that, and nothing currently uses
+  // the rest of the lock file anyway.
+  dprintf(lockfd, "pid=%d\nowner=client\n", getpid());
+  string cwd = blaze_util::GetCwd();
+  dprintf(lockfd, "cwd=%s\n", cwd.c_str());
+  if (const char *tty = ttyname(STDIN_FILENO)) {  // NOLINT (single-threaded)
+    dprintf(lockfd, "tty=%s\n", tty);
+  }
   blaze_lock->lockfd = lockfd;
   return wait_time;
 }
