@@ -71,7 +71,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       // The absence of "direct" traversal indicates the presence of a "nested" fileset and
       // getNestedTraversal will return the list FilesetTraversalParams corresponding to each
       // FilesetEntry of the nested Fileset.
-      ImmutableList<SkyKey> nestedKeys = FilesetEntryValue.keys(t.getNestedTraversal());
+      ImmutableList<SkyKey> nestedKeys = FilesetEntryKey.keys(t.getNestedTraversal());
       Map<SkyKey, SkyValue> results = env.getValues(nestedKeys);
       if (env.valuesMissing()) {
         return null;

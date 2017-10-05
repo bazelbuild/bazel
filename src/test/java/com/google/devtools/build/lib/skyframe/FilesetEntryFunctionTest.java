@@ -174,7 +174,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private FilesetEntryValue evalFilesetTraversal(FilesetTraversalParams params) throws Exception {
-    SkyKey key = FilesetEntryValue.key(params);
+    SkyKey key = FilesetEntryKey.key(params);
     EvaluationResult<FilesetEntryValue> result = eval(key);
     assertThat(result.hasError()).isFalse();
     return result.get(key);
@@ -348,7 +348,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         assertSymlinksCreatedInOrder(params, outA, outAsym);
         break;
       case REPORT_ERROR:
-        SkyKey key = FilesetEntryValue.key(params);
+        SkyKey key = FilesetEntryKey.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
         assertThat(result.getError(key).getException())
@@ -435,7 +435,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         assertSymlinksCreatedInOrder(params, outA, outASym);
         break;
       case REPORT_ERROR:
-        SkyKey key = FilesetEntryValue.key(params);
+        SkyKey key = FilesetEntryKey.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
         assertThat(result.getError(key).getException())
@@ -528,7 +528,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         assertSymlinksCreatedInOrder(params, outBuild, outA, outAsym);
         break;
       case REPORT_ERROR:
-        SkyKey key = FilesetEntryValue.key(params);
+        SkyKey key = FilesetEntryKey.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
         assertThat(result.getError(key).getException())

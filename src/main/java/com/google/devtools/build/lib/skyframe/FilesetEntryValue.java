@@ -13,14 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.stream.StreamSupport;
 
 /** Output symlinks produced by a whole FilesetEntry or by a single file in FilesetEntry.files. */
 public final class FilesetEntryValue implements SkyValue {
@@ -44,16 +39,6 @@ public final class FilesetEntryValue implements SkyValue {
   /** Returns the list of output symlinks. */
   public ImmutableSet<FilesetOutputSymlink> getSymlinks() {
     return symlinks;
-  }
-
-  public static SkyKey key(FilesetTraversalParams params) {
-    return LegacySkyKey.create(SkyFunctions.FILESET_ENTRY, params);
-  }
-
-  public static ImmutableList<SkyKey> keys(Iterable<FilesetTraversalParams> paramsIterable) {
-    return StreamSupport.stream(paramsIterable.spliterator(), /*parallel=*/ false)
-        .map(FilesetEntryValue::key)
-        .collect(ImmutableList.toImmutableList());
   }
 
   @Override
