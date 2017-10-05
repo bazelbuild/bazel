@@ -1,3 +1,28 @@
+## Release 0.6.1 (2017-10-05)
+
+```
+Baseline: 87cc92e5df35d02a7c9bc50b229c513563dc1689
+
+Cherry picks:
+   + a615d288b008c36c659fdc17965207bb62d95d8d:
+     Rollback context.actions.args() functionality.
+   + 7b091c1397a82258e26ab5336df6c8dae1d97384:
+     Add a global failure when a test is interrupted/cancelled.
+   + 95b0467e3eb42a8ce8d1179c0c7e1aab040e8120:
+     Cleanups for Skylark tracebacks
+   + cc9c2f07127a832a88f27f5d72e5508000b53429:
+     Remove the status xml attribute from AntXmlResultWriter
+   + 471c0e1678d0471961f1dc467666991e4cce3846:
+     Release 0.6.0 (2017-09-28)
+   + 8bdd409f4900d4574667fed83d86b494debef467:
+     Only compute hostname once per server lifetime
+   + 0bc9b3e14f305706d72180371f73a98d6bfcdf35:
+     Fix bug in NetUtil caching.
+```
+
+Important changes:
+ - Only compute hostname once per server lifetime
+
 ## Release 0.6.0 (2017-09-28)
 
 ```
@@ -1784,6 +1809,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
