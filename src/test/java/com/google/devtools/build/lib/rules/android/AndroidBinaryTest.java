@@ -17,11 +17,13 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -2760,8 +2762,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
-        actionsTestUtil()
-            .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
+        prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
 
     assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
     assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
@@ -2806,8 +2807,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
-        actionsTestUtil()
-            .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
+        prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
 
     assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
     assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
@@ -3343,5 +3343,418 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs = ['HelloApp.java'],",
         "               manifest = 'AndroidManifest.xml')");
     checkDebugKey(debugKeyTarget, false);
+  }
+
+  @Test
+  public void testOnlyProguardSpecs() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_library(name = 'l3',",
+        "                idl_srcs = ['A.aidl'],",
+        "                deps = [':l2'])",
+        "android_library(name = 'l4',",
+        "                srcs = ['SubMoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    checkProguardUse(
+        "//java/com/google/android/hello:b", "b_proguard.jar", false, null,
+        targetConfig.getBinFragment()
+            + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
+  }
+
+  @Test
+  public void testOnlyProguardSpecsProguardJar() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_library(name = 'l3',",
+        "                idl_srcs = ['A.aidl'],",
+        "                deps = [':l2'])",
+        "android_library(name = 'l4',",
+        "                srcs = ['SubMoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_generate_mapping = 1,",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+
+    ConfiguredTarget output = getConfiguredTarget("//java/com/google/android/hello:b_proguard.jar");
+    assertProguardUsed(output);
+
+    output = getConfiguredTarget("//java/com/google/android/hello:b_proguard.map");
+    assertWithMessage("proguard.map is not in the rule output")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(output), "_proguard.map"))
+        .isNotNull();
+  }
+
+  @Test
+  public void testCommandLineForMultipleProguardSpecs() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l1',",
+        "                srcs = ['Maps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l1'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(binary), "_proguard.jar");
+
+    assertWithMessage("Proguard action does not contain expected inputs.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .containsAllOf(
+            "java/com/google/android/hello/proguard-spec.pro",
+            "java/com/google/android/hello/proguard-spec1.pro",
+            "java/com/google/android/hello/proguard-spec2.pro");
+
+    assertThat(action.getArguments())
+        .containsExactly(
+            getProguardBinary().getExecPathString(),
+            "-forceprocessing",
+            "-injars",
+            execPathEndingWith(action.getInputs(), "b_deploy.jar"),
+            "-outjars",
+            execPathEndingWith(action.getOutputs(), "b_proguard.jar"),
+            // Only one combined library jar
+            "-libraryjars",
+            execPathEndingWith(action.getInputs(), "legacy_b_combined_library_jars.jar"),
+            "@" + execPathEndingWith(action.getInputs(), "b_proguard.cfg"),
+            "@java/com/google/android/hello/proguard-spec.pro",
+            "@java/com/google/android/hello/proguard-spec1.pro",
+            "@java/com/google/android/hello/proguard-spec2.pro",
+            "-printseeds",
+            execPathEndingWith(action.getOutputs(), "_proguard.seeds"),
+            "-printusage",
+            execPathEndingWith(action.getOutputs(), "_proguard.usage"),
+            "-printconfiguration",
+            execPathEndingWith(action.getOutputs(), "_proguard.config"))
+        .inOrder();
+  }
+
+  /** Regression test for b/17790639 */
+  @Test
+  public void testNoDuplicatesInProguardCommand() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l1',",
+        "                srcs = ['Maps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l1'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(binary), "_proguard.jar");
+    assertThat(action.getArguments())
+        .containsExactly(
+            getProguardBinary().getExecPathString(),
+            "-forceprocessing",
+            "-injars",
+            execPathEndingWith(action.getInputs(), "b_deploy.jar"),
+            "-outjars",
+            execPathEndingWith(action.getOutputs(), "b_proguard.jar"),
+            // Only one combined library jar
+            "-libraryjars",
+            execPathEndingWith(action.getInputs(), "legacy_b_combined_library_jars.jar"),
+            "@" + execPathEndingWith(action.getInputs(), "b_proguard.cfg"),
+            "@java/com/google/android/hello/proguard-spec.pro",
+            "@java/com/google/android/hello/proguard-spec1.pro",
+            "@java/com/google/android/hello/proguard-spec2.pro",
+            "-printseeds",
+            execPathEndingWith(action.getOutputs(), "_proguard.seeds"),
+            "-printusage",
+            execPathEndingWith(action.getOutputs(), "_proguard.usage"),
+            "-printconfiguration",
+            execPathEndingWith(action.getOutputs(), "_proguard.config"))
+        .inOrder();
+  }
+
+  @Test
+  public void testProguardMapping() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'],",
+        "               proguard_generate_mapping = 1)");
+    checkProguardUse(
+        "//java/com/google/android/hello:b", "b_proguard.jar", true, null, getAndroidJarPath());
+  }
+
+  @Test
+  public void testProguardMappingProvider() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_library(name = 'l3',",
+        "                idl_srcs = ['A.aidl'],",
+        "                deps = [':l2'])",
+        "android_library(name = 'l4',",
+        "                srcs = ['SubMoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b1',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_generate_mapping = 1,",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])",
+        "android_binary(name = 'b2',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+
+    ConfiguredTarget output = getConfiguredTarget("//java/com/google/android/hello:b1");
+    assertProguardUsed(output);
+    Artifact mappingArtifact = getBinArtifact("b1_proguard.map", output);
+    ProguardMappingProvider mappingProvider = output.getProvider(ProguardMappingProvider.class);
+    assertThat(mappingProvider.getProguardMapping()).isEqualTo(mappingArtifact);
+
+    output = getConfiguredTarget("//java/com/google/android/hello:b2");
+    assertProguardUsed(output);
+    assertThat(output.getProvider(ProguardMappingProvider.class)).isNull();
+  }
+
+  @Test
+  public void testLegacyOptimizationModeUsesExtraProguardSpecs() throws Exception {
+    useConfiguration("--extra_proguard_specs=java/com/google/android/hello:extra.pro");
+    scratch.file("java/com/google/android/hello/BUILD",
+        "exports_files(['extra.pro'])",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'])");
+    checkProguardUse(
+        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")), "_proguard.jar");
+    assertThat(ActionsTestUtil.prettyArtifactNames(action.getInputs())).containsNoDuplicates();
+    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
+        .containsExactly(
+            "@" + execPathEndingWith(action.getInputs(), "/proguard-spec.pro"),
+            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
+            "@java/com/google/android/hello/extra.pro");
+  }
+
+  @Test
+  public void testExtraProguardSpecsDontDuplicateProguardInputFiles() throws Exception {
+    useConfiguration("--extra_proguard_specs=java/com/google/android/hello:proguard-spec.pro");
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'])");
+    checkProguardUse(
+        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")), "_proguard.jar");
+    assertThat(ActionsTestUtil.prettyArtifactNames(action.getInputs())).containsNoDuplicates();
+    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
+        .containsExactly(
+            "@java/com/google/android/hello/proguard-spec.pro",
+            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"));
+  }
+
+  @Test
+  public void testLegacyLinkingProguardNotUsedWithoutSpecOnBinary() throws Exception {
+    useConfiguration(
+        "--java_optimization_mode=legacy",
+        "--extra_proguard_specs=//java/com/google/android/hello:ignored.pro");
+    scratch.file("java/com/google/android/hello/BUILD",
+        "exports_files(['ignored.pro'])",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_library(name = 'l3',",
+        "                idl_srcs = ['A.aidl'],",
+        // Having a library spec should not trigger proguard on the binary target.
+        "                proguard_specs = ['library_spec.cfg'],",
+        "                deps = [':l2'])",
+        "android_library(name = 'l4',",
+        "                srcs = ['SubMoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               manifest = 'AndroidManifest.xml',)");
+    assertProguardNotUsed(getConfiguredTarget("//java/com/google/android/hello:b"));
+  }
+
+  @Test
+  public void testFullOptimizationModeForcesProguard() throws Exception {
+    useConfiguration("--java_optimization_mode=optimize_minify");
+    SpawnAction action = testProguardOptimizationMode();
+    // Expect spec generated from resources as well as library's (validated) spec as usual
+    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
+        .containsExactly(
+            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
+            "@" + execPathEndingWith(action.getInputs(), "library_spec.cfg_valid"));
+  }
+
+  @Test
+  public void testOptimizingModesIncludeExtraProguardSpecs() throws Exception {
+    useConfiguration(
+        "--java_optimization_mode=fast_minify",
+        "--extra_proguard_specs=//java/com/google/android/hello:extra.pro");
+    SpawnAction action = testProguardOptimizationMode();
+    assertThat(action.getArguments()).contains("@java/com/google/android/hello/extra.pro");
+  }
+
+  @Test
+  public void testRenameModeForcesProguardWithSpecForMode() throws Exception {
+    testProguardPartialOptimizationMode("rename", "-dontshrink\n-dontoptimize\n");
+  }
+
+  @Test
+  public void testMinimizingModeForcesProguardWithSpecForMode() throws Exception {
+    testProguardPartialOptimizationMode("fast_minify", "-dontoptimize\n");
+  }
+
+  public void testProguardPartialOptimizationMode(String mode, String expectedSpecForMode)
+      throws Exception {
+    useConfiguration("--java_optimization_mode=" + mode);
+    SpawnAction action = testProguardOptimizationMode();
+    // Expect spec generated from resources, library's (validated) spec, and spec for mode
+    String modeSpecFileSuffix = "/" + mode + "_b_proguard.cfg";
+    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
+        .containsExactly(
+            "@" + execPathEndingWith(action.getInputs(), modeSpecFileSuffix),
+            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
+            "@" + execPathEndingWith(action.getInputs(), "library_spec.cfg_valid"));
+
+    FileWriteAction modeSpec = (FileWriteAction) actionsTestUtil().getActionForArtifactEndingWith(
+        action.getInputs(), modeSpecFileSuffix);
+    assertThat(modeSpec.getFileContents()).isEqualTo(expectedSpecForMode);
+  }
+
+  public SpawnAction testProguardOptimizationMode() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "exports_files(['extra.pro'])",
+        "android_library(name = 'l',",
+        "                idl_srcs = ['A.aidl'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l'],",
+        "               manifest = 'AndroidManifest.xml',)");
+    checkProguardUse(
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        /*expectMapping*/ true,
+        /*passes*/ null,
+        getAndroidJarPath());
+
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")), "_proguard.jar");
+    assertThat(ActionsTestUtil.prettyArtifactNames(action.getInputs())).containsNoDuplicates();
+    return action;
+  }
+
+  @Test
+  public void testProguardSpecFromLibraryUsedInBinary() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_library(name = 'l3',",
+        "                idl_srcs = ['A.aidl'],",
+        "                proguard_specs = ['library_spec.cfg'],",
+        "                deps = [':l2'])",
+        "android_library(name = 'l4',",
+        "                srcs = ['SubMoreMaps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l3', ':l4'],",
+        "               proguard_specs = ['proguard-spec.pro'],",
+        "               manifest = 'AndroidManifest.xml',)");
+    assertProguardUsed(getConfiguredTarget("//java/com/google/android/hello:b"));
+    assertProguardGenerated(getConfiguredTarget("//java/com/google/android/hello:b"));
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")), "_proguard.jar");
+    assertThat(prettyArtifactNames(action.getInputs())).contains(
+        "java/com/google/android/hello/proguard-spec.pro");
+    assertThat(prettyArtifactNames(action.getInputs())).contains(
+        "java/com/google/android/hello/validated_proguard/l2/java/com/google/android/hello/library_spec.cfg_valid");
+    assertThat(ActionsTestUtil.prettyArtifactNames(action.getInputs())).containsNoDuplicates();
+  }
+
+  @Test
+  public void testResourcesUsedInProguardGenerate() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    scratch.file("java/com/google/android/hello/res/values/strings.xml",
+        "<resources><string name = 'hello'>Hello Android!</string></resources>");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_proguard.cfg");
+
+    assertProguardGenerated(binary);
+    assertWithMessage("Generate proguard action does not contain expected input.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .contains("java/com/google/android/hello/res/values/strings.xml");
+  }
+
+  @Test
+  public void testUseSingleJarForLibraryJars() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l1',",
+        "                srcs = ['Maps.java'],",
+        "                neverlink = 1)",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               deps = [':l1'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
+        "                                 'proguard-spec2.pro'])");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(binary), "_proguard.jar");
+
+    checkProguardLibJars(action, targetConfig.getBinFragment()
+        + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
+  }
+
+  @Test
+  public void testOnlyOneLibraryJar() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               proguard_specs = ['proguard-spec.pro'],",
+        "               proguard_generate_mapping = 1)");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        getFilesToBuild(binary), "_proguard.jar");
+
+    checkProguardLibJars(action, getAndroidJarPath());
   }
 }

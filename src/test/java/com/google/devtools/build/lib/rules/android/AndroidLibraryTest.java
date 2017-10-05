@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1587,5 +1589,68 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 .getFragment(AndroidConfiguration.class)
                 .allowSrcsLessAndroidLibraryDeps())
         .isTrue();
+  }
+
+  @Test
+  public void testAndroidLibraryValidatesProguardSpec() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               deps = [':l2'],",
+        "               proguard_specs = ['proguard-spec.pro'])");
+    Set<Artifact> transitiveArtifacts =
+        actionsTestUtil()
+            .artifactClosureOf(
+                getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")));
+    Action action =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(transitiveArtifacts, "library_spec.cfg_valid");
+    assertWithMessage("proguard validate action was spawned for binary target.")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(transitiveArtifacts, "proguard-spec.pro_valid"))
+        .isNull();
+    assertWithMessage("Proguard validate action was not spawned.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
+  }
+
+  @Test
+  public void testAndroidLibraryValidatesProguardSpecWithoutBinary() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_library(name = 'l3',",
+        "                srcs = ['MoreMaps.java'],",
+        "                deps = [':l2'])");
+    Action action =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(
+                getOutputGroup(
+                    getConfiguredTarget("//java/com/google/android/hello:l2"),
+                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                "library_spec.cfg_valid");
+    assertWithMessage("Proguard validate action was not spawned.").that(action).isNotNull();
+    assertWithMessage("Proguard validate action was spawned without correct input.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
+    Action transitiveAction =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(
+                getOutputGroup(
+                    getConfiguredTarget("//java/com/google/android/hello:l3"),
+                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                "library_spec.cfg_valid");
+    assertWithMessage("Proguard validate action was not spawned.")
+        .that(transitiveAction)
+        .isNotNull();
+    assertWithMessage("Proguard validate action was spawned without correct input.")
+        .that(ActionsTestUtil.prettyArtifactNames(transitiveAction.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
   }
 }
