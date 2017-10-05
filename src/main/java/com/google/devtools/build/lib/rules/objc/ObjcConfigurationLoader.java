@@ -34,7 +34,7 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
     validate(objcOptions);
-    return new ObjcConfiguration(objcOptions, options, env.getBlazeDirectories());
+    return new ObjcConfiguration(objcOptions, options);
   }
 
   private static void validate(ObjcCommandLineOptions objcOptions)

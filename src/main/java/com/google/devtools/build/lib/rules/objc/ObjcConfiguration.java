@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,8 +78,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
-      @Nullable BlazeDirectories directories) {
+  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options) {
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
