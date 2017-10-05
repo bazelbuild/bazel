@@ -21,13 +21,14 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
-import com.google.devtools.build.lib.bazel.rules.NativeLauncherUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -65,11 +65,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -376,59 +372,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
   }
 
-  private static class JavaLaunchInfoByteSource extends ByteSource {
-    private final String workspaceName;
-    private final String javaBinPath;
-    private final String jarBinPath;
-    private final String javaStartClass;
-    private final ImmutableList<String> jvmFlags;
-    private final NestedSet<Artifact> classpath;
-
-    private JavaLaunchInfoByteSource(
-        String workspaceName,
-        String javaBinPath,
-        String jarBinPath,
-        String javaStartClass,
-        ImmutableList<String> jvmFlags,
-        NestedSet<Artifact> classpath) {
-      this.workspaceName = workspaceName;
-      this.javaBinPath = javaBinPath;
-      this.jarBinPath = jarBinPath;
-      this.javaStartClass = javaStartClass;
-      this.jvmFlags = jvmFlags;
-      this.classpath = classpath;
-    }
-
-    @Override
-    public InputStream openStream() throws IOException {
-      ByteArrayOutputStream launchInfo = new ByteArrayOutputStream();
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "binary_type", "Java");
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "workspace_name", workspaceName);
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "java_bin_path", javaBinPath);
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "jar_bin_path", jarBinPath);
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "java_start_class", javaStartClass);
-
-      // To be more efficient, we don't construct a key-value pair for classpath.
-      // Instead, we directly write it into launchInfo.
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "classpath=");
-      boolean isFirst = true;
-      for (Artifact artifact : classpath) {
-        if (!isFirst) {
-          NativeLauncherUtil.writeLaunchInfo(launchInfo, ";");
-        } else {
-          isFirst = false;
-        }
-        NativeLauncherUtil.writeLaunchInfo(launchInfo, artifact.getRootRelativePathString());
-      }
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "\0");
-
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "jvm_flags", jvmFlags, ' ');
-
-      NativeLauncherUtil.writeDataSize(launchInfo);
-      return new ByteArrayInputStream(launchInfo.toByteArray());
-    }
-  }
-
   private static Artifact createWindowsExeLauncher(
       RuleContext ruleContext,
       String javaExecutable,
@@ -437,19 +380,26 @@ public class BazelJavaSemantics implements JavaSemantics {
       ImmutableList<String> jvmFlags,
       Artifact javaLauncher) {
 
-    ByteSource launchInfoSource =
-        new JavaLaunchInfoByteSource(
-            ruleContext.getWorkspaceName(),
-            javaExecutable,
-            JavaCommon.getJavaExecutable(ruleContext)
-              .getParentDirectory()
-              .getRelative("jar.exe")
-              .getPathString(),
-            javaStartClass,
-            jvmFlags,
-            classpath);
+    LaunchInfo launchInfo =
+        LaunchInfo.builder()
+            .addKeyValuePair("binary_type", "Java")
+            .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair("java_bin_path", javaExecutable)
+            .addKeyValuePair(
+                "jar_bin_path",
+                JavaCommon.getJavaExecutable(ruleContext)
+                    .getParentDirectory()
+                    .getRelative("jar.exe")
+                    .getPathString())
+            .addKeyValuePair("java_start_class", javaStartClass)
+            .addJoinedValues(
+                "classpath",
+                ";",
+                Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
+            .addJoinedValues("jvm_flags", " ", jvmFlags)
+            .build();
 
-    NativeLauncherUtil.createNativeLauncherActions(ruleContext, javaLauncher, launchInfoSource);
+    LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);
 
     return javaLauncher;
   }
