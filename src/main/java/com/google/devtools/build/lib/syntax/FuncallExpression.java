@@ -21,6 +21,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
@@ -39,6 +40,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -138,7 +140,8 @@ public final class FuncallExpression extends Expression {
    */
   public static ImmutableMap<Method, SkylarkCallable> collectSkylarkMethodsWithAnnotation(
       Class<?> classObj) {
-    ImmutableMap.Builder<Method, SkylarkCallable> methodMap = ImmutableMap.builder();
+    ImmutableSortedMap.Builder<Method, SkylarkCallable> methodMap
+        = ImmutableSortedMap.orderedBy(Comparator.comparing(Object::toString));
     for (Method method : classObj.getMethods()) {
       // Synthetic methods lead to false multiple matches
       if (!method.isSynthetic()) {
