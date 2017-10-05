@@ -19,30 +19,33 @@ import com.google.devtools.build.lib.analysis.BlazeDirectoriesCodec;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link BlazeDirectoriesCodec}. */
+@RunWith(JUnit4.class)
 public class BlazeDirectoriesCodecTest extends AbstractObjectCodecTest<BlazeDirectories> {
   public BlazeDirectoriesCodecTest() {
     super(
         new BlazeDirectoriesCodec(new PathCodec(FsUtils.TEST_FILESYSTEM)),
         new BlazeDirectories(
             new ServerDirectories(
-                FsUtils.TEST_FILESYSTEM.getPath("install_base"),
-                FsUtils.TEST_FILESYSTEM.getPath("output_base")),
-            FsUtils.TEST_FILESYSTEM.getPath("workspace"),
+                FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
+                FsUtils.TEST_FILESYSTEM.getPath("/output_base")),
+            FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
             "Blaze"),
         new BlazeDirectories(
             new ServerDirectories(
-                FsUtils.TEST_FILESYSTEM.getPath("install_base"),
-                FsUtils.TEST_FILESYSTEM.getPath("output_base"),
-                "ab"),
-            FsUtils.TEST_FILESYSTEM.getPath("workspace"),
+                FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
+                FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
+                "1234abcd1234abcd1234abcd1234abcd"),
+            FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
             "Blaze"),
         new BlazeDirectories(
             new ServerDirectories(
-                FsUtils.TEST_FILESYSTEM.getPath("install_base"),
-                FsUtils.TEST_FILESYSTEM.getPath("output_base")),
-            FsUtils.TEST_FILESYSTEM.getPath("workspace"),
+                FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
+                FsUtils.TEST_FILESYSTEM.getPath("/output_base")),
+            FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
             "Bazel"));
   }
 }
