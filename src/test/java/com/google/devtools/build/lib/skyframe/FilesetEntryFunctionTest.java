@@ -192,7 +192,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return new FilesetOutputSymlink(PathFragment.create(from), to.asPath().asFragment());
   }
 
-  private void assertSymlinksCreated(
+  private void assertSymlinksCreatedInOrder(
       FilesetTraversalParams request, FilesetOutputSymlink... expectedSymlinks) throws Exception {
     List<FilesetOutputSymlink> expected = Arrays.asList(expectedSymlinks);
     Collection<FilesetOutputSymlink> actual =
@@ -200,7 +200,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             evalFilesetTraversal(request).getSymlinks(),
             // Strip the metadata from the actual results.
             (input) -> new FilesetOutputSymlink(input.name, input.target));
-    assertThat(actual).containsExactlyElementsIn(expected);
+    assertThat(actual).containsExactlyElementsIn(expected).inOrder();
   }
 
   private static Label label(String label) throws Exception {
@@ -217,7 +217,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             PathFragment.create("output-name"),
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(params, symlink("output-name", file));
+    assertSymlinksCreatedInOrder(params, symlink("output-name", file));
   }
 
   private void assertFileTraversalForFileSymlink(SymlinkBehavior symlinks) throws Exception {
@@ -234,10 +234,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*pkgBoundaryMode=*/ DONT_CROSS);
     switch (symlinks) {
       case COPY:
-        assertSymlinksCreated(params, symlink("output-name", "file.real"));
+        assertSymlinksCreatedInOrder(params, symlink("output-name", "file.real"));
         break;
       case DEREFERENCE:
-        assertSymlinksCreated(params, symlink("output-name", file));
+        assertSymlinksCreatedInOrder(params, symlink("output-name", file));
         break;
       default:
         throw new IllegalStateException(symlinks.toString());
@@ -267,7 +267,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             PathFragment.create("output-name"),
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         params, symlink("output-name/file.a", fileA), symlink("output-name/sub/file.b", fileB));
   }
 
@@ -287,10 +287,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*pkgBoundaryMode=*/ DONT_CROSS);
     switch (symlinks) {
       case COPY:
-        assertSymlinksCreated(params, symlink("output-name", "dir_real"));
+        assertSymlinksCreatedInOrder(params, symlink("output-name", "dir_real"));
         break;
       case DEREFERENCE:
-        assertSymlinksCreated(params, symlink("output-name", dir));
+        assertSymlinksCreatedInOrder(params, symlink("output-name", dir));
         break;
       default:
         throw new IllegalStateException(symlinks.toString());
@@ -342,10 +342,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*pkgBoundaryMode=*/ pkgBoundaryMode);
     switch (pkgBoundaryMode) {
       case CROSS:
-        assertSymlinksCreated(params, outA, outAsym, outBuild, outB);
+        assertSymlinksCreatedInOrder(params, outA, outAsym, outBuild, outB);
         break;
       case DONT_CROSS:
-        assertSymlinksCreated(params, outA, outAsym);
+        assertSymlinksCreatedInOrder(params, outA, outAsym);
         break;
       case REPORT_ERROR:
         SkyKey key = FilesetEntryValue.key(params);
@@ -429,10 +429,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*pkgBoundaryMode=*/ pkgBoundaryMode);
     switch (pkgBoundaryMode) {
       case CROSS:
-        assertSymlinksCreated(params, outA, outASym, outBuild, outB);
+        assertSymlinksCreatedInOrder(params, outA, outASym, outBuild, outB);
         break;
       case DONT_CROSS:
-        assertSymlinksCreated(params, outA, outASym);
+        assertSymlinksCreatedInOrder(params, outA, outASym);
         break;
       case REPORT_ERROR:
         SkyKey key = FilesetEntryValue.key(params);
@@ -521,11 +521,11 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*pkgBoundaryMode=*/ pkgBoundaryMode);
     switch (pkgBoundaryMode) {
       case CROSS:
-        assertSymlinksCreated(
+        assertSymlinksCreatedInOrder(
             params, outBuild, outA, outSubpkgSymBuild, outAsym, outSubpkgBuild, outSubpkgB);
         break;
       case DONT_CROSS:
-        assertSymlinksCreated(params, outBuild, outA, outAsym);
+        assertSymlinksCreatedInOrder(params, outBuild, outA, outAsym);
         break;
       case REPORT_ERROR:
         SkyKey key = FilesetEntryValue.key(params);
@@ -596,7 +596,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*nested=*/ ImmutableList.of(inner1, inner2),
             PathFragment.create("outer-out"),
             /*excludes=*/ null);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         outer,
         symlink("outer-out/inner-out1", rootedPath(path1)),
         symlink("outer-out/inner-out2", rootedPath(path2)));
@@ -651,7 +651,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*nested=*/ ImmutableList.of(middle1, middle2),
             PathFragment.create("outer-out"),
             /*excludes=*/ null);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         outer,
         symlink("outer-out/middle-out1/inner-out1", rootedPath(path1)),
         symlink("outer-out/middle-out1/inner-out2", rootedPath(path2)),
@@ -680,14 +680,14 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*excludes=*/ ImmutableSet.of("file.a", "sub/file.c"));
 
     if (useInnerDir) {
-      assertSymlinksCreated(
+      assertSymlinksCreatedInOrder(
           outer,
           // no file is excluded, since no files from "inner" are top-level in the outer Fileset
           symlink("outer-dir/inner-dir/file.a", fileA),
           symlink("outer-dir/inner-dir/file.b", fileB),
           symlink("outer-dir/inner-dir/sub/file.c", fileC)); // only top-level files are excluded
     } else {
-      assertSymlinksCreated(
+      assertSymlinksCreatedInOrder(
           outer,
           // file.a can be excluded because it's top-level (there's no output directory for "inner")
           symlink("outer-dir/file.b", fileB),
@@ -719,7 +719,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             PathFragment.create("output-name"),
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(params); // expect empty results
+    assertSymlinksCreatedInOrder(params); // expect empty results
   }
 
   private void assertExclusionOfDanglingSymlink(SymlinkBehavior symlinkBehavior) throws Exception {
@@ -740,7 +740,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* excludes */ ImmutableSet.<String>of(),
             /* symlinkBehaviorMode */ symlinkBehavior,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         params,
         symlink("output-name/BUILD", buildFile),
         symlink("output-name/file.actual", linkTarget),
@@ -760,7 +760,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* excludes */ ImmutableSet.of("file.sym"),
             /* symlinkBehaviorMode */ symlinkBehavior,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
-    assertSymlinksCreated(params, symlink("output-name/BUILD", buildFile));
+    assertSymlinksCreatedInOrder(params, symlink("output-name/BUILD", buildFile));
   }
 
   @Test
@@ -790,7 +790,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* excludes */ ImmutableSet.of(),
             /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         params,
         symlink("output-name/BUILD", buildFile),
         symlink("output-name/outerfile.txt", outerFile),
@@ -804,7 +804,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* excludes */ ImmutableSet.of("dir"),
             /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
-    assertSymlinksCreated(
+    assertSymlinksCreatedInOrder(
         params,
         symlink("output-name/BUILD", buildFile),
         symlink("output-name/outerfile.txt", outerFile));
@@ -820,7 +820,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             PathFragment.create("output-name"),
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(params); // expect empty results
+    assertSymlinksCreatedInOrder(params); // expect empty results
   }
 
   @Test
@@ -838,7 +838,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*excludes=*/ null,
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(params); // expect empty results
+    assertSymlinksCreatedInOrder(params); // expect empty results
   }
 
   @Test
@@ -853,7 +853,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*excludes=*/ null,
             /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS);
-    assertSymlinksCreated(params); // expect empty results
+    assertSymlinksCreatedInOrder(params); // expect empty results
   }
 
   /**
