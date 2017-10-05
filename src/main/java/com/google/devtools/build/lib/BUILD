@@ -135,7 +135,10 @@ java_library(
 java_library(
     name = "classpath-util",
     srcs = ["util/Classpath.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib:preconditions"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:preconditions",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
