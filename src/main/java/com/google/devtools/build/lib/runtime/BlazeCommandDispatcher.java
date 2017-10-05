@@ -712,7 +712,8 @@ public class BlazeCommandDispatcher {
               .mergeFrom(runtime.getModuleInvocationPolicy())
               .mergeFrom(invocationPolicy)
               .build();
-      InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
+      InvocationPolicyEnforcer optionsPolicyEnforcer =
+          new InvocationPolicyEnforcer(combinedPolicy, Level.INFO);
       // Enforce the invocation policy. It is intentional that this is the last step in preparing
       // the options. The invocation policy is used in security-critical contexts, and may be used
       // as a last resort to override flags. That means that the policy can override flags set in

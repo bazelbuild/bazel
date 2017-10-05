@@ -35,6 +35,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 import java.util.List;
+import java.util.logging.Level;
 
 /** The 'blaze canonicalize-flags' command. */
 @Command(
@@ -162,7 +163,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
       // Print out the canonical invocation policy if requested.
       if (canonicalizeOptions.canonicalizePolicy) {
         ImmutableList<FlagPolicy> effectiveFlagPolicies =
-            InvocationPolicyEnforcer.getEffectivePolicies(policy, parser, commandName);
+            InvocationPolicyEnforcer.getEffectivePolicies(policy, parser, commandName, Level.INFO);
         InvocationPolicy effectivePolicy =
             InvocationPolicy.newBuilder().addAllFlagPolicies(effectiveFlagPolicies).build();
         env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());

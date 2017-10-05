@@ -41,9 +41,8 @@ import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
- * Enforces the {@link FlagPolicy}s (from an {@link InvocationPolicy} proto) on an
- * {@link OptionsParser} by validating and changing the flag values in the given
- * {@link OptionsParser}.
+ * Enforces the {@link FlagPolicy}s (from an {@link InvocationPolicy} proto) on an {@link
+ * OptionsParser} by validating and changing the flag values in the given {@link OptionsParser}.
  *
  * <p>"Flag" and "Option" are used interchangeably in this file.
  */
@@ -55,6 +54,7 @@ public final class InvocationPolicyEnforcer {
   private static final Function<OptionDefinition, String> INVOCATION_POLICY_SOURCE_FUNCTION =
       o -> INVOCATION_POLICY_SOURCE;
   @Nullable private final InvocationPolicy invocationPolicy;
+  private final Level loglevel;
 
   /**
    * Creates an InvocationPolicyEnforcer that enforces the given policy.
@@ -63,7 +63,20 @@ public final class InvocationPolicyEnforcer {
    *     nothing in calls to enforce().
    */
   public InvocationPolicyEnforcer(@Nullable InvocationPolicy invocationPolicy) {
+    this(invocationPolicy, Level.FINE);
+  }
+
+  /**
+   * Creates an InvocationPolicyEnforcer that enforces the given policy.
+   *
+   * @param invocationPolicy the policy to enforce. A null policy means this enforcer will do
+   *     nothing in calls to enforce().
+   * @param loglevel the level at which to log informational statements. Warnings and errors will
+   *     still be logged at the appropriate level.
+   */
+  public InvocationPolicyEnforcer(@Nullable InvocationPolicy invocationPolicy, Level loglevel) {
     this.invocationPolicy = invocationPolicy;
+    this.loglevel = loglevel;
   }
 
   public InvocationPolicy getInvocationPolicy() {
@@ -97,7 +110,8 @@ public final class InvocationPolicyEnforcer {
 
     // The effective policy returned is expanded, filtered for applicable commands, and cleaned of
     // redundancies and conflicts.
-    List<FlagPolicy> effectivePolicies = getEffectivePolicies(invocationPolicy, parser, command);
+    List<FlagPolicy> effectivePolicies =
+        getEffectivePolicies(invocationPolicy, parser, command, loglevel);
 
     for (FlagPolicy flagPolicy : effectivePolicies) {
       String flagName = flagPolicy.getFlagName();
@@ -109,7 +123,8 @@ public final class InvocationPolicyEnforcer {
         // This flag doesn't exist. We are deliberately lenient if the flag policy has a flag
         // we don't know about. This is for better future proofing so that as new flags are added,
         // new policies can use the new flags without worrying about older versions of Bazel.
-        logger.info(
+        logger.log(
+            loglevel,
             String.format("Flag '%s' specified by invocation policy does not exist", flagName));
         continue;
       }
@@ -124,16 +139,19 @@ public final class InvocationPolicyEnforcer {
 
       switch (flagPolicy.getOperationCase()) {
         case SET_VALUE:
-          applySetValueOperation(parser, flagPolicy, valueDescription, optionDescription);
+          applySetValueOperation(parser, flagPolicy, valueDescription, optionDescription, loglevel);
           break;
 
         case USE_DEFAULT:
-          applyUseDefaultOperation(parser, "UseDefault", optionDescription.getOptionDefinition());
+          applyUseDefaultOperation(
+              parser, "UseDefault", optionDescription.getOptionDefinition(), loglevel);
           break;
 
         case ALLOW_VALUES:
           AllowValues allowValues = flagPolicy.getAllowValues();
-          FilterValueOperation.ALLOW_VALUE_OPERATION.apply(
+          FilterValueOperation.AllowValueOperation allowValueOperation =
+              new FilterValueOperation.AllowValueOperation(loglevel);
+          allowValueOperation.apply(
               parser,
               allowValues.getAllowedValuesList(),
               allowValues.hasNewValue() ? allowValues.getNewValue() : null,
@@ -144,7 +162,9 @@ public final class InvocationPolicyEnforcer {
 
         case DISALLOW_VALUES:
           DisallowValues disallowValues = flagPolicy.getDisallowValues();
-          FilterValueOperation.DISALLOW_VALUE_OPERATION.apply(
+          FilterValueOperation.DisallowValueOperation disallowValueOperation =
+              new FilterValueOperation.DisallowValueOperation(loglevel);
+          disallowValueOperation.apply(
               parser,
               disallowValues.getDisallowedValuesList(),
               disallowValues.hasNewValue() ? disallowValues.getNewValue() : null,
@@ -188,7 +208,7 @@ public final class InvocationPolicyEnforcer {
    * <p>Expands any policies on expansion flags.
    */
   public static ImmutableList<FlagPolicy> getEffectivePolicies(
-      InvocationPolicy invocationPolicy, OptionsParser parser, String command)
+      InvocationPolicy invocationPolicy, OptionsParser parser, String command, Level loglevel)
       throws OptionsParsingException {
     if (invocationPolicy == null) {
       return ImmutableList.of();
@@ -206,7 +226,7 @@ public final class InvocationPolicyEnforcer {
         // Only keep and expand policies that are applicable to the current command.
         continue;
       }
-      List<FlagPolicy> policies = expandPolicy(policy, parser);
+      List<FlagPolicy> policies = expandPolicy(policy, parser, loglevel);
       expandedPolicies.addAll(policies);
     }
 
@@ -312,8 +332,7 @@ public final class InvocationPolicyEnforcer {
    * <p>None of the flagPolicies returned should be on expansion flags.
    */
   private static List<FlagPolicy> expandPolicy(
-      FlagPolicy originalPolicy,
-      OptionsParser parser)
+      FlagPolicy originalPolicy, OptionsParser parser, Level loglevel)
       throws OptionsParsingException {
     List<FlagPolicy> expandedPolicies = new ArrayList<>();
 
@@ -337,17 +356,16 @@ public final class InvocationPolicyEnforcer {
             .build();
     boolean isExpansion = originalOptionDescription.isExpansion();
 
-    if (!subflags.isEmpty() && logger.isLoggable(Level.FINE)) {
-      // Log the expansion. Since this is logged regardless of user provided command line, it is
-      // only really useful for understanding the invocation policy itself. Most of the time,
-      // invocation policy does not change, so this can be a log level fine.
+    if (!subflags.isEmpty() && logger.isLoggable(loglevel)) {
+      // Log the expansion. This is only really useful for understanding the invocation policy
+      // itself.
       List<String> subflagNames = new ArrayList<>(subflags.size());
       for (ParsedOptionDescription subflag : subflags) {
         subflagNames.add("--" + subflag.getOptionDefinition().getOptionName());
       }
 
       logger.logp(
-          Level.FINE,
+          loglevel,
           "InvocationPolicyEnforcer",
           "expandPolicy",
           String.format(
@@ -374,7 +392,7 @@ public final class InvocationPolicyEnforcer {
         FlagPolicy subflagAsPolicy =
             getSingleValueSubflagAsPolicy(currentSubflag, originalPolicy, isExpansion);
         // In case any of the expanded flags are themselves expansions, recurse.
-        expandedPolicies.addAll(expandPolicy(subflagAsPolicy, parser));
+        expandedPolicies.addAll(expandPolicy(subflagAsPolicy, parser, loglevel));
       }
     }
 
@@ -503,11 +521,12 @@ public final class InvocationPolicyEnforcer {
     return subflagAsPolicy;
   }
 
-  private static void logInApplySetValueOperation(String formattingString, Object... objects) {
+  private static void logInApplySetValueOperation(
+      Level loglevel, String formattingString, Object... objects) {
     // Finding the caller here is relatively expensive and shows up in profiling, so provide it
     // manually.
     logger.logp(
-        Level.INFO,
+        loglevel,
         "InvocationPolicyEnforcer",
         "applySetValueOperation",
         String.format(formattingString, objects));
@@ -517,7 +536,8 @@ public final class InvocationPolicyEnforcer {
       OptionsParser parser,
       FlagPolicy flagPolicy,
       OptionValueDescription valueDescription,
-      OptionDescription optionDescription)
+      OptionDescription optionDescription,
+      Level loglevel)
       throws OptionsParsingException {
     SetValue setValue = flagPolicy.getSetValue();
     OptionDefinition optionDefinition = optionDescription.getOptionDefinition();
@@ -544,6 +564,7 @@ public final class InvocationPolicyEnforcer {
       // The user set the value for the flag but the flag policy is overridable, so keep the user's
       // value.
       logInApplySetValueOperation(
+          loglevel,
           "Keeping value '%s' from source '%s' for flag '%s' "
               + "because the invocation policy specifying the value(s) '%s' is overridable",
           valueDescription.getValue(),
@@ -561,11 +582,13 @@ public final class InvocationPolicyEnforcer {
       for (String flagValue : setValue.getFlagValueList()) {
         if (valueDescription == null) {
           logInApplySetValueOperation(
+              loglevel,
               "Setting value for flag '%s' from invocation policy to '%s', overriding the "
                   + "default value '%s'",
               optionDefinition.getOptionName(), flagValue, optionDefinition.getDefaultValue());
         } else {
           logInApplySetValueOperation(
+              loglevel,
               "Setting value for flag '%s' from invocation policy to '%s', overriding "
                   + "value '%s' from '%s'",
               optionDefinition.getOptionName(),
@@ -579,7 +602,7 @@ public final class InvocationPolicyEnforcer {
   }
 
   private static void applyUseDefaultOperation(
-      OptionsParser parser, String policyType, OptionDefinition option)
+      OptionsParser parser, String policyType, OptionDefinition option, Level loglevel)
       throws OptionsParsingException {
     OptionValueDescription clearedValueDescription = parser.clearValue(option);
     if (clearedValueDescription != null) {
@@ -593,7 +616,8 @@ public final class InvocationPolicyEnforcer {
       if (desc != null) {
         clearedFlagDefaultValue = desc.getOptionDefinition().getDefaultValue();
       }
-      logger.info(
+      logger.log(
+          loglevel,
           String.format(
               "Using default value '%s' for flag '%s' as specified by %s invocation policy, "
                   + "overriding original value '%s' from '%s'",
@@ -605,34 +629,40 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
-  /**
-   * Checks the user's flag values against a filtering function.
-   */
+  /** Checks the user's flag values against a filtering function. */
   private abstract static class FilterValueOperation {
 
-    private static final FilterValueOperation ALLOW_VALUE_OPERATION =
-        new FilterValueOperation("Allow") {
-          @Override
-          boolean isFlagValueAllowed(Set<Object> convertedPolicyValues, Object value) {
-            return convertedPolicyValues.contains(value);
-          }
-        };
+    private static final class AllowValueOperation extends FilterValueOperation {
+      AllowValueOperation(Level loglevel) {
+        super("Allow", loglevel);
+      }
 
-    private static final FilterValueOperation DISALLOW_VALUE_OPERATION =
-        new FilterValueOperation("Disallow") {
-          @Override
-          boolean isFlagValueAllowed(Set<Object> convertedPolicyValues, Object value) {
-            // In a disallow operation, the values that the flag policy specifies are not allowed,
-            // so the value is allowed if the set of policy values does not contain the current
-            // flag value.
-            return !convertedPolicyValues.contains(value);
-          }
-        };
+      @Override
+      boolean isFlagValueAllowed(Set<Object> convertedPolicyValues, Object value) {
+        return convertedPolicyValues.contains(value);
+      }
+    }
+
+    private static final class DisallowValueOperation extends FilterValueOperation {
+      DisallowValueOperation(Level loglevel) {
+        super("Disalllow", loglevel);
+      }
+
+      @Override
+      boolean isFlagValueAllowed(Set<Object> convertedPolicyValues, Object value) {
+        // In a disallow operation, the values that the flag policy specifies are not allowed,
+        // so the value is allowed if the set of policy values does not contain the current
+        // flag value.
+        return !convertedPolicyValues.contains(value);
+      }
+    }
 
     private final String policyType;
+    private final Level loglevel;
 
-    FilterValueOperation(String policyType) {
+    FilterValueOperation(String policyType, Level loglevel) {
       this.policyType = policyType;
+      this.loglevel = loglevel;
     }
 
     /**
@@ -724,7 +754,8 @@ public final class InvocationPolicyEnforcer {
           convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue())) {
         if (newValue != null) {
           // Use the default value from the policy.
-          logger.info(
+          logger.log(
+              loglevel,
               String.format(
                   "Overriding default value '%s' for flag '%s' with value '%s' specified by "
                       + "invocation policy. %sed values are: %s",
@@ -766,7 +797,7 @@ public final class InvocationPolicyEnforcer {
         for (Object value : optionValues) {
           if (!isFlagValueAllowed(convertedPolicyValues, value)) {
             if (useDefault) {
-              applyUseDefaultOperation(parser, policyType + "Values", option);
+              applyUseDefaultOperation(parser, policyType + "Values", option, loglevel);
             } else {
               throw new OptionsParsingException(
                   String.format(
@@ -781,7 +812,8 @@ public final class InvocationPolicyEnforcer {
 
         if (!isFlagValueAllowed(convertedPolicyValues, valueDescription.getValue())) {
           if (newValue != null) {
-            logger.info(
+            logger.log(
+                loglevel,
                 String.format(
                     "Overriding disallowed value '%s' for flag '%s' with value '%s' "
                         + "specified by invocation policy. %sed values are: %s",
@@ -793,7 +825,7 @@ public final class InvocationPolicyEnforcer {
             parser.clearValue(option);
             setFlagValue(parser, option, newValue);
           } else if (useDefault) {
-            applyUseDefaultOperation(parser, policyType + "Values", option);
+            applyUseDefaultOperation(parser, policyType + "Values", option, loglevel);
           } else {
             throw new OptionsParsingException(
                 String.format(
@@ -815,4 +847,3 @@ public final class InvocationPolicyEnforcer {
         ImmutableList.of(String.format("--%s=%s", flag.getOptionName(), flagValue)));
   }
 }
-
