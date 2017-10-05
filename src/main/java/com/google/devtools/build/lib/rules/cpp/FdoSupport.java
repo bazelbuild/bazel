@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -36,12 +39,19 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.ZipFileSystem;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
+import java.util.Enumeration;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
 
 /**
  * Support class for FDO (feedback directed optimization) and LIPO (lightweight inter-procedural
@@ -140,12 +150,6 @@ public class FdoSupport {
     /** Instrumentation-based FDO implemented on LLVM. */
     LLVM_FDO,
   }
-
-  /**
-   * Path within profile data .zip files that is considered the root of the
-   * profile information directory tree.
-   */
-  private static final PathFragment ZIP_ROOT = PathFragment.create("/");
 
   /**
    * Returns true if the given fdoFile represents an AutoFdo profile.
@@ -359,21 +363,36 @@ public class FdoSupport {
       } else {
         // Path objects referring to inside the zip file are only valid within this try block.
         // FdoZipContents doesn't reference any of them, so we are fine.
-        try (ZipFileSystem zipFileSystem = new ZipFileSystem(fdoProfile)) {
-          Path zipFilePath = zipFileSystem.getRootDirectory();
-          String outputSymlinkName = productName + "-out";
-          if (!zipFilePath.getRelative(outputSymlinkName).isDirectory()) {
-            throw new ZipException(
-                "FDO zip files must be zipped directly above '"
-                    + outputSymlinkName
-                    + "' for the compiler to find the profile");
+        if (!fdoProfile.exists()) {
+          throw new FileNotFoundException(String.format("File '%s' does not exist", fdoProfile));
+        }
+        File zipIoFile = fdoProfile.getPathFile();
+        File tempFile = null;
+        try {
+          // If it doesn't exist, we're dealing with an in-memory fs for testing
+          // Copy the file and delete later
+          if (!zipIoFile.exists()) {
+            tempFile = File.createTempFile("bazel.test.", ".tmp");
+            zipIoFile = tempFile;
+            byte[] contents = FileSystemUtils.readContent(fdoProfile);
+            try (OutputStream os = new FileOutputStream(tempFile)) {
+              os.write(contents);
+            }
           }
-          ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
-          ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
-              ImmutableMultimap.builder();
-          extractFdoZipDirectory(zipFilePath, fdoDirPath, gcdaFilesBuilder, importsBuilder);
-          gcdaFiles = gcdaFilesBuilder.build();
-          imports = importsBuilder.build();
+          try (ZipFile zipFile = new ZipFile(zipIoFile)) {
+            String outputSymlinkName = productName + "-out";
+            ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
+            ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
+                ImmutableMultimap.builder();
+            extractFdoZipDirectory(
+                zipFile, fdoDirPath, outputSymlinkName, gcdaFilesBuilder, importsBuilder);
+            gcdaFiles = gcdaFilesBuilder.build();
+            imports = importsBuilder.build();
+          }
+        } finally {
+          if (tempFile != null) {
+            tempFile.delete();
+          }
         }
       }
     }
@@ -382,65 +401,95 @@ public class FdoSupport {
   }
 
   /**
-   * Recursively extracts a directory from the GCDA ZIP file into a target
-   * directory.
+   * Recursively extracts a directory from the GCDA ZIP file into a target directory.
    *
-   * <p>Imports files are not written to disk. Their content is directly added
-   * to an internal data structure.
+   * <p>Imports files are not written to disk. Their content is directly added to an internal data
+   * structure.
    *
-   * <p>The files are written at $EXECROOT/blaze-fdo/_fdo/(base name of profile zip), and the
-   * {@code _fdo} directory there is symlinked to from the exec root, so that the file are also
-   * available at $EXECROOT/_fdo/..., which is their exec path. We need to jump through these
-   * hoops because the FDO root 1. needs to be a source root, thus the exec path of its root is
-   * ".", 2. it must not be equal to the exec root so that the artifact factory does not get
-   * confused, 3. the files under it must be reachable by their exec path from the exec root.
+   * <p>The files are written at $EXECROOT/blaze-fdo/_fdo/(base name of profile zip), and the {@code
+   * _fdo} directory there is symlinked to from the exec root, so that the file are also available
+   * at $EXECROOT/_fdo/..., which is their exec path. We need to jump through these hoops because
+   * the FDO root 1. needs to be a source root, thus the exec path of its root is ".", 2. it must
+   * not be equal to the exec root so that the artifact factory does not get confused, 3. the files
+   * under it must be reachable by their exec path from the exec root.
    *
    * @throws IOException if any of the I/O operations failed
    * @throws FdoException if the FDO ZIP contains a file of unknown type
    */
-  private static void extractFdoZipDirectory(Path sourceDir, Path targetDir,
+  private static void extractFdoZipDirectory(
+      ZipFile zipFile,
+      Path targetDir,
+      String outputSymlinkName,
       ImmutableSet.Builder<PathFragment> gcdaFilesBuilder,
       ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder)
-          throws IOException, FdoException {
-    for (Path sourceFile : sourceDir.getDirectoryEntries()) {
-      Path targetFile = targetDir.getRelative(sourceFile.getBaseName());
-      if (sourceFile.isDirectory()) {
-        targetFile.createDirectory();
-        extractFdoZipDirectory(sourceFile, targetFile, gcdaFilesBuilder, importsBuilder);
-      } else {
-        if (CppFileTypes.COVERAGE_DATA.matches(sourceFile)) {
-          FileSystemUtils.copyFile(sourceFile, targetFile);
-          gcdaFilesBuilder.add(
-              sourceFile.relativeTo(sourceFile.getFileSystem().getRootDirectory()));
-        } else if (CppFileTypes.COVERAGE_DATA_IMPORTS.matches(sourceFile)) {
-          readCoverageImports(sourceFile, importsBuilder);
+      throws IOException, FdoException {
+    Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
+    while (zipEntries.hasMoreElements()) {
+      ZipEntry zipEntry = zipEntries.nextElement();
+      if (zipEntry.isDirectory()) {
+        continue;
+      }
+      String name = zipEntry.getName();
+      if (!name.startsWith(outputSymlinkName)) {
+        throw new ZipException(
+            "FDO zip files must be zipped directly above '"
+                + outputSymlinkName
+                + "' for the compiler to find the profile");
+      }
+      Path targetFile = targetDir.getRelative(name);
+      FileSystemUtils.createDirectoryAndParents(targetFile.getParentDirectory());
+      if (CppFileTypes.COVERAGE_DATA.matches(name)) {
+        try (OutputStream out = targetFile.getOutputStream()) {
+          new ZipByteSource(zipFile, zipEntry).copyTo(out);
         }
+        targetFile.setLastModifiedTime(zipEntry.getTime());
+        targetFile.setWritable(false);
+        targetFile.setExecutable(false);
+        gcdaFilesBuilder.add(PathFragment.create(name));
+      } else if (CppFileTypes.COVERAGE_DATA_IMPORTS.matches(name)) {
+        readCoverageImports(zipFile, zipEntry, importsBuilder);
       }
     }
   }
 
+  private static class ZipByteSource extends ByteSource {
+    final ZipFile zipFile;
+    final ZipEntry zipEntry;
+
+    ZipByteSource(ZipFile zipFile, ZipEntry zipEntry) {
+      this.zipFile = zipFile;
+      this.zipEntry = zipEntry;
+    }
+
+    @Override
+    public InputStream openStream() throws IOException {
+      return zipFile.getInputStream(zipEntry);
+    }
+  }
 
   /**
    * Reads a .gcda.imports file and stores the imports information.
    *
    * @throws FdoException if an auxiliary LIPO input was not found
    */
-  private static void readCoverageImports(Path importsFile,
+  private static void readCoverageImports(
+      ZipFile zipFile,
+      ZipEntry importsFile,
       ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder)
-          throws IOException, FdoException {
-    PathFragment key = importsFile.asFragment().relativeTo(ZIP_ROOT);
+      throws IOException, FdoException {
+    PathFragment key = PathFragment.create(importsFile.getName());
     String baseName = key.getBaseName();
     String ext = Iterables.getOnlyElement(CppFileTypes.COVERAGE_DATA_IMPORTS.getExtensions());
     key = key.replaceName(baseName.substring(0, baseName.length() - ext.length()));
-
-    for (String line : FileSystemUtils.iterateLinesAsLatin1(importsFile)) {
+    for (String line :
+        new ZipByteSource(zipFile, importsFile).asCharSource(ISO_8859_1).readLines()) {
       if (!line.isEmpty()) {
         // We can't yet fully check the validity of a line. this is done later
         // when we actually parse the contained paths.
         PathFragment execPath = PathFragment.create(line);
         if (execPath.isAbsolute()) {
-          throw new FdoException("Absolute paths not allowed in gcda imports file " + importsFile
-              + ": " + execPath);
+          throw new FdoException(
+              "Absolute paths not allowed in gcda imports file " + importsFile + ": " + execPath);
         }
         importsBuilder.put(key, PathFragment.create(line));
       }

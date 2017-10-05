@@ -20,12 +20,9 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnionFileSystem;
-import com.google.devtools.build.lib.vfs.ZipFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
-import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -99,13 +96,5 @@ public final class FileSystems {
       Verify.verify(defaultUnionFileSystem instanceof UnionFileSystem);
     }
     return defaultUnionFileSystem;
-  }
-
-  /**
-   * Returns a new instance of a simple {@link FileSystem} implementation that
-   * presents the contents of a zip file as a read-only file system view.
-   */
-  public static FileSystem getZipFileSystem(Path zipFile) throws IOException {
-    return new ZipFileSystem(zipFile);
   }
 }
