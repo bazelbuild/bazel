@@ -301,3 +301,8 @@ config_setting(
         ":true": "false",
     },
 )
+
+package_group(
+    name = "android_device_whitelist",
+    packages = ["//..."],
+)

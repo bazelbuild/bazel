@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -60,6 +61,8 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       Template.forResource(AndroidDevice.class, "android_device_stub_template.txt");
 
   private static final String DEVICE_BROKER_TYPE = "WRAPPED_EMULATOR";
+
+  static final String WHITELIST_NAME = "android_device";
 
   // Min resolution
   private static final int MIN_HORIZONTAL = 240;
@@ -82,6 +85,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    checkWhitelist(ruleContext);
     Artifact executable = ruleContext.createOutputArtifact();
     Artifact metadata = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.ANDROID_DEVICE_EMULATOR_METADATA);
@@ -129,6 +133,12 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .addProvider(
             DeviceBrokerTypeProvider.class, new DeviceBrokerTypeProvider(DEVICE_BROKER_TYPE))
         .build();
+  }
+
+  private static void checkWhitelist(RuleContext ruleContext) throws RuleErrorException {
+    if (!Whitelist.isAvailable(ruleContext, WHITELIST_NAME)) {
+      ruleContext.throwWithRuleError("The android_device rule may not be used in this package");
+    }
   }
 
   /**

@@ -254,6 +254,7 @@ java_test(
     srcs = ["AndroidDeviceTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
