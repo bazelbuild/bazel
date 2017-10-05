@@ -214,6 +214,58 @@ function test_allow_custom_manifest_name() {
     "Failed to build android_binary with custom Android manifest file name"
 }
 
+function test_proguard() {
+  create_new_workspace
+  setup_android_sdk_support
+  mkdir -p java/com/bin
+  cat > java/com/bin/BUILD <<EOF
+android_binary(
+  name = 'bin',
+  srcs = ['Bin.java', 'NotUsed.java'],
+  manifest = 'AndroidManifest.xml',
+  proguard_specs = ['proguard.config'],
+  deps = [':lib'],
+)
+android_library(
+  name = 'lib',
+  srcs = ['Lib.java'],
+)
+EOF
+  cat > java/com/bin/AndroidManifest.xml <<EOF
+<manifest package='com.bin' />
+EOF
+  cat > java/com/bin/Bin.java <<EOF
+package com.bin;
+public class Bin {
+  public Lib getLib() {
+    return new Lib();
+  }
+}
+EOF
+  cat > java/com/bin/NotUsed.java <<EOF
+package com.bin;
+public class NotUsed {}
+EOF
+  cat > java/com/bin/Lib.java <<EOF
+package com.bin;
+public class Lib {}
+EOF
+  cat > java/com/bin/proguard.config <<EOF
+-keep public class com.bin.Bin {
+  public *;
+}
+EOF
+  assert_build //java/com/bin
+  output_classes=$(zipinfo -1 bazel-bin/java/com/bin/bin_proguard.jar)
+  assert_equals 3 $(wc -w <<< $output_classes)
+  assert_one_of $output_classes "META-INF/MANIFEST.MF"
+  assert_one_of $output_classes "com/bin/Bin.class"
+  # Not kept by proguard
+  assert_not_one_of $output_classes "com/bin/Unused.class"
+  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/Lib.class"
+}
+
 if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0

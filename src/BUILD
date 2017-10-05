@@ -145,6 +145,7 @@ py_binary(
         "//third_party/java/j2objc:embedded_tools_srcs",
         "//third_party/java/jarjar:embedded_tools_srcs",
         "//third_party/java/jdk/langtools:test-srcs",
+        "//third_party/java/proguard:embedded_tools",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/six:srcs",

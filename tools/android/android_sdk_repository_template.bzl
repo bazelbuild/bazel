@@ -96,7 +96,7 @@ def create_android_sdk_rules(
     native.android_sdk(
         name = "sdk-%d" % api_level,
         build_tools_version = build_tools_version,
-        proguard = ":proguard_binary",
+        proguard = "@bazel_tools//third_party/java/proguard",
         aapt = select({
             ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
             ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
@@ -139,17 +139,6 @@ def create_android_sdk_rules(
   native.alias(
       name = "sdk",
       actual = ":sdk-%d" % default_api_level,
-  )
-
-  native.java_import(
-      name = "proguard_import",
-      jars = ["tools/proguard/lib/proguard.jar"]
-  )
-
-  native.java_binary(
-      name = "proguard_binary",
-      main_class = "proguard.ProGuard",
-      runtime_deps = [":proguard_import"]
   )
 
   native.java_binary(

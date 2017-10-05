@@ -521,6 +521,24 @@ function assert_one_of() {
     return 1
 }
 
+# Usage: assert_not_one_of <expected_list>... <actual>
+# Asserts that actual is not one of the items in expected_list
+# Example: assert_not_one_of ( "foo", "bar", "baz" ) actualval
+function assert_not_one_of() {
+    local args=("$@")
+    local last_arg_index=$((${#args[@]} - 1))
+    local actual=${args[last_arg_index]}
+    unset args[last_arg_index]
+    for expected_item in "${args[@]}"; do
+      if [ "$expected_item" = "$actual" ]; then
+        fail "'${args[@]}' contains '$actual'"
+        return 1
+      fi
+    done;
+
+    return 0
+}
+
 # Usage: assert_equals <expected> <actual>
 # Asserts [ expected = actual ].
 function assert_equals() {
