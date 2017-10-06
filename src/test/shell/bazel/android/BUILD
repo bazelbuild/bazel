@@ -39,6 +39,16 @@ sh_test(
 )
 
 sh_test(
+    name = "aidl_integration_test",
+    size = "large",
+    srcs = ["aidl_integration_test.sh"],
+    data = [
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+)
+
+sh_test(
     name = "desugarer_integration_test",
     size = "large",
     srcs = ["desugarer_integration_test.sh"],
