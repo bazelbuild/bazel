@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Locale;
@@ -60,11 +63,28 @@ public class BazelJavaCompiler {
 
   private static final Class<? extends JavaCompiler> JAVA_COMPILER_CLASS = getJavaCompilerClass();
 
+  private static class LangtoolsClassLoader extends URLClassLoader {
+
+    public LangtoolsClassLoader() throws MalformedURLException {
+      super(
+          new URL[] {getLangtoolsJar().toURI().toURL()},
+          // We use the bootstrap classloader (null) as the parent classloader
+          // instead of the default "system" class loader; we intentionally do
+          // not consult the classpath. This way the class path is not
+          // polluted, we reduce the risk of having multiple langtools on the
+          // classpath, and langtools.jar is only opened if this method is
+          // called.  And this will reduce problems for automated java
+          // dependency analysis, which other teams are trying to do.
+          null);
+    }
+  }
+
   private static Class<? extends JavaCompiler> getJavaCompilerClass() {
     try {
-      return getJavaCompilerClass(BazelJavaCompiler.class.getClassLoader());
+      ClassLoader cl = new LangtoolsClassLoader();
+      return getJavaCompilerClass(cl);
     } catch (Exception e) {
-      throw new LinkageError("Cannot get Java compiler", e);
+      throw new RuntimeException("Cannot get java compiler", e);
     }
   }
 
