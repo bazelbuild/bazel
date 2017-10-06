@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,9 +59,7 @@ public class Eval {
 
   void execIfBranch(IfStatement.ConditionalStatements node)
       throws EvalException, InterruptedException {
-    for (Statement stmt : node.getStatements()) {
-      exec(stmt);
-    }
+    execStatements(node.getStatements());
   }
 
   void execFor(ForStatement node) throws EvalException, InterruptedException {
@@ -72,9 +71,7 @@ public class Eval {
         node.getVariable().assign(it, env, node.getLocation());
 
         try {
-          for (Statement stmt : node.getBlock()) {
-            exec(stmt);
-          }
+          execStatements(node.getBlock());
         } catch (FlowException ex) {
           if (ex == breakException) {
             return;
@@ -123,9 +120,7 @@ public class Eval {
         return;
       }
     }
-    for (Statement stmt : node.getElseBlock()) {
-      exec(stmt);
-    }
+    execStatements(node.getElseBlock());
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
@@ -214,6 +209,14 @@ public class Eval {
       case RETURN:
         execReturn((ReturnStatement) st);
         break;
+    }
+  }
+
+  private void execStatements(ImmutableList<Statement> statements)
+      throws EvalException, InterruptedException {
+    // Hot code path, good chance of short lists which don't justify the iterator overhead.
+    for (int i = 0; i < statements.size(); i++) {
+      exec(statements.get(i));
     }
   }
 }

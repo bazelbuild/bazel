@@ -192,11 +192,11 @@ public final class FuncallExpression extends Expression {
 
   private final Expression function;
 
-  private final List<Argument.Passed> arguments;
+  private final ImmutableList<Argument.Passed> arguments;
 
   private final int numPositionalArgs;
 
-  public FuncallExpression(Expression function, List<Argument.Passed> arguments) {
+  public FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
     this.function = Preconditions.checkNotNull(function);
     this.arguments = Preconditions.checkNotNull(arguments);
     this.numPositionalArgs = countPositionalArguments();
@@ -679,7 +679,10 @@ public final class FuncallExpression extends Expression {
     // or star arguments, because the argument list was already validated by
     // Argument#validateFuncallArguments, as called by the Parser,
     // which should be the only place that build FuncallExpression-s.
-    for (Argument.Passed arg : arguments) {
+    // Argument lists are typically short and functions are frequently called, so go by index
+    // (O(1) for ImmutableList) to avoid the iterator overhead.
+    for (int i = 0; i < arguments.size(); i++) {
+      Argument.Passed arg = arguments.get(i);
       Object value = arg.getValue().eval(env);
       if (arg.isPositional()) {
         posargs.add(value);
