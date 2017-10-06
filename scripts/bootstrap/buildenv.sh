@@ -129,11 +129,6 @@ function atexit() {
   ATEXIT_HANDLERS="${ATEXIT_HANDLERS} ${handler}"
 }
 
-function restore_saved_path() {
-  export PATH=$BAZEL_OLD_PATH
-  export BAZEL_OLD_PATH=
-}
-
 # Exit routine to run all registered atexit handlers.
 #
 # If the program exited with an error, this exit routine will also exit with the
@@ -183,7 +178,6 @@ function cleanup_phasefile() {
 }
 
 atexit cleanup_phasefile
-atexit restore_saved_path
 
 # Excutes a command respecting the current verbosity settings.
 #
