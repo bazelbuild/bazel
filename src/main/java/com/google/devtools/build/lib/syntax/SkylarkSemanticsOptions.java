@@ -19,21 +19,15 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.UsesOnlyCoreTypes;
 import java.io.Serializable;
 
 /**
  * Contains options that affect Skylark's semantics.
  *
- * <p>These are injected into Skyframe when a new build invocation occurs. Changing these options
- * between builds will trigger a reevaluation of everything that depends on the Skylark interpreter
- * &mdash; in particular, processing BUILD and .bzl files.
- *
- * <p>Because these options are stored in Skyframe, they must be immutable and serializable, and so
- * are subject to the restrictions of {@link UsesOnlyCoreTypes}: No {@link Option#allowMultiple}
- * options, and no options with types not handled by the default converters. (Technically all
- * options classes are mutable because their fields are public and non-final, but we assume no one
- * is manipulating these fields by the time parsing is complete.)
+ * <p>These are injected into Skyframe (as an instance of {@link SkylarkSemantics}) when a new build
+ * invocation occurs. Changing these options between builds will therefore trigger a reevaluation of
+ * everything that depends on the Skylark interpreter &mdash; in particular, evaluation of all BUILD
+ * and .bzl files.
  *
  * <p><em>To add a new option, update the following:</em>
  * <ul>
@@ -60,10 +54,6 @@ import java.io.Serializable;
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
-// TODO(brandjon): Do not store these options in Skyframe. Instead store SkylarkSemantics objects.
-// Eliminate use of UsesOnlyCoreTypes, and then we can remove UsesOnlyCoreTypes from the options
-// parser entirely.
-@UsesOnlyCoreTypes
 public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
 
   // <== Add new options here in alphabetic order ==>

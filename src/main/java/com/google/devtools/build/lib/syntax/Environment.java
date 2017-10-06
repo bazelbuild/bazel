@@ -650,12 +650,6 @@ public final class Environment implements Freezable {
       return this;
     }
 
-    // TODO(brandjon): Remove this overload.
-    public Builder setSemantics(SkylarkSemanticsOptions semantics) {
-      this.semantics = semantics.toSkylarkSemantics();
-      return this;
-    }
-
     public Builder setSemantics(SkylarkSemantics semantics) {
       this.semantics = semantics;
       return this;

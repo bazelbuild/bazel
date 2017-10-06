@@ -713,7 +713,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private void setSkylarkSemantics(SkylarkSemanticsOptions skylarkSemanticsOptions) {
-    PrecomputedValue.SKYLARK_SEMANTICS.set(injectable(), skylarkSemanticsOptions);
+    PrecomputedValue.SKYLARK_SEMANTICS.set(
+        injectable(), skylarkSemanticsOptions.toSkylarkSemantics());
   }
 
   public void injectExtraPrecomputedValues(

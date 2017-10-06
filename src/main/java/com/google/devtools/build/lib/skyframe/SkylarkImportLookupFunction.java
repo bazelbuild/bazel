@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,7 +122,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
-    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
     if (skylarkSemantics == null) {
       return null;
     }
@@ -369,7 +369,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       BuildFileAST ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       Environment env,
       boolean inWorkspace)
       throws SkylarkImportFailedException, InterruptedException {
@@ -385,7 +385,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               .createSkylarkRuleClassEnvironment(
                   extensionLabel, mutability, skylarkSemantics,
                   eventHandler, ast.getContentHashCode(), importMap);
-      if (!skylarkSemantics.internalDoNotExportBuiltins) {
+      if (!skylarkSemantics.internalDoNotExportBuiltins()) {
         extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
       }
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);

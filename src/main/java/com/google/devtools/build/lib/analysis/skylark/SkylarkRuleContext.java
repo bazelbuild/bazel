@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -199,19 +198,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
    *        if it is for a rule.
    * @throws InterruptedException
    */
-  // TODO(brandjon): Take in SkylarkSemantics instead of SkylarkSemanticsOptions.
   public SkylarkRuleContext(RuleContext ruleContext,
       @Nullable AspectDescriptor aspectDescriptor,
-      SkylarkSemanticsOptions skylarkSemantics)
+      SkylarkSemantics skylarkSemantics)
       throws EvalException, InterruptedException {
-    this.actionFactory = new SkylarkActionFactory(
-        this, skylarkSemantics.toSkylarkSemantics(), ruleContext);
+    this.actionFactory = new SkylarkActionFactory(this, skylarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
     this.aspectDescriptor = aspectDescriptor;
-    this.skylarkSemantics = skylarkSemantics.toSkylarkSemantics();
+    this.skylarkSemantics = skylarkSemantics;
 
     if (aspectDescriptor == null) {
       this.isForAspect = false;

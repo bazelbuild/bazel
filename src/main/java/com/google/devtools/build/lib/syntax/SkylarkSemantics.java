@@ -29,6 +29,15 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class SkylarkSemantics {
 
+  /**
+   * The AutoValue-generated concrete class implementing this one.
+   *
+   * <p>AutoValue implementation classes are usually package-private. We expose it here for the
+   * benefit of code that relies on reflection.
+   */
+  public static final Class<? extends SkylarkSemantics> IMPL_CLASS =
+      AutoValue_SkylarkSemantics.class;
+
   // <== Add new options here in alphabetic order ==>
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
   public abstract boolean incompatibleCheckedArithmetic();
