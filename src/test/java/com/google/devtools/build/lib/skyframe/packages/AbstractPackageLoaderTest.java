@@ -110,6 +110,19 @@ public abstract class AbstractPackageLoaderTest {
   }
 
   @Test
+  public void loadPackagesToleratesDuplicates() throws Exception {
+    file("good1/BUILD", "sh_library(name = 'good1')");
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
+    ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
+        pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId));
+    assertThat(pkgs.get(pkgId).get().containsErrors()).isFalse();
+    assertThat(pkgs.get(pkgId).get().getTarget("good1").getAssociatedRule().getRuleClass())
+        .isEqualTo("sh_library");
+    assertNoEvents(pkgs.get(pkgId).get().getEvents());
+    assertNoEvents(handler.getEvents());
+  }
+
+  @Test
   public void simpleGoodPackage_Skylark() throws Exception {
     file("good/good.bzl",
         "def f(x):",
