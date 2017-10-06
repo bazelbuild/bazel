@@ -114,6 +114,12 @@ public class DesugarJava8FunctionalTest extends DesugarFunctionalTest {
   }
 
   @Test
+  public void testBootclasspathMethodInvocations() {
+    InterfaceMethod concrete = new InterfaceMethod.Concrete();
+    assertThat(concrete.defaultInvokingBootclasspathMethods("Larry")).isEqualTo("Larry");
+  }
+
+  @Test
   public void testStaticMethodsInInterface_explicitAndLambdaBody() {
     List<Long> result = FunctionWithDefaultMethod.DoubleInts.add(ImmutableList.of(7, 39, 8), 3);
     assertThat(result).containsExactly(10L, 42L, 11L).inOrder();

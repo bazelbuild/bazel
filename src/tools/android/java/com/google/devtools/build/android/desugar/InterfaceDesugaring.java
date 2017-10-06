@@ -341,14 +341,13 @@ class InterfaceDesugaring extends ClassVisitor {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       // Assume that any static interface methods on the classpath are moved
-      if (itf || owner.equals(interfaceName)) {
+      if ((itf || owner.equals(interfaceName)) && !bootclasspath.isKnown(owner)) {
         boolean isLambda = name.startsWith("lambda$");
         name = normalizeInterfaceMethodName(name, isLambda, opcode == Opcodes.INVOKESTATIC);
         if (isLambda) {
           // Redirect lambda invocations to completely remove all lambda methods from interfaces.
           checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
               "shouldn't consider %s an interface", owner);
-          checkArgument(!bootclasspath.isKnown(owner)); // must be in current input
           if (opcode == Opcodes.INVOKEINTERFACE) {
             opcode = Opcodes.INVOKESTATIC;
             desc = companionDefaultMethodDescriptor(owner, desc);
@@ -370,8 +369,7 @@ class InterfaceDesugaring extends ClassVisitor {
               name,
               expectedLambdaMethodName);
           itf = false;
-        } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)
-            && !bootclasspath.isKnown(owner)) {
+        } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
           checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
               "shouldn't consider %s an interface", owner);
           if (opcode == Opcodes.INVOKESPECIAL) {

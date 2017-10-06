@@ -378,7 +378,7 @@ class Desugar {
           interfaceLambdaMethodCollector.build(),
           bridgeMethodReader);
 
-      desugarAndWriteGeneratedClasses(outputFileProvider);
+      desugarAndWriteGeneratedClasses(outputFileProvider, bootclasspathReader);
       copyThrowableExtensionClass(outputFileProvider);
 
       byte[] depsInfo = depsCollector.toByteArray();
@@ -535,7 +535,8 @@ class Desugar {
     }
   }
 
-  private void desugarAndWriteGeneratedClasses(OutputFileProvider outputFileProvider)
+  private void desugarAndWriteGeneratedClasses(
+      OutputFileProvider outputFileProvider, ClassReaderFactory bootclasspathReader)
       throws IOException {
     // Write out any classes we generated along the way
     ImmutableMap<String, ClassNode> generatedClasses = store.drain();
@@ -547,7 +548,8 @@ class Desugar {
       UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
       // checkState above implies that we want Java 7 .class files, so send through that visitor.
       // Don't need a ClassReaderFactory b/c static interface methods should've been moved.
-      ClassVisitor visitor = new Java7Compatibility(writer, (ClassReaderFactory) null);
+      ClassVisitor visitor =
+          new Java7Compatibility(writer, (ClassReaderFactory) null, bootclasspathReader);
       generated.getValue().accept(visitor);
       String filename = rewriter.unprefix(generated.getKey()) + ".class";
       outputFileProvider.write(filename, writer.toByteArray());
@@ -583,7 +585,7 @@ class Desugar {
     }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
-      visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
+      visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       if (options.desugarInterfaceMethodBodiesIfNeeded) {
         visitor =
             new DefaultMethodClassFixer(
@@ -637,7 +639,7 @@ class Desugar {
     }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
-        visitor = new Java7Compatibility(visitor, classpathReader);
+        visitor = new Java7Compatibility(visitor, classpathReader, bootclasspathReader);
         if (options.desugarInterfaceMethodBodiesIfNeeded) {
           visitor =
               new DefaultMethodClassFixer(
