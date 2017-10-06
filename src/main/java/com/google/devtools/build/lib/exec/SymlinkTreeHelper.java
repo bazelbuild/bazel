@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Helper class responsible for the symlink tree creation.
@@ -96,18 +99,19 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates symlink tree using appropriate method. At this time tree
-   * always created using build-runfiles helper application.
+   * Creates symlink tree using appropriate method. At this time tree always created using
+   * build-runfiles helper application.
    *
-   * Note: method may try to acquire resources - meaning that it would
-   * block for undetermined period of time. If it is interrupted during
-   * that wait, ExecException will be thrown but interrupted bit will be
-   * preserved.
+   * <p>Note: method may try to acquire resources - meaning that it would block for undetermined
+   * period of time. If it is interrupted during that wait, ExecException will be thrown but
+   * interrupted bit will be preserved.
+   *
    * @param action action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
    * @param enableRunfiles
+   * @return a set of SpawnResults created during symlink creation, if any
    */
-  public void createSymlinks(
+  public Set<SpawnResult> createSymlinks(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
@@ -118,9 +122,11 @@ public final class SymlinkTreeHelper {
       List<String> args =
           getSpawnArgumentList(
               actionExecutionContext.getExecRoot(), binTools);
-      actionExecutionContext.getSpawnActionContext(action.getMnemonic()).exec(
-          new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
-          actionExecutionContext);
+      return actionExecutionContext
+          .getSpawnActionContext(action.getMnemonic())
+          .exec(
+              new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
+              actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
       try {
@@ -129,6 +135,7 @@ public final class SymlinkTreeHelper {
       } catch (IOException e) {
         throw new UserExecException(e.getMessage(), e);
       }
+      return ImmutableSet.of();
     }
   }
 

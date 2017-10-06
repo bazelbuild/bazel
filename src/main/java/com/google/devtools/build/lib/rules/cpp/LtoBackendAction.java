@@ -161,12 +161,6 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    super.execute(actionExecutionContext);
-  }
-
-  @Override
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);

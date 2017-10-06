@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import java.util.Set;
 
 /**
  * Action context for symlink tree actions (an action that creates a tree of symlinks).
@@ -25,8 +27,10 @@ public interface SymlinkTreeActionContext extends ActionContext {
 
   /**
    * Creates the symlink tree.
+   *
+   * @return a set of SpawnResults created during symlink creation, if any
    */
-  void createSymlinks(
+  Set<SpawnResult> createSymlinks(
       SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext,
       ImmutableMap<String, String> shellEnvironment,

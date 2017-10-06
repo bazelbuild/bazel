@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.StandaloneTestResult;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
@@ -76,10 +77,8 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
   }
 
   @Override
-  protected TestResultData executeTest(
-      TestRunnerAction action,
-      Spawn spawn,
-      ActionExecutionContext actionExecutionContext)
+  protected StandaloneTestResult executeTest(
+      TestRunnerAction action, Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
     if (!action.getConfiguration().compatibleWithStrategy("experimental_worker")) {
       throw new UserExecException(
@@ -108,7 +107,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         actionExecutionContext.getExecRoot());
   }
 
-  private TestResultData execInWorker(
+  private StandaloneTestResult execInWorker(
       TestRunnerAction action,
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
@@ -214,7 +213,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         builder.setTestCase(details);
       }
 
-      return builder.build();
+      return StandaloneTestResult.create(ImmutableSet.of(), builder.build());
     } catch (IOException | InterruptedException e) {
       if (worker != null) {
         workerPool.invalidateObject(key, worker);

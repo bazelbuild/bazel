@@ -1164,8 +1164,12 @@ public class CppCompileAction extends AbstractAction
       actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
     try {
-      reply = actionExecutionContext.getContext(actionContext)
-          .execWithReply(this, actionExecutionContext);
+      CppCompileActionResult cppCompileActionResult =
+          actionExecutionContext
+              .getContext(actionContext)
+              .execWithReply(this, actionExecutionContext);
+      // TODO(b/62588075) Save spawnResults from cppCompileActionResult and return them upwards.
+      reply = cppCompileActionResult.contextReply();
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "C++ compilation of rule '" + getOwner().getLabel() + "'",

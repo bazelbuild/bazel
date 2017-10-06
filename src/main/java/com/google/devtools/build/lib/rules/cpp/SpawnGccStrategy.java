@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
+import java.util.Set;
 
 /**
  * A context for C++ compilation that calls into a {@link SpawnActionContext}.
@@ -45,7 +47,7 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   }
 
   @Override
-  public CppCompileActionContext.Reply execWithReply(
+  public CppCompileActionResult execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (action.getDotdFile() != null && action.getDotdFile().artifact() == null) {
@@ -65,9 +67,10 @@ public class SpawnGccStrategy implements CppCompileActionContext {
         action.getOutputs().asList(),
         action.estimateResourceConsumptionLocal());
 
-    actionExecutionContext
-        .getSpawnActionContext(action.getMnemonic())
-        .exec(spawn, actionExecutionContext);
-    return null;
+    Set<SpawnResult> spawnResults =
+        actionExecutionContext
+            .getSpawnActionContext(action.getMnemonic())
+            .exec(spawn, actionExecutionContext);
+    return CppCompileActionResult.builder().setSpawnResults(spawnResults).build();
   }
 }

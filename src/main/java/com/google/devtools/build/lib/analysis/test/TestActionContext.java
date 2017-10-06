@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * A context for the execution of test actions ({@link TestRunnerAction}).
@@ -26,11 +28,13 @@ import java.io.IOException;
 public interface TestActionContext extends ActionContext {
 
   /**
-   * Executes the test command, directing standard out / err to {@code outErr}.  The status of
-   * the test should be communicated by posting a {@link TestResult} object to the eventbus.
+   * Executes the test command, directing standard out / err to {@code outErr}. The status of the
+   * test should be communicated by posting a {@link TestResult} object to the eventbus.
+   *
+   * @return a set of SpawnResults created during execution of the test command, if any
    */
-  void exec(TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
+  Set<SpawnResult> exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException;
 
   /**
    * Creates a cached test result.

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -40,7 +43,8 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   }
 
   @Override
-  public void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
+  public Set<SpawnResult> exec(
+      AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
@@ -60,5 +64,6 @@ public final class FileWriteStrategy implements FileWriteActionContext {
             + "' due to I/O error: " + e.getMessage(), e);
       }
     }
+    return ImmutableSet.of();
   }
 }

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import java.util.Set;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of
@@ -25,7 +27,10 @@ public interface FileWriteActionContext extends ActionContext {
 
   /**
    * Performs all the setup and then calls back into the action to write the data.
+   *
+   * @return a set of SpawnResults created during execution, if any
    */
-  void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
+  Set<SpawnResult> exec(
+      AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 }
