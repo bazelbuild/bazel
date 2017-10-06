@@ -289,8 +289,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        # TODO(brandjon): Remove dependency of syntax/ on the options parser.
-        "//src/main/java/com/google/devtools/common/options",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-util",
