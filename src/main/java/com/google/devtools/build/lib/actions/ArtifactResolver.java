@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -76,4 +77,6 @@ public interface ArtifactResolver {
   @Nullable
   Map<PathFragment, Artifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException;
+
+  Path getPathFromSourceExecPath(PathFragment execPath);
 }

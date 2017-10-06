@@ -653,6 +653,11 @@ public final class ActionsTestUtil {
         Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public Path getPathFromSourceExecPath(PathFragment execPath) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**

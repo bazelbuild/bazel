@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, ArtifactDeserializer {
 
+  private final Path execRoot;
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
 
@@ -116,16 +117,16 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       pathToSourceArtifact.put(execPath, new Entry(artifact));
     }
   }
-  
+
   /**
-   * Constructs a new artifact factory that will use a given execution root when
-   * creating artifacts.
+   * Constructs a new artifact factory that will use a given execution root when creating artifacts.
    *
-   * @param execRootParent the execution root Path to use. This will be [output_base]/execroot if
-   * deep_execroot is set, [output_base] otherwise.
+   * @param execRoot the execution root Path to use. This will be
+   *     [output_base]/execroot/[workspace].
    */
-  public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
-    this.execRootParent = execRootParent;
+  public ArtifactFactory(Path execRoot, String derivedPathPrefix) {
+    this.execRoot = execRoot;
+    this.execRootParent = execRoot.getParentDirectory();
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -393,6 +394,18 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       result.put(path, createArtifactIfNotValid(sourceRoots.get(path), path));
     }
     return result;
+  }
+
+  @Override
+  public Path getPathFromSourceExecPath(PathFragment execPath) {
+    Preconditions.checkState(
+        !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
+    Root sourceRoot =
+        packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
+    if (sourceRoot != null) {
+      return sourceRoot.getPath().getRelative(execPath);
+    }
+    return execRoot.getRelative(execPath);
   }
 
   private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
