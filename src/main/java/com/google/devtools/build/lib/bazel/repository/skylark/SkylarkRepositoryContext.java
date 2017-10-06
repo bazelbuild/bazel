@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -448,7 +449,7 @@ public class SkylarkRepositoryContext {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
         Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
-        if (path.exists() && path.isExecutable()) {
+        if (path.exists() && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
           return new SkylarkPath(path);
         }
       }
