@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,8 +30,7 @@ import sun.misc.Unsafe;
  * still handle UTF-8, though less efficiently than {@link StringCodec}. Should be used when the
  * majority of the data passing through will be ascii.
  */
-public class FastStringCodec implements ObjectCodec<String> {
-  public static final FastStringCodec INSTANCE = new FastStringCodec();
+class FastStringCodec implements ObjectCodec<String> {
 
   private static final Unsafe theUnsafe;
   private static final long STRING_VALUE_OFFSET;

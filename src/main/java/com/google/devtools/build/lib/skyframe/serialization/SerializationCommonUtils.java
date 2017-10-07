@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -24,7 +25,7 @@ import java.io.IOException;
 /** Common utilities for serialization. */
 public class SerializationCommonUtils {
   public static final ImmutableListCodec<String> STRING_LIST_CODEC =
-      new ImmutableListCodec<>(FastStringCodec.INSTANCE);
+      new ImmutableListCodec<>(StringCodecs.asciiOptimized());
   private static final ByteString DEFAULT_REPOSITORY =
       ByteString.copyFromUtf8(RepositoryName.DEFAULT.getName());
   private static final ByteString MAIN_REPOSITORY =

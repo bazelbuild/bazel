@@ -19,6 +19,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -125,7 +126,8 @@ public final class ServerDirectories {
         && this.outputBase.equals(that.outputBase);
   }
 
-  void serialize(CodedOutputStream out, PathCodec pathCodec) throws IOException {
+  void serialize(CodedOutputStream out, PathCodec pathCodec)
+      throws IOException, SerializationException {
     pathCodec.serialize(installBase, out);
     out.writeBoolNoTag(installMD5 != null);
     if (installMD5 != null) {
@@ -135,7 +137,7 @@ public final class ServerDirectories {
   }
 
   static ServerDirectories deserialize(CodedInputStream in, PathCodec pathCodec)
-      throws IOException {
+      throws IOException, SerializationException {
     Path installBase = pathCodec.deserialize(in);
     HashCode installMd5 = null;
     if (in.readBool()) {

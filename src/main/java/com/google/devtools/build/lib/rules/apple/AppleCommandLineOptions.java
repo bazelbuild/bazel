@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LabelCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -517,7 +517,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   void serialize(CodedOutputStream out) throws IOException, SerializationException {
     out.writeBoolNoTag(mandatoryMinimumVersion);
     out.writeBoolNoTag(objcProviderFromLinked);
-    serializeNullable(xcodeVersion, out, FastStringCodec.INSTANCE);
+    serializeNullable(xcodeVersion, out, StringCodecs.asciiOptimized());
     serializeNullable(iosSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(watchOsSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(tvOsSdkVersion, out, DottedVersion.CODEC);
@@ -526,10 +526,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
     serializeNullable(watchosMinimumOs, out, DottedVersion.CODEC);
     serializeNullable(tvosMinimumOs, out, DottedVersion.CODEC);
     serializeNullable(macosMinimumOs, out, DottedVersion.CODEC);
-    FastStringCodec.INSTANCE.serialize(iosCpu, out);
+    StringCodecs.asciiOptimized().serialize(iosCpu, out);
     LabelCodec.INSTANCE.serialize(appleCrosstoolTop, out);
     PlatformType.CODEC.serialize(applePlatformType, out);
-    FastStringCodec.INSTANCE.serialize(appleSplitCpu, out);
+    StringCodecs.asciiOptimized().serialize(appleSplitCpu, out);
     ConfigurationDistinguisher.CODEC.serialize(configurationDistinguisher, out);
     STRING_LIST_CODEC.serialize((ImmutableList<String>) iosMultiCpus, out);
     STRING_LIST_CODEC.serialize((ImmutableList<String>) watchosCpus, out);
@@ -537,7 +537,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     STRING_LIST_CODEC.serialize((ImmutableList<String>) macosCpus, out);
     LabelCodec.INSTANCE.serialize(defaultProvisioningProfile, out);
     LabelCodec.INSTANCE.serialize(xcodeVersionConfig, out);
-    serializeNullable(xcodeToolchain, out, FastStringCodec.INSTANCE);
+    serializeNullable(xcodeToolchain, out, StringCodecs.asciiOptimized());
     AppleBitcodeMode.CODEC.serialize(appleBitcodeMode, out);
     out.writeBoolNoTag(enableAppleCrosstoolTransition);
     out.writeBoolNoTag(targetUsesAppleCrosstool);
@@ -548,7 +548,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     AppleCommandLineOptions result = new AppleCommandLineOptions();
     result.mandatoryMinimumVersion = in.readBool();
     result.objcProviderFromLinked = in.readBool();
-    result.xcodeVersion = deserializeNullable(in, FastStringCodec.INSTANCE);
+    result.xcodeVersion = deserializeNullable(in, StringCodecs.asciiOptimized());
     result.iosSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.watchOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.tvOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
@@ -557,10 +557,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
     result.watchosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
     result.tvosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
     result.macosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
-    result.iosCpu = FastStringCodec.INSTANCE.deserialize(in);
+    result.iosCpu = StringCodecs.asciiOptimized().deserialize(in);
     result.appleCrosstoolTop = LabelCodec.INSTANCE.deserialize(in);
     result.applePlatformType = PlatformType.CODEC.deserialize(in);
-    result.appleSplitCpu = FastStringCodec.INSTANCE.deserialize(in);
+    result.appleSplitCpu = StringCodecs.asciiOptimized().deserialize(in);
     result.configurationDistinguisher = ConfigurationDistinguisher.CODEC.deserialize(in);
     result.iosMultiCpus = STRING_LIST_CODEC.deserialize(in);
     result.watchosCpus = STRING_LIST_CODEC.deserialize(in);
@@ -568,7 +568,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     result.macosCpus = STRING_LIST_CODEC.deserialize(in);
     result.defaultProvisioningProfile = LabelCodec.INSTANCE.deserialize(in);
     result.xcodeVersionConfig = LabelCodec.INSTANCE.deserialize(in);
-    result.xcodeToolchain = deserializeNullable(in, FastStringCodec.INSTANCE);
+    result.xcodeToolchain = deserializeNullable(in, StringCodecs.asciiOptimized());
     result.appleBitcodeMode = AppleBitcodeMode.CODEC.deserialize(in);
     result.enableAppleCrosstoolTransition = in.readBool();
     result.targetUsesAppleCrosstool = in.readBool();

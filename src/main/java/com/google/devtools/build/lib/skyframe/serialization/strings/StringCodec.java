@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Dead-simple serialization for {@link String}s. */
-public class StringCodec implements ObjectCodec<String> {
+class StringCodec implements ObjectCodec<String> {
 
   @Override
   public Class<String> getEncodedClass() {

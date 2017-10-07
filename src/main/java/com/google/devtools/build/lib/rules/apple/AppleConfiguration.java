@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -740,7 +740,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   static AppleConfiguration deserialize(CodedInputStream in)
       throws IOException, SerializationException {
     AppleCommandLineOptions options = AppleCommandLineOptions.deserialize(in);
-    String iosCpu = FastStringCodec.INSTANCE.deserialize(in);
+    String iosCpu = StringCodecs.asciiOptimized().deserialize(in);
     DottedVersion xcodeVersion = deserializeNullable(in, DottedVersion.CODEC);
     return new AppleConfiguration(
         options,

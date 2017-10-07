@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -22,7 +23,7 @@ import java.io.IOException;
 /** Custom serialization for {@link PathFragment}s. */
 class PathFragmentCodec implements ObjectCodec<PathFragment> {
 
-  private final FastStringCodec stringCodec = new FastStringCodec();
+  private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
 
   @Override
   public Class<PathFragment> getEncodedClass() {
@@ -30,7 +31,8 @@ class PathFragmentCodec implements ObjectCodec<PathFragment> {
   }
 
   @Override
-  public void serialize(PathFragment pathFragment, CodedOutputStream codedOut) throws IOException {
+  public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
     codedOut.writeInt32NoTag(pathFragment.getDriveLetter());
     codedOut.writeBoolNoTag(pathFragment.isAbsolute());
     codedOut.writeInt32NoTag(pathFragment.segmentCount());
@@ -40,7 +42,8 @@ class PathFragmentCodec implements ObjectCodec<PathFragment> {
   }
 
   @Override
-  public PathFragment deserialize(CodedInputStream codedIn) throws IOException {
+  public PathFragment deserialize(CodedInputStream codedIn)
+      throws IOException, SerializationException {
     char driveLetter = (char) codedIn.readInt32();
     boolean isAbsolute = codedIn.readBool();
     int segmentCount = codedIn.readInt32();

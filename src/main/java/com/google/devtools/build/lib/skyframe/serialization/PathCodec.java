@@ -40,7 +40,8 @@ public class PathCodec implements ObjectCodec<Path> {
   }
 
   @Override
-  public void serialize(Path path, CodedOutputStream codedOut) throws IOException {
+  public void serialize(Path path, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
     Preconditions.checkState(
         path.getFileSystem() == fileSystem,
         "Path's FileSystem (%s) did not match the configured FileSystem (%s)",
@@ -50,7 +51,8 @@ public class PathCodec implements ObjectCodec<Path> {
   }
 
   @Override
-  public Path deserialize(CodedInputStream codedIn) throws IOException {
+  public Path deserialize(CodedInputStream codedIn)
+      throws IOException, SerializationException {
     PathFragment pathFragment = pathFragmentCodec.deserialize(codedIn);
     return fileSystem.getPath(pathFragment);
   }
