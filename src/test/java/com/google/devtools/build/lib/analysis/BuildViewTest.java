@@ -42,11 +42,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,15 +51,12 @@ import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -816,23 +810,20 @@ public class BuildViewTest extends BuildViewTestBase {
   /**
    * Regression test for bug when a configured target has missing deps, but also depends
    * transitively on an error. We build //foo:query, which depends on a valid and an invalid target
-   * pattern. We ensure that by the time it requests its dependent target patterns, the invalid one
-   * is ready, and throws (though not before the request is registered). Then, when bubbling the
-   * invalid target pattern error up, we ensure that it bubbles into //foo:query, which must cope
-   * with the combination of an error and a missing dep.
+   * pattern. We first make sure the invalid target pattern is in the graph, so that it throws when
+   * requested by //foo:query. Then, when bubbling the invalid target pattern error up, //foo:query
+   * must cope with the combination of an error and a missing dep.
    */
   @Test
   public void testGenQueryWithBadTargetAndUnfinishedTarget() throws Exception {
     // The target //foo:zquery is used to force evaluation of //foo:nosuchtarget before the target
     // patterns in //foo:query are enqueued for evaluation. That way, //foo:query will depend on one
     // invalid target pattern and two target patterns that haven't been evaluated yet.
-    // It is important that 'query' come before 'zquery' alphabetically, so that when the error is
-    // bubbling up, it goes to the //foo:query node -- we use a graph implementation in which the
-    // reverse deps of each entry are ordered alphabetically. It is also important that a missing
-    // target pattern is requested before the exception is thrown, so we have both //foo:b and
-    // //foo:z missing from the deps, in the hopes that at least one of them will come before
-    // //foo:nosuchtarget.
-    scratch.file("foo/BUILD",
+    // It is important that a missing target pattern is requested before the exception is thrown, so
+    // we have both //foo:b and //foo:z missing from the deps, in the hopes that at least one of
+    // them will come before //foo:nosuchtarget.
+    scratch.file(
+        "foo/BUILD",
         "genquery(name = 'query',",
         "         expression = 'deps(//foo:b) except //foo:nosuchtarget except //foo:z',",
         "         scope = ['//foo:a'])",
@@ -841,63 +832,24 @@ public class BuildViewTest extends BuildViewTestBase {
         "         scope = ['//foo:a'])",
         "sh_library(name = 'a')",
         "sh_library(name = 'b')",
-        "sh_library(name = 'z')"
-    );
-    Listener listener =
-        new Listener() {
-          private final CountDownLatch errorDone = new CountDownLatch(1);
-          private final CountDownLatch realQueryStarted = new CountDownLatch(1);
-
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!key.functionName().equals(SkyFunctions.TARGET_PATTERN)) {
-              return;
-            }
-            String label = ((TargetPatternKey) key.argument()).getPattern();
-            if (label.equals("//foo:nosuchtarget")) {
-              if (type == EventType.SET_VALUE) {
-                // Inform //foo:query-dep-registering thread that it may proceed.
-                errorDone.countDown();
-                // Wait to make sure //foo:query-dep-registering process has started.
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    realQueryStarted, "//foo:query did not request dep in time");
-              } else if (type == EventType.ADD_REVERSE_DEP
-                  && context.toString().contains("foo:query")) {
-                // Make sure that when foo:query requests foo:nosuchtarget, it's already done.
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    errorDone, "//foo:nosuchtarget did not evaluate in time");
-              }
-            } else if ((label.equals("//foo:b") || label.equals("//foo:z"))
-                && type == EventType.CREATE_IF_ABSENT) {
-              // Inform error-evaluating thread that it may throw an exception.
-              realQueryStarted.countDown();
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  errorDone, "//foo:nosuchtarget did not evaluate in time");
-              // Don't let the target pattern //foo:{b,z} get enqueued for evaluation until we
-              // receive an interrupt signal from the threadpool. The interrupt means that
-              // evaluation is shutting down, and so //foo:{b,z} definitely won't get evaluated.
-              CountDownLatch waitForInterrupt = new CountDownLatch(1);
-              try {
-                waitForInterrupt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                throw new IllegalStateException("node was not interrupted in time");
-              } catch (InterruptedException e) {
-                // Expected.
-                Thread.currentThread().interrupt();
-              }
-            }
-          }
-        };
-    injectGraphListenerForTesting(listener, /*deterministic=*/ true);
+        "sh_library(name = 'z')");
     reporter.removeHandler(failFastHandler);
     try {
-      update("//foo:query", "//foo:zquery");
+      update("//foo:zquery");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Analysis of target '//foo:zquery' failed; build aborted");
+    }
+    try {
+      update("//foo:query");
       fail();
     } catch (ViewCreationFailedException e) {
       assertThat(e)
           .hasMessageThat()
           .contains("Analysis of target '//foo:query' failed; build aborted");
     }
-    TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
   /**

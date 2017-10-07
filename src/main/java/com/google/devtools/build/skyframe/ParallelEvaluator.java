@@ -270,23 +270,13 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
       // ErrorInfo could only be null if SchedulerException wrapped an InterruptedException, but
       // that should have been propagated.
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
-      if (!evaluatorContext.keepGoing()) {
-        bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys);
-      } else {
+      bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, e.getRdepsToBubbleUpTo());
+      if (evaluatorContext.keepGoing()) {
         Preconditions.checkState(
             errorInfo.isCatastrophic(),
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
             e);
         catastrophe = true;
-        // Bubbling the error up requires that graph edges are present for done nodes. This is not
-        // always the case in a keepGoing evaluation, since it is assumed that done nodes do not
-        // need to be traversed. In this case, we hope the caller is tolerant of a possibly empty
-        // result, and return prematurely.
-        bubbleErrorInfo =
-            ImmutableMap.of(
-                errorKey,
-                ValueWithMetadata.wrapWithMetadata(
-                    graph.get(null, Reason.ERROR_BUBBLING, errorKey).getValueMaybeWithMetadata()));
       }
     }
     Preconditions.checkState(
@@ -335,97 +325,108 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
    *
    * <p>Note that we are not propagating error to the first top-level node but to the highest one,
    * because during this process we can add useful information about error from other nodes.
+   *
+   * <p>Every node on this walk but the leaf node is not done, by the following argument: the leaf
+   * node is done, but the parents of it that we consider are in {@code rdepsToBubbleUpTo}. Each
+   * parent is either (1) a parent that requested the leaf node and found it to be in error, meaning
+   * it is not done, or (2) a parent that had registered a dependency on this leaf node before it
+   * finished building. In the second case, that parent would not have been enqueued, since we
+   * failed fast and prevented all new evaluations. Thus, we will only visit unfinished parents of
+   * the leaf node. For the inductive argument, the only parents we consider are those that were
+   * registered during this build (via {@link NodeEntry#getInProgressReverseDeps}. Since we don't
+   * allow a node to build with unfinished deps, those parents cannot have built.
    */
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(
-      final ErrorInfo leafFailure, SkyKey errorKey, Iterable<SkyKey> skyKeys)
+      final ErrorInfo leafFailure,
+      SkyKey errorKey,
+      Iterable<SkyKey> roots,
+      Set<SkyKey> rdepsToBubbleUpTo)
       throws InterruptedException {
-    Set<SkyKey> rootValues = ImmutableSet.copyOf(skyKeys);
+    Set<SkyKey> rootValues = ImmutableSet.copyOf(roots);
     ErrorInfo error = leafFailure;
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = new HashMap<>();
     boolean externalInterrupt = false;
+    boolean firstIteration = true;
     while (true) {
       NodeEntry errorEntry = Preconditions.checkNotNull(
           graph.get(null, Reason.ERROR_BUBBLING, errorKey),
           errorKey);
-      Iterable<SkyKey> reverseDeps =
-          errorEntry.isDone()
-              ? errorEntry.getReverseDepsForDoneEntry()
-              : errorEntry.getInProgressReverseDeps();
+      Iterable<SkyKey> reverseDeps;
+      if (errorEntry.isDone()) {
+        Preconditions.checkState(
+            firstIteration,
+            "Non-leaf done node reached: %s %s %s  %s %s",
+            errorKey,
+            leafFailure,
+            roots,
+            rdepsToBubbleUpTo,
+            bubbleErrorInfo);
+        reverseDeps = rdepsToBubbleUpTo;
+      } else {
+        Preconditions.checkState(
+            !firstIteration,
+            "undone first iteration: %s %s %s %s %s %s",
+            errorKey,
+            errorEntry,
+            leafFailure,
+            roots,
+            rdepsToBubbleUpTo,
+            bubbleErrorInfo);
+        reverseDeps = errorEntry.getInProgressReverseDeps();
+      }
+      firstIteration = false;
       // We should break from loop only when node doesn't have any parents.
       if (Iterables.isEmpty(reverseDeps)) {
         Preconditions.checkState(rootValues.contains(errorKey),
             "Current key %s has to be a top-level key: %s", errorKey, rootValues);
         break;
       }
-      SkyKey parent = null;
-      NodeEntry parentEntry = null;
-      for (SkyKey bubbleParent : reverseDeps) {
-        if (bubbleErrorInfo.containsKey(bubbleParent)) {
-          // We are in a cycle. Don't try to bubble anything up -- cycle detection will kick in.
-          return null;
-        }
-        NodeEntry bubbleParentEntry = Preconditions.checkNotNull(
-            graph.get(errorKey, Reason.ERROR_BUBBLING, bubbleParent),
-            "parent %s of %s not in graph",
-            bubbleParent,
-            errorKey);
-        // Might be the parent that requested the error.
-        if (bubbleParentEntry.isDone()) {
-          // This parent is cached from a previous evaluate call. We shouldn't bubble up to it
-          // since any error message produced won't be meaningful to this evaluate call.
-          // The child error must also be cached from a previous build.
-          Preconditions.checkState(errorEntry.isDone(), "%s %s", errorEntry, bubbleParentEntry);
-          Version parentVersion = bubbleParentEntry.getVersion();
-          Version childVersion = errorEntry.getVersion();
-          Preconditions.checkState(
-              childVersion.atMost(evaluatorContext.getGraphVersion())
-                  && !childVersion.equals(evaluatorContext.getGraphVersion()),
-              "child entry is not older than the current graph version, but had a done parent. "
-                  + "child: %s childEntry: %s, childVersion: %s"
-                  + "bubbleParent: %s bubbleParentEntry: %s, parentVersion: %s, graphVersion: %s",
-              errorKey,
-              errorEntry,
-              childVersion,
-              bubbleParent,
-              bubbleParentEntry,
-              parentVersion,
-              evaluatorContext.getGraphVersion());
-          Preconditions.checkState(
-              parentVersion.atMost(evaluatorContext.getGraphVersion())
-                  && !parentVersion.equals(evaluatorContext.getGraphVersion()),
-              "parent entry is not older than the current graph version. "
-                  + "child: %s childEntry: %s, childVersion: %s"
-                  + "bubbleParent: %s bubbleParentEntry: %s, parentVersion: %s, graphVersion: %s",
-              errorKey,
-              errorEntry,
-              childVersion,
-              bubbleParent,
-              bubbleParentEntry,
-              parentVersion,
-              evaluatorContext.getGraphVersion());
-          continue;
-        }
-        if (evaluatorContext.getProgressReceiver().isInflight(bubbleParent)
-            && bubbleParentEntry.getTemporaryDirectDeps().expensiveContains(errorKey)) {
-          // Only bubble up to parent if it's part of this build. If this node was dirtied and
-          // re-evaluated, but in a build without this parent, we may try to bubble up to that
-          // parent. Don't -- it's not part of the build.
-          // Similarly, the parent may not yet have requested this dep in its dirtiness-checking
-          // process. Don't bubble up to it in that case either.
-          parent = bubbleParent;
-          parentEntry = bubbleParentEntry;
-          break;
-        }
+      SkyKey parent = Preconditions.checkNotNull(Iterables.getFirst(reverseDeps, null));
+      if (bubbleErrorInfo.containsKey(parent)) {
+        // We are in a cycle. Don't try to bubble anything up -- cycle detection will kick in.
+        return null;
       }
-      if (parent == null) {
-        Preconditions.checkState(
-            rootValues.contains(errorKey),
-            "Current key %s has to be a top-level key: %s, %s",
-            errorKey,
-            rootValues,
-            errorEntry);
-        break;
-      }
+      NodeEntry parentEntry =
+          Preconditions.checkNotNull(
+              graph.get(errorKey, Reason.ERROR_BUBBLING, parent),
+              "parent %s of %s not in graph",
+              parent,
+              errorKey);
+      Preconditions.checkState(
+          !parentEntry.isDone(),
+          "We cannot bubble into a done node entry: a done node cannot depend on a not-done node,"
+              + " and the first errorParent was not done: %s %s %s %s %s %s %s %s",
+          errorKey,
+          errorEntry,
+          parent,
+          parentEntry,
+          leafFailure,
+          roots,
+          rdepsToBubbleUpTo,
+          bubbleErrorInfo);
+      Preconditions.checkState(
+          evaluatorContext.getProgressReceiver().isInflight(parent),
+          "In-progress reverse deps can only include in-flight nodes: " + "%s %s %s %s %s %s",
+          errorKey,
+          errorEntry,
+          parent,
+          parentEntry,
+          leafFailure,
+          roots,
+          rdepsToBubbleUpTo,
+          bubbleErrorInfo);
+      Preconditions.checkState(
+          parentEntry.getTemporaryDirectDeps().expensiveContains(errorKey),
+          "In-progress reverse deps can only include nodes that have declared a dep: "
+              + "%s %s %s %s %s %s",
+          errorKey,
+          errorEntry,
+          parent,
+          parentEntry,
+          leafFailure,
+          roots,
+          rdepsToBubbleUpTo,
+          bubbleErrorInfo);
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
       errorKey = parent;
       SkyFunction factory = evaluatorContext.getSkyFunctions().get(parent.functionName());
@@ -569,18 +570,20 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
     if (catastrophe) {
-      // We may not have a top-level node completed. Inform the caller of the catastrophic exception
-      // that shut down the evaluation so that it has some context.
-      ErrorInfo errorInfo =
-          Preconditions.checkNotNull(
-              Iterables.getOnlyElement(bubbleErrorInfo.values()).getErrorInfo(),
-              "bubbleErrorInfo should have contained element with errorInfo: %s",
-              bubbleErrorInfo);
-      Preconditions.checkState(
-          errorInfo.isCatastrophic(),
-          "bubbleErrorInfo should have contained element with catastrophe: %s",
-          bubbleErrorInfo);
-      result.setCatastrophe(errorInfo.getException());
+      // We may not have a top-level node completed. Inform the caller of at least one catastrophic
+      // exception that shut down the evaluation so that it has some context.
+      for (ValueWithMetadata valueWithMetadata : bubbleErrorInfo.values()) {
+        ErrorInfo errorInfo =
+            Preconditions.checkNotNull(
+                valueWithMetadata.getErrorInfo(),
+                "bubbleErrorInfo should have contained element with errorInfo: %s",
+                bubbleErrorInfo);
+        Preconditions.checkState(
+            errorInfo.isCatastrophic(),
+            "bubbleErrorInfo should have contained element with catastrophe: %s",
+            bubbleErrorInfo);
+        result.setCatastrophe(errorInfo.getException());
+      }
     }
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(

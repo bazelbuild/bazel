@@ -513,10 +513,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * (1) this node is being built after the main evaluation has aborted, or (2) this node is being
    * built with --nokeep_going, and so we are about to shut down the main evaluation anyway.
    *
-   * <p>The node entry is informed if the node's value and error are definitive via the flag {@code
-   * completeValue}.
+   * <p>The reverse deps that would have been enqueued are returned if {@code enqueueParents} is
+   * {@link EnqueueParentBehavior#SIGNAL} or {@link EnqueueParentBehavior#NO_ACTION}, so that the
+   * caller may simulate actions on the parents if desired. Otherwise this method returns null.
    */
-  void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
+  Set<SkyKey> commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
       throws InterruptedException {
     // Construct the definitive error info, if there is one.
     if (errorInfo == null) {
@@ -591,6 +592,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
     evaluatorContext.getReplayingNestedSetPostableVisitor().visit(posts);
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
+    return enqueueParents == EnqueueParentBehavior.ENQUEUE ? null : reverseDeps;
   }
 
   @Nullable

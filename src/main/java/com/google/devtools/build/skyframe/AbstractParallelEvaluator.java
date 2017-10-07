@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
@@ -231,7 +232,8 @@ public abstract class AbstractParallelEvaluator {
                 // An error was already thrown in the evaluator. Don't do anything here.
                 return DirtyOutcome.ALREADY_PROCESSED;
               }
-              throw SchedulerException.ofError(errorEntry.getErrorInfo(), entry.getKey());
+              throw SchedulerException.ofError(
+                  errorEntry.getErrorInfo(), entry.getKey(), ImmutableSet.of(skyKey));
             }
           }
         }
@@ -286,13 +288,14 @@ public abstract class AbstractParallelEvaluator {
           // without any re-evaluation.
           Set<SkyKey> reverseDeps = state.markClean();
           // Tell the receiver that the value was not actually changed this run.
-          evaluatorContext.getProgressReceiver()
+          evaluatorContext
+              .getProgressReceiver()
               .evaluated(skyKey, new SkyValueSupplier(state), EvaluationState.CLEAN);
           if (!evaluatorContext.keepGoing() && state.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;
             }
-            throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
+            throw SchedulerException.ofError(state.getErrorInfo(), skyKey, reverseDeps);
           }
           evaluatorContext.signalValuesAndEnqueueIfReady(
               skyKey, reverseDeps, state.getVersion(), EnqueueParentBehavior.ENQUEUE);
@@ -396,15 +399,14 @@ public abstract class AbstractParallelEvaluator {
             registerNewlyDiscoveredDepsForDoneEntry(
                 skyKey, state, newlyRequestedDeps, oldDeps, env);
             env.setError(state, errorInfo);
-            env.commit(
-                state,
-                evaluatorContext.keepGoing()
-                    ? EnqueueParentBehavior.ENQUEUE
-                    : EnqueueParentBehavior.SIGNAL);
+            Set<SkyKey> rdepsToBubbleUpTo =
+                env.commit(
+                    state,
+                    shouldFailFast ? EnqueueParentBehavior.SIGNAL : EnqueueParentBehavior.ENQUEUE);
             if (!shouldFailFast) {
               return;
             }
-            throw SchedulerException.ofError(errorInfo, skyKey);
+            throw SchedulerException.ofError(errorInfo, skyKey, rdepsToBubbleUpTo);
           }
         } catch (RuntimeException re) {
           // Programmer error (most likely NPE or a failed precondition in a SkyFunction). Output
@@ -474,7 +476,7 @@ public abstract class AbstractParallelEvaluator {
           }
           ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
           evaluatorContext.getVisitor().preventNewEvaluations();
-          throw SchedulerException.ofError(childErrorInfo, childErrorKey);
+          throw SchedulerException.ofError(childErrorInfo, childErrorKey, ImmutableSet.of(skyKey));
         }
 
         // TODO(bazel-team): This code is not safe to interrupt, because we would lose the state in

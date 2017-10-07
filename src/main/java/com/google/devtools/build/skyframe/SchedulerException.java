@@ -14,18 +14,23 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Wrapper exception that {@link Runnable}s can throw. */
 class SchedulerException extends RuntimeException {
   private final SkyKey failedValue;
   private final ErrorInfo errorInfo;
+  private final Set<SkyKey> rdepsToBubbleUpTo;
 
   private SchedulerException(
-      @Nullable Exception cause, @Nullable ErrorInfo errorInfo, SkyKey failedValue) {
+      @Nullable Exception cause,
+      @Nullable ErrorInfo errorInfo,
+      SkyKey failedValue,
+      Set<SkyKey> rdepsToBubbleUpTo) {
     super(errorInfo != null ? errorInfo.getException() : cause);
     this.errorInfo = errorInfo;
+    this.rdepsToBubbleUpTo = rdepsToBubbleUpTo;
     this.failedValue = Preconditions.checkNotNull(failedValue, errorInfo);
   }
 
@@ -34,9 +39,12 @@ class SchedulerException extends RuntimeException {
    * build failure when trying to evaluate the given value, that should cause Skyframe to produce
    * useful error information to the user.
    */
-  static SchedulerException ofError(ErrorInfo errorInfo, SkyKey failedValue) {
+  static SchedulerException ofError(
+      ErrorInfo errorInfo, SkyKey failedValue, Set<SkyKey> rdepsToBubbleUpTo) {
     Preconditions.checkNotNull(errorInfo);
-    return new SchedulerException(errorInfo.getException(), errorInfo, failedValue);
+    Preconditions.checkNotNull(rdepsToBubbleUpTo, "null rdeps: %s %s", errorInfo, failedValue);
+    return new SchedulerException(
+        errorInfo.getException(), errorInfo, failedValue, rdepsToBubbleUpTo);
   }
 
   /**
@@ -44,7 +52,7 @@ class SchedulerException extends RuntimeException {
    * the build, that should cause Skyframe to exit as soon as possible.
    */
   static SchedulerException ofInterruption(InterruptedException cause, SkyKey failedValue) {
-    return new SchedulerException(cause, null, failedValue);
+    return new SchedulerException(cause, null, failedValue, null);
   }
 
   SkyKey getFailedValue() {
@@ -54,5 +62,9 @@ class SchedulerException extends RuntimeException {
   @Nullable
   ErrorInfo getErrorInfo() {
     return errorInfo;
+  }
+
+  Set<SkyKey> getRdepsToBubbleUpTo() {
+    return rdepsToBubbleUpTo;
   }
 }
