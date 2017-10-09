@@ -1670,11 +1670,6 @@ unsigned int GrpcBlazeServer::Communicate() {
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
 
-  // Release the server lock because the gRPC handles concurrent clients just
-  // fine. Note that this may result in two "waiting for other client" messages
-  // (one during server startup and one emitted by the server)
-  blaze::ReleaseLock(&blaze_lock_);
-
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   bool pipe_broken = false;
