@@ -177,24 +177,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     return options;
   }
 
-  /**
-   * Returns the minimum iOS version supported by binaries and libraries. Any dependencies on newer
-   * iOS version features or libraries will become weak dependencies which are only loaded if the
-   * runtime OS supports them.
-   *
-   * @deprecated use {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, PlatformType)}.
-   */
-  @SkylarkCallable(name = "ios_minimum_os", structField = true,
-      doc = "<b>Deprecated. Use <a href='#minimum_os_for_platform_type'>"
-          + "minimum_os_for_platform_type(apple_common.platform_type.ios)</a> instead.</b> "
-          + "The minimum compatible iOS version for target simulators and devices.")
-  @Deprecated
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  public DottedVersion getMinimumOs() {
-    // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
-    return iosMinimumOs;
-  }
-
   /***
    * @deprecated use {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, PlatformType)}.
    */
@@ -264,25 +246,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the value of the xcode version, if available. This is determined based on a combination
-   * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
-   * {@code --xcode_version_config} flag. Returns null if no xcode is available.
-   *
-   * @deprecated use {@link XcodeConfig#getXcodeVersion(RuleContext)}.
-   */
-  @SkylarkCallable(
-      name = "xcode_version",
-      doc = "Returns the Xcode version that is being used to build.<p>"
-          + "This will return <code>None</code> if no Xcode versions are available.",
-      allowReturnNones = true)
-  @Nullable
-  @Deprecated
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  public DottedVersion getXcodeVersion() {
-    return xcodeVersion;
-  }
-
-  /**
    * Returns a map of environment variables (derived from configuration) that should be propagated
    * for actions pertaining to the given apple platform. Keys are variable names and values are
    * their corresponding values.
@@ -311,7 +274,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           + "of Xcode that should be used. The keys are variable names and the values are their "
           + "corresponding values.")
   public ImmutableMap<String, String> getAppleHostSystemEnv() {
-    DottedVersion xcodeVersion = getXcodeVersion();
     if (xcodeVersion != null) {
       return getXcodeVersionEnv(xcodeVersion);
     } else {
@@ -805,7 +767,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   private static void validate(AppleConfiguration config) throws InvalidConfigurationException {
-    DottedVersion xcodeVersion = config.getXcodeVersion();
+    DottedVersion xcodeVersion = config.xcodeVersion;
     if (config.getBitcodeMode() != AppleBitcodeMode.NONE
         && xcodeVersion != null
         && xcodeVersion.compareTo(MINIMUM_BITCODE_XCODE_VERSION) < 0) {

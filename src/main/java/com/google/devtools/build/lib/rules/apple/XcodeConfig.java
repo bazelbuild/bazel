@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -373,11 +372,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
         RuleConfiguredTarget.Mode.TARGET,
         XcodeConfigProvider.PROVIDER);
-    DottedVersion fromProvider = versions.getXcodeVersion();
-    DottedVersion fromConfig = ruleContext.getFragment(AppleConfiguration.class).getXcodeVersion();
-    // This sanity check is there to keep this provider in sync with AppleConfiguration until the
-    // latter can be removed. Tracking bug: https://github.com/bazelbuild/bazel/issues/3424
-    Preconditions.checkState(Objects.equals(fromProvider, fromConfig));
-    return fromProvider;
+    return versions.getXcodeVersion();
   }
 }
