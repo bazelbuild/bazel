@@ -555,6 +555,16 @@ public class ParserTest extends EvaluationTestCase {
     assertExpressionLocationCorrect("not True");
   }
 
+  @Test
+  public void testLoadStatementPosition() throws Exception {
+    String input = "load(':foo.bzl', 'bar')";
+    LoadStatement stmt = (LoadStatement) parseFile(input).get(0);
+    assertThat(getText(input, stmt)).isEqualTo(input);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    stmt = (LoadStatement) parseFile(input + "\n").get(0);
+    assertThat(getText(input, stmt)).isEqualTo(input);
+  }
+
   private void assertExpressionLocationCorrect(String exprStr) {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);

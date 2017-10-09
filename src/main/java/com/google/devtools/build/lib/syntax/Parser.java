@@ -1053,10 +1053,10 @@ public class Parser {
 
       parseLoadSymbol(symbols);
     }
-    expect(TokenKind.RPAREN);
 
     LoadStatement stmt = new LoadStatement(importString, symbols);
-    list.add(setLocation(stmt, start, token.left));
+    list.add(setLocation(stmt, start, token.right));
+    expect(TokenKind.RPAREN);
     expectAndRecover(TokenKind.NEWLINE);
   }
 
