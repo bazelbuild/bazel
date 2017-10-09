@@ -86,7 +86,7 @@ public class Linter {
       }
       issues.addAll(entry.getValue().check(ast));
     }
-    issues.sort(Issue::compare);
+    issues.sort(Issue::compareLocation);
     return issues;
   }
 

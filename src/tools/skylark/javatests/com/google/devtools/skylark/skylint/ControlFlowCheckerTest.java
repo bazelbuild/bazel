@@ -51,7 +51,7 @@ public class ControlFlowCheckerTest {
                     "  else:",
                     "    return x")
                 .toString())
-        .contains("some but not all execution paths of 'some_function' return a value");
+        .contains("1:1-5:12: some but not all execution paths of 'some_function' return a value");
   }
 
   @Test
@@ -65,8 +65,8 @@ public class ControlFlowCheckerTest {
                 "    return # missing value")
             .toString();
     Truth.assertThat(messages)
-        .contains("some but not all execution paths of 'some_function' return a value");
-    Truth.assertThat(messages).contains(":5:5: return value missing");
+        .contains("1:1-5:26: some but not all execution paths of 'some_function' return a value");
+    Truth.assertThat(messages).contains("5:5-5:10: return value missing");
   }
 
   @Test
@@ -81,7 +81,7 @@ public class ControlFlowCheckerTest {
                     "  else:",
                     "    return not x")
                 .toString())
-        .contains("some but not all execution paths of 'f' return a value");
+        .contains("1:1-7:16: some but not all execution paths of 'f' return a value");
   }
 
   @Test
@@ -97,7 +97,7 @@ public class ControlFlowCheckerTest {
                     "  else:",
                     "    return x")
                 .toString())
-        .contains("some but not all execution paths of 'f' return a value");
+        .contains("1:1-8:12: some but not all execution paths of 'f' return a value");
   }
 
   @Test
@@ -110,7 +110,7 @@ public class ControlFlowCheckerTest {
                     "  elif not x:",
                     "    return not x")
                 .toString())
-        .contains("some but not all execution paths of 'some_function' return a value");
+        .contains("1:1-5:16: some but not all execution paths of 'some_function' return a value");
   }
 
   @Test
@@ -123,7 +123,7 @@ public class ControlFlowCheckerTest {
                     "  print('foo')",
                     "  # return missing here")
                 .toString())
-        .contains("some but not all execution paths of 'some_function' return a value");
+        .contains("1:1-5:23: some but not all execution paths of 'some_function' return a value");
   }
 
   @Test
@@ -136,7 +136,7 @@ public class ControlFlowCheckerTest {
                     "  print('foo')",
                     "  # return missing here")
                 .toString())
-        .contains("some but not all execution paths of 'some_function' return a value");
+        .contains("1:1-5:23: some but not all execution paths of 'some_function' return a value");
   }
 
   @Test
@@ -149,8 +149,8 @@ public class ControlFlowCheckerTest {
                 "  return x")
             .toString();
     Truth.assertThat(messages)
-        .contains("some but not all execution paths of 'some_function' return a value");
-    Truth.assertThat(messages).contains(":3:5: return value missing");
+        .contains("1:1-4:10: some but not all execution paths of 'some_function' return a value");
+    Truth.assertThat(messages).contains("3:5-3:10: return value missing");
   }
 
   @Test
@@ -164,7 +164,7 @@ public class ControlFlowCheckerTest {
                 "    fail('fail')",
                 "  print('This line is unreachable')")
             .toString();
-    Truth.assertThat(messages).contains(":6:3: unreachable statement");
+    Truth.assertThat(messages).contains("6:3-6:35: unreachable statement");
   }
 
   @Test
@@ -190,7 +190,7 @@ public class ControlFlowCheckerTest {
                 "      continue",
                 "    print('unreachable')")
             .toString();
-    Truth.assertThat(messages).contains(":7:5: unreachable statement");
+    Truth.assertThat(messages).contains("7:5-7:24: unreachable statement");
   }
 
   @Test
@@ -280,7 +280,7 @@ public class ControlFlowCheckerTest {
             "    return x",
             "  # no else branch but doesn't matter since it's unreachable");
     Truth.assertThat(issues).hasSize(1);
-    Truth.assertThat(issues.toString()).contains(":7:3: unreachable statement");
+    Truth.assertThat(issues.toString()).contains("7:3-7:14: unreachable statement");
   }
 
   @Test

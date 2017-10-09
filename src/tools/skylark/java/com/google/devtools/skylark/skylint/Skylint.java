@@ -47,9 +47,8 @@ public class Skylint {
       List<Issue> issues = linter.lint(path);
       if (!issues.isEmpty()) {
         issuesFound = true;
-        System.out.println(path);
         for (Issue issue : issues) {
-          System.out.println(issue);
+          System.out.println(issue.prettyPrint(path.toString()));
         }
       }
     }

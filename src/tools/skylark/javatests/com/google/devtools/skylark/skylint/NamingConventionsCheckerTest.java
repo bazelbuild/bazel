@@ -73,10 +73,12 @@ public class NamingConventionsCheckerTest {
     Truth.assertThat(findIssues("a, _ = (1, 2) # underscore to ignore assignment")).isEmpty();
     Truth.assertThat(findIssues("_ = 1", "print(_)").toString())
         .contains(
-            ":2:7: don't use '_' as an identifier, only to ignore the result in an assignment");
+            "2:7-2:7:"
+                + " don't use '_' as an identifier, only to ignore the result in an assignment");
     Truth.assertThat(findIssues("__ = 1").toString())
         .contains(
-            ":1:1: identifier '__' consists only of underscores; please pick a different name");
+            "1:1-1:2:"
+                + " identifier '__' consists only of underscores; please pick a different name");
   }
 
   @Test

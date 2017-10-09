@@ -46,7 +46,7 @@ public class DocstringUtilsTest {
     Truth.assertThat(info.parameters).isEmpty();
     Truth.assertThat(info.longDescription).isEqualTo("foo");
     Truth.assertThat(errors.toString())
-        .contains(":2: the one-line summary should be followed by a blank line");
+        .contains("2: the one-line summary should be followed by a blank line");
   }
 
   @Test
@@ -68,7 +68,7 @@ public class DocstringUtilsTest {
     Truth.assertThat(info.parameters).isEmpty();
     Truth.assertThat(info.longDescription).isEqualTo("foo\nbar");
     Truth.assertThat(errors.toString())
-        .contains(":4: line indented too little (here: 0 spaces; expected: 2 spaces)");
+        .contains("4: line indented too little (here: 0 spaces; expected: 2 spaces)");
 
     errors = new ArrayList<>();
     info =
@@ -103,9 +103,9 @@ public class DocstringUtilsTest {
     Truth.assertThat(info.longDescription).isEqualTo("unindented line after");
     Truth.assertThat(errors.toString())
         .contains(
-            ":4: text in a section has to be indented by two spaces"
+            "4: text in a section has to be indented by two spaces"
                 + " (relative to the left margin of the docstring)");
-    Truth.assertThat(errors.toString()).contains(":5: end of section without blank line");
+    Truth.assertThat(errors.toString()).contains("5: end of section without blank line");
   }
 
   @Test
@@ -130,8 +130,8 @@ public class DocstringUtilsTest {
     Truth.assertThat(param1.description)
         .isEqualTo("only one space indentation\n only two spaces indentation in continued line");
     Truth.assertThat(errors.toString())
-        .contains(":5: inconsistent indentation of parameter lines (before: 2; here: 1 spaces)");
-    Truth.assertThat(errors.toString()).contains(":7: end of 'Args' section without blank line");
+        .contains("5: inconsistent indentation of parameter lines (before: 2; here: 1 spaces)");
+    Truth.assertThat(errors.toString()).contains("7: end of 'Args' section without blank line");
   }
 
   @Test
@@ -237,10 +237,10 @@ public class DocstringUtilsTest {
   public void sectionNotPrecededByNewline() throws Exception {
     List<DocstringParseError> errors = new ArrayList<>();
     DocstringUtils.parseDocstring("summary\n" + "\n" + "  foo\n" + "  Args:", 2, errors);
-    Truth.assertThat(errors.toString()).contains(":4: section should be preceded by a blank line");
+    Truth.assertThat(errors.toString()).contains("4: section should be preceded by a blank line");
     errors = new ArrayList<>();
     DocstringUtils.parseDocstring("summary\n" + "\n" + "  foo\n" + "  Returns:", 2, errors);
-    Truth.assertThat(errors.toString()).contains(":4: section should be preceded by a blank line");
+    Truth.assertThat(errors.toString()).contains("4: section should be preceded by a blank line");
   }
 
   @Test
@@ -266,8 +266,8 @@ public class DocstringUtilsTest {
             2,
             errors);
     Truth.assertThat(info.parameters).hasSize(2);
-    Truth.assertThat(errors.toString()).contains(":6: parameters were already documented before");
-    Truth.assertThat(errors.toString()).contains(":12: return value was already documented before");
+    Truth.assertThat(errors.toString()).contains("6: parameters were already documented before");
+    Truth.assertThat(errors.toString()).contains("12: return value was already documented before");
   }
 
   @Test
@@ -288,7 +288,7 @@ public class DocstringUtilsTest {
             errors);
     Truth.assertThat(info.parameters).hasSize(1);
     Truth.assertThat(errors.toString())
-        .contains(":6: parameters should be documented before the return value");
+        .contains("6: parameters should be documented before the return value");
   }
 
   @Test
@@ -305,6 +305,14 @@ public class DocstringUtilsTest {
             2,
             errors);
     Truth.assertThat(info.parameters).isEmpty();
-    Truth.assertThat(errors.toString()).contains(":4: invalid parameter documentation");
+    Truth.assertThat(errors.toString()).contains("4: invalid parameter documentation");
+  }
+
+  @Test
+  public void parseErrorContainsCorrectLine() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringUtils.parseDocstring(
+        "summary\n" + "\n" + "  Args:\n" + "    invalid parameter doc\n", 2, errors);
+    Truth.assertThat(errors.get(0).line).isEqualTo("    invalid parameter doc");
   }
 }

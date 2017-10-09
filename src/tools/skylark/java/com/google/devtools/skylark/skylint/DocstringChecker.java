@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.skylark.skylint.DocstringUtils.DocstringInfo;
 import com.google.devtools.skylark.skylint.DocstringUtils.DocstringParseError;
 import com.google.devtools.skylark.skylint.DocstringUtils.ParameterDoc;
+import com.google.devtools.skylark.skylint.LocationRange.Location;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,7 +46,11 @@ public class DocstringChecker extends SyntaxTreeVisitor {
   public void visit(BuildFileAST node) {
     StringLiteral moduleDocstring = extractDocstring(node.getStatements());
     if (moduleDocstring == null) {
-      issues.add(new Issue("file has no module docstring", node.getLocation()));
+      // The reported location starts on the first line since that's where the docstring is expected
+      Location start = new Location(1, 1);
+      Location end = Location.from(node.getLocation().getEndLineAndColumn());
+      LocationRange range = new LocationRange(start, end);
+      issues.add(new Issue("file has no module docstring", range));
     } else {
       List<DocstringParseError> errors = new ArrayList<>();
       parseDocstring(moduleDocstring, errors);
@@ -171,8 +176,20 @@ public class DocstringChecker extends SyntaxTreeVisitor {
   }
 
   private Issue docstringParseErrorToIssue(StringLiteral docstring, DocstringParseError error) {
-    LinterLocation loc =
-        new LinterLocation(docstring.getLocation().getStartLine() + error.lineNumber - 1, 1);
-    return new Issue("invalid docstring format: " + error.message, loc);
+    int startLine = docstring.getLocation().getStartLine() + error.lineNumber - 1;
+    int startColumn;
+    if (error.lineNumber == 1) {
+      // The Skylark AST does not expose whether the string literal was a triple-quoted string, so
+      // we just assume the most common case: triple-quoted docstrings.
+      // There's also the possibility of a raw string (r'''docstring'''), in which case we would
+      // have to add 4 to the column instead of 3.
+      // TODO(skylark-team): Clean this up once the AST contains more information.
+      startColumn = docstring.getLocation().getStartLineAndColumn().getColumn() + 3;
+    } else {
+      startColumn = 1;
+    }
+    Location start = new Location(startLine, startColumn);
+    Location end = new Location(startLine, startColumn + error.line.length() - 1);
+    return new Issue("invalid docstring format: " + error.message, new LocationRange(start, end));
   }
 }

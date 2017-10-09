@@ -122,12 +122,31 @@ public final class DocstringUtils {
 
   private static class DocstringParser {
     private final String docstring;
+    /** Start offset of the current line. */
     private int startOfLineOffset = 0;
+    /** End offset of the current line. */
     private int endOfLineOffset = -1;
+    /** Current line number within the docstring. */
     private int lineNumber = 0;
+    /**
+     * The indentation of the doctring literal in the source file.
+     *
+     * <p>Every line except the first one must be indented by at least that many spaces.
+     */
     private int baselineIndentation = 0;
+    /** Whether there was a blank line before the current line. */
     private boolean blankLineBefore = false;
+    /** The complete current line in the docstring, including all indentation. */
+    private String originalLine = "";
+    /**
+     * The current line in the docstring with the baseline indentation removed.
+     *
+     * <p>If the indentation of {@link #originalLine} is less than the expected {@link
+     * #baselineIndentation}, only the existing indentation is stripped; none of the remaining
+     * characters are cut off.
+     */
     private String line = "";
+    /** Errors that occurred so far. */
     private final List<DocstringParseError> errors = new ArrayList<>();
 
     DocstringParser(String docstring, int indentation) {
@@ -137,6 +156,11 @@ public final class DocstringUtils {
       this.baselineIndentation = indentation;
     }
 
+    /**
+     * Move on to the next line and update the parser's internal state accordingly.
+     *
+     * @return whether there are lines remaining to be parsed
+     */
     boolean nextLine() {
       if (startOfLineOffset >= docstring.length()) {
         return false;
@@ -152,7 +176,8 @@ public final class DocstringUtils {
       if (endOfLineOffset < 0) {
         endOfLineOffset = docstring.length();
       }
-      line = docstring.substring(startOfLineOffset, endOfLineOffset);
+      originalLine = docstring.substring(startOfLineOffset, endOfLineOffset);
+      line = originalLine;
       int indentation = getIndentation(line);
       if (!line.isEmpty()) {
         if (indentation < baselineIndentation) {
@@ -184,7 +209,7 @@ public final class DocstringUtils {
     }
 
     void error(String message) {
-      errors.add(new DocstringParseError(message, lineNumber));
+      errors.add(new DocstringParseError(message, lineNumber, originalLine));
     }
 
     DocstringInfo parse() {
@@ -339,15 +364,17 @@ public final class DocstringUtils {
   static class DocstringParseError {
     final String message;
     final int lineNumber;
+    final String line;
 
-    public DocstringParseError(String message, int lineNumber) {
+    public DocstringParseError(String message, int lineNumber, String line) {
       this.message = message;
       this.lineNumber = lineNumber;
+      this.line = line;
     }
 
     @Override
     public String toString() {
-      return ":" + lineNumber + ": " + message;
+      return lineNumber + ": " + message;
     }
   }
 }

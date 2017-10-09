@@ -38,36 +38,36 @@ public class UsageCheckerTest {
   @Test
   public void reportUnusedImports() throws Exception {
     String message = findIssues("load('foo', 'x', 'y', _z = 'Z')").toString();
-    Truth.assertThat(message).contains(":1:13: unused definition of 'x'");
-    Truth.assertThat(message).contains(":1:18: unused definition of 'y'");
-    Truth.assertThat(message).contains(":1:23: unused definition of '_z'");
+    Truth.assertThat(message).contains("1:13-1:15: unused definition of 'x'");
+    Truth.assertThat(message).contains("1:18-1:20: unused definition of 'y'");
+    Truth.assertThat(message).contains("1:23-1:24: unused definition of '_z'");
   }
 
   @Test
   public void reportUnusedGlobals() throws Exception {
     String message = findIssues("_UNUSED = len([])", "def _unused(): pass").toString();
-    Truth.assertThat(message).contains(":1:1: unused definition of '_UNUSED'");
-    Truth.assertThat(message).contains(":2:5: unused definition of '_unused'");
+    Truth.assertThat(message).contains("1:1-1:7: unused definition of '_UNUSED'");
+    Truth.assertThat(message).contains("2:5-2:11: unused definition of '_unused'");
   }
 
   @Test
   public void reportUnusedLocals() throws Exception {
     String message = findIssues("def some_function(param):", "  local, local2 = 1, 3").toString();
-    Truth.assertThat(message).contains(":1:19: unused definition of 'param'");
+    Truth.assertThat(message).contains("1:19-1:23: unused definition of 'param'");
     Truth.assertThat(message)
         .contains("you can add `_ignore = [<param1>, <param2>, ...]` to the function body.");
-    Truth.assertThat(message).contains(":2:3: unused definition of 'local'");
+    Truth.assertThat(message).contains("2:3-2:7: unused definition of 'local'");
     Truth.assertThat(message).contains("you can use '_' or rename it to '_local'");
-    Truth.assertThat(message).contains(":2:10: unused definition of 'local2'");
+    Truth.assertThat(message).contains("2:10-2:15: unused definition of 'local2'");
     Truth.assertThat(message).contains("you can use '_' or rename it to '_local2'");
   }
 
   @Test
   public void reportUnusedComprehensionVariable() throws Exception {
     String message = findIssues("[[2 for y in []] for x in []]").toString();
-    Truth.assertThat(message).contains(":1:9: unused definition of 'y'");
+    Truth.assertThat(message).contains("1:9-1:9: unused definition of 'y'");
     Truth.assertThat(message).contains("you can use '_' or rename it to '_y'");
-    Truth.assertThat(message).contains(":1:22: unused definition of 'x'");
+    Truth.assertThat(message).contains("1:22-1:22: unused definition of 'x'");
     Truth.assertThat(message).contains("you can use '_' or rename it to '_x'");
   }
 
@@ -79,19 +79,19 @@ public class UsageCheckerTest {
                     "  x = [[] for x in []]",
                     "  print(x)")
                 .toString())
-        .contains(":2:15: unused definition of 'x'");
+        .contains("2:15-2:15: unused definition of 'x'");
   }
 
   @Test
   public void reportShadowedVariable() throws Exception {
     Truth.assertThat(findIssues("def some_function():", "  x = [x for x in []]").toString())
-        .contains(":2:3: unused definition of 'x'");
+        .contains("2:3-2:3: unused definition of 'x'");
   }
 
   @Test
   public void reportReassignedUnusedVariable() throws Exception {
     Truth.assertThat(findIssues("def some_function():", "  x = 1", "  x += 2").toString())
-        .contains(":3:3: unused definition of 'x'");
+        .contains("3:3-3:3: unused definition of 'x'");
   }
 
   @Test
@@ -106,7 +106,7 @@ public class UsageCheckerTest {
                     "    x = 4",
                     "  print(x)")
                 .toString())
-        .contains(":2:3: unused definition of 'x'");
+        .contains("2:3-2:3: unused definition of 'x'");
   }
 
   @Test
@@ -118,7 +118,7 @@ public class UsageCheckerTest {
                 "    print(x)",
                 "    x = 2")
             .toString();
-    Truth.assertThat(messages).contains(":4:5: unused definition of 'x'");
+    Truth.assertThat(messages).contains("4:5-4:5: unused definition of 'x'");
   }
 
   @Test
@@ -135,14 +135,14 @@ public class UsageCheckerTest {
                 "  y += 2",
                 "  print(y)")
             .toString();
-    Truth.assertThat(message).contains(":8:3: identifier 'y' may not have been initialized");
+    Truth.assertThat(message).contains("8:3-8:3: identifier 'y' may not have been initialized");
   }
 
   @Test
   public void reportUninitializedAfterForLoop() throws Exception {
     String message =
         findIssues("def some_function():", "  for _ in []:", "    y = 1", "  print(y)").toString();
-    Truth.assertThat(message).contains(":4:9: identifier 'y' may not have been initialized");
+    Truth.assertThat(message).contains("4:9-4:9: identifier 'y' may not have been initialized");
   }
 
   @Test
