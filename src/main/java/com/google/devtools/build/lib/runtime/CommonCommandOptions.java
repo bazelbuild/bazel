@@ -154,20 +154,6 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public List<Map.Entry<String, String>> clientEnv;
 
-  @Deprecated
-  @Option(
-    name = "ignore_client_env",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
-    effectTags = {OptionEffectTag.NO_OP},
-    deprecationWarning = "Deprecated, no-op.",
-    help = "Deprecated, no-op."
-  )
-  // TODO(laszlocsomor, dslomov) 2017-03-07: remove this flag after 2017-06-01 (~3 months from now)
-  // and all of its occurrences.
-  public boolean ignoreClientEnv;
-
   @Option(
     name = "client_cwd",
     defaultValue = "",
