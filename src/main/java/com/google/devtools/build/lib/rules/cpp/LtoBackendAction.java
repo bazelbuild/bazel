@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -89,13 +90,16 @@ public final class LtoBackendAction extends SpawnAction {
         false,
         null);
     mandatoryInputs = inputs;
+    Preconditions.checkState(
+        (bitcodeFiles == null) == (imports == null),
+        "Either both or neither bitcodeFiles and imports files should be null");
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
   }
 
   @Override
   public boolean discoversInputs() {
-    return true;
+    return imports != null;
   }
 
   private Set<Artifact> computeBitcodeInputs(Collection<PathFragment> inputPaths) {
@@ -178,10 +182,12 @@ public final class LtoBackendAction extends SpawnAction {
     for (Artifact input : getMandatoryInputs()) {
       f.addPath(input.getExecPath());
     }
-    for (PathFragment bitcodePath : bitcodeFiles.keySet()) {
-      f.addPath(bitcodePath);
+    if (imports != null) {
+      for (PathFragment bitcodePath : bitcodeFiles.keySet()) {
+        f.addPath(bitcodePath);
+      }
+      f.addPath(imports.getExecPath());
     }
-    f.addPath(imports.getExecPath());
     f.addStringMap(getEnvironment());
     f.addStringMap(getExecutionInfo());
     return f.hexDigestAndReset();
