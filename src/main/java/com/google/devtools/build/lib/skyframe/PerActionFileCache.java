@@ -35,14 +35,19 @@ import javax.annotation.Nullable;
  */
 class PerActionFileCache implements ActionInputFileCache {
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
+  private final boolean missingArtifactsAllowed;
   // null until first call to getInputFromDigest()
   private volatile HashMap<ByteString, Artifact> reverseMap;
 
   /**
    * @param inputArtifactData Map from artifact to metadata, used to return metadata upon request.
+   * @param missingArtifactsAllowed whether to tolerate missing artifacts: can happen during input
+   *     discovery.
    */
-  PerActionFileCache(Map<Artifact, FileArtifactValue> inputArtifactData) {
+  PerActionFileCache(
+      Map<Artifact, FileArtifactValue> inputArtifactData, boolean missingArtifactsAllowed) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
+    this.missingArtifactsAllowed = missingArtifactsAllowed;
   }
 
   @Nullable
@@ -51,7 +56,9 @@ class PerActionFileCache implements ActionInputFileCache {
     if (!(input instanceof Artifact)) {
       return null;
     }
-    return Preconditions.checkNotNull(inputArtifactData.get(input), input);
+    Metadata result = inputArtifactData.get(input);
+    Preconditions.checkState(missingArtifactsAllowed || result != null, "null for %s", input);
+    return result;
   }
 
   @Override

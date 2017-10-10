@@ -388,7 +388,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     metadataHandler.discardOutputMetadata();
 
     // This may be recreated if we discover inputs.
-    PerActionFileCache perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+    PerActionFileCache perActionFileCache =
+        new PerActionFileCache(
+            state.inputArtifactData, /*missingArtifactsAllowed=*/ action.discoversInputs());
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
@@ -406,7 +408,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (env.valuesMissing()) {
         return null;
       }
-      perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+      perActionFileCache =
+          new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
 
       // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
       // files with addDiscoveredInputs() and then have waited for those files to be available
@@ -422,7 +425,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         if (env.valuesMissing()) {
           return null;
         }
-        perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+        perActionFileCache =
+            new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
       }
       metadataHandler =
           new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
