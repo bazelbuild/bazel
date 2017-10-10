@@ -88,7 +88,7 @@ function extract_release_note() {
   if [[ "$relnote" =~ $regex ]]; then
       local relnote_kind=${BASH_REMATCH[2]}
       local relnote_text="${BASH_REMATCH[3]}"
-      if [[ ! "$(echo $relnote_text | awk '{print tolower($0)}')" =~ ^(none|n/a)?.?$ ]]; then
+      if [[ ! "$(echo $relnote_text | awk '{print tolower($0)}')" =~ ^(none|n/a|no[ \.])?.?$ ]]; then
         eval "RELNOTES_${relnote_kind}+=(\"\${relnote_text}\")"
       fi
   fi
