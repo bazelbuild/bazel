@@ -121,7 +121,7 @@ public class JavaProtoSkylarkCommon {
         JavaInfo.Builder.create()
             .addProvider(
                 JavaCompilationArgsProvider.class,
-                runtime.getProvider(JavaCompilationArgsProvider.class))
+                JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
             .build();
   }
 

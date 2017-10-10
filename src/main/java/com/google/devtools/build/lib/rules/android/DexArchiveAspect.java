@@ -55,10 +55,12 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
@@ -120,13 +122,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
+            // We care about JavaRuntimeJarProvider, but rules don't advertise that
+            // provider.
+            .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
-                    // We care about JavaRuntimeJarProvider, but rules don't advertise that
-                    // provider.
-                    ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
-                    // For proto_library rules, where we care about
-                    // JavaCompilationArgsAspectProvider.
                     ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
@@ -279,12 +279,15 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
       RuleContext ruleContext) {
-    if (isProtoLibrary(ruleContext)) {
-      return WrappingProvider.Helper.getWrappedProvider(
-          base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
-    } else {
-      return base.getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
+    if (provider != null) {
+      return provider;
     }
+    return isProtoLibrary(ruleContext)
+        ? WrappingProvider.Helper.getWrappedProvider(
+            base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class)
+        : null;
   }
 
   private static boolean isProtoLibrary(RuleContext ruleContext) {

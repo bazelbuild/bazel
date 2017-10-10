@@ -416,11 +416,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
     common.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
+    JavaInfo javaInfo = JavaInfo.Builder.create()
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .build();
+
     return builder
         .setFilesToBuild(filesToBuild)
+        .addNativeDeclaredProvider(javaInfo)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(RunfilesProvider.class, runfilesProvider)
         // The executable to run (below) may be different from the executable for runfiles (the one
         // we create the runfiles support object with). On Linux they are the same (it's the same
@@ -434,7 +439,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
   }

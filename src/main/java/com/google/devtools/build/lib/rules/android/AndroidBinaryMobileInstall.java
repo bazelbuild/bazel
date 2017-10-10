@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
@@ -357,7 +358,8 @@ public final class AndroidBinaryMobileInstall {
       return null;
     }
 
-    JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
     if (provider == null) {
       ruleContext.attributeError(attribute, "'" + dep.getLabel() + "' should be a Java target");
       return null;

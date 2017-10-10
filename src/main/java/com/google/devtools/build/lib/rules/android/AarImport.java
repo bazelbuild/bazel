@@ -144,6 +144,20 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .addCompileTimeJarAsFullJar(mergedJar)
             .build());
 
+    JavaInfo javaInfo = JavaInfo.Builder.create()
+        .addProvider(JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.create(
+                common.collectJavaCompilationArgs(
+                    /* recursive = */ false,
+                    JavaCommon.isNeverLink(ruleContext),
+                    /* srcLessDepsExport = */ false),
+                common.collectJavaCompilationArgs(
+                    /* recursive = */ true,
+                    JavaCommon.isNeverLink(ruleContext),
+                    /* srcLessDepsExport = */ false)))
+        .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build())
+        .build();
+
     return ruleBuilder
         .setFilesToBuild(filesToBuildBuilder.build())
         .addSkylarkTransitiveInfo(
@@ -158,18 +172,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).add(nativeLibs).build()))
         .addProvider(
             JavaRuntimeJarProvider.class, new JavaRuntimeJarProvider(ImmutableList.of(mergedJar)))
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.create(
-                common.collectJavaCompilationArgs(
-                    /* recursive = */ false,
-                    JavaCommon.isNeverLink(ruleContext),
-                    /* srcLessDepsExport = */ false),
-                common.collectJavaCompilationArgs(
-                    /* recursive = */ true,
-                    JavaCommon.isNeverLink(ruleContext),
-                    /* srcLessDepsExport = */ false)))
-        .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build())
+        .addNativeDeclaredProvider(javaInfo)
         .build();
   }
 

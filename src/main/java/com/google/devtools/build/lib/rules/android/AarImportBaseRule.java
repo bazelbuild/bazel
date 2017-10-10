@@ -24,8 +24,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.util.FileType;
 
 /** Rule definition for the aar_import rule. */
@@ -67,7 +68,7 @@ public class AarImportBaseRule implements RuleDefinition {
             .cfg(HOST)
             .exec()
             .value(env.getToolsLabel("//tools/zip:zipper")))
-        .advertiseProvider(JavaCompilationArgsProvider.class)
+        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
 

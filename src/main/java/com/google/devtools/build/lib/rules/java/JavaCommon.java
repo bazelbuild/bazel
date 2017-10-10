@@ -892,7 +892,7 @@ public class JavaCommon {
    */
   public final <P extends TransitiveInfoProvider> Iterable<P> getDependencies(
       Class<P> provider) {
-    return AnalysisUtils.getProviders(getDependencies(), provider);
+    return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 
   /** Gets all the deps that implement a particular provider. */

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Type;
@@ -153,9 +154,11 @@ public final class DataBinding {
    */
   static void addAnnotationProcessor(
       RuleContext ruleContext, JavaTargetAttributes.Builder attributes) {
-    JavaPluginInfoProvider plugin = ruleContext.getPrerequisite(
-        DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.TARGET,
-        JavaPluginInfoProvider.class);
+    JavaPluginInfoProvider plugin = JavaInfo.getProvider(
+        JavaPluginInfoProvider.class,
+        ruleContext.getPrerequisite(
+            DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.TARGET)
+    );
     for (String name : plugin.getProcessorClasses()) {
       // For header compilation (see JavaHeaderCompileAction):
       attributes.addApiGeneratingProcessorName(name);

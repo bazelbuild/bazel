@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.Set;
@@ -152,7 +153,7 @@ public class AarImportTest extends BuildViewTestCase {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
     Iterable<OutputJar> outputJars =
-        aarImportTarget.getProvider(JavaRuleOutputJarsProvider.class).getOutputJars();
+        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, aarImportTarget).getOutputJars();
     assertThat(outputJars).hasSize(1);
 
     Artifact classesJar = outputJars.iterator().next().getClassJar();
@@ -224,8 +225,8 @@ public class AarImportTest extends BuildViewTestCase {
   public void testJavaCompilationArgsProvider() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
 
-    JavaCompilationArgsProvider provider = aarImportTarget
-        .getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationArgsProvider provider = JavaInfo
+        .getProvider(JavaCompilationArgsProvider.class, aarImportTarget);
     assertThat(provider).isNotNull();
     assertThat(artifactsToStrings(provider.getJavaCompilationArgs().getRuntimeJars()))
         .containsExactly(

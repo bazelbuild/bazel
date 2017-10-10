@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -49,7 +50,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:A");
     ConfiguredTarget javaTest = getConfiguredTarget("//java/a:A");
     assertThat(javaTest).isNotNull();
-    assertThat(javaTest.getProvider(JavaSourceJarsProvider.class)).isNotNull();
+    assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, javaTest)).isNotNull();
   }
 
   @Test

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoO
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
@@ -2603,8 +2604,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'a', manifest = 'AndroidManifest.xml', ",
         "  srcs = ['A.java'], javacopts = ['-g:lines,source'])");
 
-    final JavaCompilationArgsProvider provider =
-        getConfiguredTarget("//java/foo:a").getProvider(JavaCompilationArgsProvider.class);
+    final JavaCompilationArgsProvider provider = JavaInfo
+        .getProvider(JavaCompilationArgsProvider.class, getConfiguredTarget("//java/foo:a"));
 
     assertThat(provider).isNotNull();
   }

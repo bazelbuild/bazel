@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
@@ -318,11 +319,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     NestedSet<Artifact> extraFilesToRun =
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
 
+    JavaInfo javaInfo = JavaInfo.Builder.create()
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .build();
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .addProvider(ruleOutputJarsProvider)
+        .addNativeDeclaredProvider(javaInfo)
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.withData(
@@ -335,7 +341,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .addProvider(
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(javaCommon.getRuntimeClasspath()))
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(JavaPrimaryClassProvider.class, new JavaPrimaryClassProvider(testClass))
         .addProvider(
             JavaSourceInfoProvider.class,
@@ -376,7 +381,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     TransitiveInfoCollection testSupport = null;
     TransitiveInfoCollection t =
         Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
-    if (t.getProvider(JavaCompilationArgsProvider.class) != null) {
+    if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, t) != null) {
       testSupport = t;
     } else {
       ruleContext.attributeError(

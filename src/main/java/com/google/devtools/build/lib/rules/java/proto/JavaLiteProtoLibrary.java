@@ -104,11 +104,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .addProvider(dependencyArgsProviders)
-        .addProvider(sourceJarsProvider)
-        .addProvider(javaRunfilesProvider)
         .addProvider(getJavaLiteRuntimeSpec(ruleContext))
-        .addProvider(JavaRuleOutputJarsProvider.EMPTY)
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
         .build();

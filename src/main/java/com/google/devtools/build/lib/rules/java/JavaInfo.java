@@ -145,8 +145,20 @@ public final class JavaInfo extends NativeInfo {
     if (provider != null) {
       return provider;
     }
-    JavaInfo javaInfo =
-        (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    if (javaInfo == null) {
+      return null;
+    }
+    return javaInfo.getProvider(providerClass);
+  }
+
+  public static <T extends TransitiveInfoProvider> T getProvider(
+      Class<T> providerClass, TransitiveInfoProviderMap providerMap) {
+    T provider = providerMap.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    }
+    JavaInfo javaInfo = (JavaInfo) providerMap.getProvider(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
       return null;
     }
@@ -314,7 +326,6 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      Preconditions.checkArgument(providerMap.contains(JavaCompilationArgsProvider.class));
       return new JavaInfo(providerMap.build());
     }
   }
