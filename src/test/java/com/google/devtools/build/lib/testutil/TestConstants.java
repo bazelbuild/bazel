@@ -102,4 +102,9 @@ public class TestConstants {
 
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
+
+  /** A choice of test execution mode, only varies internally. */
+  public enum InternalTestExecutionMode {
+    NORMAL
+  }
 }

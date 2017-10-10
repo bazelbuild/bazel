@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -55,14 +55,13 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -158,6 +157,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
+  protected SkyframeExecutor createSkyframeExecutor(
+      PackageFactory pkgFactory, ImmutableList<BuildInfoFactory> buildInfoFactories) {
+    return SequencedSkyframeExecutor.create(
+        pkgFactory,
+        directories,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        ImmutableList.of(),
+        input -> false,
+        analysisMock.getSkyFunctions(directories),
+        ImmutableList.of(),
+        PathFragment.EMPTY_FRAGMENT,
+        BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+  }
+
   /**
    * Changes the rule class provider to be used for the loading and the analysis phase.
    */
@@ -169,19 +185,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, scratch.getFileSystem());
     skyframeExecutor =
-        SequencedSkyframeExecutor.create(
-            pkgFactory,
-            directories,
-            workspaceStatusActionFactory,
-            ruleClassProvider.getBuildInfoFactories(),
-            ImmutableList.<DiffAwareness.Factory>of(),
-            Predicates.<PathFragment>alwaysFalse(),
-            analysisMock.getSkyFunctions(directories),
-            ImmutableList.<SkyValueDirtinessChecker>of(),
-            PathFragment.EMPTY_FRAGMENT,
-            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+        createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
+
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
@@ -208,6 +213,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisMock getAnalysisMock() {
     return AnalysisMock.get();
+  }
+
+  protected InternalTestExecutionMode getInternalTestExecutionMode() {
+    return InternalTestExecutionMode.NORMAL;
   }
 
   /**
