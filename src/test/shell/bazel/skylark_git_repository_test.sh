@@ -40,6 +40,12 @@ function set_up() {
   tar zxf pluto-repo.tar.gz
   tar zxf outer-planets-repo.tar.gz
   tar zxf refetch-repo.tar.gz
+
+  # Fix environment variables for a hermetic use of git.
+  export GIT_CONFIG_NOSYSTEM=1
+  export GIT_CONFIG_NOGLOBAL=1
+  export HOME=
+  export XDG_CONFIG_HOME=
 }
 
 # Test cloning a Git repository using the git_repository rule.
@@ -69,6 +75,7 @@ function test_git_repository() {
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -130,6 +137,7 @@ function do_new_git_repository_test() {
 
   if [ "$1" == "build_file" ] ; then
     cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -150,6 +158,7 @@ filegroup(
 EOF
   else
     cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -213,6 +222,7 @@ function test_new_git_repository_submodules() {
   # Create a workspace that clones the outer_planets repository.
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
     remote = "$outer_planets_repo_dir",
@@ -269,25 +279,27 @@ function test_git_repository_not_refetched_on_server_restart() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='f0b79ff0', verbose=True)
 EOF
 
   # Use batch to force server restarts.
-  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
-  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
 EOF
 
-  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
@@ -295,10 +307,11 @@ EOF
   cat > WORKSPACE <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
 EOF
 
-  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -309,20 +322,21 @@ function test_git_repository_refetched_when_commit_changes() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='f0b79ff0', verbose=True)
 EOF
 
-  bazel build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
 EOF
 
-
-  bazel build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
+  bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -332,6 +346,7 @@ function test_git_repository_and_nofetch() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
 EOF
 
@@ -341,6 +356,7 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
 EOF
 
@@ -393,6 +409,7 @@ function test_git_repository_both_commit_tag_error() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -403,7 +420,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "One of either commit or tag must be defined"
+  expect_log "Exactly one of commit and tag must be provided"
 }
 
 # Verifies that rule fails if neither tag or commit are set.
@@ -421,6 +438,7 @@ function test_git_repository_no_commit_tag_error() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -429,7 +447,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "One of either commit or tag must be defined"
+  expect_log "Exactly one of commit and tag must be provided"
 }
 
-run_suite "git_repository tests"
+run_suite "skylark git_repository tests"

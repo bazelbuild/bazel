@@ -241,6 +241,16 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_git_repository_test",
+    size = "large",
+    srcs = ["skylark_git_repository_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:git-repos",
+    ],
+)
+
+sh_test(
     name = "local_repository_test",
     size = "large",
     srcs = ["local_repository_test.sh"],
