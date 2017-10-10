@@ -156,7 +156,7 @@ public final class SkyframeBuildView {
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
       logger.info("Discarding analysis cache: configurations have changed.");
-      skyframeExecutor.dropConfiguredTargets();
+      skyframeExecutor.handleConfiguredTargetChange();
     }
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;

@@ -616,15 +616,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract BuildDriver getBuildDriver();
 
-  /**
-   * Deletes all ConfiguredTarget values from the Skyframe cache. This is done to save memory (e.g.
-   * on a configuration change); since the configuration is part of the key, these key/value pairs
-   * will be sitting around doing nothing until the configuration changes back to the previous
-   * value.
-   *
-   * <p>The next evaluation will delete all invalid values.
-   */
-  public abstract void dropConfiguredTargets();
+  /** Clear any configured target data stored outside Skyframe. */
+  public void handleConfiguredTargetChange() {
+    skyframeBuildView.clearInvalidatedConfiguredTargets();
+    skyframeBuildView.clearLegacyData();
+  }
 
   /**
    * Removes ConfigurationFragmentValues from the cache.

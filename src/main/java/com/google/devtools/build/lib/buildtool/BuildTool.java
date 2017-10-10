@@ -228,7 +228,7 @@ public final class BuildTool {
         // also pick up any nodes that are in the graph from prior builds. This makes the results
         // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
         // graph beforehand if this option is specified, or add another option to wipe if desired
-        // (SkyframeExecutor#dropConfiguredTargets should be sufficient).
+        // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
         if (request.getBuildOptions().queryExpression != null) {
           try {
             doConfiguredTargetQuery(request, configurations);
