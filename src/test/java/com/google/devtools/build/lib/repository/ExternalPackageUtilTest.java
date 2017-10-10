@@ -54,6 +54,7 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -128,7 +129,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     skyFunctions.put(GET_RULE_BY_NAME_FUNCTION, new GetRuleByNameFunction());
     skyFunctions.put(GET_REGISTERED_TOOLCHAINS_FUNCTION, new GetRegisteredToolchainsFunction());
 
-    RecordingDifferencer differencer = new RecordingDifferencer();
+    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());

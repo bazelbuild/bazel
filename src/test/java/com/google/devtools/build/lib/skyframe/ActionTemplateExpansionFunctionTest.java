@@ -45,6 +45,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -71,7 +72,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     artifactValueMap = new LinkedHashMap<>();
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         rootDirectory.getFileSystem().getPath("/outputbase"), ImmutableList.of(rootDirectory)));
-    RecordingDifferencer differencer = new RecordingDifferencer();
+    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()

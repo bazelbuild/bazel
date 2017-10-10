@@ -322,7 +322,7 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() {
+  WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() throws InterruptedException {
     return skyframeExecutor.getLastWorkspaceStatusAction();
   }
 

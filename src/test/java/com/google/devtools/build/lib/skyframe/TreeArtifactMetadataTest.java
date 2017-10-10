@@ -223,7 +223,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     return result.get(key);
   }
 
-  private void setGeneratingActions() {
+  private void setGeneratingActions() throws InterruptedException {
     if (evaluator.getExistingValue(OWNER_KEY) == null) {
       differencer.inject(
           ImmutableMap.of(

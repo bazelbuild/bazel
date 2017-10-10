@@ -677,7 +677,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
-  public void maybeInvalidateWorkspaceStatusValue(String workspaceName) {
+  public void maybeInvalidateWorkspaceStatusValue(String workspaceName)
+      throws InterruptedException {
     WorkspaceStatusAction newWorkspaceStatusAction = makeWorkspaceStatusAction(workspaceName);
     WorkspaceStatusAction oldWorkspaceStatusAction = getLastWorkspaceStatusAction();
     if (oldWorkspaceStatusAction != null
@@ -696,7 +697,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   @Nullable
-  public WorkspaceStatusAction getLastWorkspaceStatusAction() {
+  public WorkspaceStatusAction getLastWorkspaceStatusAction() throws InterruptedException {
     WorkspaceStatusValue workspaceStatusValue =
         (WorkspaceStatusValue) memoizingEvaluator.getExistingValue(WorkspaceStatusValue.SKY_KEY);
     return workspaceStatusValue == null

@@ -49,6 +49,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -109,7 +110,7 @@ public abstract class GlobFunctionTest {
         new AtomicReference<>(
             new PathPackageLocator(outputBase, ImmutableList.of(writableRoot, root)));
 
-    differencer = new RecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(createFunctionMap(), differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());

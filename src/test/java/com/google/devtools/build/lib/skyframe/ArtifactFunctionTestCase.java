@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -59,7 +60,7 @@ abstract class ArtifactFunctionTestCase {
 
   protected Set<ActionAnalysisMetadata> actions;
   protected boolean fastDigest = false;
-  protected RecordingDifferencer differencer = new RecordingDifferencer();
+  protected RecordingDifferencer differencer = new SequencedRecordingDifferencer();
   protected SequentialBuildDriver driver;
   protected MemoizingEvaluator evaluator;
   protected Path root;
@@ -82,7 +83,7 @@ abstract class ArtifactFunctionTestCase {
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);
-    differencer = new RecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()

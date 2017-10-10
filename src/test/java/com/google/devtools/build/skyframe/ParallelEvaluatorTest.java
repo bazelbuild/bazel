@@ -1856,9 +1856,11 @@ public class ParallelEvaluatorTest {
               }
             });
 
-    MemoizingEvaluator aug = new InMemoryMemoizingEvaluator(
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()), new RecordingDifferencer(),
-        progressReceiver);
+    MemoizingEvaluator aug =
+        new InMemoryMemoizingEvaluator(
+            ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()),
+            new SequencedRecordingDifferencer(),
+            progressReceiver);
     SequentialBuildDriver driver = new SequentialBuildDriver(aug);
 
     tester.getOrCreate("top1").setComputedValue(CONCATENATE)

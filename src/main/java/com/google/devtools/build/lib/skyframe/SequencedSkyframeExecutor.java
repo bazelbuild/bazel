@@ -66,6 +66,7 @@ import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -184,7 +185,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   protected void init() {
     // Note that we need to set recordingDiffer first since SkyframeExecutor#init calls
     // SkyframeExecutor#evaluatorDiffer.
-    recordingDiffer = new RecordingDifferencer();
+    recordingDiffer = new SequencedRecordingDifferencer();
     super.init();
   }
 

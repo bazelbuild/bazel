@@ -75,7 +75,7 @@ public interface NodeEntry extends ThinNodeEntry {
     REBUILDING
   }
 
-  boolean keepEdges();
+  KeepEdgesPolicy keepEdges();
 
   /**
    * Returns the value stored in this entry. This method may only be called after the evaluation of
@@ -378,4 +378,17 @@ public interface NodeEntry extends ThinNodeEntry {
    */
   @ThreadSafe
   boolean isReady();
+
+  /** Which edges a done NodeEntry stores (dependencies and/or reverse dependencies. */
+  enum KeepEdgesPolicy {
+    /** Both deps and rdeps are stored. Incremental builds and sanity checks are possible. */
+    ALL,
+    /**
+     * Only deps are stored. Incremental builds may be possible with a "top-down" evaluation
+     * framework. Sanity checking of reverse deps is not possible.
+     */
+    JUST_DEPS,
+    /** Neither deps nor rdeps are stored. Incremental builds and sanity checking are disabled. */
+    NONE
+  }
 }

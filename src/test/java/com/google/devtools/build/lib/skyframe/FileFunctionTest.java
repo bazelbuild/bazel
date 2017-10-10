@@ -64,6 +64,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -126,7 +127,7 @@ public class FileFunctionTest {
             new ServerDirectories(pkgRoot, outputBase), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
-    differencer = new RecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()

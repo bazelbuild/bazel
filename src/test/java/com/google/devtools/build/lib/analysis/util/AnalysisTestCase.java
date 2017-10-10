@@ -357,7 +357,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(new EventBus(), defaultFlags(), aspects, labels);
   }
 
-  protected Target getTarget(String label) {
+  protected Target getTarget(String label) throws InterruptedException {
     try {
       return SkyframeExecutorTestUtils.getExistingTarget(skyframeExecutor,
           Label.parseAbsolute(label));
