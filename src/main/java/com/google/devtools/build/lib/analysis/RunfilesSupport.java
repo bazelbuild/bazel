@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -427,6 +428,11 @@ public final class RunfilesSupport {
   private static CommandLine computeArgs(
       RuleContext ruleContext,
       CommandLine additionalArgs) {
+    if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
+      // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
+      // attribute here.
+      return additionalArgs;
+    }
     return CommandLine.concat(
         ruleContext.getExpander().withDataLocations().tokenized("args"),
         additionalArgs);

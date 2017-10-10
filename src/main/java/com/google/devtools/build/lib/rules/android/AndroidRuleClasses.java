@@ -193,6 +193,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_images/emulator-meta-data.pb");
   static final FileType APK = FileType.of(".apk");
 
+  public static final String NOCOMPRESS_EXTENSIONS_ATTR = "nocompress_extensions";
+
   /** The default label of android_sdk option */
   public static LateBoundDefault<?, Label> getAndroidSdkLabel(Label androidSdk) {
     return LateBoundDefault.fromTargetConfiguration(

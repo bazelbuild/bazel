@@ -25,9 +25,11 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigni
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * A class for coordinating APK building, signing and zipaligning.
@@ -337,8 +339,18 @@ public class ApkActionsBuilder {
       singleJarCommandLine.addExecPath("--sources", inputZip);
     }
 
-    ImmutableList<String> noCompressExtensions =
-        ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions");
+    List<String> noCompressExtensions;
+    if (ruleContext.getRule().isAttrDefined(
+        AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR, Type.STRING_LIST)) {
+      noCompressExtensions =
+          ruleContext
+              .getExpander()
+              .withDataLocations()
+              .tokenized(AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR);
+    } else {
+      // This code is also used by android_test, which doesn't have this attribute.
+      noCompressExtensions = ImmutableList.of();
+    }
     if (!noCompressExtensions.isEmpty()) {
       compressedApkCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
       singleJarCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);

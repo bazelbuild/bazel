@@ -172,14 +172,10 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands all values, and returns the resulting list. If the
-   * attribute does not exist or is not of type {@link Type#STRING_LIST}, then this method returns
-   * an empty list.
+   * attribute does not exist or is not of type {@link Type#STRING_LIST}, then this method throws
+   * an error.
    */
   public ImmutableList<String> list(String attrName) {
-    if (!ruleContext.getRule().isAttrDefined(attrName, Type.STRING_LIST)) {
-      // TODO(bazel-team): This should be an error.
-      return ImmutableList.of();
-    }
     return list(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
   }
 
@@ -192,13 +188,9 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands, and tokenizes all values. If the attribute does
-   * not exist or is not of type {@link Type#STRING_LIST}, then this method returns an empty list.
+   * not exist or is not of type {@link Type#STRING_LIST}, then this method throws an error.
    */
   public ImmutableList<String> tokenized(String attrName) {
-    if (!ruleContext.getRule().isAttrDefined(attrName, Type.STRING_LIST)) {
-      // TODO(bazel-team): This should be an error.
-      return ImmutableList.of();
-    }
     return tokenized(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
   }
 
