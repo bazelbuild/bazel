@@ -188,7 +188,8 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Transition to one or more configurations. To obtain the actual child configurations,
-     * invoke {@link Attribute#getSplitTransition(Rule)}. See {@link SplitTransition}.
+     * invoke {@link Attribute#getSplitTransition(ConfiguredAttributeMapper)}.
+     * See {@link SplitTransition}.
      **/
     SPLIT
   }
@@ -317,9 +318,9 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public interface SplitTransitionProvider {
     /**
-     * Returns the {@link SplitTransition} given the originating rule.
+     * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */
-    SplitTransition<?> apply(Rule fromRule);
+    SplitTransition<?> apply(ConfiguredAttributeMapper attributeMap);
   }
 
   /**
@@ -335,7 +336,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public SplitTransition<?> apply(Rule fromRule) {
+    public SplitTransition<?> apply(ConfiguredAttributeMapper attributeMap) {
       return splitTransition;
     }
   }
@@ -1954,13 +1955,13 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns the split configuration transition for this attribute.
    *
-   * @param rule the originating {@link Rule} which owns this attribute
+   * @param attributeMapper the attribute mapper of the current {@link Rule}
    * @return a SplitTransition<BuildOptions> object
    * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
-  public SplitTransition<?> getSplitTransition(Rule rule) {
+  public SplitTransition<?> getSplitTransition(ConfiguredAttributeMapper attributeMapper) {
     Preconditions.checkState(hasSplitConfigurationTransition());
-    return splitTransitionProvider.apply(rule);
+    return splitTransitionProvider.apply(attributeMapper);
   }
 
   /**

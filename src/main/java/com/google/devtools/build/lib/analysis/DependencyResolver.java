@@ -371,8 +371,7 @@ public abstract class DependencyResolver {
 
       LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
 
-      Collection<BuildOptions> splitOptions =
-          getSplitOptions(depResolver.rule, attribute, ruleConfig);
+      Collection<BuildOptions> splitOptions = getSplitOptions(attributeMap, attribute, ruleConfig);
       if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
         // Since we want to get the same results as TransitionResolver.evaluateTransition (but
@@ -425,14 +424,15 @@ public abstract class DependencyResolver {
    * <p>Even though the attribute may have a split, splits don't have to apply in every
    * configuration (see {@link Attribute.SplitTransition#split}).
    */
-  private static Collection<BuildOptions> getSplitOptions(Rule rule, Attribute attribute,
+  private static Collection<BuildOptions> getSplitOptions(ConfiguredAttributeMapper attributeMap,
+      Attribute attribute,
       BuildConfiguration ruleConfig) {
     if (!attribute.hasSplitConfigurationTransition()) {
       return ImmutableList.<BuildOptions>of();
     }
     @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
     Attribute.SplitTransition<BuildOptions> transition =
-        (Attribute.SplitTransition<BuildOptions>) attribute.getSplitTransition(rule);
+        (Attribute.SplitTransition<BuildOptions>) attribute.getSplitTransition(attributeMap);
     return transition.split(ruleConfig.getOptions());
   }
 
@@ -716,7 +716,7 @@ public abstract class DependencyResolver {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
       Attribute.Transition transition = transitionResolver.evaluateTransition(
-          ruleConfig, rule, attributeAndOwner.attribute, toTarget);
+          ruleConfig, rule, attributeAndOwner.attribute, toTarget, attributeMap);
       outgoingEdges.put(
           attributeAndOwner.attribute,
           transition == Attribute.ConfigurationTransition.NULL

@@ -1119,6 +1119,37 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         getGeneratingAction(arm64ProtoObjcSource).getInputs(), "two.proto")).isNotNull();
   }
 
+  @Test
+  public void testPlatformTypeIsConfigurable() throws Exception {
+    scratch.file(
+        "examples/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "apple_binary(",
+        "    name = 'bin',",
+        "    deps = [':objc_lib'],",
+        "    platform_type = select({",
+        "        ':watch_setting': 'watchos',",
+        "        '//conditions:default': 'ios',",
+        "    }),",
+        ")",
+        "objc_library(",
+        "    name = 'objc_lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "config_setting(",
+        "    name = 'watch_setting',",
+        "    values = {'define': 'use_watch=1'},",
+        ")");
+
+    useConfiguration("--define=use_watch=1",
+        "--ios_multi_cpus=armv7,arm64",
+        "--watchos_cpus=armv7k");
+
+    Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
+
+    assertThat(getSingleArchBinary(lipoAction, "armv7k")).isNotNull();
+  }
+
   private SkylarkDict<String, SkylarkDict<String, Artifact>>
       generateAppleDebugOutputsSkylarkProviderMap() throws Exception {
     scratch.file("examples/rule/BUILD");

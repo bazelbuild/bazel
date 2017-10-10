@@ -251,7 +251,7 @@ public final class RuleContext extends TargetContext
   public Root getMiddlemanDirectory() {
     return getConfiguration().getMiddlemanDirectory(rule.getRepository());
   }
-  
+
   public Rule getRule() {
     return rule;
   }
@@ -748,7 +748,8 @@ public final class RuleContext extends TargetContext
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
     SplitTransition<BuildOptions> transition =
-        (SplitTransition<BuildOptions>) attributeDefinition.getSplitTransition(rule);
+        (SplitTransition<BuildOptions>) attributeDefinition.getSplitTransition(
+            ConfiguredAttributeMapper.of(rule, configConditions));
     List<ConfiguredTarget> deps = targetMap.get(attributeName);
 
     List<BuildOptions> splitOptions = transition.split(getConfiguration().getOptions());
