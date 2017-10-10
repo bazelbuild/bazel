@@ -329,6 +329,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
@@ -380,6 +381,17 @@ java_library(
 java_library(
     name = "transitive-info-provider",
     srcs = ["analysis/TransitiveInfoProvider.java"],
+)
+
+java_library(
+    name = "config-matching-provider",
+    srcs = ["analysis/config/ConfigMatchingProvider.java"],
+    deps = [
+        ":transitive-info-provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Provider;
@@ -150,5 +151,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<target " + getLabel() + ">");
+  }
+
+  /**
+   * Returns a {@link ConfiguredAttributeMapper} containing values of this target's attributes.
+   */
+  public ConfiguredAttributeMapper getAttributeMapper() {
+    return ConfiguredAttributeMapper.of(getTarget(), getConfigConditions());
   }
 }

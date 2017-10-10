@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,8 +46,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
    */
   private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    return ConfiguredAttributeMapper.of(
-        (RuleConfiguredTarget) getConfiguredTarget(label));
+    return ((RuleConfiguredTarget) getConfiguredTarget(label)).getAttributeMapper();
   }
 
   private void writeConfigRules() throws Exception {

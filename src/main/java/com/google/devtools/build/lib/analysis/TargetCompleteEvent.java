@@ -245,7 +245,7 @@ public final class TargetCompleteEvent
     if (!(target instanceof RuleConfiguredTarget)) {
       return ImmutableList.<String>of();
     }
-    AttributeMap attributes = ConfiguredAttributeMapper.of((RuleConfiguredTarget) target);
+    AttributeMap attributes = ((RuleConfiguredTarget) target).getAttributeMapper();
     // Every rule (implicitly) has a "tags" attribute.
     return attributes.get("tags", Type.STRING_LIST);
   }

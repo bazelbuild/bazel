@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.DetailedExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
 import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -349,7 +348,7 @@ public final class PrintActionCommand implements BlazeCommand {
       if (!ruleConfiguredTarget.getTarget().isAttrDefined("hdrs", BuildType.LABEL_LIST)) {
         return false;
       }
-      List<Label> hdrs = ConfiguredAttributeMapper.of(ruleConfiguredTarget)
+      List<Label> hdrs = ruleConfiguredTarget.getAttributeMapper()
           .get("hdrs", BuildType.LABEL_LIST);
       if (hdrs != null) {
         for (Label hdrLabel : hdrs) {

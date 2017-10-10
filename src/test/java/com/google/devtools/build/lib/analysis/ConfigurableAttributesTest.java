@@ -435,13 +435,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Configuration a:
     useConfiguration("--test_arg=a");
     ConfiguredTarget binary = getConfiguredTarget("//test:the_rule");
-    AttributeMap attributes = ConfiguredAttributeMapper.of((RuleConfiguredTarget) binary);
+    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("a2");
 
     // configuration b:
     useConfiguration("--test_arg=b");
     binary = getConfiguredTarget("//test:the_rule");
-    attributes = ConfiguredAttributeMapper.of((RuleConfiguredTarget) binary);
+    attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("b2");
   }
 
@@ -1080,7 +1080,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     useConfiguration("--test_arg=a");
     ConfiguredTarget binary = getConfiguredTarget("//srctest:gen");
-    AttributeMap attributes = ConfiguredAttributeMapper.of((RuleConfiguredTarget) binary);
+    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -1099,7 +1099,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     useConfiguration("--test_arg=a");
     ConfiguredTarget binary = getConfiguredTarget("//foo:rule");
-    AttributeMap attributes = ConfiguredAttributeMapper.of((RuleConfiguredTarget) binary);
+    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
     assertThat(attributes.get("dep", BuildType.LABEL)).isEqualTo(
         Label.parseAbsolute("//foo:default"));
   }

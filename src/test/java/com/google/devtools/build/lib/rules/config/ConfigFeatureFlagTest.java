@@ -19,11 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -114,8 +114,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "       '//conditions:default': 'error'",
         "    }))");
 
-    ConfiguredAttributeMapper attributeMapper = ConfiguredAttributeMapper.of(
-        (RuleConfiguredTarget) getConfiguredTarget("//test:gen"));
+    ConfiguredAttributeMapper attributeMapper =
+        ((RuleConfiguredTarget) getConfiguredTarget("//test:gen")).getAttributeMapper();
     assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
 

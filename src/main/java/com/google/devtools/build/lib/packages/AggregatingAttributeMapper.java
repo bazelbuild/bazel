@@ -278,7 +278,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *     This is because the selects have the same conditions, so whatever matches the first also
    *     matches the second. Note that this doesn't work for selects with overlapping but
    *     <i>different</i> key sets. That's because of key specialization (see
-   *     {@link com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper} - if the
+   *     {@link ConfiguredAttributeMapper} - if the
    *     second select also included a condition <code>':c'</code> that includes both the flags
    *     in <code>':a'</code> and <code>':b'</code>, <code>':c'</code> would be chosen over
    *     them both.
