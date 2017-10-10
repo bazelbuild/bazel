@@ -179,11 +179,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   /***
    * @deprecated use {@link XcodeConfig#getMinimumOsForPlatformType(RuleContext, PlatformType)}.
+   *
+   * <p>This is only here because the minimum OS version is currently part of the name of the output
+   * directory.
    */
-  @SkylarkCallable(
-      name = "minimum_os_for_platform_type",
-      doc = "The minimum compatible OS version for target simulator and devices for a particular "
-          + "platform type.")
   @Deprecated
   // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
   public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
