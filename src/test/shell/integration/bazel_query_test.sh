@@ -300,4 +300,8 @@ EOF
   expect_log "//foo/bar:t2"
 }
 
+function tear_down() {
+  bazel shutdown
+}
+
 run_suite "${PRODUCT_NAME} query tests"
