@@ -204,29 +204,14 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
 
   /**
-   * Returns the SDK version for ios SDKs (whether they be for simulator or device). This is
-   * directly derived from --ios_sdk_version.
-   *
-   * @deprecated use {@link XcodeConfig#getSdkVersionForPlatform(RuleContext, ApplePlatform)}
-   */
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  @Deprecated public DottedVersion getIosSdkVersion() {
-    return getSdkVersionForPlatform(ApplePlatform.IOS_DEVICE);
-  }
-
-  /**
    * Returns the SDK version for a platform (whether they be for simulator or device). This is
    * directly derived from command line args.
    *
    * @deprecated use {@link XcodeConfig#getSdkVersionForPlatform(RuleContext, ApplePlatform)}
    */
-  @SkylarkCallable(
-      name = "sdk_version_for_platform",
-      doc = "The version of the platform SDK that will be used to build targets for the given "
-          + "platform.")
   @Deprecated
   // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
+  private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
