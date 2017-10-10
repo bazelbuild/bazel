@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,6 +81,35 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
       ImmutableSet.of(FOUNDATION_FRAMEWORK_FLAG);
   private static final ImmutableSet<String> COCOA_FEATURE_FLAGS =
       ImmutableSet.of(COCOA_FRAMEWORK_FLAG);
+
+  @Test
+  public void testOutputDirectoryWithMandatoryMinimumVersion() throws Exception {
+    scratch.file("a/BUILD",
+        "apple_binary(name='a', platform_type='ios', deps=['b'], minimum_os_version='7.0')",
+        "objc_library(name='b', srcs=['b.c'])");
+
+    useConfiguration(
+        "--experimental_apple_mandatory_minimum_version",
+        "ios_cpus=i386");
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
+
+    PathFragment aPath = a.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
+    PathFragment bPath = b.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
+
+    assertThat(aPath.getPathString()).doesNotMatch("-min[0-9]");
+    assertThat(bPath.getPathString()).contains("-min7.0-");
+  }
+
+  @Test
+  public void testMandatoryMinimumVersionEnforced() throws Exception {
+    scratch.file("a/BUILD", "apple_binary(name='a', platform_type='ios')");
+
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("This attribute must be explicitly specified");
+  }
 
   @Test
   public void testMandatoryMinimumOsVersionUnset() throws Exception {

@@ -388,6 +388,19 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean targetUsesAppleCrosstool;
 
   /**
+   * Returns whether the minimum OS version is explicitly set for the current platform.
+   */
+  public boolean isMinimumOsVersionExplicitlySet() {
+    switch (applePlatformType) {
+      case IOS: return iosMinimumOs != null;
+      case MACOS: return macosMinimumOs != null;
+      case TVOS: return tvosMinimumOs != null;
+      case WATCHOS: return watchosMinimumOs != null;
+      default: throw new IllegalStateException();
+    }
+  }
+
+  /**
    * Returns the architecture implied by these options.
    *
    * <p> In contexts in which a configuration instance is present, prefer
