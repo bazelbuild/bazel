@@ -66,6 +66,7 @@ public class DexFileAggregatorTest {
             dest,
             newDirectExecutorService(),
             MultidexStrategy.MINIMAL,
+            /*forceJumbo=*/ false,
             DEX_LIMIT,
             WASTE,
             DexFileMergerTest.DEX_PREFIX);
@@ -81,12 +82,40 @@ public class DexFileAggregatorTest {
             dest,
             newDirectExecutorService(),
             MultidexStrategy.MINIMAL,
+            /*forceJumbo=*/ false,
             0,
             WASTE,
             DexFileMergerTest.DEX_PREFIX);
     dexer.add(dex);
     dexer.close();
     verify(dest).addFile(any(ZipEntry.class), eq(dex));
+  }
+
+  @Test
+  public void testAddAndClose_forceJumboRewrites() throws Exception {
+    DexFileAggregator dexer =
+        new DexFileAggregator(
+            new DxContext(),
+            dest,
+            newDirectExecutorService(),
+            MultidexStrategy.MINIMAL,
+            /*forceJumbo=*/ true,
+            0,
+            WASTE,
+            DexFileMergerTest.DEX_PREFIX);
+    dexer.add(dex);
+    try {
+      dexer.close();
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage("--forceJumbo flag not supported");
+      System.err.println("Skipping this test due to missing --forceJumbo support in Android SDK.");
+      e.printStackTrace();
+      return;
+    }
+
+    verify(dest).addFile(any(ZipEntry.class), written.capture());
+    assertThat(written.getValue()).isNotEqualTo(dex);
+    assertThat(written.getValue().getLength()).isGreaterThan(dex.getLength());
   }
 
   @Test
@@ -97,6 +126,7 @@ public class DexFileAggregatorTest {
             dest,
             newDirectExecutorService(),
             MultidexStrategy.BEST_EFFORT,
+            /*forceJumbo=*/ false,
             DEX_LIMIT,
             WASTE,
             DexFileMergerTest.DEX_PREFIX);
@@ -117,6 +147,7 @@ public class DexFileAggregatorTest {
             dest,
             newDirectExecutorService(),
             MultidexStrategy.BEST_EFFORT,
+            /*forceJumbo=*/ false,
             2 /* dex has more than 2 methods and fields */,
             WASTE,
             DexFileMergerTest.DEX_PREFIX);
@@ -138,6 +169,7 @@ public class DexFileAggregatorTest {
             dest,
             newDirectExecutorService(),
             MultidexStrategy.OFF,
+            /*forceJumbo=*/ false,
             2 /* dex has more than 2 methods and fields */,
             WASTE,
             DexFileMergerTest.DEX_PREFIX);

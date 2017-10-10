@@ -161,6 +161,16 @@ class DexFileMerger {
     public int maxNumberOfIdxPerDex;
 
     @Option(
+      name = "forceJumbo",
+      defaultValue = "false", // dx's default
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = false,
+      help = "Typically not needed flag intended to imitate dx's --forceJumbo."
+    )
+    public boolean forceJumbo;
+
+    @Option(
       name = "dex_prefix",
       defaultValue = DEX_PREFIX, // dx's default
       category = "misc",
@@ -278,6 +288,7 @@ class DexFileMerger {
                 new BufferedOutputStream(Files.newOutputStream(options.outputArchive)))),
         executor,
         options.multidexMode,
+        options.forceJumbo,
         options.maxNumberOfIdxPerDex,
         options.wasteThresholdPerDex,
         options.dexPrefix);

@@ -54,11 +54,7 @@ public class DexFileMergerTest {
       WORKING_DIR.resolve(System.getProperty("testmaindexlist"));
   static final String DEX_PREFIX = "classes";
 
-  /**
-   * Exercises DexFileMerger like Bazel would in the ideal case, namely with a dex archive as input.
-   * DexFileMerger may in practice see a mixed input file containing .dex and .class files, but this
-   * test uses only .dex files in the input.
-   */
+  /** Exercises DexFileMerger in monodex mode. */
   @Test
   public void testMergeDexArchive_singleOutputDex() throws Exception {
     Path dexArchive = buildDexArchive();
@@ -78,6 +74,7 @@ public class DexFileMergerTest {
         runDexFileMerger(
             dexArchive,
             256 * 256,
+            /*forceJumbo=*/ false,
             "from_dex_archive.dex.zip",
             MultidexStrategy.MINIMAL,
             /*mainDexList=*/ null,
@@ -107,6 +104,7 @@ public class DexFileMergerTest {
         runDexFileMerger(
             dexArchive,
             200,
+            /*forceJumbo=*/ false,
             "main_dex_list.dex.zip",
             MultidexStrategy.MINIMAL,
             MAIN_DEX_LIST_FILE,
@@ -124,6 +122,7 @@ public class DexFileMergerTest {
         runDexFileMerger(
             dexArchive,
             256 * 256,
+            /*forceJumbo=*/ false,
             "minimal_main_dex.dex.zip",
             MultidexStrategy.MINIMAL,
             MAIN_DEX_LIST_FILE,
@@ -141,6 +140,7 @@ public class DexFileMergerTest {
       runDexFileMerger(
           dexArchive,
           200,
+          /*forceJumbo=*/ false,
           "classes.dex.zip",
           MultidexStrategy.OFF,
           /*mainDexList=*/ null,
@@ -156,6 +156,7 @@ public class DexFileMergerTest {
       runDexFileMerger(
           dexArchive,
           200,
+          /*forceJumbo=*/ false,
           "classes.dex.zip",
           MultidexStrategy.OFF,
           MAIN_DEX_LIST_FILE,
@@ -166,6 +167,26 @@ public class DexFileMergerTest {
       assertThat(e)
           .hasMessage("--main-dex-list is only supported with multidex enabled, but mode is: OFF");
     }
+  }
+
+  /** Exercises --forceJumbo support. */
+  @Test
+  public void testMergeDexArchive_forceJumbo() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path outputArchive;
+    try {
+      outputArchive = runDexFileMerger(dexArchive, 256 * 256, /*forceJumbo=*/ true,
+          "from_dex_archive.dex.zip", MultidexStrategy.OFF, /*mainDexList=*/ null,
+          /*minimalMainDex=*/ false, DEX_PREFIX);
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessage("--forceJumbo flag not supported");
+      System.err.println("Skipping this test due to missing --forceJumbo support in Android SDK.");
+      e.printStackTrace();
+      return;
+    }
+
+    int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
+    assertSingleDexOutput(expectedClassCount, outputArchive, "classes.dex");
   }
 
   private void assertSingleDexOutput(int expectedClassCount, Path outputArchive, String dexFileName)
@@ -256,6 +277,7 @@ public class DexFileMergerTest {
     return runDexFileMerger(
         dexArchive,
         maxNumberOfIdxPerDex,
+        /*forceJumbo=*/ false,
         outputBasename,
         MultidexStrategy.MINIMAL,
         /*mainDexList=*/ null,
@@ -266,6 +288,7 @@ public class DexFileMergerTest {
   private Path runDexFileMerger(
       Path dexArchive,
       int maxNumberOfIdxPerDex,
+      boolean forceJumbo,
       String outputBasename,
       MultidexStrategy multidexMode,
       @Nullable Path mainDexList,
@@ -278,6 +301,7 @@ public class DexFileMergerTest {
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputBasename);
     options.multidexMode = multidexMode;
     options.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
+    options.forceJumbo = forceJumbo;
     options.mainDexListFile = mainDexList;
     options.minimalMainDex = minimalMainDex;
     options.dexPrefix = dexPrefix;
