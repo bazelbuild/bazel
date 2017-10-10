@@ -275,6 +275,22 @@ public class OptionsParser implements OptionsProvider {
         throws OptionsParsingException {
       return expansionData.getExpansion(context);
     }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof OptionDescription) {
+        OptionDescription other = (OptionDescription) obj;
+        // Check that the option is the same and that it is in the same context (expansionData)
+        return other.optionDefinition.equals(optionDefinition)
+            && other.expansionData.equals(expansionData);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return optionDefinition.hashCode() + expansionData.hashCode();
+    }
   }
 
   /**
