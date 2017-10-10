@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.stringtemplate;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
@@ -24,28 +24,30 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Unit tests for the {@link MakeVariableExpander}, which expands variable references of the form
- * <code>"$x"</code> and <code>"$(foo)"</code> into their corresponding values.
+ * Unit tests for the {@link
+ * com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander}, which expands variable
+ * references of the form <code>"$x"</code> and <code>"$(foo)"</code> into their corresponding
+ * values.
  */
 @RunWith(JUnit4.class)
-public class MakeVariableExpanderTest {
+public class TemplateExpanderTest {
 
-  private MakeVariableExpander.Context context;
+  private TemplateContext context;
 
   private Map<String, String> vars = new HashMap<>();
 
   @Before
   public final void createContext() throws Exception  {
-    context = new MakeVariableExpander.Context() {
+    context = new TemplateContext() {
         @Override
-        public String lookupMakeVariable(String name)
-            throws MakeVariableExpander.ExpansionException {
+        public String lookupVariable(String name)
+            throws ExpansionException {
           // Not a Make variable. Let the shell handle the expansion.
           if (name.startsWith("$")) {
             return name;
           }
           if (!vars.containsKey(name)) {
-            throw new MakeVariableExpander.ExpansionException("$(" + name + ") not defined");
+            throw new ExpansionException(String.format("$(%s) not defined", name));
           }
           return vars.get(name);
         }
@@ -55,16 +57,16 @@ public class MakeVariableExpanderTest {
   }
 
   private void assertExpansionEquals(String expected, String cmd)
-      throws MakeVariableExpander.ExpansionException {
-    assertThat(MakeVariableExpander.expand(cmd, context)).isEqualTo(expected);
+      throws ExpansionException {
+    assertThat(TemplateExpander.expand(cmd, context)).isEqualTo(expected);
   }
 
   private void assertExpansionFails(String expectedErrorSuffix, String cmd) {
     try {
-      MakeVariableExpander.expand(cmd, context);
+      TemplateExpander.expand(cmd, context);
       fail("Expansion of " + cmd + " didn't fail as expected");
     } catch (Exception e) {
-      assertThat(e).hasMessage(expectedErrorSuffix);
+      assertThat(e).hasMessageThat().isEqualTo(expectedErrorSuffix);
     }
   }
 

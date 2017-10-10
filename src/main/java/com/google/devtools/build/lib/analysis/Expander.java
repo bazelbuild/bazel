@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.Options;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
+import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -148,8 +150,8 @@ public final class Expander {
       expression = locationExpander.expandAttribute(attributeName, expression);
     }
     try {
-      return MakeVariableExpander.expand(expression, makeVariableContext);
-    } catch (MakeVariableExpander.ExpansionException e) {
+      return TemplateExpander.expand(expression, makeVariableContext);
+    } catch (ExpansionException e) {
       ruleContext.attributeError(attributeName, e.getMessage());
       return expression;
     }
@@ -220,8 +222,8 @@ public final class Expander {
   @Nullable
   public String expandSingleMakeVariable(String attrName, String expression) {
     try {
-      return MakeVariableExpander.expandSingleVariable(expression, makeVariableContext);
-    } catch (MakeVariableExpander.ExpansionException e) {
+      return TemplateExpander.expandSingleVariable(expression, makeVariableContext);
+    } catch (ExpansionException e) {
       ruleContext.attributeError(attrName, e.getMessage());
       return expression;
     }

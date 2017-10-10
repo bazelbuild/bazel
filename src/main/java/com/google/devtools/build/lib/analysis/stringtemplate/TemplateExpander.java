@@ -11,68 +11,37 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.stringtemplate;
 
 /**
- * MakeVariableExpander defines a utility method, <code>expand</code>, for
- * expanding references to "Make" variables embedded within a string.  The
- * caller provides a Context instance which defines the expansion of each
- * variable.
+ * Simple string template expansion. String templates consist of text interspersed with
+ * <code>$(variable)</code> references, which are replaced by strings.
  *
- * <p>Note that neither <code>$(location x)</code> nor Make-isms are treated
- * specially in any way by this class.
+ * <p>Note that neither <code>$(location x)</code> nor Make-isms are treated specially in any way by
+ * this class.
  */
-public class MakeVariableExpander {
-
+public class TemplateExpander {
   private final char[] buffer;
   private final int length;
   private int offset;
 
-  private MakeVariableExpander(String expression) {
+  private TemplateExpander(String expression) {
     buffer = expression.toCharArray();
     length = buffer.length;
     offset = 0;
   }
 
   /**
-   * Interface to be implemented by callers of MakeVariableExpander which
-   * defines the expansion of each "Make" variable.
-   */
-  public interface Context {
-
-    /**
-     * Returns the expansion of the specified "Make" variable.
-     *
-     * @param var the variable to expand.
-     * @return the expansion of the variable.
-     * @throws ExpansionException if the variable "var" was not defined or
-     *     there was any other error while expanding "var".
-     */
-    String lookupMakeVariable(String var) throws ExpansionException;
-  }
-
-  /**
-   * Exception thrown by MakeVariableExpander.Context.expandVariable when an
-   * unknown variable is passed.
-   */
-  public static class ExpansionException extends Exception {
-    public ExpansionException(String message) {
-      super(message);
-    }
-  }
-
-  /**
-   * Expands all references to "Make" variables embedded within string "expr",
-   * using the provided Context instance to expand individual variables.
+   * Expands all references to template variables embedded within string "expr", using the provided
+   * {@link TemplateContext} instance to expand individual variables.
    *
    * @param expression the string to expand.
-   * @param context the context which defines the expansion of each individual
-   *     variable.
-   * @return the expansion of "expr".
-   * @throws ExpansionException if "expr" contained undefined or ill-formed
-   *     variables references.
+   * @param context the context which defines the expansion of each individual variable
+   * @return the expansion of "expr"
+   * @throws ExpansionException if "expr" contained undefined or ill-formed variables references
    */
-  public static String expand(String expression, Context context) throws ExpansionException {
+  public static String expand(String expression, TemplateContext context)
+      throws ExpansionException {
     if (expression.indexOf('$') < 0) {
       return expression;
     }
@@ -83,23 +52,23 @@ public class MakeVariableExpander {
    * If the string contains a single variable, return the expansion of that variable.
    * Otherwise, return null.
    */
-  public static String expandSingleVariable(String expression, Context context)
+  public static String expandSingleVariable(String expression, TemplateContext context)
       throws ExpansionException {
-    String var = new MakeVariableExpander(expression).getSingleVariable();
-    return (var != null) ? context.lookupMakeVariable(var) : null;
+    String var = new TemplateExpander(expression).getSingleVariable();
+    return (var != null) ? context.lookupVariable(var) : null;
   }
 
   // Helper method for counting recursion depth.
-  private static String expand(String expression, Context context, int depth)
+  private static String expand(String expression, TemplateContext context, int depth)
       throws ExpansionException {
     if (depth > 10) { // plenty!
-      throw new ExpansionException("potentially unbounded recursion during "
-                                   + "expansion of '" + expression + "'");
+      throw new ExpansionException(
+          String.format("potentially unbounded recursion during expansion of '%s'", expression));
     }
-    return new MakeVariableExpander(expression).expand(context, depth);
+    return new TemplateExpander(expression).expand(context, depth);
   }
 
-  private String expand(Context context, int depth) throws ExpansionException {
+  private String expand(TemplateContext context, int depth) throws ExpansionException {
     StringBuilder result = new StringBuilder();
     while (offset < length) {
       char c = buffer[offset];
@@ -112,7 +81,7 @@ public class MakeVariableExpander {
           result.append('$');
         } else {
           String var = scanVariable();
-          String value = context.lookupMakeVariable(var);
+          String value = context.lookupVariable(var);
           // To prevent infinite recursion for the ignored shell variables
           if (!value.equals(var)) {
             // recursively expand using Make's ":=" semantics:
@@ -129,11 +98,10 @@ public class MakeVariableExpander {
   }
 
   /**
-   * Starting at the current position, scans forward until the name of a Make
-   * variable has been consumed. Returns the variable name and advances the
-   * position. If the variable is a potential shell variable returns the shell
-   * variable expression itself, so that we can let the shell handle the
-   * expansion.
+   * Starting at the current position, scans forward until the name of a template variable has been
+   * consumed. Returns the variable name and advances the position. If the variable is a potential
+   * shell variable returns the shell variable expression itself, so that we can let the shell
+   * handle the expansion.
    *
    * @return the name of the variable found at the current point.
    * @throws ExpansionException if the variable reference was ill-formed.
@@ -184,11 +152,11 @@ public class MakeVariableExpander {
   }
 
   /**
-   * @return the variable name if the variable spans from offset to the end of
-   * the buffer, otherwise return null.
-   * @throws ExpansionException if the variable reference was ill-formed.
+   * @return the variable name if the variable spans from offset to the end of the buffer, otherwise
+   *         null
+   * @throws ExpansionException if the variable reference was ill-formed
    */
-  public String getSingleVariable() throws ExpansionException {
+  private String getSingleVariable() throws ExpansionException {
     if (buffer[offset] == '$') {
       offset++;
       String result = scanVariable();

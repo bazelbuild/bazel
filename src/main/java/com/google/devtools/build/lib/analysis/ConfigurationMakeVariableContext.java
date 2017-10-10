@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.PackageBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
+import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -31,7 +32,7 @@ import java.util.Map;
  * target (not on behavior of the {@link ConfiguredTarget} implementation). Retrieved Make variable
  * value can be modified using {@link MakeVariableSupplier}
  */
-public class ConfigurationMakeVariableContext implements MakeVariableExpander.Context {
+public class ConfigurationMakeVariableContext implements TemplateContext {
 
   private final ImmutableList<? extends MakeVariableSupplier> allMakeVariableSuppliers;
 
@@ -85,14 +86,14 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
   }
 
   @Override
-  public String lookupMakeVariable(String variableName) throws ExpansionException {
+  public String lookupVariable(String name) throws ExpansionException {
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers) {
-      String variableValue = supplier.getMakeVariable(variableName);
+      String variableValue = supplier.getMakeVariable(name);
       if (variableValue != null) {
         return variableValue;
       }
     }
-    throw new MakeVariableExpander.ExpansionException("$(" + variableName + ") not defined");
+    throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
   public SkylarkDict<String, String> collectMakeVariables() {
