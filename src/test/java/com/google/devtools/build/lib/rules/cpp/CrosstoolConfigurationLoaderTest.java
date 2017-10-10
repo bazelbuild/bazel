@@ -74,9 +74,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     return loader(
         "major_version: \"12\""
             + "minor_version: \"0\""
-            + "default_target_cpu: \"cpu\""
+            + "default_target_cpu: \"k8\""
             + "default_toolchain {"
-            + "  cpu: \"cpu\""
+            + "  cpu: \"k8\""
             + "  toolchain_identifier: \"toolchain-identifier\""
             + "}"
             + "toolchain {"
@@ -177,7 +177,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchain =
-        create(loader, "--cpu=cpu", "--host_cpu=cpu", "--android_cpu=", "--fat_apk_cpu=");
+        create(loader, "--cpu=k8", "--host_cpu=k8", "--android_cpu=", "--fat_apk_cpu=");
     CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
     assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
@@ -879,9 +879,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         new StringBuilder(
             "major_version: \"12\""
                 + "minor_version: \"0\""
-                + "default_target_cpu: \"cpu\""
+                + "default_target_cpu: \"k8\""
                 + "default_toolchain {"
-                + "  cpu: \"cpu\""
+                + "  cpu: \"k8\""
                 + "  toolchain_identifier: \"toolchain-identifier\""
                 + "}"
                 + "toolchain {"
@@ -911,7 +911,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   public void testConfigWithMissingToolDefs() throws Exception {
     CppConfigurationLoader loader = loader(getConfigWithMissingToolDef(Tool.STRIP));
     try {
-      create(loader, "--cpu=cpu");
+      create(loader, "--cpu=k8");
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().contains("Tool path for 'strip' is missing");
@@ -926,7 +926,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: true"));
     try {
-      create(loader, "--cpu=cpu");
+      create(loader, "--cpu=k8");
       fail("Expected failed check on 'dwp' tool path");
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().contains("Tool path for 'dwp' is missing");
@@ -941,7 +941,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
     // The following line throws an IllegalArgumentException if an expected tool path is missing.
-    create(loader, "--cpu=cpu");
+    create(loader, "--cpu=k8");
   }
 
   @Test
@@ -966,7 +966,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         loader(
             "major_version: \"v17\""
                 + "minor_version: \"0\""
-                + "default_target_cpu: \"cpu\""
+                + "default_target_cpu: \"k8\""
                 + "default_toolchain {"
                 + "  cpu: \"piii\""
                 + "  toolchain_identifier: \"default-libs\""
@@ -1026,14 +1026,14 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Crosstool with gcov-tool
     CppConfigurationLoader loader =
         loaderWithOptionalTool("  tool_path { name: \"gcov-tool\" path: \"path-to-gcov-tool\" }");
-    CppConfiguration cppConfig = create(loader, "--cpu=cpu");
+    CppConfiguration cppConfig = create(loader, "--cpu=k8");
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     cppConfig.addGlobalMakeVariables(builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();
 
     // Crosstool without gcov-tool
     loader = loaderWithOptionalTool("");
-    cppConfig = create(loader, "--cpu=cpu");
+    cppConfig = create(loader, "--cpu=k8");
     builder = ImmutableMap.builder();
     cppConfig.addGlobalMakeVariables(builder);
     assertThat(builder.build()).doesNotContainKey("GCOVTOOL");
