@@ -24,17 +24,17 @@ import java.util.Collection;
 import java.util.List;
 
 /** A build event reporting the original commandline by which bazel was invoked. */
-public class OriginalCommandLineEvent implements BuildEventWithOrderConstraint {
+public class OriginalUnstructuredCommandLineEvent implements BuildEventWithOrderConstraint {
 
   private final ImmutableList<String> args;
 
-  public OriginalCommandLineEvent(List<String> args) {
+  public OriginalUnstructuredCommandLineEvent(List<String> args) {
     this.args = ImmutableList.copyOf(args);
   }
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.commandlineId();
+    return BuildEventId.unstructuredCommandlineId();
   }
 
   @Override
@@ -50,7 +50,8 @@ public class OriginalCommandLineEvent implements BuildEventWithOrderConstraint {
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return GenericBuildEvent.protoChaining(this)
-        .setCommandLine(BuildEventStreamProtos.CommandLine.newBuilder().addAllArgs(args).build())
+        .setUnstructuredCommandLine(
+            BuildEventStreamProtos.UnstructuredCommandLine.newBuilder().addAllArgs(args).build())
         .build();
   }
 }

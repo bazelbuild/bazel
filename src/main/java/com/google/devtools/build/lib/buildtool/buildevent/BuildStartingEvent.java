@@ -82,7 +82,7 @@ public final class BuildStartingEvent implements BuildEvent {
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of(
         ProgressEvent.INITIAL_PROGRESS_UPDATE,
-        BuildEventId.commandlineId(),
+        BuildEventId.unstructuredCommandlineId(),
         BuildEventId.optionsParsedId(),
         BuildEventId.workspaceStatusId(),
         BuildEventId.targetPatternExpanded(request.getTargets()),

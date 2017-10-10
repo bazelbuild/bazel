@@ -208,8 +208,11 @@ public abstract class OptionValueDescription {
         // The new value does not override the old value, as it has lower priority.
         warnings.add(
             String.format(
-                "The lower priority option '%s' does not override the previous value '%s'",
-                parsedOption.getCommandLineForm(), effectiveOptionInstance.getCommandLineForm()));
+                "The lower priority option '%s' (source %s) does not override the previous value "
+                    + "'%s'",
+                parsedOption.getCommandLineForm(),
+                parsedOption.getSource(),
+                effectiveOptionInstance.getCommandLineForm()));
       }
     }
 

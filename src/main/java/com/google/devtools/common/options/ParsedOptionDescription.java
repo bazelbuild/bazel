@@ -115,7 +115,7 @@ public final class ParsedOptionDescription {
     return unconvertedValue;
   }
 
-  OptionPriority getPriority() {
+  public OptionPriority getPriority() {
     return origin.getPriority();
   }
 

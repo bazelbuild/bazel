@@ -231,9 +231,14 @@ public class BlazeCommandDispatcher {
 
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
     if (commandAnnotation.builds()) {
+      // splits project files from targets in the traditional sense
       ProjectFileSupport.handleProjectFiles(
-          eventHandler, runtime.getProjectFileProvider(), workspaceDirectory, workingDirectory,
-          optionsParser, commandAnnotation.name());
+          eventHandler,
+          runtime.getProjectFileProvider(),
+          workspaceDirectory,
+          workingDirectory,
+          optionsParser,
+          commandAnnotation.name());
     }
 
     // Fix-point iteration until all configs are loaded.
@@ -276,7 +281,8 @@ public class BlazeCommandDispatcher {
       long firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
       throws ShutdownBlazeServerException, InterruptedException {
-    OriginalCommandLineEvent originalCommandLine = new OriginalCommandLineEvent(args);
+    OriginalUnstructuredCommandLineEvent originalCommandLine =
+        new OriginalUnstructuredCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -370,7 +376,7 @@ public class BlazeCommandDispatcher {
   }
 
   private int execExclusively(
-      OriginalCommandLineEvent originalCommandLine,
+      OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent,
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -395,7 +401,11 @@ public class BlazeCommandDispatcher {
         eventHandler, workspace, command, commandAnnotation, commandName, invocationPolicy, args,
         optionsResult, rcfileNotes);
     OptionsProvider options = optionsResult.get();
-
+    CommandLineEvent originalCommandLineEvent =
+        new CommandLineEvent.OriginalCommandLineEvent(
+            runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+    CommandLineEvent canonicalCommandLineEvent =
+        new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
     // The initCommand call also records the start time for the timestamp granularity monitor.
     CommandEnvironment env = workspace.initCommand(commandAnnotation, options);
     // Record the command's starting time for use by the commands themselves.
@@ -591,7 +601,11 @@ public class BlazeCommandDispatcher {
         return e.getExitCode().getNumericExitCode();
       }
 
-      env.getEventBus().post(originalCommandLine);
+      // Log the command line now that the modules have all had a change to register their listeners
+      // to the event bus.
+      env.getEventBus().post(unstructuredServerCommandLineEvent);
+      env.getEventBus().post(originalCommandLineEvent);
+      env.getEventBus().post(canonicalCommandLineEvent);
 
       for (BlazeModule module : runtime.getBlazeModules()) {
         env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());

@@ -192,30 +192,62 @@ function test_basic() {
   # Basic properties of the event stream
   # - a completed target explicity requested should be reported
   # - after success the stream should close naturally, without any
-  #   reports about aborted events.
-  # - the command line is reported
+  #   reports about aborted events
+  # - the command line is reported in structured and unstructured form
   # - the target_kind is reported
   # - for single-configuration builds, there is precisely one configuration
   #   event reported; also make variables are shown
-  bazel test --build_event_text_file=$TEST_log --tool_tag=MyFancyTool pkg:true \
+  bazel test -k --build_event_text_file=$TEST_log --tool_tag=MyFancyTool pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
   # Command line
-  expect_log 'args: "test"'
-  expect_log 'args: "--build_event_text_file='
-  expect_log 'args: "pkg:true"'
-  # Options parsed
-  expect_log 'tool_tag: "MyFancyTool"'
+  expect_log_once 'args: "test"'
+  expect_log_once 'args: "--build_event_text_file='
+  expect_log_once 'args: "-k"'
+  expect_log_once 'args: "--tool_tag=MyFancyTool"'
+  expect_log_once 'args: "pkg:true"'
+
+  # Options parsed. Since cmd_line lines are a substring of the equivalent
+  # explicit_cmd_line lines, we expect 2 instances for these.
+  expect_log_n 'cmd_line: "--tool_tag=MyFancyTool"' 2
+  expect_log_n 'cmd_line: "--keep_going"' 2
+  expect_log_once 'explicit_cmd_line: "--keep_going"'
+  expect_log_once 'explicit_cmd_line: "--tool_tag=MyFancyTool"'
+  expect_log_once 'tool_tag: "MyFancyTool"'
+
+  # Structured command line. Expect the explicit flags to appear twice,
+  # in the canonical and original command lines
+  expect_log 'command_line_label: "original"'
+  expect_log 'command_line_label: "canonical"'
+
+  expect_log_n 'combined_form: "-k"' 2
+  expect_log_n 'option_name: "keep_going"' 2
+  expect_log 'option_value: "1"' # too vague to count.
+
+  expect_log_n 'combined_form: "--tool_tag=MyFancyTool"' 2
+  expect_log_n 'option_name: "tool_tag"' 2
+  expect_log_n 'option_value: "MyFancyTool"' 2
+
+  expect_log_n "combined_form: \"--build_event_text_file=${TEST_log}\"" 2
+  expect_log_n 'option_name: "build_event_text_file"' 2
+  expect_log_n "option_value: \"${TEST_log}\"" 2
+
+  expect_log_n 'chunk: "test"' 2
+  expect_log_n 'chunk: "pkg:true"' 2
+
   # Build Finished
   expect_log 'build_finished'
   expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
-  # target kind for the sh_test
+
+  # Target kind for the sh_test
   expect_log 'target_kind:.*sh'
-  # test size should be reported
+
+  # Test size should be reported
   expect_log 'test_size: SMALL'
-  # configuration reported with make variables
+
+  # Configuration reported with make variables
   expect_log_once '^configuration '
   expect_log 'key: "TARGET_CPU"'
 }
@@ -563,7 +595,6 @@ function test_loading_failure() {
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
-  expect_log_once '^progress '
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log 'description.*BUILD file not found on package path'

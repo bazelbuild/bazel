@@ -4,11 +4,38 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+java_library(
+    name = "testutils",
+    testonly = 1,
+    srcs = [
+        "InvocationPolicyEnforcerTestBase.java",
+        "TestOptions.java",
+    ],
+    visibility = [
+        "//src/test/java:__subpackages__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
+        "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
 java_test(
     name = "options_test",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "TestOptions.java",
+            "InvocationPolicyEnforcerTestBase.java",
+        ],
+    ),
     test_class = "com.google.devtools.common.options.AllTests",
     deps = [
+        ":testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",

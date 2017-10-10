@@ -65,7 +65,7 @@ java_library_srcs(
 proto_library(
     name = "command_line_proto",
     srcs = ["command_line.proto"],
-    visibility = ["//visibility:private"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:__pkg__"],
     deps = [":option_filters_proto"],
 )
 

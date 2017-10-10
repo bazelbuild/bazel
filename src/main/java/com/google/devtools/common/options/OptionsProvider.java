@@ -39,8 +39,10 @@ public interface OptionsProvider extends OptionsClassProvider {
    * specified. If an option was specified multiple times, it is included in the result multiple
    * times. Does not include the residue.
    *
-   * <p>The returned list can be filtered if undocumented, hidden or implicit options should not be
-   * displayed.
+   * <p>The returned list includes undocumented, hidden or implicit options, and should be filtered
+   * as needed. Since it includes all options parsed, it will also include both an expansion option
+   * and the options it expanded to, and so blindly using this list for a new invocation will cause
+   * double-application of these options.
    */
   List<ParsedOptionDescription> asCompleteListOfParsedOptions();
 
