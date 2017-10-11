@@ -29,7 +29,8 @@ class Options {
         no_duplicate_classes(false),
         preserve_compression(false),
         verbose(false),
-        warn_duplicate_resources(false) {}
+        warn_duplicate_resources(false),
+        check_desugar_deps(false) {}
 
   // Parses command line arguments into the fields of this instance.
   void ParseCommandLine(int argc, const char * const argv[]);
@@ -53,6 +54,7 @@ class Options {
   bool preserve_compression;
   bool verbose;
   bool warn_duplicate_resources;
+  bool check_desugar_deps;
 };
 
 #endif  // THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_

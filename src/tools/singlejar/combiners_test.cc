@@ -19,9 +19,6 @@
 #include "src/tools/singlejar/zlib_interface.h"
 #include "gtest/gtest.h"
 
-namespace {
-using std::string;
-
 static const char kTag1Contents[] = "<tag1>Contents1</tag1>";
 static const char kTag2Contents[] = "<tag2>Contents2</tag2>";
 static const char kCombinedXmlContents[] =
@@ -51,6 +48,67 @@ class CombinersTest : public ::testing::Test {
       return false;
     }
     return true;
+  }
+
+  static void TestJava8DesugarDepsChecker_HasDefaultMethods() {
+    Java8DesugarDepsChecker checker([](const std::string &) { return false; },
+                                    /*verbose=*/false);
+    checker.has_default_methods_["a"] = true;
+    checker.extended_interfaces_["c"] = {"b", "a"};
+
+    // Induce cycle (shouldn't happen but make sure we don't crash)
+    checker.extended_interfaces_["d"] = {"e"};
+    checker.extended_interfaces_["e"] = {"d", "a"};
+
+    EXPECT_TRUE(checker.HasDefaultMethods("a"));
+    EXPECT_FALSE(checker.HasDefaultMethods("b"));
+    EXPECT_TRUE(checker.HasDefaultMethods("c"));  // Transitivly through a
+    EXPECT_TRUE(checker.HasDefaultMethods("d"));  // Transitivly through a
+    EXPECT_FALSE(checker.error_);
+  }
+
+  static void TestJava8DesugarDepsChecker_OutputEntry() {
+    bool checkedA = false;
+    Java8DesugarDepsChecker checker(
+        [&checkedA](const std::string &binary_name) {
+          checkedA = true;
+          return binary_name == "a$$CC.class";
+        },
+        /*verbose=*/false);
+    checker.has_default_methods_["a"] = true;
+    checker.extended_interfaces_["b"] = {"c", "d"};
+    checker.extended_interfaces_["c"] = {"e"};
+    checker.needed_deps_["a$$CC.class"] = "f";
+    checker.missing_interfaces_["b"] = "g";
+    EXPECT_EQ(nullptr, checker.OutputEntry(/*compress=*/true));
+    EXPECT_TRUE(checkedA);
+
+    // Make sure we checked b and its extended interfaces for default methods
+    EXPECT_FALSE(checker.has_default_methods_.at("b"));  // should be cached
+    EXPECT_FALSE(checker.has_default_methods_.at("c"));  // should be cached
+    EXPECT_FALSE(checker.has_default_methods_.at("d"));  // should be cached
+    EXPECT_FALSE(checker.has_default_methods_.at("e"));  // should be cached
+    EXPECT_FALSE(checker.error_);
+  }
+
+  static void TestJava8DesugarDepsChecker_NeededDepMissing() {
+    Java8DesugarDepsChecker checker([](const std::string &) { return false; },
+                                    /*verbose=*/false,
+                                    /*fail_on_error=*/false);
+    checker.needed_deps_["a$$CC.class"] = "b";
+    EXPECT_EQ(nullptr, checker.OutputEntry(/*compress=*/true));
+    EXPECT_TRUE(checker.error_);
+  }
+
+  static void TestJava8DesugarDepsChecker_MissedDefaultMethods() {
+    Java8DesugarDepsChecker checker([](const std::string &) { return true; },
+                                    /*verbose=*/false,
+                                    /*fail_on_error=*/false);
+    checker.has_default_methods_["b"] = true;
+    checker.extended_interfaces_["a"] = {"b", "a"};
+    checker.missing_interfaces_["a"] = "g";
+    EXPECT_EQ(nullptr, checker.OutputEntry(/*compress=*/true));
+    EXPECT_TRUE(checker.error_);
   }
 };
 
@@ -87,7 +145,7 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
   EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kConcatenatedContents,
-            string(reinterpret_cast<char *>(buffer), original_size));
+            std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));
 
   // And if we just copy instead of compress:
@@ -98,8 +156,9 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(kConcatenatedContents,
-            string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(
+      kConcatenatedContents,
+      std::string(reinterpret_cast<char *>(entry->data()), original_size));
   EXPECT_TRUE(entry->file_name_is("concat"));
   EXPECT_EQ(0, entry->extra_fields_length());
   free(reinterpret_cast<void *>(entry));
@@ -175,7 +234,7 @@ TEST_F(CombinersTest, XmlCombiner) {
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
   EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kCombinedXmlContents,
-            string(reinterpret_cast<char *>(buffer), original_size));
+            std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));
 
   // And for the combiner that just copies out:
@@ -186,8 +245,9 @@ TEST_F(CombinersTest, XmlCombiner) {
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(kCombinedXmlContents,
-            string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(
+      kCombinedXmlContents,
+      std::string(reinterpret_cast<char *>(entry->data()), original_size));
   EXPECT_TRUE(entry->file_name_is("combined2.xml"));
   EXPECT_EQ(0, entry->extra_fields_length());
   free(reinterpret_cast<void *>(entry));
@@ -200,7 +260,8 @@ TEST_F(CombinersTest, PropertyCombiner) {
       "name_str=value_str\n";
   PropertyCombiner property_combiner("properties");
   property_combiner.AddProperty("name", "value");
-  property_combiner.AddProperty(string("name_str"), string("value_str"));
+  property_combiner.AddProperty(std::string("name_str"),
+                                std::string("value_str"));
 
   // Merge should not be called.
   ASSERT_FALSE(property_combiner.Merge(nullptr, nullptr));
@@ -225,7 +286,7 @@ TEST_F(CombinersTest, PropertyCombiner) {
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
   EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kProperties,
-            string(reinterpret_cast<char *>(buffer), original_size));
+            std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));
 
   // Create output, verify Local Header contents.
@@ -236,11 +297,18 @@ TEST_F(CombinersTest, PropertyCombiner) {
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(kProperties,
-            string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(
+      kProperties,
+      std::string(reinterpret_cast<char *>(entry->data()), original_size));
   EXPECT_EQ("properties", entry->file_name_string());
   EXPECT_EQ(0, entry->extra_fields_length());
   free(reinterpret_cast<void *>(entry));
 }
 
-}  // namespace
+TEST_F(CombinersTest, Java8DesugarDepsChecker) {
+  // Tests are instance methods of CombinersTest to avoid gUnit dep in .h file.
+  TestJava8DesugarDepsChecker_HasDefaultMethods();
+  TestJava8DesugarDepsChecker_OutputEntry();
+  TestJava8DesugarDepsChecker_NeededDepMissing();
+  TestJava8DesugarDepsChecker_MissedDefaultMethods();
+}

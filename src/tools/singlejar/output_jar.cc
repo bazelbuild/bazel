@@ -89,6 +89,17 @@ int OutputJar::Doit(Options *options) {
                            EntryInfo{&build_properties_});
   }
 
+  // Process or drop Java 8 desugaring metadata, see b/65645388.  We don't want
+  // or need these files afterwards so make sure we drop them either way.
+  Combiner *desugar_checker = options_->check_desugar_deps
+                                  ? new Java8DesugarDepsChecker(
+                                        [this](const std::string &filename) {
+                                          return !NewEntry(filename);
+                                        },
+                                        options_->verbose)
+                                  : (Combiner *)new NullCombiner();
+  ExtraCombiner("META-INF/desugar_deps", desugar_checker);
+
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());
@@ -352,6 +363,8 @@ bool OutputJar::AddJar(int jar_path_index) {
       auto &entry_info = got.first->second;
       // Handle special entries (the ones that have a combiner).
       if (entry_info.combiner_ != nullptr) {
+        // TODO(kmb,asmundak): Should be checking Merge() return value but fails
+        // for build-data.properties when merging deploy jars into deploy jars.
         entry_info.combiner_->Merge(jar_entry, lh);
         continue;
       }

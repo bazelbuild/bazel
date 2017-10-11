@@ -79,6 +79,12 @@ new_local_repository(
 )
 
 new_local_repository(
+    name = "com_google_protobuf_cc",
+    build_file = "./third_party/protobuf/3.4.0/BUILD",
+    path = "./third_party/protobuf/3.4.0/",
+)
+
+new_local_repository(
     name = "com_google_protobuf_java",
     build_file = "./third_party/protobuf/3.4.0/com_google_protobuf_java.BUILD",
     path = "./third_party/protobuf/3.4.0/",

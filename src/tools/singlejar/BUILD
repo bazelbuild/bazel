@@ -285,7 +285,10 @@ cc_library(
         ":zip_headers",
     ],
     hdrs = ["combiners.h"],
-    deps = ["//third_party/zlib"],
+    deps = [
+        "//src/main/protobuf:desugar_deps_cc_proto",
+        "//third_party/zlib",
+    ],
 )
 
 cc_library(
