@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -114,6 +115,8 @@ public final class CppLinkAction extends AbstractAction
   private final boolean fake;
   private final boolean isLtoIndexing;
 
+  private final PathFragment ldExecutable;
+
   // This is set for both LTO indexing and LTO linking.
   @Nullable private final Iterable<LtoBackendArtifacts> allLtoBackendArtifacts;
   private final Iterable<Artifact> mandatoryInputs;
@@ -158,7 +161,8 @@ public final class CppLinkAction extends AbstractAction
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> actionEnv,
       ImmutableMap<String, String> toolchainEnv,
-      ImmutableSet<String> executionRequirements) {
+      ImmutableSet<String> executionRequirements,
+      CcToolchainProvider toolchain) {
     super(owner, inputs, outputs);
     if (mnemonic == null) {
       this.mnemonic = (isLtoIndexing) ? "CppLTOIndexing" : "CppLink";
@@ -178,6 +182,7 @@ public final class CppLinkAction extends AbstractAction
     this.actionEnv = actionEnv;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
+    this.ldExecutable = toolchain.getToolPathFragment(Tool.LD);
   }
 
   private CppConfiguration getCppConfiguration() {
@@ -445,7 +450,7 @@ public final class CppLinkAction extends AbstractAction
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
-    f.addString(getCppConfiguration().getLdExecutable().getPathString());
+    f.addString(ldExecutable.getPathString());
     f.addStrings(linkCommandLine.arguments());
     f.addStrings(getExecutionInfo().keySet());
 
@@ -475,7 +480,8 @@ public final class CppLinkAction extends AbstractAction
     message.append('\n');
     message.append("  Command: ");
     message.append(
-        ShellEscaper.escapeString(getCppConfiguration().getLdExecutable().getPathString()));
+        ShellEscaper.escapeString(
+            getCppConfiguration().getToolPathFragment(Tool.LD).getPathString()));
     message.append('\n');
     // Outputting one argument per line makes it easier to diff the results.
     for (String argument : ShellEscaper.escapeAll(linkCommandLine.arguments())) {

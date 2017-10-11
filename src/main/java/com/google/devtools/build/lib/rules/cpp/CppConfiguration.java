@@ -521,6 +521,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         compilationMode, lipoMode, linkingMode, ldExecutable);
   }
 
+  /** Returns the {@link CppToolchainInfo} used by this configuration. */
+  public CppToolchainInfo getCppToolchainInfo() {
+    return cppToolchainInfo;
+  }
+
   /**
    * Returns the toolchain identifier, which uniquely identifies the compiler
    * version, target libc version, target cpu, and LIPO linkage.
@@ -532,6 +537,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /** Returns the contents of the CROSSTOOL for this configuration. */
   public CrosstoolFile getCrosstoolFile() {
     return crosstoolFile;
+  }
+
+  /** Returns the label of the CROSSTOOL for this configuration. */
+  public Label getCrosstoolTop() {
+    return crosstoolTop;
   }
 
   /** Returns the transformer that should be applied to cpu names in toolchain selection. */
@@ -588,12 +598,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the path fragment that is either absolute or relative to the
-   * execution root that can be used to execute the given tool.
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
    *
-   * <p>Note that you must not use this method to get the linker location, but
-   * use {@link #getLdExecutable} instead!
+   * <p>Deprecated: Use {@link CcToolchainProvider#getToolPathFragment(Tool)}
    */
+  @Deprecated
   public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
     return cppToolchainInfo.getToolPathFragment(tool);
   }
@@ -1061,12 +1071,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   @SkylarkCallable(name = "ld_executable", structField = true, doc = "Path to the linker binary.")
   public String getLdExecutableForSkylark() {
-    PathFragment ldExecutable = getLdExecutable();
+    PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
     return ldExecutable != null ? ldExecutable.getPathString() : "";
-  }
-
-  public PathFragment getLdExecutable() {
-    return cppToolchainInfo.getLdExecutable();
   }
 
   /**
@@ -1594,7 +1600,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // Make variables provided by crosstool/gcc compiler suite.
     globalMakeEnvBuilder.put("AR", getArExecutable().getPathString());
     globalMakeEnvBuilder.put("NM", getNmExecutable().getPathString());
-    globalMakeEnvBuilder.put("LD", getLdExecutable().getPathString());
+    globalMakeEnvBuilder.put("LD", getToolPathFragment(Tool.LD).getPathString());
     PathFragment objcopyTool = getObjCopyExecutable();
     if (objcopyTool != null) {
       // objcopy is optional in Crosstool

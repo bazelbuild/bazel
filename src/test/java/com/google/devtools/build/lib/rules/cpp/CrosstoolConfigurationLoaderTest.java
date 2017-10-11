@@ -239,7 +239,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                     "CC_FLAGS", "")
                 .entrySet());
 
-    assertThat(toolchain.getLdExecutable()).isEqualTo(getToolPath("/path-to-ld"));
+    assertThat(toolchain.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("/path-to-ld"));
     assertThat(toolchain.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("/path-to-dwp"));
   }
 

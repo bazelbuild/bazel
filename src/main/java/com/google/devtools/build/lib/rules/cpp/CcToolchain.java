@@ -382,10 +382,26 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
     }
 
+    CppToolchainInfo toolchainInfo = null;
+    if (toolchain != null) {
+      try {
+        toolchainInfo =
+            new CppToolchainInfo(
+                toolchain,
+                cppConfiguration.getCrosstoolTopPathFragment(),
+                cppConfiguration.getCrosstoolTop());
+      } catch (InvalidConfigurationException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+      }
+    } else {
+      toolchainInfo = cppConfiguration.getCppToolchainInfo();
+    }
+
     CcToolchainProvider ccProvider =
         new CcToolchainProvider(
             cppConfiguration,
             toolchain,
+            toolchainInfo,
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,

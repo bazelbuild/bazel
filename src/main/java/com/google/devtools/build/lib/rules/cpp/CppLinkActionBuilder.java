@@ -935,7 +935,8 @@ public class CppLinkActionBuilder {
         configuration.getVariableShellEnvironment(),
         configuration.getLocalShellEnvironment(),
         toolchainEnv,
-        executionRequirements.build());
+        executionRequirements.build(),
+        toolchain);
   }
 
   private boolean shouldUseLinkDynamicLibraryTool() {

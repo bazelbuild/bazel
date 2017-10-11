@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -165,5 +167,34 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     assertThat(thrown)
         .hasMessageThat()
         .contains("Using cc_toolchain target requires the attribute 'compiler' to be present");
+  }
+
+  @Test
+  public void testToolPaths() throws Exception {
+    String originalCrosstool = analysisMock.ccSupport().readCrosstoolFile();
+    String crosstoolWithPiiiLd =
+        MockCcSupport.applyToToolchain(
+            originalCrosstool,
+            "piii",
+            t -> t.addToolPath(ToolPath.newBuilder().setName("ld").setPath("piii-ld").build()));
+
+    getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolWithPiiiLd);
+
+    useConfiguration(
+        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
+    ConfiguredTarget target =
+        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+            .setList("srcs", "a.cc")
+            .write();
+    ResolvedToolchainProviders providers =
+        (ResolvedToolchainProviders)
+            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
+    CcToolchainProvider toolchain =
+        (CcToolchainProvider)
+            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+    assertThat(toolchain.getToolPathFragment(CppConfiguration.Tool.LD).toString())
+        .contains("piii-ld");
   }
 }

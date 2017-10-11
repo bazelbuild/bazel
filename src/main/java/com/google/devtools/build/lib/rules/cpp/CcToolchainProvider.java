@@ -43,6 +43,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       new CcToolchainProvider(
           null,
           null,
+          null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -72,6 +73,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final CToolchain toolchain;
+  private final CppToolchainInfo toolchainInfo;
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
@@ -102,6 +104,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
       CToolchain toolchain,
+      CppToolchainInfo toolchainInfo,
       NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
@@ -131,6 +134,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.toolchain = toolchain;
+    this.toolchainInfo = toolchainInfo;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
     this.compile = Preconditions.checkNotNull(compile);
@@ -366,6 +370,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
   )
   public PathFragment getSysroot() {
     return sysroot;
+  }
+
+  /**
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
+   */
+  public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
+    return toolchainInfo.getToolPathFragment(tool);
   }
 
   @SkylarkCallable(
