@@ -73,7 +73,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Builds and run a target with the given command line arguments.
@@ -320,8 +322,11 @@ public class RunCommand implements BlazeCommand  {
     env.getReporter().handle(Event.info(
         null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
 
+    Map<String, String> clientEnv = new HashMap<String, String>(env.getClientEnv());
+    clientEnv.put("BAZEL_PWD", env.getWorkingDirectory().getPathString());
+
     com.google.devtools.build.lib.shell.Command command = new CommandBuilder()
-        .addArgs(cmdLine).setEnv(env.getClientEnv()).setWorkingDir(workingDir).build();
+        .addArgs(cmdLine).setEnv(clientEnv).setWorkingDir(workingDir).build();
 
     try {
       // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the
