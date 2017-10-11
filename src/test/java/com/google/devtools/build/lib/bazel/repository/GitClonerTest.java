@@ -84,10 +84,14 @@ public class GitClonerTest extends BuildViewTestCase {
 
     HttpDownloadValue value = GitCloner.clone(
         rule, outputDirectory, eventHandler, clientEnvironment, downloader);
-    verify(downloader).download(
-        eq(ImmutableList.of(new URL("https://github.com/foo/bar/archive/1.2.3.tar.gz"))),
-        any(String.class), eq(Optional.of("tar.gz")), eq(outputDirectory),
-        any(ExtendedEventHandler.class), anyMapOf(String.class, String.class));
+    verify(downloader)
+        .download(
+            eq(ImmutableList.of(new URL("https://github.com/foo/bar/archive/1.2.3.tar.gz"))),
+            any(String.class),
+            eq(Optional.of("tar.gz")),
+            eq(outputDirectory),
+            any(ExtendedEventHandler.class),
+            anyMapOf(String.class, String.class));
     assertThat(value).isNotNull();
     assertThat(value.getPath()).isEqualTo(outputDirectory);
   }
