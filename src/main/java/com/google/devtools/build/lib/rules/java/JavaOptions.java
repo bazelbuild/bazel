@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelLis
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -34,7 +33,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +70,7 @@ public class JavaOptions extends FragmentOptions {
     name = "javabase",
     defaultValue = "@bazel_tools//tools/jdk:jdk",
     category = "version",
+    converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -79,7 +78,7 @@ public class JavaOptions extends FragmentOptions {
             + "java_runtime_suite which will be used to execute "
             + "external Java commands."
   )
-  public String javaBase;
+  public Label javaBase;
 
   @Option(
     name = "java_toolchain",
@@ -106,6 +105,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "host_javabase",
     defaultValue = "@bazel_tools//tools/jdk:jdk",
+    converter = LabelConverter.class,
     category = "version",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -113,7 +113,7 @@ public class JavaOptions extends FragmentOptions {
         "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
             + "tools during a build."
   )
-  public String hostJavaBase;
+  public Label hostJavaBase;
 
   @Option(
     name = "javacopt",
@@ -519,15 +519,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean jplPropagateCcLinkParamsStore;
 
   @Option(
-      name = "experimental_disable_absolute_javabase",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE}
-  )
-  public boolean disableAbsoluteJavabase;
-
-  @Option(
       name = "experimental_enable_jvm_configuration_make_variables",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -559,7 +550,6 @@ public class JavaOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
 
-    host.disableAbsoluteJavabase = disableAbsoluteJavabase;
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
@@ -589,11 +579,8 @@ public class JavaOptions extends FragmentOptions {
 
   @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
-    Set<Label> jdkLabels = new LinkedHashSet<>();
-    DefaultsPackage.parseAndAdd(jdkLabels, javaBase);
-    DefaultsPackage.parseAndAdd(jdkLabels, hostJavaBase);
     Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", jdkLabels);
+    result.put("JDK", ImmutableSet.of(javaBase, hostJavaBase));
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
 
     return result;

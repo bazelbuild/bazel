@@ -58,7 +58,6 @@ if [ -z "${BAZEL-}" ]; then
     shift
     run_bazel_jar $command \
         ${_BAZEL_ARGS} --verbose_failures \
-        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 else
@@ -67,7 +66,6 @@ else
     shift
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
         ${_BAZEL_ARGS} --verbose_failures \
-        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 fi
