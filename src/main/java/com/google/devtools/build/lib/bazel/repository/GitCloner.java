@@ -291,8 +291,8 @@ public class GitCloner {
     String repositoryName = matcher.group(2);
     String downloadUrl =
         "https://github.com/"
-            + UrlEscapers.urlPathSegmentEscaper().escape(
-                user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
+            + UrlEscapers.urlFragmentEscaper()
+                .escape(user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
     try {
       FileSystemUtils.createDirectoryAndParents(descriptor.directory);
       Path tgz = downloader.download(ImmutableList.of(new URL(downloadUrl)), uncheckedSha256,
