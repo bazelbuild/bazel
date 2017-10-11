@@ -245,7 +245,6 @@ class Desugar {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      implicitRequirements = "--allow_empty_bootclasspath",
       help = "Enables rewriting to desugar java.* classes."
     )
     public boolean coreLibrary;
