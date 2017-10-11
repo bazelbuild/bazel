@@ -19,7 +19,7 @@ sh_test(
     size = "medium",
     srcs = ["progress_reporting_test.sh"],
     data = [":test-deps"],
-    shard_count = 4,
+    shard_count = 8,
 )
 
 sh_test(
