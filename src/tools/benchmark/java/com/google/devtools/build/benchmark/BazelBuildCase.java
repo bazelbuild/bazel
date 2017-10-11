@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -112,7 +113,9 @@ final class BazelBuildCase implements BuildCase {
     // Copy
     try {
       FileSystemUtils.copyTreesBelow(
-          fileSystem.getPath(copyDir.toString()), fileSystem.getPath(generatedCodePath.toString()));
+          fileSystem.getPath(copyDir.toString()),
+          fileSystem.getPath(generatedCodePath.toString()),
+          Symlinks.FOLLOW);
     } catch (IOException e) {
       throw new IOException("Failed to copy generated code", e);
     }

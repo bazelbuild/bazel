@@ -574,32 +574,35 @@ public class FileSystemUtils {
   }
 
   /**
-   * Copies all dir trees under a given 'from' dir to location 'to', while overwriting
-   * all files in the potentially existing 'to'. Resolves symbolic links.
+   * Copies all dir trees under a given 'from' dir to location 'to', while overwriting all files in
+   * the potentially existing 'to'. Resolves symbolic links if {@code followSymlinks ==
+   * Symlinks#FOLLOW}. Otherwise copies symlinks as-is.
    *
    * <p>The source and the destination must be non-overlapping, otherwise an
-   * IllegalArgumentException will be thrown. This method cannot be used to copy
-   * a dir tree to a sub tree of itself.
+   * IllegalArgumentException will be thrown. This method cannot be used to copy a dir tree to a sub
+   * tree of itself.
    *
-   * <p>If no error occurs, the method returns normally. If the given 'from' does
-   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
-   * other erroneous situations occur. (e.g. read errors)
+   * <p>If no error occurs, the method returns normally. If the given 'from' does not exist, a
+   * FileNotFoundException is thrown. An IOException is thrown when other erroneous situations
+   * occur. (e.g. read errors)
    */
   @ThreadSafe
-  public static void copyTreesBelow(Path from , Path to) throws IOException {
+  public static void copyTreesBelow(Path from, Path to, Symlinks followSymlinks)
+      throws IOException {
     if (to.startsWith(from)) {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
     Collection<Path> entries = from.getDirectoryEntries();
     for (Path entry : entries) {
-      if (entry.isFile()) {
-        Path newEntry = to.getChild(entry.getBaseName());
-        copyFile(entry, newEntry);
+      Path toPath = to.getChild(entry.getBaseName());
+      if (!followSymlinks.toBoolean() && entry.isSymbolicLink()) {
+        FileSystemUtils.ensureSymbolicLink(toPath, entry.readSymbolicLink());
+      } else if (entry.isFile()) {
+        copyFile(entry, toPath);
       } else {
-        Path subDir = to.getChild(entry.getBaseName());
-        subDir.createDirectory();
-        copyTreesBelow(entry, subDir);
+        toPath.createDirectory();
+        copyTreesBelow(entry, toPath, followSymlinks);
       }
     }
   }

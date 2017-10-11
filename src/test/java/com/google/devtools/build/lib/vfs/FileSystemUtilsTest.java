@@ -112,7 +112,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(file5);
   }
 
-  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
+  private Path checkTestDirectoryTreesBelowExceptSymlinks(Path toPath) throws IOException {
     Path copiedFile1 = toPath.getChild("file-1");
     assertThat(copiedFile1.exists()).isTrue();
     assertThat(copiedFile1.isFile()).isTrue();
@@ -134,7 +134,11 @@ public class FileSystemUtilsTest {
     Path copiedInnerDir = copiedADir.getChild("inner-dir");
     assertThat(copiedInnerDir.exists()).isTrue();
     assertThat(copiedInnerDir.isDirectory()).isTrue();
+    return copiedInnerDir;
+  }
 
+  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
+    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
     assertThat(copiedLink1.exists()).isTrue();
     assertThat(copiedLink1.isSymbolicLink()).isFalse();
@@ -454,7 +458,7 @@ public class FileSystemUtilsTest {
     Path toPath = fileSystem.getPath("/copy-here");
     toPath.createDirectory();
 
-    FileSystemUtils.copyTreesBelow(topDir, toPath);
+    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
     checkTestDirectoryTreesBelow(toPath);
   }
 
@@ -465,7 +469,7 @@ public class FileSystemUtilsTest {
     toPath.createDirectory();
     toPath.getChild("file-2");
 
-    FileSystemUtils.copyTreesBelow(topDir, toPath);
+    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
     checkTestDirectoryTreesBelow(toPath);
   }
 
@@ -473,7 +477,7 @@ public class FileSystemUtilsTest {
   public void testCopyTreesBelowToSubtree() throws IOException {
     createTestDirectoryTree();
     try {
-      FileSystemUtils.copyTreesBelow(topDir, aDir);
+      FileSystemUtils.copyTreesBelow(topDir, aDir, Symlinks.FOLLOW);
       fail("Should not be able to copy a directory to a subdir");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessage("/top-dir/a-dir is a subdirectory of /top-dir");
@@ -484,7 +488,7 @@ public class FileSystemUtilsTest {
   public void testCopyFileAsDirectoryTree() throws IOException {
     createTestDirectoryTree();
     try {
-      FileSystemUtils.copyTreesBelow(file1, aDir);
+      FileSystemUtils.copyTreesBelow(file1, aDir, Symlinks.FOLLOW);
       fail("Should not be able to copy a file with copyDirectory method");
     } catch (IOException expected) {
       assertThat(expected).hasMessage("/top-dir/file-1 (Not a directory)");
@@ -498,7 +502,7 @@ public class FileSystemUtilsTest {
     Path copySubDir = fileSystem.getPath("/my-dir/subdir");
     FileSystemUtils.createDirectoryAndParents(copySubDir);
     try {
-      FileSystemUtils.copyTreesBelow(copyDir, file4);
+      FileSystemUtils.copyTreesBelow(copyDir, file4, Symlinks.FOLLOW);
       fail("Should not be able to copy a directory to a file");
     } catch (IOException expected) {
       assertThat(expected).hasMessage("/file-4 (Not a directory)");
@@ -511,11 +515,45 @@ public class FileSystemUtilsTest {
 
     try {
       Path unexistingDir = fileSystem.getPath("/unexisting-dir");
-      FileSystemUtils.copyTreesBelow(unexistingDir, aDir);
+      FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW);
       fail("Should not be able to copy from an unexisting path");
     } catch (FileNotFoundException expected) {
       assertThat(expected).hasMessage("/unexisting-dir (No such file or directory)");
     }
+  }
+
+  @Test
+  public void testCopyTreesBelowNoFollowSymlinks() throws IOException {
+    createTestDirectoryTree();
+    PathFragment relative1 = file1.relativeTo(topDir);
+    topDir.getRelative("relative-link").createSymbolicLink(relative1);
+    PathFragment relativeInner = PathFragment.create("..").getRelative(relative1);
+    bDir.getRelative("relative-inner-link").createSymbolicLink(relativeInner);
+    PathFragment rootDirectory = PathFragment.create("/");
+    topDir.getRelative("absolute-link").createSymbolicLink(rootDirectory);
+    Path toPath = fileSystem.getPath("/copy-here");
+    toPath.createDirectory();
+
+    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.NOFOLLOW);
+    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
+    Path copiedLink1 = copiedInnerDir.getChild("link-1");
+    assertThat(copiedLink1.exists()).isTrue();
+    assertThat(copiedLink1.isSymbolicLink()).isTrue();
+    assertThat(copiedLink1.readSymbolicLink()).isEqualTo(file4.asFragment());
+
+    Path copiedDirLink = copiedInnerDir.getChild("dir-link");
+    assertThat(copiedDirLink.exists()).isTrue();
+    assertThat(copiedDirLink.isDirectory()).isTrue();
+    assertThat(copiedDirLink.readSymbolicLink()).isEqualTo(bDir.asFragment());
+
+    assertThat(toPath.getRelative("relative-link").readSymbolicLink()).isEqualTo(relative1);
+    assertThat(
+            toPath
+                .getRelative(bDir.relativeTo(topDir))
+                .getRelative("relative-inner-link")
+                .readSymbolicLink())
+        .isEqualTo(relativeInner);
+    assertThat(toPath.getRelative("absolute-link").readSymbolicLink()).isEqualTo(rootDirectory);
   }
 
   @Test
