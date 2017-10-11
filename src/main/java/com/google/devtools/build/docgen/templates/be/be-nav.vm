@@ -32,7 +32,7 @@
   #end
 #end
 
-  <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">Java AppEngine</a></li>
+  <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">AppEngine</a></li>
   <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
   <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
   <li><a href="${bazelbuildGithub}/rules_docker" target="_blank">Docker</a></li>
