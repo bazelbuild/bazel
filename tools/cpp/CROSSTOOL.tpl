@@ -133,6 +133,10 @@ toolchain {
     path: "%{msvc_lib_path}"
   }
   tool_path {
+    name: "ml"
+    path: "%{msvc_ml_path}"
+  }
+  tool_path {
     name: "cpp"
     path: "%{msvc_cl_path}"
   }
@@ -262,6 +266,26 @@ toolchain {
 
   feature {
     name: 'copy_dynamic_libraries_to_binary'
+  }
+
+  action_config {
+    config_name: 'assemble'
+    action_name: 'assemble'
+    tool {
+      tool_path: '%{msvc_ml_path}'
+    }
+    flag_set {
+      expand_if_all_available: 'output_object_file'
+      flag_group {
+        flag: '/Fo%{output_object_file}'
+        flag: '/Zi'
+        flag: '/c'
+        flag: '%{source_file}'
+      }
+    }
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'sysroot'
   }
 
   action_config {
@@ -453,7 +477,6 @@ toolchain {
     name: 'legacy_compile_flags'
     flag_set {
       expand_if_all_available: 'legacy_compile_flags'
-      action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -523,6 +546,7 @@ toolchain {
   feature {
     name: 'include_paths'
     flag_set {
+      action: "assemble"
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -547,6 +571,7 @@ toolchain {
   feature {
     name: "preprocessor_defines"
     flag_set {
+      action: "assemble"
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
@@ -564,7 +589,6 @@ toolchain {
   feature {
     name: 'parse_showincludes'
     flag_set {
-      action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -933,7 +957,6 @@ toolchain {
     name: 'user_compile_flags'
     flag_set {
       expand_if_all_available: 'user_compile_flags'
-      action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -973,7 +996,6 @@ toolchain {
     name: 'unfiltered_compile_flags'
     flag_set {
       expand_if_all_available: 'unfiltered_compile_flags'
-      action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
