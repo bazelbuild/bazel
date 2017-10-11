@@ -1531,16 +1531,27 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         warn |= opt.getOptions().contains("-g");
       }
       if (warn) {
-        reporter.handle(Event.warn("Stripping enabled, but '--copt=-g' (or --per_file_copt=...@-g) "
-            + "specified. Debug information will be generated and then stripped away. This is "
-            + "probably not what you want! Use '-c dbg' for debug mode, or use '--strip=never' "
-            + "to disable stripping"));
+        reporter.handle(
+            Event.warn(
+                "Stripping enabled, but '--copt=-g' (or --per_file_copt=...@-g) specified. "
+                    + "Debug information will be generated and then stripped away. This is "
+                    + "probably not what you want! Use '-c dbg' for debug mode, or use "
+                    + "'--strip=never' to disable stripping"));
       }
     }
 
-    if (cppOptions.getFdoInstrument() != null && cppOptions.getFdoOptimize() != null) {
-      reporter.handle(Event.error("Cannot instrument and optimize for FDO at the same time. "
-          + "Remove one of the '--fdo_instrument' and '--fdo_optimize' options"));
+    if (cppOptions.getFdoInstrument() != null) {
+      if (cppOptions.getFdoOptimize() != null) {
+        reporter.handle(
+            Event.error(
+                "Cannot instrument and optimize for FDO at the same time. "
+                    + "Remove one of the '--fdo_instrument' and '--fdo_optimize' options"));
+      }
+      if (!cppOptions.coptList.contains("-Wno-error")) {
+        // This is effectively impossible. --fdo_instrument adds this value, and only invocation
+        // policy could remove it.
+        reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
+      }
     }
 
     if (cppOptions.getLipoMode() != LipoMode.OFF
@@ -1552,21 +1563,33 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "automatically fall back to thinlto."));
     }
     if (cppOptions.lipoContextForBuild != null) {
+      if (!cppOptions.linkoptList.contains("-Wl,--warn-unresolved-symbols")) {
+        // This is effectively impossible. --lipo_context adds these values, and only invocation
+        // policy could remove them.
+        reporter.handle(
+            Event.error(
+                "The --lipo_context option cannot be used without -Wl,--warn-unresolved-symbols "
+                    + "included as a linkoption"));
+      }
       if (isLLVMCompiler()) {
         reporter.handle(
             Event.warn("LIPO options are not applicable with a LLVM compiler and will be "
                 + "converted to ThinLTO"));
       } else if (cppOptions.getLipoMode() != LipoMode.BINARY
           || cppOptions.getFdoOptimize() == null) {
-        reporter.handle(Event.warn("The --lipo_context option can only be used together with "
-            + "--fdo_optimize=<profile zip> and --lipo=binary. LIPO context will be ignored."));
+        reporter.handle(
+            Event.warn(
+                "The --lipo_context option can only be used together with --fdo_optimize="
+                    + "<profile zip> and --lipo=binary. LIPO context will be ignored."));
       }
     } else {
       if (!isLLVMCompiler()
           && cppOptions.getLipoMode() == LipoMode.BINARY
           && cppOptions.getFdoOptimize() != null) {
-        reporter.handle(Event.error("The --lipo_context option must be specified when using "
-            + "--fdo_optimize=<profile zip> and --lipo=binary"));
+        reporter.handle(
+            Event.error(
+                "The --lipo_context option must be specified when using "
+                    + "--fdo_optimize=<profile zip> and --lipo=binary"));
       }
     }
     if (cppOptions.getLipoMode() == LipoMode.BINARY && compilationMode != CompilationMode.OPT) {
@@ -1581,9 +1604,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "crosstool to enable fission"));
     }
     if (cppOptions.buildTestDwp && !useFission()) {
-      reporter.handle(Event.warn("Test dwp file requested, but Fission is not enabled. To "
-          + "generate a dwp for the test executable, use '--fission=yes' with a toolchain "
-          + "that supports Fission and build statically."));
+      reporter.handle(
+          Event.warn(
+              "Test dwp file requested, but Fission is not enabled. To generate a dwp "
+                  + "for the test executable, use '--fission=yes' with a toolchain "
+                  + "that supports Fission and build statically."));
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
