@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 public final class DocstringUtils {
   private DocstringUtils() {}
 
+  /** Takes a function body and returns the docstring literal, if present. */
   @Nullable
   static StringLiteral extractDocstring(List<Statement> statements) {
     if (statements.isEmpty()) {
@@ -45,6 +46,12 @@ public final class DocstringUtils {
       }
     }
     return null;
+  }
+
+  /** Parses a docstring from a string literal and appends any new errors to the given list. */
+  static DocstringInfo parseDocstring(StringLiteral docstring, List<DocstringParseError> errors) {
+    int indentation = docstring.getLocation().getStartLineAndColumn().getColumn() - 1;
+    return parseDocstring(docstring.getValue(), indentation, errors);
   }
 
   /**
@@ -90,16 +97,27 @@ public final class DocstringUtils {
   }
 
   static class DocstringInfo {
+    /** The one-line summary at the start of the docstring. */
     final String summary;
+    /** Documentation of function parameters from the 'Args:' section. */
     final List<ParameterDoc> parameters;
+    /** Documentation of the return value from the 'Returns:' section, or empty if there is none. */
     final String returns;
+    /** Deprecation warning from the 'Deprecated:' section, or empty if there is none. */
+    final String deprecated;
+    /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
 
     public DocstringInfo(
-        String summary, List<ParameterDoc> parameters, String returns, String longDescription) {
+        String summary,
+        List<ParameterDoc> parameters,
+        String returns,
+        String deprecated,
+        String longDescription) {
       this.summary = summary;
       this.parameters = ImmutableList.copyOf(parameters);
       this.returns = returns;
+      this.deprecated = deprecated;
       this.longDescription = longDescription;
     }
 
@@ -214,8 +232,9 @@ public final class DocstringUtils {
 
     DocstringInfo parse() {
       String summary = line;
+      String nonStandardDeprecation = checkForNonStandardDeprecation(line);
       if (!nextLine()) {
-        return new DocstringInfo(summary, Collections.emptyList(), "", "");
+        return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");
@@ -225,6 +244,7 @@ public final class DocstringUtils {
       List<String> longDescriptionLines = new ArrayList<>();
       List<ParameterDoc> params = new ArrayList<>();
       String returns = "";
+      String deprecated = "";
       while (!eof()) {
         switch (line) {
           case "Args:":
@@ -232,7 +252,7 @@ public final class DocstringUtils {
               error("section should be preceded by a blank line");
             }
             if (!params.isEmpty()) {
-              error("parameters were already documented before");
+              error("parameters were already documented above");
             }
             if (!returns.isEmpty()) {
               error("parameters should be documented before the return value");
@@ -244,16 +264,40 @@ public final class DocstringUtils {
               error("section should be preceded by a blank line");
             }
             if (!returns.isEmpty()) {
-              error("return value was already documented before");
+              error("return value was already documented above");
             }
             returns = parseSectionAfterHeading();
             break;
+          case "Deprecated:":
+            if (!blankLineBefore) {
+              error("section should be preceded by a blank line");
+            }
+            if (!deprecated.isEmpty()) {
+              error("deprecation message was already documented above");
+            }
+            deprecated = parseSectionAfterHeading();
+            break;
           default:
+            if (deprecated.isEmpty() && nonStandardDeprecation.isEmpty()) {
+              nonStandardDeprecation = checkForNonStandardDeprecation(line);
+            }
             longDescriptionLines.add(line);
             nextLine();
         }
       }
-      return new DocstringInfo(summary, params, returns, String.join("\n", longDescriptionLines));
+      if (deprecated.isEmpty()) {
+        deprecated = nonStandardDeprecation;
+      }
+      return new DocstringInfo(
+          summary, params, returns, deprecated, String.join("\n", longDescriptionLines));
+    }
+
+    private String checkForNonStandardDeprecation(String line) {
+      if (line.toLowerCase().startsWith("deprecated:") || line.contains("DEPRECATED")) {
+        error("use a 'Deprecated:' section for deprecations, similar to a 'Returns:' section");
+        return line;
+      }
+      return "";
     }
 
     private static final Pattern paramLineMatcher =

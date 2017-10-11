@@ -29,11 +29,15 @@ public class LinterTest {
     final String file =
         String.join(
             "\n",
-            "_unusedVar = function() + {}",
-            "load(':foo.bzl', 'bar')",
             "def function():",
+            "  '''A function.",
+            "  ",
+            "  Deprecated:",
+            "    Reason'''",
             "  return",
-            "  'unreachable and unused string literal'");
+            "  'unreachable and unused string literal'",
+            "_unusedVar = function() + {}",
+            "load(':foo.bzl', 'bar')");
     final String errorMessages =
         new Linter()
             .setFileContentsReader(p -> file.getBytes(StandardCharsets.ISO_8859_1))
@@ -41,6 +45,7 @@ public class LinterTest {
             .toString();
     Truth.assertThat(errorMessages).contains("'+' operator is deprecated"); // bad operation checker
     Truth.assertThat(errorMessages).contains("unreachable statement"); // control flow checker
+    Truth.assertThat(errorMessages).contains("'function' is deprecated"); // deprecation checker
     Truth.assertThat(errorMessages).contains("has no module docstring"); // docstring checker
     Truth.assertThat(errorMessages)
         .contains("load statement should be at the top"); // load statement checker
