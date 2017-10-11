@@ -152,6 +152,7 @@ py_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/launcher:srcs",
+        "//src/tools/runfiles:srcs",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
@@ -416,6 +417,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/benchmark:srcs",
         "//src/tools/launcher:srcs",
+        "//src/tools/runfiles:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
@@ -470,6 +472,7 @@ test_suite(
         "//src/test/shell/bazel:bazel_bootstrap_distfile_test",
         "//src/test/shell/bazel:bazel_windows_example_test",
         "//src/tools/launcher:all_windows_tests",
+        "//src/tools/runfiles:all_windows_tests",
         "//third_party/def_parser:all_windows_tests",
     ],
 )
