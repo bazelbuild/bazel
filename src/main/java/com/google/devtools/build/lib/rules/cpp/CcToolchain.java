@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -99,7 +100,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * the indexed format (.profdata) if necessary.
    */
   private Artifact convertLLVMRawProfileToIndexed(
-      Path fdoProfile, CppConfiguration cppConfiguration, RuleContext ruleContext)
+      Path fdoProfile,
+      CppToolchainInfo toolchainInfo,
+      CppConfiguration cppConfiguration,
+      RuleContext ruleContext)
       throws InterruptedException {
 
     Artifact profileArtifact =
@@ -183,7 +187,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               "Symlinking LLVM Raw Profile " + fdoProfile.getPathString()));
     }
 
-    if (cppConfiguration.getLLVMProfDataExecutable() == null) {
+    if (toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA) == null) {
       ruleContext.ruleError(
           "llvm-profdata not available with this crosstool, needed for profile conversion");
       return null;
@@ -196,7 +200,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addTransitiveInputs(getFiles(ruleContext, "all_files"))
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(cppConfiguration.getLLVMProfDataExecutable())
+            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
             .addCommandLine(
@@ -246,15 +250,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     if (skyframeEnv.valuesMissing()) {
       return null;
-    }
-
-    // This tries to convert LLVM profiles to the indexed format if necessary.
-    Artifact profileArtifact = null;
-    if (cppConfiguration.isLLVMOptimizedFdo()) {
-      profileArtifact = convertLLVMRawProfileToIndexed(fdoZip, cppConfiguration, ruleContext);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
     }
 
     final Label label = ruleContext.getLabel();
@@ -351,13 +346,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.compileOrder();
 
-    coverageEnvironment.add(Pair.of(
-        "COVERAGE_GCOV_PATH", cppConfiguration.getGcovExecutable().getPathString()));
-    if (cppConfiguration.getFdoInstrument() != null) {
-      coverageEnvironment.add(Pair.of(
-          "FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
-    }
-
     NestedSet<Artifact> coverage = getOptionalFiles(ruleContext, "coverage_files");
     if (coverage.isEmpty()) {
       coverage = crosstool;
@@ -395,6 +383,24 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       }
     } else {
       toolchainInfo = cppConfiguration.getCppToolchainInfo();
+    }
+
+    coverageEnvironment.add(
+        Pair.of(
+            "COVERAGE_GCOV_PATH", toolchainInfo.getToolPathFragment(Tool.GCOV).getPathString()));
+    if (cppConfiguration.getFdoInstrument() != null) {
+      coverageEnvironment.add(
+          Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
+    }
+
+    // This tries to convert LLVM profiles to the indexed format if necessary.
+    Artifact profileArtifact = null;
+    if (cppConfiguration.isLLVMOptimizedFdo()) {
+      profileArtifact =
+          convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, cppConfiguration, ruleContext);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     }
 
     CcToolchainProvider ccProvider =

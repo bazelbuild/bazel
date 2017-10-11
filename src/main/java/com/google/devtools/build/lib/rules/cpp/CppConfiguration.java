@@ -1338,16 +1338,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to GNU binutils 'objcopy' binary."
   )
   public String getObjCopyExecutableForSkylark() {
-    PathFragment objCopyExecutable = getObjCopyExecutable();
+    PathFragment objCopyExecutable = getToolPathFragment(Tool.OBJCOPY);
     return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
-   * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
-   */
-  public PathFragment getObjCopyExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.OBJCOPY);
   }
 
   @SkylarkCallable(
@@ -1356,26 +1348,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to C/C++ compiler binary."
   )
   public String getCppExecutableForSkylark() {
-    PathFragment cppExecutable = getCppExecutable();
+    PathFragment cppExecutable = getToolPathFragment(Tool.GCC);
     return cppExecutable != null ? cppExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'gcc' binary that should be used by this build. This
-   * binary should support compilation of both C (*.c) and C++ (*.cc) files. Relative paths are
-   * relative to the execution root.
-   */
-  public PathFragment getCppExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.GCC);
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'g++' binary that should be used
-   * by this build.  This binary should support linking of both C (*.c)
-   * and C++ (*.cc) files. Relative paths are relative to the execution root.
-   */
-  public PathFragment getCppLinkExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.GCC);
   }
 
   @SkylarkCallable(
@@ -1384,25 +1358,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to C/C++ preprocessor binary."
   )
   public String getCpreprocessorExecutableForSkylark() {
-    PathFragment cpreprocessorExecutable = getCpreprocessorExecutable();
+    PathFragment cpreprocessorExecutable = getToolPathFragment(Tool.CPP);
     return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'cpp' binary that should be used by this build. Relative
-   * paths are relative to the execution root.
-   */
-  public PathFragment getCpreprocessorExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.CPP);
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'gcov' binary that should be used
-   * by this build to analyze C++ coverage data. Relative paths are relative to
-   * the execution root.
-   */
-  public PathFragment getGcovExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.GCOV);
   }
 
   /**
@@ -1419,16 +1376,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to GNU binutils 'nm' binary."
   )
   public String getNmExecutableForSkylark() {
-    PathFragment nmExecutable = getNmExecutable();
+    PathFragment nmExecutable = getToolPathFragment(Tool.NM);
     return nmExecutable != null ? nmExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'nm' executable that should be used by this build. Used
-   * only for testing. Relative paths are relative to the execution root.
-   */
-  public PathFragment getNmExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.NM);
   }
 
   @SkylarkCallable(
@@ -1437,16 +1386,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to GNU binutils 'objdump' binary."
   )
   public String getObjdumpExecutableForSkylark() {
-    PathFragment objdumpExecutable = getObjdumpExecutable();
+    PathFragment objdumpExecutable = getToolPathFragment(Tool.OBJDUMP);
     return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'objdump' executable that should be used by this build.
-   * Used only for testing. Relative paths are relative to the execution root.
-   */
-  public PathFragment getObjdumpExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.OBJDUMP);
   }
 
   @SkylarkCallable(
@@ -1455,16 +1396,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to GNU binutils 'ar' binary."
   )
   public String getArExecutableForSkylark() {
-    PathFragment arExecutable = getArExecutable();
+    PathFragment arExecutable = getToolPathFragment(Tool.AR);
     return arExecutable != null ? arExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'ar' binary to use for this build. Relative paths are
-   * relative to the execution root.
-   */
-  public PathFragment getArExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.AR);
   }
 
   @SkylarkCallable(
@@ -1473,30 +1406,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     doc = "Path to GNU binutils 'strip' binary."
   )
   public String getStripExecutableForSkylark() {
-    PathFragment stripExecutable = getStripExecutable();
+    PathFragment stripExecutable = getToolPathFragment(Tool.STRIP);
     return stripExecutable != null ? stripExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'strip' executable that should be used by this build.
-   * Relative paths are relative to the execution root.
-   */
-  public PathFragment getStripExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.STRIP);
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'dwp' binary that should be used by this
-   * build to combine debug info output from individual C++ compilations (i.e. .dwo
-   * files) into aggregate target-level debug packages. Relative paths are relative to the
-   * execution root. See https://gcc.gnu.org/wiki/DebugFission .
-   */
-  public PathFragment getDwpExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.DWP);
-  }
-
-  public PathFragment getLLVMProfDataExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.LLVM_PROFDATA);
   }
 
   /**
@@ -1620,20 +1531,20 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     // hardcoded CC->gcc setting for unit tests
-    globalMakeEnvBuilder.put("CC", getCppExecutable().getPathString());
+    globalMakeEnvBuilder.put("CC", getToolPathFragment(Tool.GCC).getPathString());
 
     // Make variables provided by crosstool/gcc compiler suite.
-    globalMakeEnvBuilder.put("AR", getArExecutable().getPathString());
-    globalMakeEnvBuilder.put("NM", getNmExecutable().getPathString());
+    globalMakeEnvBuilder.put("AR", getToolPathFragment(Tool.AR).getPathString());
+    globalMakeEnvBuilder.put("NM", getToolPathFragment(Tool.NM).getPathString());
     globalMakeEnvBuilder.put("LD", getToolPathFragment(Tool.LD).getPathString());
-    PathFragment objcopyTool = getObjCopyExecutable();
+    PathFragment objcopyTool = getToolPathFragment(Tool.OBJCOPY);
     if (objcopyTool != null) {
       // objcopy is optional in Crosstool
       globalMakeEnvBuilder.put("OBJCOPY", objcopyTool.getPathString());
     }
-    globalMakeEnvBuilder.put("STRIP", getStripExecutable().getPathString());
+    globalMakeEnvBuilder.put("STRIP", getToolPathFragment(Tool.STRIP).getPathString());
 
-    PathFragment gcovtool = getGcovToolExecutable();
+    PathFragment gcovtool = getToolPathFragment(Tool.GCOVTOOL);
     if (gcovtool != null) {
       // gcov-tool is optional in Crosstool
       globalMakeEnvBuilder.put("GCOVTOOL", gcovtool.getPathString());
