@@ -984,7 +984,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   public void testResourceMergeAndProcessParallel() throws Exception {
     // Test that for android_library, we can divide the resource processing action into
     // smaller actions.
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
     scratch.file(
         "java/android/app/foo/BUILD",
         "android_library(name = 'r',",

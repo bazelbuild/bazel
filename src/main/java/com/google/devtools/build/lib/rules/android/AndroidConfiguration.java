@@ -593,20 +593,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public AndroidAaptVersion androidAaptVersion;
 
-    // Do not use on the command line.
-    @Option(
-      name = "experimental_use_parallel_android_resource_processing",
-      defaultValue = "true",
-      deprecationWarning =
-          "This flag is deprecated and is a no-op. It will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Process android_library resources with higher parallelism. Generates library "
-              + "R classes from a merge action, separately from aapt."
-    )
-    public boolean useParallelResourceProcessing;
-
     @Option(
       name = "apk_signing_method",
       converter = ApkSigningMethodConverter.class,
@@ -669,15 +655,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + " top-level android_binary resource JAR."
     )
     public boolean includeLibraryResourceJars;
-
-    @Option(
-      name = "experimental_android_use_nocompress_extensions_on_apk",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. It will be removed in a future release."
-    )
-    public boolean useNocompressExtensionsOnApk;
 
     @Option(
       name = "experimental_android_library_exports_manifest_default",
