@@ -48,7 +48,8 @@ public class DocstringChecker extends SyntaxTreeVisitor {
     if (moduleDocstring == null) {
       // The reported location starts on the first line since that's where the docstring is expected
       Location start = new Location(1, 1);
-      Location end = Location.from(node.getLocation().getEndLineAndColumn());
+      // This location is invalid if the file is empty but this edge case is not worth the trouble.
+      Location end = new Location(2, 1);
       LocationRange range = new LocationRange(start, end);
       issues.add(new Issue("file has no module docstring", range));
     } else {

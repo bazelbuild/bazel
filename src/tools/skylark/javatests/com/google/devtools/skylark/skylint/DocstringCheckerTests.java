@@ -40,7 +40,7 @@ public class DocstringCheckerTests {
     String errorMessage =
         findIssues("# no module docstring", "def function():", "  pass # no function docstring")
             .toString();
-    Truth.assertThat(errorMessage).contains("1:1-3:30: file has no module docstring");
+    Truth.assertThat(errorMessage).contains("1:1-2:1: file has no module docstring");
     Truth.assertThat(errorMessage).contains("2:1-3:30: function 'function' has no docstring");
   }
 
