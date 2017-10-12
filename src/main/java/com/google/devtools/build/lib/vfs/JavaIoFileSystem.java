@@ -200,43 +200,24 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected boolean createDirectory(Path path) throws IOException {
+    File file = getIoFile(path);
+    if (file.mkdir()) {
+      return true;
+    }
 
-    // We always synchronize on the current path before doing it on the parent path and file system
-    // path structure ensures that this locking order will never be reversed.
-    // When refactoring, check that subclasses still work as expected and there can be no
-    // deadlocks.
-    synchronized (path) {
-      File file = getIoFile(path);
-      if (file.mkdir()) {
-        return true;
-      }
-
-      // We will be checking the state of the parent path as well. Synchronize on it before
-      // attempting anything.
-      Path parentDirectory = path.getParentDirectory();
-      synchronized (parentDirectory) {
-        if (fileIsSymbolicLink(file)) {
-          throw new IOException(path + ERR_FILE_EXISTS);
-        }
-        if (file.isDirectory()) {
-          return false; // directory already existed
-        } else if (file.exists()) {
-          throw new IOException(path + ERR_FILE_EXISTS);
-        } else if (!file.getParentFile().exists()) {
-          throw new FileNotFoundException(path.getParentDirectory() + ERR_NO_SUCH_FILE_OR_DIR);
-        }
-        // Parent directory apparently exists - try to create our directory again - protecting
-        // against the case where parent directory would be created right before us obtaining
-        // synchronization lock.
-        if (file.mkdir()) {
-          return true; // Everything is fine finally.
-        } else if (!file.getParentFile().canWrite()) {
-          throw new FileAccessException(path + ERR_PERMISSION_DENIED);
-        } else {
-          // Parent exists, is writable, yet we can't create our directory.
-          throw new FileNotFoundException(path.getParentDirectory() + ERR_NOT_A_DIRECTORY);
-        }
-      }
+    if (fileIsSymbolicLink(file)) {
+      throw new IOException(path + ERR_FILE_EXISTS);
+    } else if (file.isDirectory()) {
+      return false; // directory already existed
+    } else if (file.exists()) {
+      throw new IOException(path + ERR_FILE_EXISTS);
+    } else if (!file.getParentFile().exists()) {
+      throw new FileNotFoundException(path.getParentDirectory() + ERR_NO_SUCH_FILE_OR_DIR);
+    } else if (!file.getParentFile().canWrite()) {
+      throw new FileAccessException(path + ERR_PERMISSION_DENIED);
+    } else {
+      // Parent exists, is writable, yet we can't create our directory.
+      throw new FileNotFoundException(path.getParentDirectory() + ERR_NOT_A_DIRECTORY);
     }
   }
 
@@ -291,7 +272,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    synchronized (sourcePath) {
       File sourceFile = getIoFile(sourcePath);
       File targetFile = getIoFile(targetPath);
       if (!sourceFile.renameTo(targetFile)) {
@@ -312,7 +292,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
           throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
         }
       }
-    }
   }
 
   @Override
@@ -329,7 +308,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   protected boolean delete(Path path) throws IOException {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
-    synchronized (path) {
       try {
         if (file.delete()) {
           return true;
@@ -345,7 +323,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, file.getPath());
       }
-    }
   }
 
   @Override
