@@ -283,6 +283,11 @@ public abstract class PackageLookupValue implements SkyValue {
     public int hashCode() {
       return errorMsg.hashCode();
     }
+
+    @Override
+    public String toString() {
+      return String.format("%s: %s", this.getClass().getSimpleName(), this.errorMsg);
+    }
   }
 
   /** Value indicating the package name was in error. */
@@ -335,6 +340,15 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hashCode(invalidPackageIdentifier, correctedPackageIdentifier);
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "%s: invalidPackageIdenfitier: %s, corrected: %s",
+          this.getClass().getSimpleName(),
+          this.invalidPackageIdentifier,
+          this.correctedPackageIdentifier);
     }
   }
 

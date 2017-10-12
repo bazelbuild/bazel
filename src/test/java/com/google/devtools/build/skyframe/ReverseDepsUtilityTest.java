@@ -33,7 +33,7 @@ public class ReverseDepsUtilityTest {
   private final int numElements;
 
   @Parameters(name = "numElements-{0}")
-  public static List<Object[]> paramenters() {
+  public static List<Object[]> parameters() {
     List<Object[]> params = new ArrayList<>();
     for (int i = 0; i < 20; i++) {
       params.add(new Object[] {i});

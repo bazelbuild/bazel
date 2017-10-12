@@ -57,7 +57,9 @@ import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +68,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Tests for {@link PackageLookupFunction}. */
 public abstract class PackageLookupFunctionTest extends FoundationTestCase {
@@ -384,52 +388,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       createAndCheckInvalidPackageLabel(false);
     }
 
-    private String getCorrectedPackage(String repository, String directory) throws Exception {
-      scratch.overwriteFile(
-          "WORKSPACE", "local_repository(name='local', path='" + repository + "')");
-      scratch.file(repository + "/WORKSPACE");
-      scratch.file(directory + "/BUILD");
-
-      PackageLookupValue packageLookupValue =
-          lookupPackage(PackageIdentifier.createInMainRepo(directory));
-      assertThat(packageLookupValue.packageExists()).isFalse();
-      assertThat(packageLookupValue)
-          .isInstanceOf(IncorrectRepositoryReferencePackageLookupValue.class);
-
-      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
-          (IncorrectRepositoryReferencePackageLookupValue) packageLookupValue;
-      assertThat(incorrectPackageLookupValue.getInvalidPackageIdentifier())
-          .isEqualTo(PackageIdentifier.createInMainRepo(directory));
-      return incorrectPackageLookupValue.getCorrectedPackageIdentifier().toString();
-    }
-
-    @Test
-    public void testCorrectPackageDetection_simpleRepo_emptyPackage() throws Exception {
-      assertThat(getCorrectedPackage("local", "local")).isEqualTo("@local//");
-    }
-
-    @Test
-    public void testCorrectPackageDetection_simpleRepo_singlePackage() throws Exception {
-      assertThat(getCorrectedPackage("local", "local/package")).isEqualTo("@local//package");
-    }
-
-    @Test
-    public void testCorrectPackageDetection_simpleRepo_subPackage() throws Exception {
-      assertThat(getCorrectedPackage("local", "local/package/subpackage"))
-          .isEqualTo("@local//package/subpackage");
-    }
-
-    @Test
-    public void testCorrectPackageDetection_deepRepo_emptyPackage() throws Exception {
-      assertThat(getCorrectedPackage("local/repo", "local/repo")).isEqualTo("@local//");
-    }
-
-    @Test
-    public void testCorrectPackageDetection_deepRepo_subPackage() throws Exception {
-      assertThat(getCorrectedPackage("local/repo", "local/repo/package"))
-          .isEqualTo("@local//package");
-    }
-
     @Test
     public void testSymlinkCycleInWorkspace() throws Exception {
       scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
@@ -453,6 +411,115 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
           .hasMessage(
               "no such package 'local/repo': Unable to determine the local repository for "
                   + "directory /workspace/local/repo");
+    }
+  }
+
+  /** Tests for detection of invalid package identifiers for local repositories. */
+  @RunWith(Parameterized.class)
+  public static class CorrectedLocalRepositoryTest extends PackageLookupFunctionTest {
+
+    /**
+     * Create parameters for this test. The contents are:
+     *
+     * <ol>
+     *   <li>description
+     *   <li>repository path
+     *   <li>package path - under the repository
+     *   <li>expected corrected package identifier
+     * </ol>
+     */
+    @Parameters(name = "{0}")
+    public static List<Object[]> parameters() {
+      List<Object[]> params = new ArrayList<>();
+
+      params.add(new String[] {"simpleRepo_emptyPackage", "local", "", "@local//"});
+      params.add(new String[] {"simpleRepo_singlePackage", "local", "package", "@local//package"});
+      params.add(
+          new String[] {
+            "simpleRepo_subPackage", "local", "package/subpackage", "@local//package/subpackage"
+          });
+      params.add(new String[] {"deepRepo_emptyPackage", "local/repo", "", "@local//"});
+      params.add(new String[] {"deepRepo_subPackage", "local/repo", "package", "@local//package"});
+
+      return params;
+    }
+
+    private String description;
+    private String repositoryPath;
+    private String packagePath;
+    private String expectedCorrectedPackageIdentifier;
+
+    public CorrectedLocalRepositoryTest(
+        String description,
+        String repositoryPath,
+        String packagePath,
+        String expectedCorrectedPackageIdentifier) {
+      this.description = description;
+      this.repositoryPath = repositoryPath;
+      this.packagePath = packagePath;
+      this.expectedCorrectedPackageIdentifier = expectedCorrectedPackageIdentifier;
+    }
+
+    @Override
+    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
+      return CrossRepositoryLabelViolationStrategy.ERROR;
+    }
+
+    @Test
+    public void testCorrectPackageDetection_relativePath() throws Exception {
+      String fullPackagePath = packagePath + "/BUILD";
+      scratch.overwriteFile(
+          "WORKSPACE", "local_repository(name='local', path='" + repositoryPath + "')");
+      scratch.file(PathFragment.create(repositoryPath).getRelative("WORKSPACE").getPathString());
+      scratch.file(
+          PathFragment.create(repositoryPath)
+              .getRelative(packagePath)
+              .getRelative("BUILD")
+              .getPathString());
+
+      PackageIdentifier packageIdentifier =
+          PackageIdentifier.createInMainRepo(
+              PathFragment.create(repositoryPath).getRelative(packagePath));
+      PackageLookupValue packageLookupValue = lookupPackage(packageIdentifier);
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue)
+          .isInstanceOf(IncorrectRepositoryReferencePackageLookupValue.class);
+
+      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
+          (IncorrectRepositoryReferencePackageLookupValue) packageLookupValue;
+      assertThat(incorrectPackageLookupValue.getInvalidPackageIdentifier())
+          .isEqualTo(packageIdentifier);
+      assertThat(incorrectPackageLookupValue.getCorrectedPackageIdentifier().toString())
+          .isEqualTo(expectedCorrectedPackageIdentifier);
+    }
+
+    @Test
+    public void testCorrectPackageDetection_absolutePath() throws Exception {
+      String fullPackagePath = packagePath + "/BUILD";
+      scratch.overwriteFile(
+          "WORKSPACE",
+          "local_repository(name='local', path=__workspace_dir__ + '/" + repositoryPath + "')");
+      scratch.file(PathFragment.create(repositoryPath).getRelative("WORKSPACE").getPathString());
+      scratch.file(
+          PathFragment.create(repositoryPath)
+              .getRelative(packagePath)
+              .getRelative("BUILD")
+              .getPathString());
+
+      PackageIdentifier packageIdentifier =
+          PackageIdentifier.createInMainRepo(
+              PathFragment.create(repositoryPath).getRelative(packagePath));
+      PackageLookupValue packageLookupValue = lookupPackage(packageIdentifier);
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue)
+          .isInstanceOf(IncorrectRepositoryReferencePackageLookupValue.class);
+
+      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
+          (IncorrectRepositoryReferencePackageLookupValue) packageLookupValue;
+      assertThat(incorrectPackageLookupValue.getInvalidPackageIdentifier())
+          .isEqualTo(packageIdentifier);
+      assertThat(incorrectPackageLookupValue.getCorrectedPackageIdentifier().toString())
+          .isEqualTo(expectedCorrectedPackageIdentifier);
     }
   }
 }
