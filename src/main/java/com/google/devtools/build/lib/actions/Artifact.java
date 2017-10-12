@@ -889,9 +889,4 @@ public class Artifact
       printer.append("<generated file " + rootRelativePath + ">");
     }
   }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append(toString());
-  }
 }

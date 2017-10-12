@@ -560,20 +560,10 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   }
 
   @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.repr(getCanonicalForm());
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
-  }
-
-  @Override
-  public void strLegacy(SkylarkPrinter printer) {
-    printer.append(getCanonicalForm());
   }
 
   @Override

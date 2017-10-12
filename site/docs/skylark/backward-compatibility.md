@@ -43,7 +43,6 @@ guarded behind flags in the current release:
 *   [Dictionary literal has no duplicates](#dictionary-literal-has-no-duplicates)
 *   [New actions API](#new-actions-api)
 *   [Checked arithmetic](#checked-arithmetic)
-*   [Descriptive string representations](#descriptive-string-representations)
 
 ### Set constructor
 
@@ -288,17 +287,6 @@ When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
 All integers are stored using signed 32 bits.
 
 *   Flag: `--incompatible_checked_arithmetic`
-*   Default: `true`
-
-
-### Descriptive string representations
-
-For certain types of objects (such as `Label`, `File`, and rule contexts), this
-flag changes the string representations returned by `str()` and `repr()` to be
-more uniform and safe. In particular, the new representations are hermetic and
-deterministic.
-
-*   Flag: `--incompatible_descriptive_string_representations`
 *   Default: `true`
 
 

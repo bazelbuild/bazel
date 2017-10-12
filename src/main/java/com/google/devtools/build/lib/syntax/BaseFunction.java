@@ -569,9 +569,4 @@ public abstract class BaseFunction implements SkylarkValue {
   public void repr(SkylarkPrinter printer) {
     printer.append("<function " + getName() + ">");
   }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append("<function " + getName() + ">");
-  }
 }

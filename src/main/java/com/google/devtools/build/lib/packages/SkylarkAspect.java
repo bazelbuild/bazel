@@ -100,12 +100,6 @@ public class SkylarkAspect implements SkylarkExportable {
     printer.append("<aspect>");
   }
 
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append("Aspect:");
-    printer.repr(implementation);
-  }
-
   public String getName() {
     return getAspectClass().getName();
   }

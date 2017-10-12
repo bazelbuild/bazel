@@ -41,18 +41,6 @@ public interface SkylarkValue {
   void repr(SkylarkPrinter printer);
 
   /**
-   * Print a legacy representation of object x.
-   *
-   * <p>By default dispatches to the {@code repr} method. Should be called instead of {@code repr}
-   * if --incompatible_descriptive_string_representations=false is used.
-   *
-   * @param printer an instance of a printer to be used for formatting nested values
-   */
-  default void reprLegacy(SkylarkPrinter printer) {
-    repr(printer);
-  }
-
-  /**
    * Print an informal, human-readable representation of the value.
    *
    * <p>By default dispatches to the {@code repr} method.
@@ -61,16 +49,5 @@ public interface SkylarkValue {
    */
   default void str(SkylarkPrinter printer) {
     repr(printer);
-  }
-
-  /**
-   * Print a legacy informal, human-readable representation of the value.
-   *
-   * <p>By default dispatches to the {@code reprLegacy} method.
-   *
-   * @param printer a printer to be used for formatting nested values.
-   */
-  default void strLegacy(SkylarkPrinter printer) {
-    reprLegacy(printer);
   }
 }

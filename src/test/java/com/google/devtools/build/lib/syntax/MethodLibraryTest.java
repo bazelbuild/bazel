@@ -1621,7 +1621,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStr() throws Exception {
-    new BothModesTest("--incompatible_descriptive_string_representations=true")
+    new BothModesTest()
         .testStatement("str(1)", "1")
         .testStatement("str(-2)", "-2")
         .testStatement("str([1, 2])", "[1, 2]")

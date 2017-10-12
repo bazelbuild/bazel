@@ -568,7 +568,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void existingRuleWithSelect() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
     scratch.file(
         "test/existing_rule.bzl",
         "def macro():",

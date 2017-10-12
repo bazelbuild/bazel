@@ -177,24 +177,6 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   }
 
   @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    boolean first = true;
-    printer.append(provider.getPrintableName());
-    printer.append("(");
-    // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(getKeys())) {
-      if (!first) {
-        printer.append(", ");
-      }
-      first = false;
-      printer.append(key);
-      printer.append(" = ");
-      printer.repr(getValue(key));
-    }
-    printer.append(")");
-  }
-
-  @Override
   public String toString() {
     return Printer.repr(this);
   }

@@ -69,35 +69,6 @@ public class Printer {
     return getPrinter(new StringBuilder());
   }
 
-  /**
-   * Creates an instance of BasePrinter with a given buffer.
-   *
-   * @param env {@link Environment}
-   * @param buffer an {@link Appendable}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env, Appendable buffer) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations()) {
-      return new BasePrinter(buffer);
-    } else {
-      return new LegacyPrinter(buffer);
-    }
-  }
-
-  /**
-   * Creates an instance of BasePrinter with an empty buffer.
-   *
-   * @param env {@link Environment}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations()) {
-      return new BasePrinter();
-    } else {
-      return new LegacyPrinter();
-    }
-  }
-
   private Printer() {}
 
   // These static methods proxy to the similar methods of BasePrinter
@@ -612,37 +583,6 @@ public class Printer {
 
     BasePrinter append(CharSequence sequence, int start, int end) {
       return this.append(sequence.subSequence(start, end));
-    }
-  }
-
-  /** A version of BasePrinter that renders object in old style for compatibility reasons. */
-  static final class LegacyPrinter extends BasePrinter {
-    protected LegacyPrinter() {
-      super();
-    }
-
-    protected LegacyPrinter(Appendable buffer) {
-      super(buffer);
-    }
-
-    @Override
-    public LegacyPrinter repr(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).reprLegacy(this);
-      } else {
-        super.repr(o);
-      }
-      return this;
-    }
-
-    @Override
-    public LegacyPrinter str(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).strLegacy(this);
-      } else {
-        super.str(o);
-      }
-      return this;
     }
   }
 

@@ -113,20 +113,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
-    name = "incompatible_descriptive_string_representations",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, objects are converted to strings by `str` and `repr` functions using the "
-            + "new style representations that are designed to be more descriptive and not to leak "
-            + "information that's not supposed to be exposed."
-  )
-  public boolean incompatibleDescriptiveStringRepresentations;
-
-  @Option(
     name = "incompatible_dict_literal_has_no_duplicates",
     defaultValue = "true",
     category = "incompatible changes",
@@ -265,7 +251,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleCheckedArithmetic(incompatibleCheckedArithmetic)
         .incompatibleComprehensionVariablesDoNotLeak(incompatibleComprehensionVariablesDoNotLeak)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
-        .incompatibleDescriptiveStringRepresentations(incompatibleDescriptiveStringRepresentations)
         .incompatibleDictLiteralHasNoDuplicates(incompatibleDictLiteralHasNoDuplicates)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)

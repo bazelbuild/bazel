@@ -951,8 +951,7 @@ public class MethodLibrary {
           defaultValue = "{}",
           doc = "Dictionary of arguments."
         ),
-    useLocation = true,
-    useEnvironment = true
+    useLocation = true
   )
   private static final BuiltinFunction format =
       new BuiltinFunction("format") {
@@ -961,10 +960,9 @@ public class MethodLibrary {
             String self,
             SkylarkList<Object> args,
             SkylarkDict<?, ?> kwargs,
-            Location loc,
-            Environment env)
+            Location loc)
             throws EvalException {
-          return new FormatParser(env, loc)
+          return new FormatParser(loc)
               .format(
                   self,
                   args.getImmutableList(),
@@ -1640,13 +1638,12 @@ public class MethodLibrary {
         "Converts any object to string. This is useful for debugging."
             + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
             + "str(8) == \"8\"</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useEnvironment = true
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
   )
   private static final BuiltinFunction str =
       new BuiltinFunction("str") {
-        public String invoke(Object x, Environment env) {
-          return Printer.getPrinter(env).str(x).toString();
+        public String invoke(Object x) {
+          return Printer.str(x);
         }
       };
 
@@ -1656,13 +1653,12 @@ public class MethodLibrary {
     doc =
         "Converts any object to a string representation. This is useful for debugging.<br>"
             + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useEnvironment = true
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
   )
   private static final BuiltinFunction repr =
       new BuiltinFunction("repr") {
-        public String invoke(Object x, Environment env) {
-          return Printer.getPrinter(env).repr(x).toString();
+        public String invoke(Object x) {
+          return Printer.repr(x);
         }
       };
 
@@ -2150,7 +2146,7 @@ public class MethodLibrary {
           String msg =
               starargs
                   .stream()
-                  .map((Object o) -> Printer.getPrinter(env).str(o).toString())
+                  .map(Printer::str)
                   .collect(joining(sep));
           // As part of the integration test "skylark_flag_test.sh", if the
           // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to

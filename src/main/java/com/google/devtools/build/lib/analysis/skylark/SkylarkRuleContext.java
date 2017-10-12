@@ -582,12 +582,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
     public void repr(SkylarkPrinter printer) {
       printer.append("<rule collection for " + skylarkRuleContext.ruleLabelCanonicalName + ">");
     }
-
-    @Override
-    public void reprLegacy(SkylarkPrinter printer) {
-      printer.append("rule_collection:");
-      printer.repr(skylarkRuleContext);
-    }
   }
 
   private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
@@ -610,10 +604,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
     } else {
       printer.append("<rule context for " + ruleLabelCanonicalName + ">");
     }
-  }
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append(ruleLabelCanonicalName);
   }
 
   /**

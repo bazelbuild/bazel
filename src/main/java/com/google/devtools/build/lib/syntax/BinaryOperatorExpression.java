@@ -427,9 +427,9 @@ public final class BinaryOperatorExpression extends Expression {
       String pattern = (String) lval;
       try {
         if (rval instanceof Tuple) {
-          return Printer.getPrinter(env).formatWithList(pattern, (Tuple) rval).toString();
+          return Printer.formatWithList(pattern, (Tuple) rval);
         }
-        return Printer.getPrinter(env).format(pattern, rval).toString();
+        return Printer.format(pattern, rval);
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }
