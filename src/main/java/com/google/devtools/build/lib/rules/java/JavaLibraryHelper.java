@@ -231,11 +231,14 @@ public final class JavaLibraryHelper {
             .addTransitiveArgs(directArgs, BOTH)
             .addTransitiveDependencies(deps, true /* recursive */)
             .build();
-
+    Artifact compileTimeDepArtifact = artifacts.getCompileTimeDependencyArtifact();
+    NestedSet<Artifact> compileTimeJavaDepArtifacts = compileTimeDepArtifact != null 
+        ? NestedSetBuilder.create(Order.STABLE_ORDER, compileTimeDepArtifact)
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     return JavaCompilationArgsProvider.create(
         isReportedAsStrict ? directArgs : transitiveArgs,
         transitiveArgs,
-        NestedSetBuilder.create(Order.STABLE_ORDER, artifacts.getCompileTimeDependencyArtifact()),
+        compileTimeJavaDepArtifacts,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
   }
 
