@@ -270,17 +270,13 @@ public final class CleanCommand implements BlazeCommand {
     } else {
       logger.info("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
-      // In order to be sure that we delete everything, delete the workspace directory both for
-      // --deep_execroot and for --nodeep_execroot.
-      for (String directory : new String[] {workspaceDirectory, "execroot"}) {
-        Path child = outputBase.getRelative(directory);
-        if (child.exists()) {
-          logger.finest("Cleaning " + child + (async ? " asynchronously..." : ""));
-          if (async) {
-            asyncClean(env, child, "Output tree");
-          } else {
-            FileSystemUtils.deleteTreesBelow(child);
-          }
+      Path execroot = outputBase.getRelative("execroot");
+      if (execroot.exists()) {
+        logger.finest("Cleaning " + execroot + (async ? " asynchronously..." : ""));
+        if (async) {
+          asyncClean(env, execroot, "Output tree");
+        } else {
+          FileSystemUtils.deleteTreesBelow(execroot);
         }
       }
     }
