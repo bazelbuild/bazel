@@ -112,7 +112,15 @@ public class TestResultAnalyzer {
       }
     }
 
-    Preconditions.checkState(summaries.size() == testTargets.size());
+    int summarySize = summaries.size();
+    int testTargetsSize = testTargets.size();
+    Preconditions.checkState(
+        summarySize == testTargetsSize,
+        "Unequal sizes: %s vs %s (%s and %s)",
+        summarySize,
+        testTargetsSize,
+        summaries,
+        testTargets);
 
     notifier.notify(summaries, totalRun);
     // skipped targets are not in passCount since they have NO_STATUS
