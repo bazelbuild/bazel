@@ -160,12 +160,17 @@ public @interface Option {
   Class<? extends ExpansionFunction> expansionFunction() default ExpansionFunction.class;
 
   /**
-   * If the option requires that additional options be implicitly appended, this field will contain
-   * the additional options. Implicit dependencies are parsed at the end of each {@link
-   * OptionsParser#parse} invocation, and override options specified in the same call. However, they
-   * can be overridden by options specified in a later call or by options with a higher priority.
+   * Additional options that need to be implicitly added for this option.
    *
-   * @see OptionPriority
+   * <p>Nothing guarantees that these options are not overridden by later or higher-priority values
+   * for the same options, so if this is truly a requirement, the user should check that the correct
+   * set of options is set.
+   *
+   * <p>These requirements are added for ANY mention of this option, so may not work as intended: in
+   * the case where a user is trying to explicitly turn off a flag (say, by setting a boolean flag
+   * to its default value of false), the mention will still turn on its requirements. For this
+   * reason, it is best not to use this feature, and rely on expansion flags if multi-flag groupings
+   * are needed.
    */
   String[] implicitRequirements() default {};
 

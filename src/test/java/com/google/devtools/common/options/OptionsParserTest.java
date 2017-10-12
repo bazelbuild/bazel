@@ -1280,8 +1280,8 @@ public class OptionsParserTest {
     parser.parse("--first=first", "--second=second");
     assertThat(parser.getWarnings())
         .containsExactly(
-            "Option 'second' is implicitly defined by "
-                + "option 'first'; the implicitly set value overrides the previous one");
+            "A new value for option 'second' overrides a previous implicit setting of that "
+                + "option by option 'first'");
   }
 
   @Test

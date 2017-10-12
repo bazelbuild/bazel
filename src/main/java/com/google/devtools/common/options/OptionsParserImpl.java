@@ -26,10 +26,8 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -320,7 +318,6 @@ class OptionsParserImpl {
       List<String> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
-    LinkedHashMap<OptionDefinition, List<String>> implicitRequirements = new LinkedHashMap<>();
 
     Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
@@ -349,49 +346,21 @@ class OptionsParserImpl {
           optionValues.computeIfAbsent(
               optionDefinition, OptionValueDescription::createOptionValueDescription);
       entry.addOptionInstance(parsedOption, warnings);
-
       @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
-      if (optionDefinition.isWrapperOption()) {
-        if (unconvertedValue.startsWith("-")) {
-          String sourceMessage =
-              "Unwrapped from wrapper option --" + optionDefinition.getOptionName();
-          List<String> unparsed =
-              parse(
-                  priority,
-                  o -> sourceMessage,
-                  null, // implicitDependent
-                  null, // expandedFrom
-                  ImmutableList.of(unconvertedValue));
 
-          if (!unparsed.isEmpty()) {
-            throw new OptionsParsingException(
-                "Unparsed options remain after unwrapping "
-                    + arg
-                    + ": "
-                    + Joiner.on(' ').join(unparsed));
-          }
+      // There are 3 types of flags that expand to other flag values. Expansion flags are the
+      // accepted way to do this, but two legacy features remain: implicit requirements and wrapper
+      // options. We rely on the OptionProcessor compile-time check's guarantee that no option sets
+      // multiple of these behaviors. (In Bazel, --config is another such flag, but that expansion
+      // is not controlled within the options parser, so we ignore it here)
 
-          // Don't process implicitRequirements or expansions for wrapper options. In particular,
-          // don't record this option in parsedOptions, so that only the wrapped option shows
-          // up in canonicalized options.
-          continue;
-
-        } else {
-          throw new OptionsParsingException(
-              "Invalid --"
-                  + optionDefinition.getOptionName()
-                  + " value format. "
-                  + "You may have meant --"
-                  + optionDefinition.getOptionName()
-                  + "=--"
-                  + unconvertedValue);
-        }
-      }
-
-      if (implicitDependent == null) {
+      // As much as possible, we want the behaviors of these different types of flags to be
+      // identical, as this minimizes the number of edge cases, but we do not yet track these values
+      // in the same way. Wrapper options are replaced by their value and implicit requirements are
+      // hidden from the reported lists of parsed options.
+      if (implicitDependent == null && !optionDefinition.isWrapperOption()) {
         // Log explicit options and expanded options in the order they are parsed (can be sorted
-        // later). Also remember whether they were expanded or not. This information is needed to
-        // correctly canonicalize flags.
+        // later). This information is needed to correctly canonicalize flags.
         parsedOptions.add(parsedOption);
         if (optionDefinition.allowsMultiple()) {
           canonicalizeValues.put(optionDefinition, parsedOption);
@@ -400,61 +369,64 @@ class OptionsParserImpl {
         }
       }
 
-      // Handle expansion options.
-      if (optionDefinition.isExpansionOption()) {
-        ImmutableList<String> expansion =
-            optionsData.getEvaluatedExpansion(optionDefinition, unconvertedValue);
-
-        String sourceFunctionApplication = sourceFunction.apply(optionDefinition);
-        String sourceMessage =
-            (sourceFunctionApplication == null)
-                ? String.format("expanded from option --%s", optionDefinition.getOptionName())
-                : String.format(
-                    "expanded from option --%s from %s",
-                    optionDefinition.getOptionName(), sourceFunctionApplication);
-        Function<OptionDefinition, String> expansionSourceFunction = o -> sourceMessage;
-        List<String> unparsed =
-            parse(priority, expansionSourceFunction, null, optionDefinition, expansion);
-        if (!unparsed.isEmpty()) {
-          // Throw an assertion, because this indicates an error in the definition of this
-          // option's expansion, not with the input as provided by the user.
-          throw new AssertionError(
-              "Unparsed options remain after parsing expansion of "
-                  + arg
-                  + ": "
-                  + Joiner.on(' ').join(unparsed));
+      if (optionDefinition.isExpansionOption()
+          || optionDefinition.hasImplicitRequirements()
+          || optionDefinition.isWrapperOption()) {
+        StringBuilder sourceMessage = new StringBuilder();
+        ImmutableList<String> expansionArgs;
+        if (optionDefinition.isExpansionOption()) {
+          expansionArgs = optionsData.getEvaluatedExpansion(optionDefinition, unconvertedValue);
+          sourceMessage.append("expanded from option ");
+        } else if (optionDefinition.hasImplicitRequirements()) {
+          expansionArgs = ImmutableList.copyOf(optionDefinition.getImplicitRequirements());
+          sourceMessage.append("implicit requirement of option ");
+        } else {
+          if (!unconvertedValue.startsWith("-")) {
+            // Wrapper options are the only "expansion" flag type that expand to other flags
+            // according to user input, so a malformed option is a user error in this case.
+            throw new OptionsParsingException(
+                "Invalid --"
+                    + optionDefinition.getOptionName()
+                    + " value format. "
+                    + "You may have meant --"
+                    + optionDefinition.getOptionName()
+                    + "=--"
+                    + unconvertedValue);
+          } else {
+            expansionArgs = ImmutableList.of(unconvertedValue);
+            sourceMessage.append("unwrapped from wrapper option ");
+          }
         }
-      }
-
-      // Collect any implicit requirements.
-      if (optionDefinition.hasImplicitRequirements()) {
-        implicitRequirements.put(
-            optionDefinition, Arrays.asList(optionDefinition.getImplicitRequirements()));
-      }
-    }
-
-    // Now parse any implicit requirements that were collected.
-    // TODO(bazel-team): this should happen when the option is encountered.
-    if (!implicitRequirements.isEmpty()) {
-      for (Map.Entry<OptionDefinition, List<String>> entry : implicitRequirements.entrySet()) {
-        OptionDefinition optionDefinition = entry.getKey();
         String sourceFunctionApplication = sourceFunction.apply(optionDefinition);
-        String sourceMessage =
+        sourceMessage.append(
             (sourceFunctionApplication == null)
-                ? String.format(
-                    "implicit requirement of option --%s", optionDefinition.getOptionName())
+                ? String.format("--%s", optionDefinition.getOptionName())
                 : String.format(
-                    "implicit requirement of option --%s from %s",
-                    optionDefinition.getOptionName(), sourceFunctionApplication);
-        Function<OptionDefinition, String> requirementSourceFunction = o -> sourceMessage;
+                    "--%s from %s", optionDefinition.getOptionName(), sourceFunctionApplication));
 
-        List<String> unparsed = parse(priority, requirementSourceFunction, entry.getKey(), null,
-            entry.getValue());
+        List<String> unparsed =
+            parse(
+                priority,
+                o -> sourceMessage.toString(),
+                optionDefinition.hasImplicitRequirements() ? optionDefinition : null,
+                optionDefinition.isExpansionOption() ? optionDefinition : null,
+                expansionArgs);
         if (!unparsed.isEmpty()) {
-          // Throw an assertion, because this indicates an error in the code that specified in the
-          // implicit requirements for the option(s).
-          throw new AssertionError("Unparsed options remain after parsing implicit options: "
-              + Joiner.on(' ').join(unparsed));
+          if (optionDefinition.isWrapperOption()) {
+            throw new OptionsParsingException(
+                "Unparsed options remain after unwrapping "
+                    + arg
+                    + ": "
+                    + Joiner.on(' ').join(unparsed));
+          } else {
+            // Throw an assertion here, because this indicates an error in the definition of this
+            // option's expansion or requirements, not with the input as provided by the user.
+            throw new AssertionError(
+                "Unparsed options remain after processing "
+                    + arg
+                    + ": "
+                    + Joiner.on(' ').join(unparsed));
+          }
         }
       }
     }
