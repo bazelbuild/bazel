@@ -40,8 +40,10 @@ public class DocstringCheckerTests {
     String errorMessage =
         findIssues("# no module docstring", "def function():", "  pass # no function docstring")
             .toString();
-    Truth.assertThat(errorMessage).contains("1:1-2:1: file has no module docstring");
-    Truth.assertThat(errorMessage).contains("2:1-3:30: function 'function' has no docstring");
+    Truth.assertThat(errorMessage)
+        .contains("1:1-2:1: file has no module docstring [missing-docstring]");
+    Truth.assertThat(errorMessage)
+        .contains("2:1-3:30: function 'function' has no docstring [missing-docstring]");
   }
 
   @Test
@@ -57,7 +59,9 @@ public class DocstringCheckerTests {
             "  pass");
     Truth.assertThat(errors).hasSize(1);
     Truth.assertThat(errors.toString())
-        .contains("3:3-6:3: incomplete docstring: the function parameters are not documented");
+        .contains(
+            "3:3-6:3: incomplete docstring: the function parameters are not documented"
+                + " [inconsistent-docstring]");
   }
 
   @Test
@@ -73,9 +77,13 @@ public class DocstringCheckerTests {
                 "  pass")
             .toString();
     Truth.assertThat(errorMessage)
-        .contains("2:3-6:5: incomplete docstring: parameter 'foo' not documented");
+        .contains(
+            "2:3-6:5: incomplete docstring: parameter 'foo' not documented"
+                + " [inconsistent-docstring]");
     Truth.assertThat(errorMessage)
-        .contains("2:3-6:5: incomplete docstring: parameter 'baz' not documented");
+        .contains(
+            "2:3-6:5: incomplete docstring: parameter 'baz' not documented"
+                + " [inconsistent-docstring]");
   }
 
   @Test
@@ -95,11 +103,11 @@ public class DocstringCheckerTests {
     Truth.assertThat(errorMessage)
         .contains(
             "2:3-8:5: inconsistent docstring: parameter 'foo' appears in docstring"
-                + " but not in function signature");
+                + " but not in function signature [inconsistent-docstring]");
     Truth.assertThat(errorMessage)
         .contains(
             "2:3-8:5: inconsistent docstring: parameter 'baz' appears in docstring"
-                + " but not in function signature");
+                + " but not in function signature [inconsistent-docstring]");
   }
 
   @Test
@@ -120,7 +128,8 @@ public class DocstringCheckerTests {
             "2:3-7:5:"
                 + " inconsistent docstring: order of parameters differs from function signature\n"
                 + "Declaration order:   p1, p2\n"
-                + "Documentation order: p2, p1");
+                + "Documentation order: p2, p1\n"
+                + " [inconsistent-docstring]");
   }
 
   @Test
@@ -128,8 +137,8 @@ public class DocstringCheckerTests {
     String errorMessage = findIssues("\"\"\"summary", "missing blank line\"\"\"").toString();
     Truth.assertThat(errorMessage)
         .contains(
-            "2:1-2:18: invalid docstring format: "
-                + "the one-line summary should be followed by a blank line");
+            "2:1-2:18: bad docstring format: "
+                + "the one-line summary should be followed by a blank line [bad-docstring-format]");
 
     errorMessage =
         findIssues(
@@ -142,8 +151,9 @@ public class DocstringCheckerTests {
             .toString();
     Truth.assertThat(errorMessage)
         .contains(
-            "5:1-5:29: invalid docstring format: "
-                + "line indented too little (here: 1 spaces; expected: 2 spaces)");
+            "5:1-5:29: bad docstring format: "
+                + "line indented too little (here: 1 spaces; expected: 2 spaces)"
+                + " [bad-docstring-format]");
   }
 
   @Test
@@ -159,7 +169,9 @@ public class DocstringCheckerTests {
             "  return True");
     Truth.assertThat(errors).hasSize(1);
     Truth.assertThat(errors.toString())
-        .contains("3:3-6:5: incomplete docstring: the return value is not documented");
+        .contains(
+            "3:3-6:5: incomplete docstring: the return value is not documented"
+                + " [inconsistent-docstring]");
   }
 
   @Test

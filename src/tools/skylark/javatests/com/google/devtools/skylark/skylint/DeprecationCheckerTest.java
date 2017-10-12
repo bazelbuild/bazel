@@ -54,9 +54,12 @@ public class DeprecationCheckerTest {
                 "  The deprecation should really be documented in a 'Deprecated:' section",
                 "  but the linter should recognize this kind of deprecation as well'''")
             .toString();
-    Truth.assertThat(errorMessages).contains("2:3: usage of 'g' is deprecated: reason");
     Truth.assertThat(errorMessages)
-        .contains("3:3: usage of 'h' is deprecated: This function is DEPRECATED for some reason.");
+        .contains("2:3: usage of 'g' is deprecated: reason [deprecated-symbol]");
+    Truth.assertThat(errorMessages)
+        .contains(
+            "3:3: usage of 'h' is deprecated: This function is DEPRECATED for some reason."
+                + " [deprecated-symbol]");
   }
 
   @Test
@@ -72,7 +75,8 @@ public class DeprecationCheckerTest {
                 "  Deprecated:",
                 "    reason'''")
             .toString();
-    Truth.assertThat(errorMessages).contains("2:7: usage of 'g' is deprecated: reason");
+    Truth.assertThat(errorMessages)
+        .contains("2:7: usage of 'g' is deprecated: reason [deprecated-symbol]");
   }
 
   @Test

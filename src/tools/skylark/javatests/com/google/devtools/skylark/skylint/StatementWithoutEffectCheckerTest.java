@@ -38,12 +38,12 @@ public class StatementWithoutEffectCheckerTest {
   public void reportUselessExpressionStatements() throws Exception {
     String messages =
         findIssues("1", "len", "'string'", "'a'.len", "1 + 1", "[1, 2, 3]").toString();
-    Truth.assertThat(messages).contains("1:1-1:1: expression result not used");
-    Truth.assertThat(messages).contains("2:1-2:3: expression result not used");
-    Truth.assertThat(messages).contains("3:1-3:8: expression result not used");
-    Truth.assertThat(messages).contains("4:1-4:7: expression result not used");
-    Truth.assertThat(messages).contains("5:1-5:5: expression result not used");
-    Truth.assertThat(messages).contains("6:1-6:9: expression result not used");
+    Truth.assertThat(messages).contains("1:1-1:1: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("2:1-2:3: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("3:1-3:8: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("4:1-4:7: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("5:1-5:5: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("6:1-6:9: expression result not used [no-effect]");
   }
 
   @Test
@@ -58,7 +58,7 @@ public class StatementWithoutEffectCheckerTest {
             findIssues(
                     "def f():", "  [print(x) for x in range(5)] # should be replaced by for-loop")
                 .toString())
-        .contains("2:3-2:30: expression result not used");
+        .contains("2:3-2:30: expression result not used [no-effect]");
   }
 
   @Test

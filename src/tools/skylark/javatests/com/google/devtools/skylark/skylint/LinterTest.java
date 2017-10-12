@@ -53,6 +53,6 @@ public class LinterTest {
         .contains("should be lower_snake_case"); // naming conventions checker
     Truth.assertThat(errorMessages)
         .contains("expression result not used"); // checker statements without effect
-    Truth.assertThat(errorMessages).contains("unused definition of"); // usage checker
+    Truth.assertThat(errorMessages).contains("unused binding of"); // usage checker
   }
 }

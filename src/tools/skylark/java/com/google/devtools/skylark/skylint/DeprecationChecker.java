@@ -30,6 +30,8 @@ import java.util.Map;
 
 /** Checks for usage of deprecated functions. */
 public class DeprecationChecker extends AstVisitorWithNameResolution {
+  private static final String DEPRECATED_SYMBOL_CATEGORY = "deprecated-symbol";
+
   private final List<Issue> issues = new ArrayList<>();
   /** Maps a global function name to its deprecation warning, if any. */
   private final Map<String, String> functionToDeprecationWarning = new HashMap<>();
@@ -83,7 +85,8 @@ public class DeprecationChecker extends AstVisitorWithNameResolution {
         && info.kind != Kind.LOCAL) {
       String deprecationMessage = functionToDeprecationWarning.get(info.name);
       issues.add(
-          new Issue(
+          Issue.create(
+              DEPRECATED_SYMBOL_CATEGORY,
               "usage of '" + info.name + "' is deprecated: " + deprecationMessage,
               ident.getLocation()));
     }
