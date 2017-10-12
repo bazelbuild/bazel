@@ -140,9 +140,7 @@ class IdleServerTasks {
     try {
       totalPhysical = memInfo.getTotalKb();
       totalFree = memInfo.getFreeRamKb(); // See method javadoc.
-    } catch (IllegalArgumentException e) {
-      // Ugly capture of unchecked exception, similar to that in
-      // LocalHostCapacity.
+    } catch (ProcMeminfoParser.KeywordNotFoundException e) {
       LoggingUtil.logToRemote(Level.WARNING,
           "Could not read memInfo during idle query", e);
       return true;

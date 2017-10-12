@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.unix;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 import java.io.IOException;
@@ -33,7 +32,7 @@ public class ProcMeminfoParserTest {
   private FsApparatus scratch = FsApparatus.newNative();
 
   @Test
-  public void memInfo() throws IOException {
+  public void memInfo() throws IOException, ProcMeminfoParser.KeywordNotFoundException {
     String meminfoContent = StringUtilities.joinLines(
         "MemTotal:      3091732 kB",
         "MemFree:       2167344 kB",
@@ -77,9 +76,9 @@ public class ProcMeminfoParserTest {
     assertThat(memInfo.getFreeRamKb()).isEqualTo(14717640);
     assertThat(memInfo.getRamKb("Cached")).isEqualTo(509940);
     assertThat(memInfo.getTotalKb()).isEqualTo(3091732);
-    assertThrows(IllegalArgumentException.class,
+    assertThrows(ProcMeminfoParser.KeywordNotFoundException.class,
         () -> memInfo.getRamKb("Bogus"));
-    assertThrows(IllegalArgumentException.class,
+    assertThrows(ProcMeminfoParser.KeywordNotFoundException.class,
         () -> memInfo.getRamKb("Bogus2"));
   }
 }

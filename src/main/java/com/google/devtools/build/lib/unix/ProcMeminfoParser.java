@@ -62,21 +62,17 @@ public class ProcMeminfoParser {
     memInfo = builder.build();
   }
 
-  /**
-   * Gets a named field in KB.
-   */
-  public long getRamKb(String keyword) {
+  /** Gets a named field in KB. */
+  long getRamKb(String keyword) throws KeywordNotFoundException {
     Long val = memInfo.get(keyword);
     if (val == null) {
-      throw new IllegalArgumentException("Can't locate " + keyword + " in the /proc/meminfo");
+      throw new KeywordNotFoundException(keyword);
     }
     return val;
   }
 
-  /**
-   * Return the total physical memory.
-   */
-  public long getTotalKb() {
+  /** Return the total physical memory. */
+  public long getTotalKb() throws KeywordNotFoundException {
     return getRamKb("MemTotal");
   }
 
@@ -92,7 +88,14 @@ public class ProcMeminfoParser {
    * why this is better than trying to figure it out ourselves. This corresponds to the MemAvailable
    * line in /proc/meminfo.
    */
-  public long getFreeRamKb() {
+  public long getFreeRamKb() throws KeywordNotFoundException {
     return getRamKb("MemAvailable");
+  }
+
+  /** Exception thrown when /proc/meminfo does not have a requested key. Should be tolerated. */
+  public static class KeywordNotFoundException extends Exception {
+    private KeywordNotFoundException(String keyword) {
+      super("Can't locate " + keyword + " in the /proc/meminfo");
+    }
   }
 }
