@@ -59,6 +59,8 @@ function get_library_path() {
     for libdir in ${LIB_DIRS}; do
         if [ -f ${libdir}/lib$1.so ]; then
             echo "${libdir}/lib$1.so"
+        elif [ -f ${libdir}/lib$1.dylib ]; then
+            echo "${libdir}/lib$1.dylib"
         fi
     done
 }
@@ -84,11 +86,18 @@ function get_otool_path() {
 # Do replacements in the output
 for rpath in ${RPATHS}; do
     for lib in ${LIBS}; do
-        if [ -f "`dirname ${OUTPUT}`/${rpath}/lib${lib}.so" ]; then
+        if [ -f "$(dirname ${OUTPUT})/${rpath}/lib${lib}.so" ]; then
+            libname="lib${lib}.so"
+        elif [ -f "$(dirname ${OUTPUT})/${rpath}/lib${lib}.dylib" ]; then
+            libname="lib${lib}.dylib"
+        fi
+        # ${libname-} --> return $libname if defined, or undefined otherwise. This is to make
+        # this set -e friendly
+        if [[ -n "${libname-}" ]]; then
             libpath=$(get_library_path ${lib})
             if [ -n "${libpath}" ]; then
                 ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") \
-                    "@loader_path/${rpath}/lib${lib}.so" "${OUTPUT}"
+                    "@loader_path/${rpath}/${libname}" "${OUTPUT}"
             fi
         fi
     done

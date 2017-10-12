@@ -30,22 +30,49 @@ cc_library(
 )
 cc_binary(
   name = "libbar.so",
+  srcs = [ "bar.cc" ],
+  linkshared = 1,
+)
+cc_binary(
+  name = "libbaz.dylib",
+  srcs = [ "baz.cc" ],
   linkshared = 1,
 )
 cc_test(
   name = "test",
-  srcs = [ "test.cc", ":libbar.so" ],
+  srcs = [ "test.cc", ":libbar.so", ":libbaz.dylib"  ],
   deps = [":foo"],
 )
 EOF
   cat > cpp/rpaths/foo.cc <<EOF
-  int foo() { return 42; }
+  int foo() { return 2; }
+EOF
+  cat > cpp/rpaths/bar.cc <<EOF
+  int bar() { return 12; }
+EOF
+  cat > cpp/rpaths/baz.cc <<EOF
+  int baz() { return 42; }
 EOF
   cat > cpp/rpaths/test.cc <<EOF
-  int main() {}
+  int foo();
+  int bar();
+  int baz();
+  int main() {
+    int result = foo() + bar() + baz();
+    if (result == 56) {
+      return 0;
+    } else {
+      return result;
+    }
+  }
 EOF
   assert_build //cpp/rpaths:test >& $TEST_log || fail "//cpp/rpaths:test didn't build"
-  ./bazel-bin/cpp/rpaths/test >& $TEST_log || fail "//cpp/rpaths:test execution failed"
+  # Paths originally hardcoded in the binary assume workspace directory. Let's change the
+  # directory and execute the binary to test whether the paths in the binary have been
+  # updated to use @loader_path.
+  cd bazel-bin
+  ./cpp/rpaths/test >& $TEST_log || \
+      fail "//cpp/rpaths:test execution failed, expected to return 0, but got $?"
 }
 
 run_suite "Tests for Bazel's C++ rules on Darwin"
