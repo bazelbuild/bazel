@@ -279,8 +279,8 @@ Take a look at the dependency graph:
 
 ![Dependency graph of the target 'runner'](/assets/tutorial_java_03.svg)
 
-However, for the build to succeed, you must make the `runner` target in
-`//src/main/java/com/example/cmdline/BUILD` explicitly visible to targets in
+However, for the build to succeed, you must explicitly give the `runner` target in
+`//src/main/java/com/example/cmdline/BUILD` visibility to targets in
 `//BUILD` using the `visibility` attribute. This is because by default targets
 are only visible to other targets in the same `BUILD` file. (Bazel uses target
 visibility to prevent issues such as libraries containing implementation details
