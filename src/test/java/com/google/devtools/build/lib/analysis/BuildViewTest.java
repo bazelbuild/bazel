@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -443,6 +444,10 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: "output_filter broken (but in a different way)"
   @Test
   public void testOutputFilter() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     runAnalysisWithOutputFilter(Pattern.compile("^//java/c"));
     assertNoEvents();
   }
@@ -462,6 +467,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependencyBelowTwoTargets() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     scratch.file("foo/BUILD",
         "sh_library(name = 'top1', srcs = ['top1.sh'], deps = [':rec1'])",
         "sh_library(name = 'top2', srcs = ['top2.sh'], deps = [':rec1'])",
@@ -479,6 +488,10 @@ public class BuildViewTest extends BuildViewTestBase {
   // Regression test: cycle node depends on error.
   @Test
   public void testErrorBelowCycle() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling (also b/67412276: handle cycles properly).
+      return;
+    }
     scratch.file("foo/BUILD",
         "sh_library(name = 'top', deps = ['mid'])",
         "sh_library(name = 'mid', deps = ['bad', 'cycle1'])",
@@ -509,6 +522,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testErrorBelowCycleKeepGoing() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     scratch.file("foo/BUILD",
         "sh_library(name = 'top', deps = ['mid'])",
         "sh_library(name = 'mid', deps = ['bad', 'cycle1'])",
@@ -645,6 +662,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_Incremental() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/true);
   }
 
@@ -654,6 +675,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     reporter.removeHandler(failFastHandler);
     scratch.file("cycles/BUILD",
         "sh_library(name = 'a', deps = [':b'])",
@@ -666,6 +691,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testTransitiveLoadingDoesntShortCircuitInKeepGoing() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     reporter.removeHandler(failFastHandler);
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])",
@@ -859,6 +888,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testPostProcessedConfigurableAttributes() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     useConfiguration("--cpu=k8");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file("conflict/BUILD",
@@ -877,6 +910,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testCycleDueToJavaLauncherConfiguration() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
       // Trimmed configurations don't yet support late-bound attributes.
       // TODO(gregce): re-enable this when ready.
@@ -928,6 +965,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependency() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     scratch.file("cycle/BUILD",
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
         "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])");
@@ -949,6 +990,10 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testCircularDependencyWithKeepGoing() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     scratch.file("cycle/BUILD",
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
         "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])",
@@ -981,6 +1026,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testCircularDependencyWithLateBoundLabel() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67412276): handle cycles properly.
+      return;
+    }
     scratch.file("cycle/BUILD",
         "cc_library(name = 'foo', deps = [':bar'])",
         "cc_library(name = 'bar')");
@@ -1109,6 +1158,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
     scratch.file("child/BUILD",
@@ -1128,6 +1181,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
     scratch.file("child/BUILD",
@@ -1143,6 +1200,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
     scratch.file("child/BUILD",
@@ -1166,6 +1227,10 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener_KeepGoing() throws Exception {
+    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
+      // TODO(b/67651960): fix or justify disabling.
+      return;
+    }
     scratch.file("parent/BUILD",
         "sh_library(name = 'a', deps = ['//child:b'])");
     scratch.file("child/BUILD",
