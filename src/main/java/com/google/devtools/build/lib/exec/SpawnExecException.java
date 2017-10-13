@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -30,12 +31,14 @@ public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
   protected final boolean forciblyRunRemotely;
 
-  public SpawnExecException(String message, SpawnResult result, boolean catastrophe) {
-    super(message, catastrophe);
+  public SpawnExecException(
+      String message, SpawnResult result, boolean forciblyRunRemotely) {
+    super(message, result.isCatastrophe());
     this.result = Preconditions.checkNotNull(result);
-    this.forciblyRunRemotely = false;
+    this.forciblyRunRemotely = forciblyRunRemotely;
   }
 
+  @VisibleForTesting
   public SpawnExecException(
       String message, SpawnResult result, boolean forciblyRunRemotely, boolean catastrophe) {
     super(message, catastrophe);

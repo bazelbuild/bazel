@@ -251,6 +251,7 @@ class RemoteSpawnRunner implements SpawnRunner {
             .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
             .setStatus(status)
             .build(),
+        /* forciblyRunRemotely= */ false,
         /* catastrophe= */ true);
   }
 

@@ -116,8 +116,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                   originalSpawn.getEnvironment(),
                   execRoot.getPathString()) + SANDBOX_DEBUG_SUGGESTION;
         }
-        throw new SpawnExecException(
-            message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
+        throw new SpawnExecException(message, result, /*forciblyRunRemotely=*/false);
       }
       return result;
     } finally {
