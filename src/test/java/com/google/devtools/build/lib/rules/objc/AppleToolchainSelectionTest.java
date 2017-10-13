@@ -77,8 +77,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
     String x8664Bin =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
-            + "a/bin_bin";
+        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null) + "a/bin_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), x8664Bin);
     CommandAction linkAction = getGeneratingSpawnAction(binArtifact);
     CppLinkAction ccArchiveAction =
@@ -101,8 +100,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .write();
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
     String armv7Bin =
-        configurationBin("armv7", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
-            + "a/bin_bin";
+        configurationBin("armv7", ConfigurationDistinguisher.APPLEBIN_IOS, null) + "a/bin_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7Bin);
     CommandAction linkAction = getGeneratingSpawnAction(binArtifact);
     CppLinkAction ccArchiveAction =
@@ -129,8 +127,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .write();
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
     String armv64Bin =
-        configurationBin("arm64", ConfigurationDistinguisher.APPLEBIN_IOS,
-            DEFAULT_IOS_SDK_VERSION)
+        configurationBin("arm64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
         + "a/bin_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv64Bin);
     CommandAction linkAction = getGeneratingSpawnAction(binArtifact);

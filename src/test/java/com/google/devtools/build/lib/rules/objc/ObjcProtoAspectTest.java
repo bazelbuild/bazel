@@ -80,10 +80,8 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     PathFragment includePath = header.getExecPath().getParentDirectory();
     PathFragment genIncludePath =
         PathFragment.create(
-            configurationGenfiles(
-                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
-                + "/"
-                + includePath);
+            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
+                + "/" + includePath);
 
     assertThat(objcProtoProvider.getProtobufHeaderSearchPaths())
         .containsExactly(includePath, genIncludePath);
@@ -162,8 +160,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly(
-            configurationGenfiles(
-                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
+            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/x/_proto_filters/objc_proto/generated_filter_file.pbascii");
   }
 
@@ -203,8 +200,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsAllOf(
             "x/filter.pbascii",
-            configurationGenfiles(
-                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, DEFAULT_IOS_SDK_VERSION)
+            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/x/_proto_filters/objc_proto_2/generated_filter_file.pbascii");
   }
 
