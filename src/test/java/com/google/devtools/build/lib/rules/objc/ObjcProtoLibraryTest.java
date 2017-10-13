@@ -363,6 +363,25 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testErrorForFileInDeps() throws Exception {
+    String expectedError =
+        "filegroup rule '//x:protos' is misplaced here "
+            + "(expected proto_library or objc_proto_library)";
+    checkError(
+        "x",
+        "x",
+        expectedError,
+        "objc_proto_library(",
+        "    name = 'x',",
+        "    deps = [':protos'],",
+        ")",
+        "filegroup(",
+        "    name = 'protos',",
+        "    srcs = ['file.proto'],",
+        ")");
+  }
+
+  @Test
   public void testErrorForPortableProtoFiltersEmpty() throws Exception {
     checkError(
         "x",

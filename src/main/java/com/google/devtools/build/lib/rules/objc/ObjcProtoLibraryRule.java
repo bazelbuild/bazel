@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for objc_proto_library.
@@ -66,19 +67,18 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .override(
             attr("deps", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses("proto_library", "objc_proto_library")
-                .aspect(objcProtoAspect)
-                .legacyAllowAnyFileType())
+                .aspect(objcProtoAspect))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(uses_protobuf) -->
-        Whether to use the new protobuf compiler and runtime for this target. If you enable this
-        option without passing portable_proto_filters, it will generate a filter file for all the
-        protos that passed through proto_library targets as deps.
+        This attribute is deprecated. It currently is a noop.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(USES_PROTOBUF_ATTR, BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(portable_proto_filters) -->
-        List of portable proto filters to be passed on to the protobuf compiler. This attribute
-        cannot be used together with the options_file, output_cpp, per_proto_includes and
-        use_objc_header_names attributes.
+        List of portable proto filters to be passed on to the protobuf compiler. If no filter files
+        are passed, one will be generated that whitelists every proto file listed in the
+        proto_library dependencies (i.e. proto files depended through other objc_proto_library
+        won't be automatically whitelisted).
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)
