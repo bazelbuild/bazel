@@ -160,59 +160,54 @@ public abstract class OptionValueDescription {
         OptionDefinition optionThatExpandedToEffectiveValue =
             effectiveOptionInstance.getExpandedFrom();
 
-        // Output warnings:
-        if ((implicitDependent != null) && (optionThatDependsOnEffectiveValue != null)) {
-          if (!implicitDependent.equals(optionThatDependsOnEffectiveValue)) {
+        Object newValue = parsedOption.getConvertedValue();
+        // Output warnings if there is conflicting options set different values in a way that might
+        // not have been obvious to the user, such as through expansions and implicit requirements.
+        if (!effectiveValue.equals(newValue)) {
+          if ((implicitDependent != null) && (optionThatDependsOnEffectiveValue != null)) {
+            if (!implicitDependent.equals(optionThatDependsOnEffectiveValue)) {
+              warnings.add(
+                  String.format(
+                      "Option '%s' is implicitly defined by both option '%s' and option '%s'",
+                      optionDefinition.getOptionName(),
+                      optionThatDependsOnEffectiveValue.getOptionName(),
+                      implicitDependent.getOptionName()));
+            }
+          } else if ((implicitDependent != null)
+              && parsedOption.getPriority().equals(effectiveOptionInstance.getPriority())) {
             warnings.add(
                 String.format(
-                    "Option '%s' is implicitly defined by both option '%s' and option '%s'",
+                    "Option '%s' is implicitly defined by option '%s'; the implicitly set value "
+                        + "overrides the previous one",
+                    optionDefinition.getOptionName(), implicitDependent.getOptionName()));
+          } else if (optionThatDependsOnEffectiveValue != null) {
+            warnings.add(
+                String.format(
+                    "A new value for option '%s' overrides a previous implicit setting of that "
+                        + "option by option '%s'",
                     optionDefinition.getOptionName(),
-                    optionThatDependsOnEffectiveValue.getOptionName(),
-                    implicitDependent.getOptionName()));
+                    optionThatDependsOnEffectiveValue.getOptionName()));
+          } else if ((parsedOption.getPriority() == effectiveOptionInstance.getPriority())
+              && ((optionThatExpandedToEffectiveValue == null) && (expandedFrom != null))) {
+            // Create a warning if an expansion option overrides an explicit option:
+            warnings.add(
+                String.format(
+                    "The option '%s' was expanded and now overrides a previous explicitly "
+                        + "specified option '%s'",
+                    expandedFrom.getOptionName(), optionDefinition.getOptionName()));
+          } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
+            warnings.add(
+                String.format(
+                    "The option '%s' was expanded to from both options '%s' and '%s'",
+                    optionDefinition.getOptionName(),
+                    optionThatExpandedToEffectiveValue.getOptionName(),
+                    expandedFrom.getOptionName()));
           }
-        } else if ((implicitDependent != null)
-            && parsedOption.getPriority().equals(effectiveOptionInstance.getPriority())) {
-          warnings.add(
-              String.format(
-                  "Option '%s' is implicitly defined by option '%s'; the implicitly set value "
-                      + "overrides the previous one",
-                  optionDefinition.getOptionName(), implicitDependent.getOptionName()));
-        } else if (optionThatDependsOnEffectiveValue != null) {
-          warnings.add(
-              String.format(
-                  "A new value for option '%s' overrides a previous implicit setting of that "
-                      + "option by option '%s'",
-                  optionDefinition.getOptionName(),
-                  optionThatDependsOnEffectiveValue.getOptionName()));
-        } else if ((parsedOption.getPriority() == effectiveOptionInstance.getPriority())
-            && ((optionThatExpandedToEffectiveValue == null) && (expandedFrom != null))) {
-          // Create a warning if an expansion option overrides an explicit option:
-          warnings.add(
-              String.format(
-                  "The option '%s' was expanded and now overrides a previous explicitly specified "
-                      + "option '%s'",
-                  expandedFrom.getOptionName(), optionDefinition.getOptionName()));
-        } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
-          warnings.add(
-              String.format(
-                  "The option '%s' was expanded to from both options '%s' and '%s'",
-                  optionDefinition.getOptionName(),
-                  optionThatExpandedToEffectiveValue.getOptionName(),
-                  expandedFrom.getOptionName()));
         }
 
         // Record the new value:
         effectiveOptionInstance = parsedOption;
-        effectiveValue = parsedOption.getConvertedValue();
-      } else {
-        // The new value does not override the old value, as it has lower priority.
-        warnings.add(
-            String.format(
-                "The lower priority option '%s' (source %s) does not override the previous value "
-                    + "'%s'",
-                parsedOption.getCommandLineForm(),
-                parsedOption.getSource(),
-                effectiveOptionInstance.getCommandLineForm()));
+        effectiveValue = newValue;
       }
     }
 
