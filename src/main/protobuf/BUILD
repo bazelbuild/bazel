@@ -109,6 +109,12 @@ py_proto_library(
     protoc = "//third_party/protobuf:protoc",
 )
 
+java_library_srcs(
+    name = "profile_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = ["//third_party/pprof:profile_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -120,5 +126,6 @@ filegroup(
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",
+        ":profile_java_proto_srcs",
     ],
 )
