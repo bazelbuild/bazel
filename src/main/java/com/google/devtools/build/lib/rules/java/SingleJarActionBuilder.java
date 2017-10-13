@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
 /**
  * Helper class to create singlejar actions - singlejar can merge multiple zip files without
@@ -42,19 +45,8 @@ public final class SingleJarActionBuilder {
       "--exclude_build_data",
       "--warn_duplicate_resources");
 
-  /**
-   * Creates an Action that packages files into a Jar file.
-   *
-   * @param resources the resources to put into the Jar.
-   * @param resourceJars the resource jars to merge into the jar
-   * @param outputJar the Jar to create
-   */
-  public static void createSourceJarAction(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      ImmutableCollection<Artifact> resources,
-      NestedSet<Artifact> resourceJars,
-      Artifact outputJar) {
+  /** Constructs the base spawn for a singlejar action. */
+  private static SpawnAction.Builder singleJarActionBuilder(RuleContext ruleContext) {
     Artifact singleJar = getSingleJar(ruleContext);
     SpawnAction.Builder builder = new SpawnAction.Builder();
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
@@ -71,15 +63,64 @@ public final class SingleJarActionBuilder {
     } else {
       builder.setExecutable(singleJar);
     }
-    builder
-        .addOutput(outputJar)
-        .addInputs(resources)
-        .addTransitiveInputs(resourceJars)
-        .addCommandLine(
-            sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
-            ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-        .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
-        .setMnemonic("JavaSourceJar");
+    return builder;
+  }
+
+  /**
+   * Creates an Action that packages files into a Jar file.
+   *
+   * @param semantics the current Java semantics, which must be non-{@code null} if {@code
+   *     resources} is non-empty
+   * @param resources the resources to put into the Jar
+   * @param resourceJars the resource jars to merge into the jar
+   * @param outputJar the Jar to create
+   */
+  public static void createSourceJarAction(
+      RuleContext ruleContext,
+      @Nullable JavaSemantics semantics,
+      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resourceJars,
+      Artifact outputJar) {
+    requireNonNull(ruleContext);
+    requireNonNull(resourceJars);
+    requireNonNull(outputJar);
+    if (!resources.isEmpty()) {
+      requireNonNull(semantics);
+    }
+    SpawnAction.Builder builder =
+        singleJarActionBuilder(ruleContext)
+            .addOutput(outputJar)
+            .addInputs(resources)
+            .addTransitiveInputs(resourceJars)
+            .addCommandLine(
+                sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+            .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
+            .setMnemonic("JavaSourceJar");
+    ruleContext.registerAction(builder.build(ruleContext));
+  }
+
+  /**
+   * Creates an Action that merges jars into a single archive.
+   *
+   * @param jars the jars to merge.
+   * @param output the output jar to create
+   */
+  public static void createSingleJarAction(
+      RuleContext ruleContext, NestedSet<Artifact> jars, Artifact output) {
+     requireNonNull(ruleContext);
+    requireNonNull(jars);
+    requireNonNull(output);
+    SpawnAction.Builder builder =
+        singleJarActionBuilder(ruleContext)
+            .addOutput(output)
+            .addInputs(jars)
+            .addCommandLine(
+                sourceJarCommandLine(
+                    output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+            .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
+            .setMnemonic("JavaSingleJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
