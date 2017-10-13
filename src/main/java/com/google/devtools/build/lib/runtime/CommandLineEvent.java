@@ -172,7 +172,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
   /** This reports a reassembled version of the command line as Bazel received it. */
   public static class OriginalCommandLineEvent extends CommandLineEvent {
-    private static final String LABEL = "original";
+    public static final String LABEL = "original";
     private final Optional<List<Pair<String, String>>> originalStartupOptions;
 
     public OriginalCommandLineEvent(
@@ -267,7 +267,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
   /** This reports the canonical form of the command line. */
   public static class CanonicalCommandLineEvent extends CommandLineEvent {
-    private static final String LABEL = "canonical";
+    public static final String LABEL = "canonical";
 
     public CanonicalCommandLineEvent(
         BlazeRuntime runtime, String commandName, OptionsProvider commandOptions) {
