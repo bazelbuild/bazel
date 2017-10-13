@@ -68,7 +68,7 @@ public abstract class SkylarkSemantics {
       .incompatibleDisallowDictPlus(false)
       .incompatibleDisallowKeywordOnlyArgs(true)
       .incompatibleDisallowToplevelIfStatement(true)
-      .incompatibleListPlusEqualsInplace(false)
+      .incompatibleListPlusEqualsInplace(true)
       .incompatibleLoadArgumentIsLabel(false)
       .incompatibleNewActionsApi(false)
       .incompatibleStringIsNotIterable(false)

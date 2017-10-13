@@ -87,7 +87,7 @@ This change makes Skylark more compatible with Python and avoids performance
 issues. The `+=` operator for tuples is unaffected.
 
 *   Flag: `--incompatible_list_plus_equals_inplace`
-*   Default: `false`
+*   Default: `true`
 
 
 ### Dictionary concatenation
