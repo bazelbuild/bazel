@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,31 @@ public class LocationExpanderTest {
     @Override
     public void attributeError(String attrName, String message) {
       warnsOrErrors.add("ERROR-" + attrName + ": " + message);
+    }
+
+    @Override
+    public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
+      ruleError(message);
+      throw new RuleErrorException();
+    }
+
+    @Override
+    public RuleErrorException throwWithAttributeError(String attrName, String message)
+        throws RuleErrorException {
+      attributeError(attrName, message);
+      throw new RuleErrorException();
+    }
+
+    @Override
+    public boolean hasErrors() {
+      return !warnsOrErrors.isEmpty();
+    }
+
+    @Override
+    public void assertNoErrors() throws RuleErrorException {
+      if (hasErrors()) {
+        throw new RuleErrorException();
+      }
     }
   }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,6 +79,31 @@ public abstract class ResourceTestBase {
     public void attributeError(String attrName, String message) {
       attributeErrorAttribute = attrName;
       attributeErrorMessage = message;
+    }
+
+    @Override
+    public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
+      ruleError(message);
+      throw new RuleErrorException();
+    }
+
+    @Override
+    public RuleErrorException throwWithAttributeError(String attrName, String message)
+        throws RuleErrorException {
+      attributeError(attrName, message);
+      throw new RuleErrorException();
+    }
+
+    @Override
+    public boolean hasErrors() {
+      return ruleErrorMessage != null || attributeErrorMessage != null;
+    }
+
+    @Override
+    public void assertNoErrors() throws RuleErrorException {
+      if (hasErrors()) {
+        throw new RuleErrorException();
+      }
     }
 
     public Collection<String> getAndClearRuleWarnings() {
