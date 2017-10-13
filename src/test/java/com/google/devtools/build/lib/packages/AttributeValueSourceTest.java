@@ -52,9 +52,9 @@ public class AttributeValueSourceTest {
   public void testValidateSkylarkName_MissingPrefix() throws Exception {
     String msg =
         "When an attribute value is a function, the attribute must be private "
-            + "(i.e. start with '_')";
-    assertNameIsNotValid(AttributeValueSource.COMPUTED_DEFAULT, "name", msg);
-    assertNameIsNotValid(AttributeValueSource.LATE_BOUND, "name", msg);
+            + "(i.e. start with '_'). Found 'my_name'";
+    assertNameIsNotValid(AttributeValueSource.COMPUTED_DEFAULT, "my_name", msg);
+    assertNameIsNotValid(AttributeValueSource.LATE_BOUND, "my_name", msg);
   }
 
   private void assertNameIsNotValid(
@@ -95,8 +95,8 @@ public class AttributeValueSourceTest {
     } catch (EvalException ex) {
       assertThat(ex)
           .hasMessage(
-              "When an attribute value is a function, the attribute must be private "
-                  + "(i.e. start with '_')");
+              String.format("When an attribute value is a function, the attribute must be private "
+                  + "(i.e. start with '_'). Found '%s'", invalidName));
     }
   }
 
