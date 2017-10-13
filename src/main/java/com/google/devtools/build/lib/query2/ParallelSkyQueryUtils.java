@@ -120,9 +120,11 @@ class ParallelSkyQueryUtils {
           if (rdep.equals(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER))) {
             keysToVisitNext.add(rdep);
           }
-        } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)) {
+        } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
+            && !rdep.functionName().equals(SkyFunctions.GLOB)) {
           // Packages may depend on the existence of subpackages, but these edges aren't relevant to
-          // rbuildfiles.
+          // rbuildfiles. They may also depend on files transitively through globs, but these cannot
+          // be included in load statements and so we don't traverse through these either.
           keysToVisitNext.add(rdep);
         }
       }
