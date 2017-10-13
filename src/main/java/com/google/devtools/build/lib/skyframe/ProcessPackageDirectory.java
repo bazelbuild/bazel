@@ -237,7 +237,7 @@ public class ProcessPackageDirectory {
   private static ProcessPackageDirectoryResult reportErrorAndReturn(
       String errorPrefix, Exception e, PathFragment rootRelativePath, EventHandler handler) {
     handler.handle(
-        Event.warn(errorPrefix + ", for " + rootRelativePath + ", skipping: " + e.getMessage()));
+        Event.error(errorPrefix + ", for " + rootRelativePath + ", skipping: " + e.getMessage()));
     return ProcessPackageDirectoryResult.EMPTY_RESULT;
   }
 
