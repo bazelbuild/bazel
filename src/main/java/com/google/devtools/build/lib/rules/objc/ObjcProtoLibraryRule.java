@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTOBUF_
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTO_COMPILER_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTO_COMPILER_SUPPORT_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTO_LIB_ATTR;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -43,7 +42,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String PORTABLE_PROTO_FILTERS_ATTR = "portable_proto_filters";
-  static final String USES_PROTOBUF_ATTR = "uses_protobuf";
 
   private final ObjcProtoAspect objcProtoAspect;
 
@@ -70,10 +68,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses("proto_library", "objc_proto_library")
                 .aspect(objcProtoAspect))
-        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(uses_protobuf) -->
-        This attribute is deprecated. It currently is a noop.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(USES_PROTOBUF_ATTR, BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(portable_proto_filters) -->
         List of portable proto filters to be passed on to the protobuf compiler. If no filter files
         are passed, one will be generated that whitelists every proto file listed in the
