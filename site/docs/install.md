@@ -43,6 +43,9 @@ completion folder, you can copy it wherever suits you and insert
 `source /path/to/bazel-complete.bash` in your `~/.bashrc` file (under OS X, put
 it in your `~/.bash_profile` file).
 
+If you installed Bazel using the custom APT repository, the bash completion script
+is already installed in `/etc/bash_completion.d`.
+
 If you built Bazel from source, the bash completion target is in the `//scripts`
 package:
 
